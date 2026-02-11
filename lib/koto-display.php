@@ -1010,11 +1010,22 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                             break;
 
                         case 'colorfull_attack':
-                            $order_objs = isset($item['colorfull_attack_attr']) ? $item['colorfull_attack_attr'] : [];
                             $order_names = [];
-                            if ($order_objs && is_array($order_objs)) {
-                                foreach ($order_objs as $o) $order_names[] = $o->name;
+                            
+                            // A. JSONデータ (slug配列) がある場合
+                            if (!empty($item['color_sequence']) && is_array($item['color_sequence'])) {
+                                foreach ($item['color_sequence'] as $slug) {
+                                    $t = get_term_by('slug', $slug, 'attribute');
+                                    if ($t && !is_wp_error($t)) $order_names[] = $t->name;
+                                }
                             }
+                            // B. ACF生データ (オブジェクト配列) がある場合 (フォールバック)
+                            elseif (!empty($item['colorfull_attack_attr']) && is_array($item['colorfull_attack_attr'])) {
+                                foreach ($item['colorfull_attack_attr'] as $o) {
+                                    if (is_object($o)) $order_names[] = $o->name;
+                                }
+                            }
+                            
                             $order_text = implode('・', $order_names);
                             $effect_text = "{$target_name}に{$eff_val}倍の{$order_text}属性の各一回攻撃";
                             break;

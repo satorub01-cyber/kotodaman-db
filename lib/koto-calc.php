@@ -141,6 +141,8 @@ function get_character_spec_data($post_id)
         'max_ls_atk'    => 0,
         'firepower_index' => 0,
         'is_estimate'   => (bool)$is_estimate,
+        'pre_evo_name'  => '', // ★追加
+        'another_image_name' => '', // ★追加
     ];
     $data['name_ruby'] = get_field('name_ruby', $post_id) ?: '';
     $data['cv'] = get_field('voice_actor', $post_id) ?: '';
@@ -148,6 +150,8 @@ function get_character_spec_data($post_id)
     $data['max_ls_hp'] = get_field('max_ls_hp', $post_id) ?: '';
     $data['max_ls_atk'] = get_field('max_ls_atk', $post_id) ?: '';
     $data['acquisition'] = $data['acquisition'] === 'gacha' ? 'ガチャ' : 'その他';
+    $data['pre_evo_name'] = get_field('pre_evo_name', $post_id) ?: '';
+    $data['another_image_name'] = get_field('another_image_name', $post_id) ?: '';
 
     // ★追加: 実装日の取得
     // ※ 'impl_date' の部分は、実際のACFフィールド名(スラッグ)に書き換えてください！

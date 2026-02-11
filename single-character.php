@@ -125,8 +125,8 @@ $affiliation_term = function_exists('get_primary_affiliation_obj') ? get_primary
 $release_date = $spec_data['release_date'] ?? get_field('実装月（わかれば実装日）');
 
 // 進化前名前など (JSONに含まれていないものは get_field)
-$pre_evo_name = get_field('pre_evo_name');
-$another_img_name = get_field('another_image_name');
+$pre_evo_name = $spec_data['pre_evo_name'] ?? get_field('pre_evo_name');
+$another_img_name = $spec_data['another_image_name'] ?? get_field('another_image_name');
 $cv = $spec_data['cv'] ?? get_field('voice_actor');
 $acquisition = $spec_data['acquisition'] ?? get_field('get_place');
 
