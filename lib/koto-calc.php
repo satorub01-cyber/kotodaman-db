@@ -1016,6 +1016,7 @@ function _calculate_correction_values($data)
     };
 
     if (!empty($data['leader'])) {
+        // TODOフィールドに人が入力した値を参照できる
         $max_atk = 0;
         foreach ($data['leader'] as $pattern) {
             $current_atk = 0;
@@ -1028,7 +1029,7 @@ function _calculate_correction_values($data)
             if ($current_atk > $max_atk) $max_atk = $current_atk;
         }
         $result['leader_atk_max'] = $max_atk;
-
+        // ここまで
         foreach ($data['leader'] as $idx => $pattern) {
             $p_atk = 0;
             $raw_conds = [];
@@ -1063,6 +1064,8 @@ function _calculate_correction_values($data)
             $type = $t['type'] ?? '';
             $sub  = $t['sub_type'] ?? '';
             $val  = (float)($t['value'] ?? 0);
+            $rate_type = $t['rate_type'] ?? '';
+
 
             if ($val <= 0) continue;
 
@@ -1078,6 +1081,7 @@ function _calculate_correction_values($data)
                     'label'    => 'とくせい: ATK UP',
                     'cond'     => $is_unconditional ? '常時' : $cond_text,
                     'value'    => $val,
+                    'rate-type' => $t['rate_type'] ?? '',
                     'default'  => true
                 ];
             } elseif ($type === 'damage_correction' && $sub === 'oneself') {
@@ -1087,6 +1091,7 @@ function _calculate_correction_values($data)
                     'label'    => '自身の威力UP',
                     'cond'     => $is_unconditional ? '常時' : $cond_text,
                     'value'    => $val,
+                    'rate-type' => 'percentage',
                     'default'  => true
                 ];
             } elseif ($type === 'damage_correction' && $sub === 'killer' && !empty($t['target_info'])) {
@@ -1094,7 +1099,6 @@ function _calculate_correction_values($data)
                 $target_name = '';
                 if (!empty($info['species'])) $target_name = implode(',', $info['species']) . 'キラー';
                 elseif (!empty($info['attr'])) $target_name = implode(',', $info['attr']) . 'キラー';
-                elseif (!empty($info['condition'])) $target_name = '状態異常キラー';
 
                 if ($target_name) {
                     $details[] = [
@@ -1103,7 +1107,8 @@ function _calculate_correction_values($data)
                         'label'    => $target_name,
                         'cond'     => $cond_text ? $cond_text : '対象の敵',
                         'value'    => $val,
-                        'default'  => false
+                        'rate-type' => 'percentage',
+                        'default'  => true
                     ];
                 }
             }
@@ -1203,7 +1208,8 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
                 $parsed['levels'][] = [
                     'lv'    => $lv_num,
                     'value' => $v,
-                    'point' => (int)$pt
+                    'point' => (int)$pt,
+                    'rate-type' => $t['rate_type'] ?? ''
                 ];
             }
 
@@ -1220,6 +1226,7 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
         }
 
         $parsed['value'] = $val;
+        $parsed['rate_type'] = $t['rate_type'] ?? '';
 
 
         // --- サブタイプ ---
@@ -1369,7 +1376,6 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
                 'attr' => [],
                 'species' => [],
                 'group' => [],
-                'condition' => ''
             ];
             $tgt_type = $targets['target_type'] ?? '';
             $parsed['target_info']['type'] = is_array($tgt_type) ? ($tgt_type['value'] ?? '') : $tgt_type;
@@ -1383,9 +1389,6 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
             if (!empty($targets['target_group']) && is_array($targets['target_group'])) {
                 foreach ($targets['target_group'] as $term) if (is_object($term)) $parsed['target_info']['group'][] = $term->slug;
             }
-
-            $tgt_stat = $targets['target_status'] ?? '';
-            $parsed['target_info']['condition'] = is_array($tgt_stat) ? ($tgt_stat['value'] ?? '') : $tgt_stat;
         }
 
         $cond_loop = $t['condition_type_loop'] ?? [];
