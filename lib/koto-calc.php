@@ -948,7 +948,8 @@ function _calculate_firepower_index($data)
             $last = !empty($action['value_last']) ? (float)$action['value_last'] : 0;
 
             // 倍率計算 (連撃対応)
-            // TODOカラフル攻撃の挙動がおかしい
+            // DONEカラフル攻撃の挙動がおかしい
+            // わざ保存側でhitcountを作った。
             $mag = $val * $hits;
             if ($last > 0 && $hits > 1) {
                 $mag = ($val * ($hits - 1)) + $last;
