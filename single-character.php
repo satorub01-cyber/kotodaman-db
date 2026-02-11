@@ -71,6 +71,11 @@ if (empty($spec_data) && function_exists('get_character_spec_data')) {
     $spec_data = get_character_spec_data($post_id);
 }
 
+// ★追加: 火力指数が未計算の場合、その場で計算して補完する
+if (empty($spec_data['firepower_index']) && function_exists('_calculate_firepower_index') && !empty($spec_data)) {
+    $spec_data['firepower_index'] = _calculate_firepower_index($spec_data);
+}
+
 // -----------------------------------------------------------
 // ステータス取得 (JSON優先)
 // -----------------------------------------------------------
@@ -387,7 +392,7 @@ $acquisition = $spec_data['acquisition'] ?? get_field('get_place');
             <td class="st-val"><?php echo $disp_atk_120; ?></td>
         </tr>
         <tr>
-            <th class="st-row-label">才能開花</th>
+            <th class="st-row-label">才能開MAX</th>
             <td class="st-val"><?php echo $talent_hp > 0 ? '+' . number_format($talent_hp) : '-'; ?></td>
             <td class="st-val"><?php echo $talent_atk > 0 ? '+' . number_format($talent_atk) : '-'; ?></td>
         </tr>
@@ -403,13 +408,20 @@ $acquisition = $spec_data['acquisition'] ?? get_field('get_place');
 </table>
 </dd>
 
-<div class='firepower-container'>
-    <div class='firepower-header'>
-
+<div class="firepower-container">
+    <div class="firepower-header">
+        <span class="fp-label">火力指数</span>
+        <?php if (!empty($spec_data['is_estimate'])): ?>
+            <span class="fp-est-badge">予想倍率による計算</span>
+        <?php endif; ?>
     </div>
-    <div class='firepower'>
-        <?php echo !empty($spec_data['firepower_index']) ? $spec_data['firepower_index'] : '-'; ?>
+    <div class="firepower-value-area">
+        <?php
+        $fp_index = $spec_data['firepower_index'] ?? 0;
+        echo ($fp_index > 0) ? '<span class="fp-val">' . number_format($fp_index) . '</span>' : '<span class="fp-val-none">-</span>';
+        ?>
     </div>
+    <div class="firepower-note">※LV120・才能開花なし<br>計算が正確でない場合があります</div>
 </div>
 
 <?php
