@@ -95,6 +95,7 @@ function is_attack_value_missing($move_data, $is_estimate = false)
                                     }
 
                                     $is_estimate = !empty($data['is_estimate']);
+                                    $is_koto_estimate = !empty($data['is_koto_estimate']);
 
                                     // 各要素をチェック
                                     $missing_parts = [];
@@ -111,7 +112,7 @@ function is_attack_value_missing($move_data, $is_estimate = false)
                                     if (isset($data['kotowaza']) && is_array($data['kotowaza'])) {
                                         // ことわざは [0], [1], [2]... とレベルごとに分かれているためループで確認
                                         foreach ($data['kotowaza'] as $k_level) {
-                                            if (is_attack_value_missing($k_level, $is_estimate)) {
+                                            if (is_attack_value_missing($k_level, $is_koto_estimate)) {
                                                 $missing_parts[] = 'ことわざ';
                                                 break; // 1つでも未入力レベルがあれば「ことわざ」としてマークしてループを抜ける
                                             }

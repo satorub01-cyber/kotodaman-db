@@ -49,6 +49,8 @@ function get_character_spec_data($post_id)
 
     // ★追加: 倍率推定フラグ
     $is_estimate = get_field('magnification_estimate_tf', $post_id);
+    // ★追加: コトワザ倍率推定フラグ
+    $is_koto_estimate = get_field('koto_magnification_estimate_tf', $post_id);
 
 
     // ▼▼▼ 3. 最終ステータスの決定 ▼▼▼
@@ -141,6 +143,7 @@ function get_character_spec_data($post_id)
         'max_ls_atk'    => 0,
         'firepower_index' => 0,
         'is_estimate'   => (bool)$is_estimate,
+        'is_koto_estimate' => (bool)$is_koto_estimate,
         'pre_evo_name'  => '', // ★追加
         'another_image_name' => '', // ★追加
     ];

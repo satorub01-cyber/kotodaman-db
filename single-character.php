@@ -688,15 +688,24 @@ $has_sugo = !empty($sugo_html);
 if ($has_waza || $has_sugo):
 ?>
     <?php
-    $mgn_est = get_field('magnification_estimate_tf');
+    // !! をつけることで、どんな値が来ても強制的に true か false に変換します
+    $mgn_est = !!get_field('magnification_estimate_tf');
+    $koto_mgn_est = !!get_field('koto_magnification_estimate_tf');
+
+    // 条件分岐を三項演算子ではなく、if-elseでハッキリ分ける
     if ($mgn_est) {
-    ?>
-        <div class='mgn-note-container'>
-            <p class=mgn-note>※このページの攻撃/回復倍率は予想です</p>
-        </div>
-    <?php
+        $est_note = '※このページの攻撃/回復倍率は予想です';
+    } else {
+        $est_note = '※コトワザの攻撃/回復倍率は一部予想です';
     }
-    ?>
+
+    // 両方の変数が確実に boolean なので、判定が正確になります
+    if ($mgn_est === true || $koto_mgn_est === true) : 
+?>
+    <div class='mgn-note-container'>
+        <p class='mgn-note'><?php echo esc_html($est_note); ?></p>
+    </div>
+<?php endif; ?>
     <div class="tab-section-wrapper">
         <?php if ($has_waza && $has_sugo): ?>
             <ul class="tab-nav">
