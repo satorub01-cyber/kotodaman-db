@@ -274,6 +274,13 @@ function get_koto_target_label($group_data)
             if (empty($terms)) return '';
             if (is_object($terms)) $terms = [$terms]; // 配列化
 
+            // ★追加: melody特例処理
+            foreach ($terms as $t) {
+                if (isset($t->slug) && $t->slug === 'melody') {
+                    return '「全の戦律」または「斬・砲・突・重・超・打の戦律」の味方';
+                }
+            }
+
             // さっき覚えた array_map で「名前取得」と「カッコつけ」を一気にやります
             $wrapped_names = array_map(fn($t) => "「{$t->name}」", $terms);
 
