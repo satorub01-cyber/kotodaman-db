@@ -1,0 +1,103 @@
+@charset "UTF-8";
+
+/*!
+Theme Name: Cocoon Child
+Description: Cocoon専用の子テーマ
+Theme URI: https://wp-cocoon.com/
+Author: わいひら
+Author URI: https://nelog.jp/
+Template:   cocoon-master
+Version:    1.1.3
+*/
+
+/************************************
+** 子テーマ用のスタイルを書く
+************************************/
+/*必要ならばここにコードを書く*/
+
+/* ====================================
+   コトダマンDB カスタムスタイル
+   ==================================== */
+/* ====================================
+   一覧ページ（アーカイブ）の画像調整：完全版
+   ==================================== */
+
+/* 1. 画像の「枠」を正方形に強制固定する */
+/* これをしないと、画像がただ縮小されるだけで、位置調整が効きません */
+.entry-card-thumb {
+  display: block !important;
+  width: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  /* ここで正方形を作る（16/9なら 16 / 9 に） */
+  overflow: hidden !important;
+  height: 50% !important;
+  /* Cocoonの高さ指定をリセット */
+}
+
+/* 2. 画像本体の調整 */
+.entry-card-thumb img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  /* 枠いっぱいに広げる */
+  margin: 0 !important;
+  padding: 0 !important;
+
+  /* ▼▼▼ 位置とズームの調整 ▼▼▼ */
+
+  /* 顔の位置（横50%、上から20%の位置） */
+  object-position: 50% 38% !important;
+
+  /* ズーム倍率 */
+  transform: scale(1.0);
+
+  /* ズームの中心点を「顔の位置」と合わせる */
+  transform-origin: 50% 20%;
+}
+
+
+
+
+/************************************
+** レスポンシブデザイン用のメディアクエリ
+************************************/
+/*1023px以下*/
+@media screen and (max-width: 1023px) {
+  /*必要ならばここにコードを書く*/
+}
+
+/*834px以下*/
+@media screen and (max-width: 834px) {
+  /*必要ならばここにコードを書く*/
+}
+
+/*480px以下*/
+@media screen and (max-width: 480px) {
+  /*必要ならばここにコードを書く*/
+}
+
+/* =================================== */
+/* テキスト選択時のハイライト色を変更 */
+/* =================================== */
+
+/* Chrome, Safari, Edge, Opera など */
+::selection {
+  background: #007bff;
+  /* 鮮やかな青 (色はここで変更可能) */
+  color: #ffffff;
+  /* 文字色を白にする */
+}
+
+/* Firefox用 (念のため記述) */
+::-moz-selection {
+  background: #007bff;
+  color: #ffffff;
+}
+
+.cat-label {
+  display: none;
+}
+
+.footer {
+  color: black;
+}

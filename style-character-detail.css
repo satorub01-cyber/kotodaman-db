@@ -1,0 +1,1289 @@
+/* --- レイアウト全体 --- */
+.character-detail {
+    margin-top: 20px;
+}
+
+/* ========================================= */
+/* キャラクター画像エリア (バストアップ・横並び対応) */
+/* ========================================= */
+
+/* --- 1. 画像ボックスの共通設定 --- */
+.character-visual .img-box {
+    /* width: 280px; ← 固定幅は削除（クラスで制御） */
+    margin: 0 auto;
+    overflow: hidden;
+    /* はみ出た部分をカット */
+    border-radius: 20px;
+    /* 角丸 */
+    background-color: #eee;
+    border: 4px solid #ddd;
+    position: relative;
+    /* ラベルを絶対配置するために必須 */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    /* 少し影をつけてリッチに */
+}
+
+/* --- 2. 画像のズーム＆トリミング設定 (ユーザー様の設定) --- */
+.character-visual .img-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 33%;
+    /* 顔の位置合わせ */
+    transform: scale(1);
+    /* 迫力あるズーム */
+    transition: transform 0.5s ease;
+    /* ホバー時の動き用 */
+}
+
+/* --- 3. 横並びレイアウト (Flexbox) --- */
+.visual-flex-container {
+    display: flex;
+    align-items: flex-end;
+    /* 下揃え */
+    justify-content: center;
+    gap: 8px;
+    /* 画像間の隙間 */
+    margin-bottom: 20px;
+    max-width: 400px;
+    /* 全体が広がりすぎないように制限 */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ▼ 進化前 (左側・少し小さく) */
+.pre-evo-box {
+    width: 35%;
+    /* 幅は親の35% */
+    aspect-ratio: 6/5;
+    /* 高さは少し低く */
+    border-color: #ccc;
+    /* 枠線を少し薄く */
+}
+
+/* ▼ 進化後 (右側・メイン) */
+.main-evo-box {
+    width: 60%;
+    /* 幅は親の60% */
+    aspect-ratio: 6/5;
+    /* 高さは維持 */
+    border-color: #f8b862;
+    /* メインなので枠線をピンクに！ */
+}
+
+/* ▼ 進化前がない場合 (1枚表示) */
+.main-only {
+    width: 280px;
+    aspect-ratio: 6/5;
+}
+
+/* --- 4. 矢印のデザイン --- */
+.evo-arrow {
+    font-size: 20px;
+    color: #ccc;
+    font-weight: bold;
+    padding-bottom: 60px;
+    /* 矢印の高さを調整 */
+}
+
+/* --- 5. ラベル (進化前・後) のデザイン --- */
+/* overflow:hidden なので、画像の上に半透明で乗せる */
+.img-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.85);
+    /* 半透明の白 */
+    color: #333;
+    font-size: 10px;
+    font-weight: bold;
+    text-align: center;
+    padding: 2px 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    z-index: 10;
+}
+
+/* 進化後のラベルは少し目立たせる */
+.main-evo-box .img-label {
+    background: rgba(248, 184, 95, 0.85);
+    /* ピンク背景 */
+    color: #fff;
+}
+
+/* --- ステータス表（横並びリスト） --- */
+.spec-table {
+    border-top: 2px solid #ddd;
+    margin-top: 20px;
+}
+
+.spec-row {
+    display: flex;
+    /* 横並びにする */
+    border-bottom: 1px solid #eee;
+    padding: 10px 0;
+    align-items: center;
+    /* 上下中央揃え */
+    font-size: 14px;
+    /* 文字サイズ調整 */
+}
+
+/* ラベル（左側：HPなど） */
+.spec-row dt {
+    width: 30%;
+    font-weight: bold;
+    color: #555;
+    padding-left: 10px;
+    margin: 0;
+}
+
+.status-table-label {
+    width: 30%;
+    font-weight: bold;
+    color: #555;
+    padding-left: 10px;
+    margin: 0;
+}
+
+/* 中身（右側：数値など） */
+.spec-row dd {
+    width: 70%;
+    margin: 0;
+    padding-right: 10px;
+}
+
+/* IDは目立たなくする */
+.wiki-id-meta {
+    font-size: 11px;
+    color: #aaa;
+    text-align: right;
+    margin: 0 0 5px 0;
+}
+
+/* --- ワザ・すごわざのカードデザイン --- */
+.skill-card {
+    background: #fff;
+    border: 1px solid #ddd;
+    /* 薄い枠線 */
+    border-radius: 8px;
+    /* 角丸 */
+    padding: 15px;
+    /* 内側の余白 */
+    margin-top: 15px;
+    /* 外の隙間 */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    /* ほんのり影 */
+}
+
+/* 「わざ」「すごわざ」などの見出しバッジ */
+.skill-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 10px;
+}
+
+.badge-waza {
+    background-color: #aaa;
+}
+
+.badge-sugo {
+    background-color: #c9a64e;
+}
+
+.badge-leader {
+    background-color: #b55d54;
+}
+
+.badge-trait {
+    background-color: #51a1ac;
+}
+
+.badge-blessing {
+    background-color: #e79245;
+}
+
+.badge-kotowaza {
+    background-color: #cc704b;
+}
+
+.badge-ex {
+    background-color: rgb(211, 38, 24);
+}
+
+.badge-charge {
+    background-color: rgb(244, 204, 134);
+}
+
+/* 条件・効果の行 */
+.skill-row {
+    display: flex;
+    /* 横並び */
+    margin-bottom: 8px;
+    align-items: baseline;
+    /* 文字のベースラインを揃える */
+}
+
+.skill-row:last-child {
+    margin-bottom: 0;
+}
+
+/* 「条件」「効果」の小さなラベル */
+.label-tag {
+    flex-shrink: 0;
+    /* 縮まないようにする */
+    width: 40px;
+    font-size: 10px;
+    text-align: center;
+    padding: 2px 0;
+    border-radius: 3px;
+    margin-right: 10px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.tag-cond {
+    background: #b5aba3;
+}
+
+.tag-effect {
+    background: #6e6359;
+}
+
+
+/* 文章部分 */
+.skill-text {
+    font-size: 16px;
+    line-height: 1.6;
+    color: #333;
+}
+
+/* すごわざの発動条件（AND/OR）を見やすく */
+.cond-or {
+    color: #aaa;
+    font-weight: normal;
+    margin: 0 5px;
+}
+
+.cond-and {
+    font-weight: bold;
+    color: #555;
+}
+
+/* 効果リストのレイアウト */
+.skill-text-block {
+    flex: 1;
+    /* 残りの幅を全部使う */
+}
+
+.skill-effect-line {
+    margin-bottom: 5px;
+}
+
+.skill-effect-line:last-child {
+    margin-bottom: 0;
+}
+
+.effect-num {
+    font-weight: bold;
+    margin-right: 3px;
+}
+
+.skill-sub-cond-text {
+    font-weight: normal;
+    color: #001763;
+    margin-right: 5px;
+}
+
+/* ====================================
+   属性アイコン（画像版）
+   ==================================== */
+
+/* PHPで指定したクラス名 */
+.attr-icon-img,
+.species-icon-img {
+    width: 29px;
+    /* 表示したいサイズ（少し大きめが迫力あっておすすめ！） */
+    height: auto;
+    /* 比率を維持 */
+    object-fit: contain;
+    /* 歪み防止 */
+    vertical-align: middle;
+    /* 横に文字が並んだ時の位置合わせ */
+    vertical-align: middle;
+    position: relative;
+    top: -2px;
+    /* 状況を見て数値をいじってください */
+    /* もし画像に「影」が入っていなくて、CSSで影を落としたい場合はこれを追加 */
+    /* filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); */
+}
+
+/*前後ページリンク画像の調整*/
+.prev-post-thumb,
+.next-post-thumb {
+    display: block !important;
+    max-width: 90px !important;
+    min-width: 90px !important;
+    overflow: hidden !important;
+    height: 60px !important;
+    border-radius: 10px;
+    /* 角丸 */
+}
+
+/* 2. 画像本体の調整 */
+.pager-post-navi .wp-post-image {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    /* 枠いっぱいに広げる */
+    margin: 0 !important;
+    padding: 0 !important;
+
+    /* ▼▼▼ 位置とズームの調整 ▼▼▼ */
+
+    /* 顔の位置（横50%、上から20%の位置） */
+    object-position: 50% 37% !important;
+
+    /* ズーム倍率 */
+    transform: scale(1.3);
+
+    /* ズームの中心点を「顔の位置」と合わせる */
+    transform-origin: 50% 20%;
+
+}
+
+
+/* ステータス表内のリンク装飾 */
+.spec-row a {
+    color: #333;
+    /* 文字色（黒っぽく） */
+    text-decoration: none;
+    /* 下線を消す */
+    border-bottom: 1px dashed #999;
+    /* 破線でリンクっぽさを出す */
+    transition: 0.2s;
+    display: inline-block;
+}
+
+.spec-row a:hover {
+    color: #e25c4a;
+    /* マウスを乗せた時の色（赤っぽく） */
+    border-bottom: 1px solid #e25c4a;
+}
+
+/* 画像バッジなどは線を出さない */
+.spec-row .species-badge,
+.spec-row .attr-icon-img {
+    border-bottom: none;
+}
+
+/* カテゴリのボタン */
+.cat-link,
+.tag-link {
+    color: #2d1300 !important;
+    display: none !important;
+}
+
+/* アイコン（フォルダやタグのマーク）の色も合わせる */
+.cat-link .fa,
+.tag-link .fa {
+    color: #2d1300 !important;
+}
+
+/* --- 文字リストエリア (スペック表など) --- */
+.moji-list {
+    margin: 0;
+    padding: 0;
+    line-height: 1.8;
+    /* 複数行になった時に読みやすく */
+    color: #333;
+    /* 「・」などの記号の色 */
+}
+
+.char-font {
+    font-weight: bold;
+    font-family: "Hiragino Kaku Gothic ProN", sans-serif;
+    padding: 0 1px;
+    -webkit-text-stroke: 0.5px #555;
+    paint-order: stroke;
+}
+
+/* --- 属性ごとの色定義 --- */
+/* ※タクソノミーのスラッグ (slug) とクラス名の末尾を一致させてください */
+
+.attr-fire {
+    color: #ff3333;
+}
+
+.attr-water {
+    color: #1e90ff;
+}
+
+.attr-wood {
+    color: #32cd32;
+}
+
+.attr-light {
+    color: #ffd427;
+}
+
+.attr-dark {
+    color: #8d23b8;
+}
+
+.attr-heaven {
+    color: #ffdcfb;
+}
+
+.attr-underworld {
+    color: #460046;
+}
+
+/* 属性未設定の場合 */
+.attr-none {
+    color: #333333;
+}
+
+/* =================================== */
+/* 汎用タブデザイン (とくせい・わざ・変身共通) */
+/* =================================== */
+
+/* --- タブ全体のラッパー --- */
+.tab-section-wrapper {
+    margin-bottom: 20px;
+}
+
+/* --- タブボタンのエリア --- */
+.tab-nav {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 15px 0 -18px 0;
+    /* カードとの隙間調整 */
+    z-index: 1;
+    /* カードより手前に表示して線を隠す */
+    position: relative;
+}
+
+/* --- 個別のタブボタン --- */
+.tab-nav .tab-item {
+    padding: 8px 20px;
+    margin-right: 5px;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-bottom: none;
+    /* 下線は消して一体感を出す */
+    border-radius: 5px 5px 0 0;
+    cursor: pointer;
+    font-weight: bold;
+    color: #666;
+    transition: all 0.2s;
+}
+
+/* --- アクティブなタブ (選択中) --- */
+.tab-nav .tab-item.active {
+    background: #fff;
+    /* 白背景 */
+    color: #e25c4a;
+    /* メインカラー */
+    border-bottom: 2px solid #fff;
+    /* 下線を白で上書きして繋げる */
+    padding-bottom: 9px;
+    /* 微調整：高さを合わせて線を隠す */
+}
+
+/* --- ホバー時 --- */
+.tab-nav .tab-item:hover {
+    background: #fff;
+}
+
+/* --- コンテンツエリアの箱 --- */
+.tab-content-container {
+    position: relative;
+    z-index: 0;
+}
+
+/* --- コンテンツパネルの切り替え --- */
+.tab-panel {
+    display: none;
+    /* 基本は隠す */
+}
+
+.tab-panel.active {
+    display: block;
+    /* activeがついたら表示 */
+}
+
+/* --- 倍率詳細表のデザイン --- */
+.skill-multiplier-table {
+    margin-top: 15px;
+    background: #f9f9f9;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 0.9em;
+}
+
+.mt-title {
+    font-weight: bold;
+    color: #666;
+    margin-bottom: 5px;
+    font-size: 0.85em;
+}
+
+.skill-multiplier-table table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+}
+
+.skill-multiplier-table th {
+    background-color: #eee;
+    color: #333;
+    padding: 4px 8px;
+    text-align: left;
+    border-bottom: 2px solid #ddd;
+    font-size: 0.85em;
+}
+
+.skill-multiplier-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    color: #444;
+}
+
+/* 倍率の列だけ太字にする */
+.skill-multiplier-table td.mt-rate {
+    font-weight: bold;
+    color: #000000;
+}
+
+/* =================================== */
+/* 倍率表の枠線を強制的にグレーにする */
+/* =================================== */
+
+/* ページ下部の倍率表 (.multiplier-table) と
+   共通関数で出力される表 (.skill-multiplier-table) の両方に対応 */
+
+.skill-multiplier-table table,
+.skill-multiplier-table th,
+.skill-multiplier-table td,
+.multiplier-table,
+.multiplier-table th,
+.multiplier-table td {
+    /* ここで色を指定 ( #ddd は薄いグレー, #999 は濃いグレー ) */
+    border-color: #c4c4c4 !important;
+}
+
+.blessing-point {
+    font-size: 0.85em;
+    color: #202020;
+    margin-left: 8px;
+}
+
+/* --- 祝福とくせいアコーディオン --- */
+
+/* ヘッダー (Lv.1部分) */
+.blessing-acc-header {
+    display: flex;
+    justify-content: space-between;
+    /* テキストとアイコンを離す */
+    align-items: center;
+}
+
+/* クリック可能な場合のスタイル */
+.blessing-acc-header.is-toggle {
+    cursor: pointer;
+    padding: 4px 8px;
+    margin: -4px -8px;
+    /* パディング分をネガティブマージンで相殺 */
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.blessing-acc-header.is-toggle:hover {
+    background-color: #f5f5f5;
+    /* ホバー時に薄いグレー */
+}
+
+/* 開閉アイコン */
+.acc-icon {
+    font-size: 10px;
+    color: #999;
+    margin-left: 10px;
+    transition: transform 0.3s ease;
+}
+
+/* 開いている時のアイコン回転 */
+.blessing-acc-header.active .acc-icon {
+    transform: rotate(180deg);
+}
+
+/* 中身 (Lv.2以降) */
+.blessing-acc-body {
+    margin-top: 5px;
+    padding-left: 10px;
+    /* 少しインデント */
+    /* border-left: 2px solid #eee; 線を入れるとおしゃれかも */
+}
+
+/* ========================================= */
+/* キャラクター切り替えタブ (塗りつぶし・白抜き版) */
+/* ========================================= */
+
+.character-tab-section {
+    /* ▼ 追従設定 ▼ */
+    position: -webkit-sticky;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+
+    background: #fff;
+    /* 影をつけて浮き上がらせる */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+
+    /* ▼ 上部の余白を削除 ▼ */
+    padding-top: 0;
+
+    /* ▼ 下線はサイトカラーの実線でしっかりと区切る ▼ */
+    border-bottom: 4px solid #f8b862;
+}
+
+/* --- 管理バー（ログイン中）のズレ対策 --- */
+/* PC表示時 (管理バー 32px) */
+body.admin-bar .character-tab-section {
+    top: 32px;
+}
+
+/* スマホ表示時 (管理バー 46px) */
+@media screen and (max-width: 782px) {
+    body.admin-bar .character-tab-section {
+        top: 46px;
+    }
+}
+
+/* ナビゲーションリスト */
+.char-tab-nav {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.char-tab-nav::-webkit-scrollbar {
+    display: none;
+}
+
+/* 個別のタブアイテム */
+.char-tab-item {
+    /* ▼ 枠線の設定（未選択時はグレー） ▼ */
+    border: 1px solid #ccc;
+    border-bottom: none;
+    /* 下線は親要素の太線に任せる */
+
+    /* 角ばらせる＆密着させる */
+    border-radius: 0;
+    margin-right: 0;
+    /* 枠線を重ねて太くならないように調整 */
+    margin-left: -1px;
+
+    /* 未選択時の背景色（薄いグレー） */
+    background: #f0f0f0;
+    transition: background 0.2s, color 0.2s;
+
+    /* 横幅均等割り */
+    flex-grow: 1;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+}
+
+.char-tab-item:first-child {
+    margin-left: 0;
+}
+
+/* リンクのデザイン */
+.char-tab-item .tab-link {
+    display: block;
+    padding: 12px 10px;
+    text-decoration: none;
+    color: #666;
+    /* 未選択時はグレー文字 */
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* ホバー時 */
+.char-tab-item .tab-link:hover {
+    background: #ffeef2;
+    color: #f8b862;
+}
+
+/* --- 現在表示中のタブ (塗りつぶし・白抜き・内側点線) --- */
+.char-tab-item.active {
+    /* 背景色と外枠をサイトカラーで統一 */
+    background: #f8b862;
+    border-color: #f8b862;
+    z-index: 10;
+}
+
+/* アクティブ時のテキスト部分 */
+.char-tab-item.active .tab-text {
+    display: block;
+    /* 上下のパディングを少し広げて点線枠のスペースを確保 */
+    padding: 14px 10px;
+    font-weight: bold;
+    color: #fff;
+    /* 白文字 */
+    cursor: default;
+
+    /* ▼ 重要: 擬似要素の配置基準とするために設定 ▼ */
+    position: relative;
+}
+
+/* ------------------------------------------- */
+/* スマホ表示時の調整 (画面幅600px以下) */
+/* ------------------------------------------- */
+@media screen and (max-width: 600px) {
+    .char-tab-item .tab-link {
+        font-size: 11px;
+        padding: 12px 2px;
+    }
+
+    /* スマホ時はアクティブタブのパディングも少し調整 */
+    .char-tab-item.active .tab-text {
+        font-size: 11px;
+        padding: 12px 4px;
+    }
+
+    /* スマホ時は点線枠を少し外側に広げる（文字が小さいので） */
+    .char-tab-item.active .tab-text::after {
+        top: 3px;
+        left: 3px;
+        right: 3px;
+        bottom: 3px;
+        border-width: 1px;
+        /* 線も少し細くする */
+    }
+}
+
+/* ========================================= */
+/* ページ下部グリッド (関連・新着)          */
+/* ========================================= */
+
+.common-char-grid {
+    display: grid;
+    /* スマホは3列、PCは6列くらいで自動調整 */
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+/* カード全体 */
+.char-grid-card {
+    display: block;
+    text-decoration: none;
+    color: #333;
+    text-align: center;
+    transition: transform 0.2s;
+}
+
+.char-grid-card:hover {
+    transform: translateY(-3px);
+    opacity: 0.9;
+}
+
+/* アイコン枠 (正方形・トリミング) */
+.grid-icon-box {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    /* 正方形 */
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid #e0e0e0;
+    background: #f0f0f0;
+    margin-bottom: 6px;
+    position: relative;
+}
+
+/* 画像本体 (ズーム＆位置調整) */
+/* トップページの設定(scale2.1 / center 26%)を継承 */
+.grid-char-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 26%;
+    /* 顔の位置 */
+    transform: scale(1.2);
+    /* 顔アップ */
+    transform-origin: 50% 26%;
+}
+
+/* 画像なし */
+.grid-no-img {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #aaa;
+    font-size: 0.8em;
+}
+
+/* キャラ名 */
+.grid-char-name {
+    font-size: 12px;
+    font-weight: bold;
+    line-height: 1.3;
+    color: #444;
+    /* 2行でカットして...を表示 */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ========================================= */
+/* EXスキル (デザイン統一版) */
+/* ========================================= */
+
+/* バッジの色 (他のバッジと同じ形状で色だけ変更) */
+
+/* アコーディオンのトリガー部分 */
+.ex-acc-trigger {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    /* 上揃え */
+    padding: 5px 0;
+    /* 上下の余白 */
+    border-bottom: 1px dashed #eee;
+    /* 区切り線 */
+    transition: background 0.2s;
+}
+
+.ex-acc-trigger:hover {
+    opacity: 0.7;
+}
+
+/* レイアウト調整 */
+.ex-trigger-content {
+    flex: 1;
+}
+
+/* 1行目: スキル名 */
+.ex-header-line {
+    margin-bottom: 5px;
+}
+
+.ex-skill-name {
+    font-weight: bold;
+    font-size: 1.05em;
+    color: #333;
+    margin-right: 5px;
+}
+
+.ex-priority-text {
+    font-size: 0.9em;
+    color: #d32618;
+    /* 紫 */
+    font-weight: bold;
+}
+
+/* 2行目: 効果 */
+.ex-effect-line {
+    display: flex;
+    align-items: center;
+    gap: 0px;
+}
+
+.ex-effect-line .label-tag {
+    margin-bottom: 0;
+    /* バッジの下余白を消す */
+}
+
+.ex-description {
+    font-size: 15px;
+    color: #333;
+}
+
+/* 矢印アイコン */
+.ex-acc-icon {
+    font-size: 10px;
+    color: #999;
+    margin-left: 10px;
+    margin-top: 5px;
+    transition: transform 0.3s;
+}
+
+.ex-acc-trigger.active .ex-acc-icon {
+    transform: rotate(180deg);
+}
+
+/* アコーディオンの中身 (詳細) */
+.ex-acc-content {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f9f9f9;
+    /* 少しだけ背景色をつける */
+    border-radius: 4px;
+    animation: fadeIn 0.3s ease;
+}
+
+.ex-detail-text {
+    font-size: 0.9em;
+    line-height: 1.6;
+    color: #444;
+}
+
+/* ========================================= */
+/* コメント欄のデザイン調整 */
+/* ========================================= */
+
+/* コメントエリア全体の文字サイズを小さく */
+#comment-area {
+    font-size: 14px;
+    color: #333;
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #eee;
+}
+
+/* 「コメント」「コメントを残す」などの見出し */
+#comment-area h2,
+#comment-area h3,
+#reply-title {
+    font-size: 16px !important;
+    /* 強制的に小さく */
+    font-weight: bold;
+    margin-bottom: 15px;
+    border-left: 4px solid #aaa;
+    /* 左にグレーの線 */
+    padding-left: 10px;
+    color: #555;
+}
+
+/* --- コメントリスト (表示部分) --- */
+.comment-list {
+    padding-left: 0;
+    list-style: none;
+}
+
+.comment-body {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* 投稿者名 */
+.comment-author .fn {
+    font-size: 13px;
+    font-weight: bold;
+    color: #2271b1;
+    /* リンクっぽい青 */
+    font-style: normal;
+}
+
+/* 日付 */
+.comment-metadata {
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 5px;
+}
+
+.comment-metadata a {
+    color: #999;
+    text-decoration: none;
+}
+
+/* コメント本文 */
+.comment-content p {
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 5px;
+    /* 余白を詰める */
+}
+
+/* 返信ボタン */
+.reply a {
+    font-size: 11px;
+    display: inline-block;
+    padding: 2px 8px;
+    background: #eee;
+    color: #666;
+    border-radius: 3px;
+    text-decoration: none;
+}
+
+/* --- コメント入力フォーム --- */
+.comment-form {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px dashed #ccc;
+}
+
+/* 「メールアドレスは公開されません」などの注釈 */
+.comment-notes,
+.logged-in-as {
+    font-size: 12px;
+    color: #777;
+    margin-bottom: 10px;
+}
+
+/* 入力エリアのラベル (名前、メールなど) */
+.comment-form label {
+    font-size: 13px;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 3px;
+}
+
+/* 入力ボックス */
+.comment-form input[type="text"],
+.comment-form input[type="email"],
+.comment-form input[type="url"],
+.comment-form textarea {
+    width: 100%;
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+}
+
+/* 送信ボタン */
+.form-submit input#submit {
+    font-size: 14px;
+    font-weight: bold;
+    padding: 8px 20px;
+    background: #2271b1;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.form-submit input#submit:hover {
+    background: #135e96;
+}
+
+/* 記事タイトルのデザイン */
+.character-title-area {
+    margin: 20px 0 15px;
+    /* 上下の余白 */
+    text-align: center;
+    /* 中央揃え */
+    padding: 0 10px;
+}
+
+.character-title-area .entry-title {
+    font-size: 24px;
+    /* フォントサイズ（適宜調整） */
+    font-weight: bold;
+    color: #333;
+    /* 文字色 */
+    line-height: 1.4;
+}
+
+/* アイコン非表示対策 */
+.character-search-box .fa-search,
+.character-search-box .fas {
+    display: none !important;
+}
+
+/* スキル名（バッジの横のテキスト） */
+.skill-proper-name {
+    margin-left: 10px;
+    /* バッジとの間隔 */
+    font-weight: bold;
+    /* 太字 */
+    font-size: 1.1em;
+    /* 少し大きく */
+    color: #333;
+    /* 文字色 */
+    vertical-align: middle;
+    /* 上下位置調整 */
+}
+
+/* スマホなど画面が狭い時に、名前が長すぎたら改行 */
+@media (max-width: 480px) {
+    .skill-badge-area {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .skill-proper-name {
+        margin-left: 8px;
+        font-size: 1em;
+    }
+}
+
+/* スキル名（バッジの横のテキスト） */
+.skill-proper-name {
+    margin-left: 10px;
+    /* バッジとの間隔 */
+    font-weight: bold;
+    /* 太字 */
+    font-size: 1.1em;
+    /* 少し大きく */
+    color: #333;
+    /* 文字色 */
+    vertical-align: middle;
+    /* 上下位置調整 */
+}
+
+/* スマホなど画面が狭い時に、名前が長すぎたら改行 */
+@media (max-width: 480px) {
+    .skill-badge-area {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .skill-proper-name {
+        margin-left: 8px;
+        font-size: 1em;
+    }
+}
+
+/* ========================================= */
+/* ステータス表 (転置版：行と列入れ替え) */
+/* ========================================= */
+
+.status-table {
+    width: 100%;
+    text-align: center;
+    border-collapse: collapse !important;
+    border-spacing: 0;
+    font-size: 0.95em;
+    margin-top: 5px;
+
+    /* 外枠なし・背景透明 */
+    border: none !important;
+    background: transparent !important;
+}
+
+/* リセット */
+.status-table th,
+.status-table td {
+    padding: 8px 6px;
+    border: none !important;
+}
+
+/* ========================================= */
+/* 罫線設定 (内側のみ) */
+/* ========================================= */
+
+/* 1. 縦線 (一番右以外) */
+.status-table th:not(:last-child),
+.status-table td:not(:last-child) {
+    border-right: 1px solid #ffbb47 !important;
+}
+
+/* 2. 横線 (一番下以外) */
+.status-table thead tr th,
+.status-table tbody tr:not(:last-child) th,
+.status-table tbody tr:not(:last-child) td {
+    border-bottom: 1px solid #ffbb47 !important;
+}
+
+/* ヘッダー下線強調 */
+.status-table thead tr th {
+    border-bottom: 2px solid #ffbb47 !important;
+}
+
+/* ========================================= */
+/* 色と幅の設定 */
+/* ========================================= */
+
+/* ヘッダー (HP, ATK) */
+.status-table thead th {
+    background-color: #ffe3b1;
+    color: #444;
+    font-weight: bold;
+    font-size: 0.9em;
+    width: 40%;
+    /* HPとATKの列幅を均等に確保 */
+}
+
+/* 左上の空欄セル */
+.status-table thead th:first-child {
+    width: 20%;
+    /* ラベル列の幅 */
+}
+
+/* 左列ラベル (Lv.99, Lv.120...) */
+.status-table tbody th.st-row-label {
+    background-color: #ffe3b1;
+    text-align: left;
+    padding-left: 10px;
+    /* 左に少し余白 */
+    color: #444;
+    font-weight: bold;
+}
+
+/* 数値セル共通 */
+.status-table td.st-val {
+    background-color: #fff9ee;
+    font-weight: bold;
+    color: #333;
+    font-family: monospace, sans-serif;
+    /* 数値を揃える */
+    font-size: 1.1em;
+}
+
+/* --- 偏差値行の特別装飾 --- */
+/* ラベル */
+.status-table tr.row-deviation th {
+    background-color: #ffd88f;
+    /* 少し濃いオレンジに */
+    color: #d35400;
+    /* 文字色も濃く */
+}
+
+.status-table tr.row-deviation th .small-note {
+    font-size: 0.7em;
+    font-weight: normal;
+    display: block;
+    /* 改行させる */
+    color: #666;
+}
+
+/* 値 */
+.status-table tr.row-deviation td.st-score {
+    background-color: #fff2d9;
+    /* 背景を少し濃く */
+    color: #d35400;
+}
+
+.mgn-note{
+    font-size: 20px;
+    font-weight: normal;
+    display: block;
+    color: #fff;
+    text-align: center;
+    
+}
+
+.mgn-note-container{
+    margin-top: 5px;
+    margin-bottom: -5px;
+    background-color: #eb9641;
+    width: auto;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
