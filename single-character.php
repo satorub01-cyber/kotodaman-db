@@ -57,40 +57,7 @@ if ($related_chars):
 // =================================================================
 //  基本データの呼び出し
 // =================================================================
-$field_list = ['pre_evo_name', 'pre_evo_image', '実装月（わかれば実装日）'];
-$taxonomy_list = ['attribute', 'species', 'affiliation', 'rarity', 'available_moji', 'event'];
-// -----------------------------------------------------------
-// HP・ATK 計算処理 (Lv99基礎 + 超化)
-// -----------------------------------------------------------
-$hp_base   = get_field('lv_99_hp');   // Lv99基礎値
-$hp_chouka = get_field('hp_chouka');  // 超化pt
-// 基礎値が入力されていれば計算、なければ「未入力」
-$disp_hp_99 = ($hp_base !== '' && $hp_base !== null) ? ((int)$hp_base + (int)$hp_chouka) : '未入力';
-
-$atk_base   = get_field('lv_99_atk');   // Lv99基礎値
-$atk_chouka = get_field('atk_chouka');  // 超化pt
-$disp_atk_99 = ($atk_base !== '' && $atk_base !== null) ? ((int)$atk_base + (int)$atk_chouka) : '未入力';
-$disp_hp_120 = get_post_meta(get_the_ID(), '120_hp', true);
-// Lv120 ATK の取得
-$disp_atk_120 = get_post_meta(get_the_ID(), '120_atk', true);
-$score_hp  = ($disp_hp_99 && function_exists('get_koto_deviation_score'))
-    ? get_koto_deviation_score($disp_hp_99, 'total_99_hp') : '-';
-$score_atk = ($disp_atk_99 && function_exists('get_koto_deviation_score'))
-    ? get_koto_deviation_score($disp_atk_99, 'total_99_atk') : '-';
-$chara_data_field = [];
-$chara_data_taxo = [];
-foreach ($field_list as $field) $chara_data_field[$field] = get_field($field);
-foreach ($taxonomy_list as $taxonomy) $chara_data_taxo[$taxonomy] = get_field($taxonomy);
-
-$avai_moji_terms = get_field('available_moji');
-if (empty($avai_moji_terms)) $avai_moji_terms = get_the_terms(get_the_ID(), 'available_moji');
-
-$attr_name = $chara_data_taxo['attribute']?->name ?? '未入力';
-$species_label = $chara_data_taxo['species']?->name ?? '未入力';
-$rarity_label = $chara_data_taxo['rarity']?->name ?? 'なし';
-$avai_moji_label = get_terms_string($avai_moji_terms);
-$affiliation_term = get_primary_affiliation_obj($chara_data_taxo['affiliation']);
-$another_img_name = get_field('another_image_name');
+$post_id = get_the_ID();
 $raw_data = get_post_meta($post_id, '_spec_json', true);
 $spec_data = null;
 if (is_string($raw_data)) {
@@ -103,6 +70,60 @@ if (is_string($raw_data)) {
 if (empty($spec_data) && function_exists('get_character_spec_data')) {
     $spec_data = get_character_spec_data($post_id);
 }
+
+// -----------------------------------------------------------
+// ステータス取得 (JSON優先)
+// -----------------------------------------------------------
+// Lv99
+$disp_hp_99  = $spec_data['_val_99_hp'] ?? get_post_meta($post_id, '99_hp', true);
+$disp_atk_99 = $spec_data['_val_99_atk'] ?? get_post_meta($post_id, '99_atk', true);
+// Lv120
+$disp_hp_120  = $spec_data['_val_120_hp'] ?? get_post_meta($post_id, '120_hp', true);
+$disp_atk_120 = $spec_data['_val_120_atk'] ?? get_post_meta($post_id, '120_atk', true);
+// 才能開花 (JSONから取得)
+$talent_hp  = $spec_data['talent_hp'] ?? 0;
+$talent_atk = $spec_data['talent_atk'] ?? 0;
+
+// 未入力チェック
+if ($disp_hp_99 === '' || $disp_hp_99 === null) $disp_hp_99 = '未入力';
+if ($disp_atk_99 === '' || $disp_atk_99 === null) $disp_atk_99 = '未入力';
+
+// 偏差値計算
+$score_hp  = (is_numeric($disp_hp_99) && function_exists('get_koto_deviation_score'))
+    ? get_koto_deviation_score($disp_hp_99, 'total_99_hp') : '-';
+$score_atk = (is_numeric($disp_atk_99) && function_exists('get_koto_deviation_score'))
+    ? get_koto_deviation_score($disp_atk_99, 'total_99_atk') : '-';
+
+// -----------------------------------------------------------
+// タクソノミー・フィールド情報の取得 (JSON活用)
+// -----------------------------------------------------------
+$attr_slug = $spec_data['attribute'] ?? '';
+$attr_term = $attr_slug ? get_term_by('slug', $attr_slug, 'attribute') : null;
+
+$species_slug = $spec_data['species'] ?? '';
+$species_term = $species_slug ? get_term_by('slug', $species_slug, 'species') : null;
+
+$rarity_slug = $spec_data['rarity'] ?? '';
+$rarity_term = $rarity_slug ? get_term_by('slug', $rarity_slug, 'rarity') : null;
+$rarity_label = $rarity_term ? $rarity_term->name : 'なし';
+
+// 所属 (JSONにはスラッグ配列が入っているため、オブジェクトを取得してメインを判定)
+$group_slugs = $spec_data['groups'] ?? [];
+$group_terms = [];
+foreach ($group_slugs as $gs) {
+    $t = get_term_by('slug', $gs, 'affiliation');
+    if ($t) $group_terms[] = $t;
+}
+$affiliation_term = function_exists('get_primary_affiliation_obj') ? get_primary_affiliation_obj($group_terms) : ($group_terms[0] ?? null);
+
+// 実装日
+$release_date = $spec_data['release_date'] ?? get_field('実装月（わかれば実装日）');
+
+// 進化前名前など (JSONに含まれていないものは get_field)
+$pre_evo_name = get_field('pre_evo_name');
+$another_img_name = get_field('another_image_name');
+$cv = $spec_data['cv'] ?? get_field('voice_actor');
+$acquisition = $spec_data['acquisition'] ?? get_field('get_place');
 
 ?>
 
@@ -219,7 +240,7 @@ if (empty($spec_data) && function_exists('get_character_spec_data')) {
         <dt>属性</dt>
         <dd>
             <?php
-            $term = $chara_data_taxo['attribute'];
+            $term = $attr_term;
             if ($term):
                 $icon_html = get_term_icon_html($term, 'attr-icon-img');
                 echo '<a href="' . get_term_link($term) . '">' . ($icon_html ?: $term->name) . '</a>';
@@ -233,7 +254,7 @@ if (empty($spec_data) && function_exists('get_character_spec_data')) {
         <dt>種族</dt>
         <dd>
             <?php
-            $term = $chara_data_taxo['species'];
+            $term = $species_term;
             if ($term):
                 $icon_html = get_term_icon_html($term, 'species-icon-img');
                 echo '<a href="' . get_term_link($term) . '">' . ($icon_html ?: $term->name) . '</a>';
@@ -259,38 +280,34 @@ if (empty($spec_data) && function_exists('get_character_spec_data')) {
         <dt>文字</dt>
         <dd class="moji-list">
             <?php
-            $moji_rows = get_field('available_moji_loop');
+            // JSONの 'chars' 配列を活用
+            $chars_data = $spec_data['chars'] ?? [];
             $links = [];
-            if ($moji_rows):
-                foreach ($moji_rows as $row):
-                    // 属性スラグの取得
-                    $attr_obj = $row['moji_attr'];
-                    $attr_slug = (is_object($attr_obj) && isset($attr_obj->slug)) ? $attr_obj->slug : 'none';
 
-                    // ★追加：unlock_place（入手条件）のチェック
-                    $place = isset($row['unlock_place']) ? $row['unlock_place'] : '';
+            if (!empty($chars_data)) {
+                foreach ($chars_data as $c) {
+                    $val = esc_html($c['val']);
+                    $slug = $c['slug'] ?? '';
+                    $attr_slug = $c['attr'] ?? 'none';
+                    $place = $c['unlock'] ?? 'normal';
+
                     $suffix = '';
-
                     if ($place === 'super_copy') {
                         $suffix = '<span style="font-size:0.85em; color:#333; margin-left:2px;">(Sコピー)</span>';
                     } elseif ($place === 'super_change') {
                         $suffix = '<span style="font-size:0.85em; color:#333; margin-left:2px;">(Sチェンジ)</span>';
                     }
 
-                    $chars_obj = $row['available_moji'];
-                    if ($chars_obj && is_array($chars_obj)):
-                        foreach ($chars_obj as $term):
-                            $term_link = get_term_link($term);
-                            if (!is_wp_error($term_link)):
-                                $colored_char = '<span class="char-font attr-' . esc_attr($attr_slug) . '">' . esc_html($term->name) . '</span>';
+                    $term_link = '#';
+                    if ($slug) {
+                        $t = get_term_by('slug', $slug, 'available_moji');
+                        if ($t && !is_wp_error($t)) $term_link = get_term_link($t);
+                    }
 
-                                // 文字の後ろに注釈 ($suffix) を結合してリンク化
-                                $links[] = '<a href="' . esc_url($term_link) . '">' . $colored_char . $suffix . '</a>';
-                            endif;
-                        endforeach;
-                    endif;
-                endforeach;
-            endif;
+                    $colored_char = '<span class="char-font attr-' . esc_attr($attr_slug) . '">' . $val . '</span>';
+                    $links[] = '<a href="' . esc_url($term_link) . '">' . $colored_char . $suffix . '</a>';
+                }
+            }
             echo !empty($links) ? implode('・', $links) : '未入力';
             ?>
         </dd>
@@ -300,17 +317,13 @@ if (empty($spec_data) && function_exists('get_character_spec_data')) {
         <dt>入手方法、実装イベントなど</dt>
         <dd>
             <?php
-            $events = $chara_data_taxo['event'];
+            $events = get_the_terms(get_the_ID(), 'event');
             if ($events && !is_wp_error($events)):
-                if (is_array($events)) {
-                    $event_links = [];
-                    foreach ($events as $ev) {
-                        $event_links[] = '<a href="' . get_term_link($ev) . '">' . esc_html($ev->name) . '</a>';
-                    }
-                    echo implode('・', $event_links);
-                } else {
-                    echo '<a href="' . get_term_link($events) . '">' . esc_html($events->name) . '</a>';
+                $event_links = [];
+                foreach ($events as $ev) {
+                    $event_links[] = '<a href="' . get_term_link($ev) . '">' . esc_html($ev->name) . '</a>';
                 }
+                echo implode('・', $event_links);
             else:
                 echo '未設定';
             endif;
@@ -320,12 +333,12 @@ if (empty($spec_data) && function_exists('get_character_spec_data')) {
 
     <dl class="spec-row full-width">
         <dt>実装日</dt>
-        <dd><?php echo $chara_data_field['実装月（わかれば実装日）'] ?: '-'; ?></dd>
+        <dd><?php echo $release_date ?: '-'; ?></dd>
     </dl>
 
     <dl class="spec-row full-width">
         <dt>進化前の名前</dt>
-        <dd><?php echo $chara_data_field['pre_evo_name'] ?: '-'; ?></dd>
+        <dd><?php echo $pre_evo_name ?: '-'; ?></dd>
     </dl>
     <?php if (!empty($another_img_name)): ?>
         <dl class="spec-row full-width">
@@ -338,7 +351,6 @@ if (empty($spec_data) && function_exists('get_character_spec_data')) {
         <dt>声優</dt>
         <dd>
             <?php
-            $cv = get_field('voice_actor');
             echo $cv ? esc_html($cv) : '未入力';
             ?>
         </dd>
@@ -376,8 +388,8 @@ if (empty($spec_data) && function_exists('get_character_spec_data')) {
         </tr>
         <tr>
             <th class="st-row-label">才能開花</th>
-            <td class="st-val"><?php echo '対応予定'; ?></td>
-            <td class="st-val"><?php echo '対応予定'; ?></td>
+            <td class="st-val"><?php echo $talent_hp > 0 ? '+' . number_format($talent_hp) : '-'; ?></td>
+            <td class="st-val"><?php echo $talent_atk > 0 ? '+' . number_format($talent_atk) : '-'; ?></td>
         </tr>
         <?php if (false): ?>
             <tr class="row-deviation">
