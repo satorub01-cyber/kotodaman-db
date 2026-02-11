@@ -810,7 +810,7 @@ function global_replace_buffer_start()
     ob_start('global_replace_callback');
 }
 
-function global_replace_callback($buffer)
+function koto_replace_icons($buffer)
 {
 
     // ==========================================
@@ -951,8 +951,6 @@ function global_replace_buffer_end()
     }
 }
 
-add_action('template_redirect', 'global_replace_buffer_start');
-add_action('shutdown', 'global_replace_buffer_end');
 
 // 検索結果からパスワード保護ページを除外する
 function exclude_password_protected_from_search($where, $query)

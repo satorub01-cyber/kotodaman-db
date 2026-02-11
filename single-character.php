@@ -466,7 +466,7 @@ if ($ex_name || $ex_label): // 名前か種類のどちらかがあれば表示
                             <div style="font-size: 0.95em; color: #555;">
                                 <span class="ex-skill-name" style="font-weight:bold;">&lt;<?php echo esc_html($ex_name); ?>&gt;</span>
                                 <?php if ($ex_name === "サーチ"): ?>
-                                    <span class="ex-priority-text">(<?php echo esc_html($priority_text); ?>優先)</span>
+                                    <span class="ex-priority-text">(<?php echo koto_replace_icons(esc_html($priority_text)); ?>優先)</span>
                                 <?php endif; ?>
                             </div>
                         </div>

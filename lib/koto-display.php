@@ -604,7 +604,7 @@ function get_koto_trait_text_from_row($row)
         }
     }
 
-    return $final_text;
+    return koto_replace_icons($final_text);
 }
 
 /**
@@ -690,7 +690,7 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
         echo '<div class="skill-text-block">';
         foreach ($or_texts as $line) {
             echo '<div class="condition-line" style="margin-bottom:4px;">';
-            echo '<span class="skill-text">' . $line . '</span>';
+            echo '<span class="skill-text">' . koto_replace_icons($line) . '</span>';
             echo '</div>';
         }
         echo '</div>';
@@ -1170,7 +1170,8 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                 }
 
                 if (!empty($item['moji_exhaust'])) $effect_text .= "（この文字は失効する）";
-
+                $cond_text = koto_replace_icons($cond_text);
+                $effect_text = koto_replace_icons($effect_text);
                 if ($effect_text) {
                     if ($is_shift_mode) {
                         echo "<div class='skill-effect-line' style='margin-left: 1em;'>";
@@ -1191,6 +1192,8 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
         if (!$is_shift_mode && !empty($all_normal_effects)) {
             $counter = 1;
             foreach ($all_normal_effects as $cond_key => $effects) {
+                $cond_key = koto_replace_icons($cond_key);
+                $effects = koto_replace_icons($effects);
                 $combined = implode('＋', $effects);
                 echo "<div class='skill-effect-line'><span class='effect-num'>({$counter}) </span>";
                 if ($cond_key !== 'base') echo "<span class='skill-sub-cond-text'>{$cond_key}</span> ";
@@ -1404,7 +1407,7 @@ function get_koto_leader_skill_html($post_id = null)
         $count++;
     }
 
-    return implode('<br>', $ls_text);
+    return koto_replace_icons(implode('<br>', $ls_text));
 }
 
 /**
