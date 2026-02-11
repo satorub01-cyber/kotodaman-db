@@ -794,8 +794,8 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
             if ($is_shift_mode) {
                 $num_icon = $circle_nums[$group_idx] ?? ($group_idx + 1);
                 echo '<div class="skill-group-header" style="margin-top: 0.8em; margin-bottom: 0.3em; font-weight:bold; color:#444; border-bottom:1px solid #eee; padding-bottom:2px;">';
-                echo '<span class="circle-num" style="color:#d00; margin-right:5px; font-size:1.1em;">' . $num_icon . '</span>';
-                echo '<span class="shift-text" style="color:#333;">' . esc_html($group_info['text']) . '</span>';
+                echo '<span class="circle-num" style="color:#d00; margin-right:5px; font-size:1.1em;">' . koto_replace_icons($num_icon) . '</span>';
+                echo '<span class="shift-text" style="color:#333;">' . koto_replace_icons(esc_html($group_info['text'])) . '</span>';
                 echo '</div>';
             }
 
