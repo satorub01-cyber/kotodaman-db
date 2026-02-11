@@ -183,11 +183,26 @@ function get_koto_trait_text_from_row($row)
                     case 'group':
                         // 「デッキ内に〇〇がいる」
                         if ($c_groups) {
-                            $names = wp_list_pluck($c_groups, 'name');
-                            $names = array_map(function ($item) {
-                                return "「{$item}」";
-                            }, $names);
-                            $cond_parts[] = "デッキ内に" . implode('・', $names) . "がいる";
+                            // ★追加: melody特例処理
+                            $is_melody = false;
+                            $check_groups = is_array($c_groups) ? $c_groups : [$c_groups];
+                            foreach ($check_groups as $g) {
+                                $g_slug = is_object($g) ? ($g->slug ?? '') : ($g['slug'] ?? '');
+                                if ($g_slug === 'melody') {
+                                    $is_melody = true;
+                                    break;
+                                }
+                            }
+
+                            if ($is_melody) {
+                                $cond_parts[] = "デッキ内に「全の戦律」または「斬・砲・突・重・超・打の戦律」がいる";
+                            } else {
+                                $names = wp_list_pluck($c_groups, 'name');
+                                $names = array_map(function ($item) {
+                                    return "「{$item}」";
+                                }, $names);
+                                $cond_parts[] = "デッキ内に" . implode('・', $names) . "がいる";
+                            }
                         }
                         break;
 
@@ -852,8 +867,21 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                             case 'group':
                                 // グループ条件
                                 $grp_name = $cv;
+                                $is_melody = false; // ★追加
+
                                 if (!empty($p_cond['aff'])) {
                                     $objs = $p_cond['aff'];
+
+                                    // ★追加: melody判定
+                                    $check_objs = is_array($objs) ? $objs : [$objs];
+                                    foreach ($check_objs as $o) {
+                                        $o_slug = is_object($o) ? ($o->slug ?? '') : ($o['slug'] ?? '');
+                                        if ($o_slug === 'melody') {
+                                            $is_melody = true;
+                                            break;
+                                        }
+                                    }
+
                                     if (is_array($objs)) {
                                         $names = wp_list_pluck($objs, 'name');
                                     } elseif (is_object($objs)) {
@@ -863,7 +891,12 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                                     }
                                     if (!empty($names)) $grp_name = implode('・', $names);
                                 }
-                                $part_text = "同時に「{$grp_name}」のコトダマンがわざ・すごわざを発動した時";
+
+                                if ($is_melody) {
+                                    $part_text = "同時に「全の戦律」または「斬・砲・突・重・超・打の戦律」のコトダマンがわざ・すごわざを発動した時";
+                                } else {
+                                    $part_text = "同時に「{$grp_name}」のコトダマンがわざ・すごわざを発動した時";
+                                }
                                 break;
                             case 'attacked':
                                 $part_text = "敵からの攻撃を{$cv}回受けた時";
