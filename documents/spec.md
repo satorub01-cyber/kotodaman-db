@@ -1,0 +1,34 @@
+# サイトと各ファイルの構成
+- トップページ /
+  - page-db-top.php
+- 倍率計算ページ /magnification-calc/
+  - キャラデータ入力時に、倍率を調査するためのページ
+  - 倍率を入れればダメージ計算もできる
+  - page-simple-calc.php
+- 倍率未調査キャラ一覧 /mgn-blank-charas/
+  - page-missing-info.php
+- グループ一覧 /affiliation-list/
+  - ユーザー向けの検索用
+  - page-term-list.php
+- イベント一覧 /event-list/
+  - ユーザー向けの検索用
+  - page-term-list.php
+- プライバシーポリシー /policy/
+  - SEO対策
+- _spec_json確認用ページ（非公開） /json-displayer/
+  - fanction.phpの717~730行目
+  - 本文にショートコード[debug_koto_json id="1234"]と書く
+- 検索結果ページプレビュー（非公開） /character-list/
+  - page-character-list.php
+  - このページは必要ないかも
+- イベント・キャラ一覧（非公開） /event-date/
+  - page-event-date-list.php
+- 検索バー
+  - searchform.php
+- 検索結果ページ
+  - search-chacter.php
+  - style-character-search.css
+- キャラページ
+  - single-character.php
+  - style-character-detail.css
+  
