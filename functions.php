@@ -729,69 +729,6 @@ add_shortcode('debug_koto_json', function ($atts) {
         . '</pre>';
 });
 
-/**
- * デバッグ用ショートコード [debug_koto_spec]
- * 現在の投稿の get_character_spec_data の結果を表示します。
- */
-add_shortcode('debug_koto_spec', function () {
-    // 管理者以外には表示しない（本番環境での事故防止）
-    if (!current_user_can('administrator')) return '';
-
-    // 関数が存在するかチェック
-    if (!function_exists('get_character_spec_data')) {
-        return '<p style="color:red; font-weight:bold;">エラー: get_character_spec_data 関数が見つかりません。</p>';
-    }
-
-    $post_id = get_the_ID();
-
-    // データ生成実行
-    $data = get_character_spec_data($post_id);
-
-    // JSON形式（保存される形式と同じ）
-    $json_output = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-
-    // HTML出力生成
-    ob_start();
-?>
-    <div style="background: #fff; border: 2px solid #333; padding: 20px; margin: 20px 0; font-family: monospace; font-size: 13px; color: #333; z-index: 9999; position: relative;">
-        <h3 style="margin-top: 0; background: #333; color: #fff; padding: 5px;">🛠 コトダマン データ構造デバッガー</h3>
-
-        <p><strong>Character ID:</strong> <?php echo $post_id; ?> | <strong>Name:</strong> <?php echo esc_html($data['name']); ?></p>
-
-        <details open>
-            <summary style="cursor:pointer; font-weight:bold; padding:5px; background:#eee;">▼ JSONプレビュー (DB保存内容)</summary>
-            <textarea style="width: 100%; height: 300px; font-family: monospace; background: #f9f9f9; color: #000; border: 1px solid #ccc;"><?php echo esc_textarea($json_output); ?></textarea>
-        </details>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 10px;">
-            <div>
-                <details>
-                    <summary style="cursor:pointer; font-weight:bold; padding:5px; background:#e0f7fa;">▼ すごわざ (Sugowaza)</summary>
-                    <pre style="background:#e0f7fa; padding:10px; overflow:auto; max-height:300px;"><?php print_r($data['sugowaza']); ?></pre>
-                </details>
-            </div>
-            <div>
-                <details>
-                    <summary style="cursor:pointer; font-weight:bold; padding:5px; background:#f3e5f5;">▼ とくせい (Traits)</summary>
-                    <pre style="background:#f3e5f5; padding:10px; overflow:auto; max-height:300px;"><?php print_r($data['traits']); ?></pre>
-                </details>
-            </div>
-        </div>
-
-        <details style="margin-top: 10px;">
-            <summary style="cursor:pointer; font-weight:bold; padding:5px; background:#fff3e0;">▼ 計算補正値 (Corrections)</summary>
-            <pre style="background:#fff3e0; padding:10px; overflow:auto; max-height:200px;"><?php print_r($data['corrections']); ?></pre>
-        </details>
-
-        <details style="margin-top: 10px;">
-            <summary style="cursor:pointer; font-weight:bold; padding:5px; background:#e8eaf6;">▼ 全データ (Raw Array)</summary>
-            <pre style="background:#e8eaf6; padding:10px; overflow:auto; max-height:300px;"><?php print_r($data); ?></pre>
-        </details>
-    </div>
-<?php
-    return ob_get_clean();
-});
-
 // -----------------------------------------------------------------
 // ▼▼▼ 属性・種族アイコン 自動置換機能（修正版） ▼▼▼
 // -----------------------------------------------------------------
