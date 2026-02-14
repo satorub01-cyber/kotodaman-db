@@ -56,11 +56,11 @@
                             </label>
                         </summary>
                         <div class="tag-children">
-                            <label><input type="checkbox" name="tx_skill_tags[]" value="type_single_attack"> 単体単発攻撃</label>
-                            <label><input type="checkbox" name="tx_skill_tags[]" value="type_all_attack"> 全体単発攻撃</label>
-                            <label><input type="checkbox" name="tx_skill_tags[]" value="type_multi_hit_single"> 単体連撃</label>
-                            <label><input type="checkbox" name="tx_skill_tags[]" value="type_multi_hit_all"> 全体連撃</label>
-                            <label><input type="checkbox" name="tx_skill_tags[]" value="type_random_malti_attack"> ランダム連撃</label>
+                            <label><input type="checkbox" name="tx_skill_tags[]" value="type_attack_single"> 単体単発攻撃</label>
+                            <label><input type="checkbox" name="tx_skill_tags[]" value="type_attack_all"> 全体単発攻撃</label>
+                            <label><input type="checkbox" name="tx_skill_tags[]" value="type_attack_single_multi"> 単体連撃</label>
+                            <label><input type="checkbox" name="tx_skill_tags[]" value="type_attack_all_multi"> 全体連撃</label>
+                            <label><input type="checkbox" name="tx_skill_tags[]" value="type_attack_random"> ランダム攻撃</label>
                             <label><input type="checkbox" name="tx_skill_tags[]" value="attack_type_converged"> 収束攻撃</label>
                             <label><input type="checkbox" name="tx_skill_tags[]" value="type_omni_advantage"> 全属性有利</label>
                             <label><input type="checkbox" name="tx_skill_tags[]" value="type_colorfull_attack"> カラフル攻撃</label>

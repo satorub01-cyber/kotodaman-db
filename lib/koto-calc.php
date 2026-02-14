@@ -62,7 +62,7 @@ function get_character_spec_data($post_id)
     // B. 「Lv.120」の値の決定ロジック
     if ($is_no_lv120) {
         // ★パターン1: 「Lv120なし」フラグがONの場合
-        // ソートで不利にならないよう、Lv99(最強状態)の値を代入しておく
+        // ソートで不利にならないよう、Lv99の値を代入しておく
         $val_120_hp_total  = $val_99_hp_total;
         $val_120_atk_total = $val_99_atk_total;
     } elseif ($is_manual_120) {
@@ -215,6 +215,8 @@ function get_character_spec_data($post_id)
                 $data['priority'] = 2;
             } elseif (strpos($type, 'heal') !== false) {
                 $data['priority'] = 3;
+            } elseif (strpos($first_action['target'], 'single') !== false) {
+                $data['priority'] = 5;
             } else {
                 $data['priority'] = 4;
             }
@@ -303,11 +305,11 @@ function get_character_spec_data($post_id)
     // --- 検索タグ生成 (構造変更に合わせて修正) ---
 
     // 文字定義
-    $def_connector = ['い', 'ぃ', 'う', 'ぅ', 'ん'];
+    $def_connector = ['い', 'う', 'ん'];
     $def_small_yuyo = ['ゅ', 'ょ'];
     $def_axis_i = ['あ', 'か', 'さ', 'た', 'な', 'は', 'ま', 'や', 'ら', 'わ', 'が', 'ざ', 'だ', 'ば', 'ぱ', 'え', 'け', 'せ', 'て', 'ね', 'へ', 'め', 'れ', 'げ', 'ぜ', 'で', 'べ', 'ぺ', 'す', 'ず'];
     $def_axis_u = ['く', 'す', 'つ', 'ふ', 'ゆ', 'ぐ', 'ず', 'づ', 'ぶ', 'ぷ', 'お', 'こ', 'そ', 'と', 'の', 'ほ', 'も', 'よ', 'ろ', 'ご', 'ぞ', 'ど', 'ぼ', 'ぽ'];
-    $def_axis_youon = ['き', 'し', 'ち', 'に', 'ひ', 'み', 'り', 'ぎ', 'じ', 'ぢ', 'び', 'ぴ', 'う', 'ぅ'];
+    $def_axis_youon = ['き', 'し', 'ち', 'に', 'ひ', 'み', 'り', 'ぎ', 'じ', 'ぢ', 'び', 'ぴ', 'う', 'ゃ'];
 
     // 取得した文字リストを回してタグ付け
     foreach ($data['chars'] as $char_item) {
@@ -327,7 +329,6 @@ function get_character_spec_data($post_id)
     }
 
     // ▼▼▼ 追加: わざ・すごわざのタイプ別タグ付与 ▼▼▼
-    // ★修正: 格納先の配列を参照渡しで受け取るように変更
     $collect_skill_tags = function ($groups, &$target_tags) {
         if (!$groups) return;
         foreach ($groups as $g) {
@@ -386,19 +387,25 @@ function get_character_spec_data($post_id)
                     if ($omni_advantage) $target_tags[] = 'type_omni_advantage';
 
                     // タイプに応じたタグ追加
-                    if (strpos($type, 'attack') !== false || $type === 'command') $target_tags[] = 'type_attack'; // 攻撃
-                    if (strpos($type, 'buff') !== false) $target_tags[] = 'type_buff';     // バフ
-                    if (strpos($type, 'debuff') !== false) $target_tags[] = 'type_debuff'; // デバフ
-                    if ($target === 'single_oppo' && $hit_count === 1) {
-                        $target_tags[] = 'type_single_attack'; // 単体攻撃
-                    } else if ($target === 'single_oppo' && $hit_count > 1) {
-                        $target_tags[] = 'type_multi_hit_single'; // 単体多段攻撃
-                    } else if ($target === 'all_oppo' && $hit_count === 1) {
-                        $target_tags[] = 'type_all_attack'; // 全体攻撃
-                    } else if ($target === 'all_oppo' && $hit_count > 1) {
-                        $target_tags[] = 'type_multi_hit_all'; // 全体多段攻撃
-                    } elseif ($target === 'ramdom_oppo' && $hit_count >= 1) {
-                        $target_tags[] = 'type_random_malti_attack'; // ランダム多段攻撃 
+                    if (strpos($type, 'attack') !== false || strpos($type, 'command') !== false) {
+                        $target_tags[] = 'type_attack'; // 攻撃
+                        if (strpos($type, 'attack') !== false) {
+                            if ($target === 'single_oppo') {
+                                if ($hit_count > 1) {
+                                    $target_tags[] = 'type_attack_single_multi'; // 単体連撃
+                                } else {
+                                    $target_tags[] = 'type_attack_single'; // 単体単発
+                                }
+                            } elseif ($target === 'all_oppo') {
+                                if ($hit_count > 1) {
+                                    $target_tags[] = 'type_attack_all_multi'; // 全体連撃
+                                } else {
+                                    $target_tags[] = 'type_attack_all'; // 全体単発
+                                }
+                            } elseif ($target === 'random_oppo') {
+                                $target_tags[] = 'type_attack_random'; // 乱打
+                            }
+                        }
                     }
                 }
             }
@@ -424,12 +431,6 @@ function get_character_spec_data($post_id)
     $data['sugo_search_tags'] = array_values(array_unique($data['sugo_search_tags']));
     $data['waza_search_tags'] = array_values(array_unique($data['waza_search_tags']));
     $data['kotowaza_search_tags'] = array_values(array_unique($data['kotowaza_search_tags']));
-    if ($data['attribute']) $search_tags[] = 'attr_' . $data['attribute'];
-    if ($data['species']) $search_tags[] = 'species_' . $data['species'];
-    foreach ($data['groups'] as $gs) $search_tags[] = 'aff_' . $gs;
-
-    // サブ属性タグ
-    foreach ($data['sub_attributes'] as $sub) $search_tags[] = 'sub_attr_' . $sub;
 
     $gimmick_list = get_field('gimmick', $post_id);
     if ($gimmick_list) {
@@ -450,26 +451,21 @@ function get_character_spec_data($post_id)
         if (empty($group['use_maltiplier_table'])) return null;
 
         $scaling = [
-            'type' => $group['multi_cond_type'] ?? 'enemy', // enemy(収束), moji(文字数), target(対象)
+            'type' => $group['multi_cond_type'] ?? 'enemy', // enemy(収束), moji(文字数)
             'rows' => []
         ];
 
         if (!empty($group['maltiplier_table'])) {
             foreach ($group['maltiplier_table'] as $row) {
                 $r = [
-                    'rate' => (float)($row['rate'] ?? 0),
-                    'is_buffed' => !empty($row['advantage_tf']),
+                    'rate' => (float)($row['rate'] ?? 0)
                 ];
 
                 if ($scaling['type'] === 'enemy') {
                     $r['condition'] = (int)($row['enemy_count'] ?? 1);
                 } elseif ($scaling['type'] === 'moji') {
                     $r['condition'] = (int)($row['moji_count'] ?? 4);
-                } elseif ($scaling['type'] === 'target') {
-                    $r['target_cond'] = [
-                        'type' => $row['target_type'] ?? 'self',
-                    ];
-                }
+                } 
 
                 $scaling['rows'][] = $r;
             }
