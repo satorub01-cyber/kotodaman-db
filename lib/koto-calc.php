@@ -1691,6 +1691,21 @@ function _parse_skill_groups_to_data($groups, $shift_type = 'none')
     return $variations;
 }
 
+// lsの効果成形関数
+function parse_ls_eff($loop)
+{
+    $data = [];
+    foreach ($loop as $pattern) {
+        $eff = [
+            'status' => $pattern['ls_status'] ?? '',
+            'resist' => $pattern['resist_status'] ?? '',
+            'value' => (float)($pattern['rate'] ?? 0),
+        ];
+        $data[] = $eff;
+    }
+    return $data;
+}
+
 function _parse_leader_skill_data($loop)
 {
     $data = [];
@@ -1698,7 +1713,28 @@ function _parse_leader_skill_data($loop)
         $parsed = [
             'type' => $pattern['ls_type'] ?? 'fixed',
             'value_raws' => [],
-            'conditions' => []
+            'conditions' => [],
+            'limit_wave' => (int)$pattern['limit_wave_count'] ?? 0,
+            'per_unit' => false,
+            'main_eff' => ['targets' => [], 'value_raws' => []],
+            'exp' => (int)$pattern['exp_magnification'] ?? 0,
+            'buff_count' => (int)$pattern['buff_count'] ?? 0,
+            'converge_rate' => ['conv_2' => 0, 'conv_1' => 0]
+        ];
+        if ($parsed['type'] === 'per_unit') $parsed['per_unit'] = true;
+        $parsed['conditions'] = [
+            [
+                'type' => '', // 条件タイプ自体が「なし」
+                'val'  => [],
+                'cond_targets' => [
+                    [
+                        'total_tf' => false,
+                        'need_num' => 0,
+                        'type'     => '',
+                        'obj'      => []
+                    ]
+                ]
+            ]
         ];
         if (!empty($pattern['ls_cond_pattern_loop'])) :
             $conditions = [];
@@ -1709,25 +1745,93 @@ function _parse_leader_skill_data($loop)
                             'type' => $cond['ls_cond_type'] ?? '',
                             'val' => !empty($cond['ls_cond_val']) ? sprit_str_camma($cond['ls_cond_val']) : [],
                             'cond_targets' => [],
-                            'total_tf' => false,
-                            'need_num' => 6
                         ];
                         switch ($temp_cond['type']):
                             case 'chara_num':
+                                $party_conds = [];
                                 if (!empty($cond['ls_party_cond_loop'])):
-                                    $party_conds = [];
                                     foreach ($cond['ls_party_cond_loop'] as $p_cond) {
-                                        $party_details = [];
-                                        $party_cond[] = $party_details;
+                                        $party_details = [
+                                            'total_tf' => $p_cond['total_tf'] ?? false,
+                                            'need_num' => (int)($p_cond['need_chara_num'] ?? 6),
+                                            'type' => '',
+                                            'obj' => []
+                                        ];
+                                        $party_target = !empty($p_cond['target_field_group']) ? parse_target_group($p_cond['target_field_group']) : [];
+                                        $party_conds[] = array_merge($party_details, $party_target);
                                     }
                                 endif;
-                                $temp_cond['party_cond_target'][] = $party_conds;
+                                $temp_cond['cond_targets'] = $party_conds;
+                                break;
+                            case 'cooperate':
+                                if (!empty($cond['cooperate_target_loop'])) {
+                                    $party_conds = [];
+                                    foreach ($cond['cooperate_target_loop'] as $target) {
+                                        $party_details = [
+                                            'total_tf' => false,
+                                            'need_num' => 0,
+                                            'type' => '',
+                                            'obj' => []
+                                        ];
+                                        $party_target = !empty($target) ? parse_target_group($target) : [];
+                                        $party_conds[] = array_merge($party_details, $party_target);
+                                    }
+                                    $temp_cond['cond_targets'] = $party_conds;
+                                }
+                                break;
+                            default:
+                                $temp_cond['cond_targets'] = [
+                                    [
+                                        'total_tf' => false,
+                                        'need_num' => 0,
+                                        'type' => '',
+                                        'obj' => []
+                                    ]
+                                ];
                         endswitch;
                         $conditions[] = $temp_cond;
                     }
                 endif;
             }
         endif;
+        $parsed['conditions'] = $conditions;
+        $eff_raws = [];
+        if ($parsed['per_unit']) {
+            if (!empty($pattern['per_unit_loop'])) {
+                foreach ($pattern['per_unit_loop'] as $pu) {
+                    $pre_eff = [];
+                    $targets=[];
+                    $targets[] = $pu['target_field_group'] ? parse_target_group($pu['target_field_group']) : [];
+                    $values = $pu['ls_status_loop'] ? parse_ls_eff($pu['ls_status_loop']) : [];
+                    $pre_eff = [
+                        'targets' => $targets,
+                        'value_raws' => $values
+                    ];
+                    $eff_raws[] = $pre_eff;
+                }
+            }
+        } else {
+            if (!empty($pattern['ls_status_loop'])) {
+                $pre_eff = [];
+                $values = $pattern['ls_status_loop'] ? parse_ls_eff($pattern['ls_status_loop']) : [];
+                $targets_loop = $pattern['ls_target_chara_loop'] ?? [];
+                $targets = [];
+                foreach ($targets_loop as $t) {
+                    $targets[] = parse_target_group($t['target_field_group']);
+                }
+                $pre_eff = [
+                    'targets' => $targets,
+                    'value_raws' => $values
+                ];
+                $eff_raws[] = $pre_eff;
+            }
+        }
+        $parsed['main_eff'] = $eff_raws;
+        if ($parsed['type'] === 'converged') {
+            $conv_2 = (float)($pattern['converge_rate_2'] ?? 0);
+            $conv_1 = (float)($pattern['converge_rate_1']?? 0);
+            $parsed['converge_rate'] = ['conv_2' => $conv_2, 'conv_1' => $conv_1];
+        }
         $data[] = $parsed;
     }
     return $data;

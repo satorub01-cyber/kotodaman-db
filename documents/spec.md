@@ -493,7 +493,7 @@
 |_parse_activation_condition|とくせい/わざの発動条件ループ|連想配列|条件の連想配列|連想配列|なし|
 |_parse_sugo_condition|ACFのすごわざ発動条件のgroup_loop|連想配列|条件の連想配列|連想配列|なし|
 |_parse_leader_skill_data|ACFのリーダーとくせいループ|連想配列||連想配列|なし|
-|||||||
+|parse_ls_eff|ACFのls_statusloop|連想配列||連想配列|なし|
 |||||||
 |||||||
 |||||||
@@ -621,18 +621,22 @@ ACFのリーダーとくせいループを受け取り、jsonを成型する
                 [type]=>リーダーとくせい条件タイプstr
                 [val]=>[値1,値2,...] //数値は自動でfloatに変換される
                 [cond_targets]=>[　//以下の連想配列の配列
-                    parse_target_groupの戻り値
+                    [type]=>対象タイプstr
+                    [obj]=>[ //以下の連想配列の配列
+                        [slug]=>スラッグstr
+                        [name]=>名前str
+                    ]
                     [total_tf]=>編成条件が、「合計〇体」かどうかbool
                     [need_num]=>編成必要数int
                 ]
     ]
     [limit_wave]=>上限wave(int)
     [per_unit]=>キャラ数依存かどうかbool
-    [
-        [target]=>[ //以下の連想配列の配列
+    [main_eff]=>[ //以下の連想配列の配列
+        [targets]=>[ //以下の連想配列の配列
             parse_target_groupの戻り値
         ]
-        [value_raws]=>[
+        [value_raws]=>[ //以下の連想配列の配列
             [status]=>補正対象値str
             [resist]=>状態異常str
             [value]=>補正値float
@@ -640,7 +644,20 @@ ACFのリーダーとくせいループを受け取り、jsonを成型する
     ]
     [exp]=>経験値補正値float
     [buff_count]=>バフ数int
-    [converge_rate]=>[二体の時,一体の時]floatの配列
+    [converge_rate]=>[
+        conv_2=>二体の時float,
+        conv_1=>一体の時float
+        ]
+]
+```
+
+## parse_ls_eff
+ACFのループから、リーダーとくせいの補正対象ステータス、はじく状態異常、補正値を成型する
+```
+$result=[ //以下の連想配列の配列
+    [status]=>補正対象ステータスstr
+    [resist]=>はじく状態異常str
+    [value]=>補正値float
 ]
 ```
   
