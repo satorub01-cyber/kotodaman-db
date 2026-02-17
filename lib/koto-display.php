@@ -380,7 +380,7 @@ function get_koto_trait_text_from_row($row)
                 $res = isset($row['resistance']) ? $row['resistance'] : '';
                 $res_name = isset($status_map[$res]) ? $status_map[$res] : $res;
                 $res_text = $res_name ? "{$res_name}の" : "";
-                $effect_text = "{$timing}、手札の味方の{$res_text}状態異常を回復";
+                $effect_text = "{$timing}、手札と盤面の味方の{$res_text}状態異常を回復";
             }
             break;
 
@@ -1075,7 +1075,7 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                             }
                             $is_omni = !empty($item['omni_advantage']);
                             $omni_text = $is_omni ? "全属性に有利な" : "";
-                            $effect_text = "{$target_name}に{$eff_val}倍の{$omni_text}、わざ・すごわざを発動した{$grp_name}と同じ属性で攻撃";
+                            $effect_text = "わざ・すごわざを発動した{$grp_name}と同じ属性で、{$target_name}に{$eff_val}倍の{$omni_text}攻撃";
                             break;
                         case 'command':
                             $effect_text = "わざ・すごわざを発動した味方が{$target_name}に{$eff_val}倍の{$attack_attr}属性攻撃";
@@ -1101,7 +1101,9 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                             $effect_text = "ひとつ前の味方のすごわざを発動";
                             break;
                         case 'heal':
-                            $effect_text = "HPをATK×{$eff_val}回復";
+                            $is_moji_healing = $item['is_moji_healing'] ?? false;
+                            $max_prefix = $is_moji_healing ? '文字数に応じて、最大' : '';
+                            $effect_text = "HPを{$max_prefix}ATK×{$eff_val}回復";
                             break;
                         case 'atk_buff':
                         case 'atk_debuff':
@@ -1169,7 +1171,7 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                     }
                 }
 
-                if (!empty($item['moji_exhaust'])) $effect_text .= "（この文字は失効する）";
+                if (!empty($item['moji_exhaust'])) $effect_text .= "、使用した文字はクエスト終了まで使用不能になる";
                 $cond_text = koto_replace_icons($cond_text);
                 $effect_text = koto_replace_icons($effect_text);
                 if ($effect_text) {
