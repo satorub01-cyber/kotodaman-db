@@ -1103,30 +1103,30 @@ function _calculate_correction_values($data)
 // 対象選択フィールドグループをspec_json用に崩す関数
 function parse_target_group($grp)
 {
-    $result = ['type' => '', 'attr' => [], 'species' => [], 'group' => [], 'other' => ''];
+    $result = ['type' => '', 'obj' => []];
     if (empty($grp)) return $result;
+    if (!is_array($grp)) return $result;
 
     $raw_type = $grp['target_type'] ?? '';
     $type = is_array($raw_type) ? ($raw_type['value'] ?? '') : $raw_type;
     $result['type'] = $type;
-
-    switch ($type) {
-        case 'attr':
-            foreach ($grp['target_attr'] ?? [] as $term) if (is_object($term)) $result['attr'][] = $term->slug;
-            break;
-        case 'species':
-            foreach ($grp['target_species'] ?? [] as $term) if (is_object($term)) $result['species'][] = $term->slug;
-            break;
-        case 'group':
-            foreach ($grp['target_group'] ?? [] as $term) {
-                if (is_object($term)) $result['group'][] = ['slug' => $term->slug, 'name' => $term->name];
+    if ($type !== 'self' && $type !== 'all') {
+        if ($type === 'other') {
+            $result['obj'][] = [
+                'slug' => '',
+                'name' => $grp['target_other'] ?? ''
+            ];
+        } else {
+            $field_key = 'target_' . $type;
+            foreach ($grp[$field_key] ?? [] as $term) {
+                if (is_object($term)) {
+                    $result['obj'][] = [
+                        'slug' => $term->slug,
+                        'name' => $term->name
+                    ];
+                }
             }
-            break;
-        case 'other':
-            if (isset($grp['target_other'])) $result['other'] = $grp['target_other'];
-            break;
-        default:
-            break;
+        }
     }
     return $result;
 }
@@ -1440,7 +1440,19 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
     }
     return $data;
 }
-
+function sprit_str_camma($val)
+{
+    // 1. 全角を半角に統一
+    $val = str_replace('、', ',', $val);
+    // 2. カンマで分割して各要素を掃除（カンマがなくても要素1つの配列になる）
+    $val_array = array_map('trim', explode(',', $val));
+    // 3. 空文字の除去（入力が空だった場合に [] になるようにする）
+    $vals = array_filter($val_array, 'strlen');
+    $vals = array_map(function ($item) {
+        return is_numeric($item) ? (float)$item : $item;
+    }, $vals);
+    return $vals;
+}
 // =================================================================
 //  【内部ヘルパー】とくせい条件/わざ追加条件解析
 // =================================================================
@@ -1453,15 +1465,7 @@ function _parse_trait_condition($cond_data)
         $type = $c['condition_type'] ?? '';
         $val  = $c['condition_value'] ?? '';
         $target_conds = ['type' => '', 'attr' => [], 'species' => [], 'group' => [], 'other' => ''];
-        // 1. 全角を半角に統一
-        $val = str_replace('、', ',', $val);
-        // 2. カンマで分割して各要素を掃除（カンマがなくても要素1つの配列になる）
-        $val_array = array_map('trim', explode(',', $val));
-        // 3. 空文字の除去（入力が空だった場合に [] になるようにする）
-        $vals = array_filter($val_array, 'strlen');
-        $vals = array_map(function ($item) {
-            return is_numeric($item) ? (float)$item : $item;
-        }, $vals);
+        $vals = sprit_str_camma($val);
         $target_cond = ['attr', 'species', 'group', 'other'];
         if (in_array($c['condition_type'], $target_cond)) {
             $target_group = [
@@ -1691,20 +1695,40 @@ function _parse_leader_skill_data($loop)
 {
     $data = [];
     foreach ($loop as $pattern) {
-        $p = [
+        $parsed = [
             'type' => $pattern['ls_type'] ?? 'fixed',
-            'corrections' => [],
-            'conditions_raw' => $pattern['ls_cond_pattern_loop'] ?? []
+            'value_raws' => [],
+            'conditions' => []
         ];
-        if (!empty($pattern['ls_status_loop'])) {
-            foreach ($pattern['ls_status_loop'] as $stat) {
-                $p['corrections'][] = [
-                    'param' => $stat['ls_status'],
-                    'value' => (float) ($stat['rate'] ?? 0)
-                ];
+        if (!empty($pattern['ls_cond_pattern_loop'])) :
+            $conditions = [];
+            foreach ($pattern['ls_cond_pattern_loop'] as $cond_p) {
+                if (!empty($cond_p['ls_cond_loop'])) :
+                    foreach ($cond_p['ls_cond_loop'] as $cond) {
+                        $temp_cond = [
+                            'type' => $cond['ls_cond_type'] ?? '',
+                            'val' => !empty($cond['ls_cond_val']) ? sprit_str_camma($cond['ls_cond_val']) : [],
+                            'cond_targets' => [],
+                            'total_tf' => false,
+                            'need_num' => 6
+                        ];
+                        switch ($temp_cond['type']):
+                            case 'chara_num':
+                                if (!empty($cond['ls_party_cond_loop'])):
+                                    $party_conds = [];
+                                    foreach ($cond['ls_party_cond_loop'] as $p_cond) {
+                                        $party_details = [];
+                                        $party_cond[] = $party_details;
+                                    }
+                                endif;
+                                $temp_cond['party_cond_target'][] = $party_conds;
+                        endswitch;
+                        $conditions[] = $temp_cond;
+                    }
+                endif;
             }
-        }
-        $data[] = $p;
+        endif;
+        $data[] = $parsed;
     }
     return $data;
 }

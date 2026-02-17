@@ -52,13 +52,17 @@
   - 雑多な機能
 
 # 命名規則
-- 属性
+
+## spec_json
+わざやとくせいの数値は[value]で、条件の値は[val]
+
+## 属性
   - fire,water,wood,light,dark,void,heaven
   - indexは左から1,2,3,4,5,6,7
-- 種族
+## 種族
   - god,demon,hero,dragon,beast,spirit,artifact,yokai
   - indexは左から1,2,3,4,5,6,7,8
-- 優先度   
+## 優先度   
   1. フィールド
   2. バフ/デバフ
   3. 回復
@@ -162,6 +166,7 @@
 |attacked|敵からの攻撃を受けたとき|
 |fuku_count|福|
 |other|その他|
+
 ## target_field_groupの「対象」
 |value|label|
 |---|---|
@@ -171,6 +176,27 @@
 |species|種族|
 |group|グループ|
 |other|その他|
+
+## リーダーとくせいタイプ
+|value|label|
+|---|---|
+|fixed|固定値|
+|per_unit|キャラ数に応じた倍率|
+|exp_up|プレイヤー経験値UP|
+|over_healing|オーバーヒール|
+|over_attack|攻撃回数に応じたバフ|
+|converged|収束付与|
+
+## リーダーとくせい条件タイプ
+|value|label|
+|---|---|
+|chara_num|キャラ編成指定|
+|moji_count|文字数|
+|combo|コンボ数|
+|theme|テーマ指定|
+|moji_contain|含まれる文字指定|
+|cooperate|同時攻撃|
+|wave_count|WAVEが進むごとに|
 
 ## とくせいタイプ
 |value|label|
@@ -435,6 +461,7 @@
 |_sort_species_index|int|種族|
 |impl_date|str(mySQLでのdate型)|実装日|
 |name_ruby|str|キャラ名（ACFで作ってるfield）|
+|max_ls_hp/atk|str（ACFのfield）|リーダーとくせいのmax倍率|
 ||||
 ## サーチタグ
 |名前|型|役割|
@@ -465,6 +492,13 @@
 |parse_target_group|対象選択フィールドグループ|連想配列|崩したもの|連想配列|なし|
 |_parse_activation_condition|とくせい/わざの発動条件ループ|連想配列|条件の連想配列|連想配列|なし|
 |_parse_sugo_condition|ACFのすごわざ発動条件のgroup_loop|連想配列|条件の連想配列|連想配列|なし|
+|_parse_leader_skill_data|ACFのリーダーとくせいループ|連想配列||連想配列|なし|
+|||||||
+|||||||
+|||||||
+|||||||
+|||||||
+|||||||
 |||||||
 
 
@@ -509,16 +543,14 @@ TODOcorrectionsの作り方を見たら戻る
 TODOspec_dataのとくせいとリーダーとくせいの作り方を見たら戻る
 ### parse_target_group
 ACFの対象選択フィールドグループから以下のような連想配列を作る
+otherの場合slugは空白で、nameに文章を入れる
 ```
 $result=[
     [type]=>対象タイプstr
-    [attr]=>対象の属性slugstr
-    [species]=>種族スラッグstr
-    [group]=>(
-        [slug]=>グループスラッグstr
-        [name]=>グループ名str
-    )
-    [other]=>otherに入力された文章str
+    [obj]=>[ //以下の連想配列の配列
+        [slug]=>スラッグstr
+        [name]=>名前str
+    ]
 ]
 ```
 ### _parse_trait_loop_to_data
@@ -529,8 +561,9 @@ ACFのループからとくせいの中身を取り出し、データを解析�
  - target_infoは[target_info][type]によりswitchすることで無駄な取得を避ける
  - 各タイプにおいて、サブタイプによっては値のあるフィールドに値があるかを参照するため、サブタイプの追加に強い
  - ただしnew_traitsはサブタイプで分岐する
+戻り値は以下の連想配列の配列
 ```
-( 
+[ 
     [type]=>とくせいタイプstr
     [sub_type]=>とくせいサブタイプstr
     [rate_type]=>parcentage/fixed(str)
@@ -543,59 +576,34 @@ ACFのループからとくせいの中身を取り出し、データを解析�
     [super_heal]=>スーパーヒール回復値(int)
     [limit_break]=>上限解放値(int)
     [target_info]=>(
-        [type]=>対象の種類str
-        [attr]=>対象の属性slug(str)
-        [species]=>種族スラッグstr
-        [group]=>(
-            [slug]=>グループスラッグstr
-            [name]=>グループ名str
-        [other]=>その他(str)
-        )
+        parse_target_groupの戻り値
     )
     [per_unit]=>キャラ数依存かどうかbool
     [unit_target]=>( //per_unitがtrueの場合のみ
-        [type]=>対象の種類str
-        [attr]=>対象の属性slug(str)
-        [species]=>種族スラッグstr
-        [group]=>(
-            [slug]=>グループスラッグstr
-            [name]=>グループ名str
-        [other]=>その他(str)
-        )
+        parse_target_groupの戻り値
     )
-    [conditions]=>[
-    [type]=>条件タイプstr
-    [val]=>[値1,値2,...] //数値は自動でfloatに変換される
-    [hp_deatil]=>more/less/just(str)
-    [cond_target]=>[
-        [type]=>対象の種類str
-        [attr]=>対象の属性slug(str)
-        [species]=>種族スラッグstr
-        [group]=>[
-            [slug]=>グループスラッグstr
-            [name]=>グループ名str
-        [other]=>その他(str)
+    [conditions]=>[　//以下の連想配列の配列
+        [type]=>条件タイプstr
+        [val]=>[値1,値2,...] //数値は自動でfloatに変換される
+        [hp_deatil]=>more/less/just(str)
+        [cond_target]=>[
+            parse_target_groupの戻り値
         ]
     ]
 ]
-)
+
 ```
+
 ### _parse_trait_condition
-ACFのとくせいの条件/わざ追加条件ループフィールドをうけとり、jsonを作成
+ACFのとくせいの条件/わざ追加条件ループフィールドを受け取り、jsonを作成  
+戻り値は以下の連想配列の配列
 ```
 [
     [type]=>条件タイプstr
     [val]=>[値1,値2,...] //数値は自動でfloatに変換される
     [hp_deatil]=>more/less/just(str)
     [cond_target]=>[
-        [type]=>対象の種類str
-        [attr]=>対象の属性slug(str)
-        [species]=>種族スラッグstr
-        [group]=>[
-            [slug]=>グループスラッグstr
-            [name]=>グループ名str
-        [other]=>その他(str)
-        ]
+        parse_target_groupの戻り値
     ]
 ]
 ```
@@ -603,6 +611,39 @@ ACFのとくせいの条件/わざ追加条件ループフィールドをうけ�
 ### _parse_sugo_condition
 ACFのすごわざ条件のgroup_loopを受け取り、すごわざ/ことわざ発動条件を解析する
 
+### _parse_leader_skill_data
+ACFのリーダーとくせいループを受け取り、jsonを成型する  
+戻り値は以下の連想配列の配列
+```
+[
+    [type]=>リーダーとくせいタイプstr
+    [conditions]=>[ //以下の連想配列の配列
+                [type]=>リーダーとくせい条件タイプstr
+                [val]=>[値1,値2,...] //数値は自動でfloatに変換される
+                [cond_targets]=>[　//以下の連想配列の配列
+                    parse_target_groupの戻り値
+                    [total_tf]=>編成条件が、「合計〇体」かどうかbool
+                    [need_num]=>編成必要数int
+                ]
+    ]
+    [limit_wave]=>上限wave(int)
+    [per_unit]=>キャラ数依存かどうかbool
+    [
+        [target]=>[ //以下の連想配列の配列
+            parse_target_groupの戻り値
+        ]
+        [value_raws]=>[
+            [status]=>補正対象値str
+            [resist]=>状態異常str
+            [value]=>補正値float
+        ]
+    ]
+    [exp]=>経験値補正値float
+    [buff_count]=>バフ数int
+    [converge_rate]=>[二体の時,一体の時]floatの配列
+]
+```
+  
 ## 検索ロジック用
 
 # 検索機能の実装方針
