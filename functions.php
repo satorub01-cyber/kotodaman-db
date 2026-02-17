@@ -1115,6 +1115,8 @@ add_action('admin_footer', function () {
 });
 ?>
 <?php
+// 投稿画面のショートカット
+// TODO行追加ボタンやアコーディオンを行の項目として認識するようにする
 add_action('wp_footer', function() {
     ?>
     <script>

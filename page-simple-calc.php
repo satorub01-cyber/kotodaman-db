@@ -532,6 +532,17 @@ get_header();
             lastTap = currentTime;
         });
     });
+
+    // Ctrl+Enterで計算実行 (.btn-calcをクリック)
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'Enter') {
+            const btn = document.querySelector('.btn-calc');
+            if (btn) {
+                e.preventDefault();
+                btn.click();
+            }
+        }
+    });
 </script>
 
 <?php get_footer(); ?>

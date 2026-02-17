@@ -283,39 +283,6 @@ function custom_search_filter_query($query)
         }
 
         // ------------------------------------------------
-        // G. 【追加】バフ詳細検索 (buff_target_attr, buff_type, buff_amount)
-        // ------------------------------------------------
-        if (!empty($_GET['buff_target_attr']) && !empty($_GET['buff_amount'])) {
-            $target_attr = $_GET['buff_target_attr'];
-            $amount      = (int)$_GET['buff_amount'];
-            $types       = !empty($_GET['buff_type']) ? $_GET['buff_type'] : ['skill', 'trait'];
-
-            $meta_query = $query->get('meta_query') ?: [];
-            
-            // OR検索 (スキル または とくせい で条件を満たせばOK)
-            $buff_query = ['relation' => 'OR'];
-
-            foreach ($types as $type) {
-                // メタキー: _sb_skill_{attr} または _sb_trait_{attr}
-                $key = "_sb_{$type}_{$target_attr}";
-                
-                $buff_query[] = [
-                    'key'     => $key,
-                    'value'   => $amount,
-                    'compare' => '>=', // 指定段階「以上」
-                    'type'    => 'NUMERIC'
-                ];
-            }
-
-            // 検索条件に追加
-            // もしtypesが空なら何もしない
-            if (!empty($types)) {
-                $meta_query[] = $buff_query;
-                $query->set('meta_query', $meta_query);
-            }
-        }
-
-        // ------------------------------------------------
         // C. ソート (Meta Query & Orderby)
         // ★ここを共通設定ファイルから自動生成する形に変更
         // ------------------------------------------------
