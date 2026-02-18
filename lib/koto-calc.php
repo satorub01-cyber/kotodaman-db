@@ -1139,7 +1139,21 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
 
     $data = [];
     foreach ($trait_loop as $t) {
-        $parsed = [];
+        $parsed = [
+            'type'=>'',
+            'sub_type' => '',
+            'rate_type' => '',
+            'value' => 0,
+            'levels' => [],
+            'whose' => 'self',
+            'super_heal' => 0,
+            'limit_break' => 0,
+            'turn_count'=>1,
+            'resist_status' => '',
+            'target_info'=>[],
+            'per_unit'=>false,
+            'conditions'=>[],
+        ];
 
         // --- 基本情報 ---
         $type_raw = $t['trait_type'] ?? '';
@@ -1461,7 +1475,7 @@ function _parse_trait_condition($cond_data)
     if (empty($cond_data) || !is_array($cond_data)) return [];
     $parsed = [];
     foreach ($cond_data as $c) {
-        // TODOリーダーとくせいは関数化せずリーダーとくせい解析関数に書く
+        // DONEリーダーとくせいは関数化せずリーダーとくせい解析関数に書く
         $type = $c['condition_type'] ?? '';
         $val  = $c['condition_value'] ?? '';
         $target_conds = ['type' => '', 'attr' => [], 'species' => [], 'group' => [], 'other' => ''];
