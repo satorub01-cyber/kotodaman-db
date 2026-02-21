@@ -73,7 +73,7 @@ if (empty($spec_data) && function_exists('get_character_spec_data')) {
 
 // ★追加: 火力指数が未計算の場合、その場で計算して補完する
 if (empty($spec_data['firepower_index']) && function_exists('_calculate_firepower_index') && !empty($spec_data)) {
-    $spec_data['firepower_index'] = _calculate_firepower_index($spec_data);
+    $spec_data['firepower_index'] = 0;
 }
 
 // -----------------------------------------------------------
