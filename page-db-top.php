@@ -39,7 +39,7 @@ get_header();
                 <?php
                 // 1. 表示したい記事のIDをリスト（配列）で指定します
                 // WordPress管理画面でキャラの編集画面を開いたときのURLにある「post=123」の数字です
-                $pickup_ids = array(2015, 2516, 2424, 2468, 2479, 2467);
+                $pickup_ids = get_field('pickup_chara');
 
                 // 2. クエリ作成
                 $args = array(
