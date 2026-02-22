@@ -617,8 +617,7 @@ add_filter('register_taxonomy_args', 'override_event_affiliation_caps', 20, 2);
 function grant_custom_caps_to_roles()
 {
     // 権限を与えるロール一覧
-    // ここに 'administrator' を追加しました！
-    $roles_to_modify = ['administrator', 'author', 'contributor'];
+    $roles_to_modify = ['administrator', 'editor', 'author', 'contributor'];
 
     // 合鍵の名前
     $cap_suffix = 'custom_event_aff_terms';
