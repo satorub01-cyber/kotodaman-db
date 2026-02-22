@@ -1,0 +1,233 @@
+.acf-editor-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px;
+    background: #f1f1f1;
+    min-height: 100vh;
+}
+
+.acf-editor-controls {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.acf-control-panel {
+    flex: 1;
+    min-width: 300px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-top: 4px solid #2271b1;
+}
+
+.acf-control-panel h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+.acf-control-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.acf-editor-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.acf-editor-main {
+    flex: 7;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.acf-editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.acf-editor-sidebar {
+    flex: 3;
+    position: sticky;
+    top: 20px;
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#acf_json_output {
+    width: 100%;
+    height: 600px;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #2d2d2d;
+    color: #f8f8f2;
+    box-sizing: border-box;
+}
+
+.my-acf-duplicate-bottom {
+    display: block;
+    width: 100%;
+    margin-top: 15px !important;
+    margin-bottom: 5px !important;
+    background-color: #2271b1 !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 4px !important;
+    padding: 10px 0 !important;
+    font-weight: bold;
+    font-size: 13px !important;
+    text-decoration: none;
+    cursor: pointer;
+    text-align: center;
+    box-shadow: 0 2px 0 #135e96;
+    clear: both;
+}
+
+.my-acf-duplicate-bottom:hover {
+    background-color: #135e96 !important;
+}
+
+.custom-term-selector-wrap {
+    margin-top: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    padding: 5px;
+}
+
+.custom-term-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px;
+    margin-bottom: 5px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 16px !important;
+}
+
+.custom-term-list {
+    height: 250px;
+    overflow-y: auto;
+    border-top: 1px solid #eee;
+    padding: 5px 0;
+}
+
+.term-item {
+    padding: 6px 8px;
+    cursor: pointer;
+    font-size: 13px;
+    border-radius: 3px;
+}
+
+.term-item:hover {
+    background-color: #f0f0f1;
+}
+
+.term-item.selected {
+    background-color: #2271b1;
+    color: #fff;
+    font-weight: bold;
+}
+
+details {
+    margin-bottom: 2px;
+}
+
+summary {
+    list-style: none;
+    cursor: pointer;
+}
+
+.term-children {
+    margin-left: 20px;
+    border-left: 1px solid #eee;
+}
+
+@media screen and (max-width: 782px) {
+    .acf-editor-layout {
+        flex-direction: column;
+    }
+
+    .acf-editor-sidebar {
+        position: static;
+        width: 100%;
+    }
+
+    .acf-table,
+    .acf-tbody,
+    .acf-tr,
+    .acf-th,
+    .acf-td {
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .acf-repeater .acf-row {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+    }
+
+    .acf-repeater .acf-row-handle {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        flex: 0 0 20px !important;
+        width: 20px !important;
+        max-width: 20px !important;
+        min-width: 20px !important;
+        background: #f9f9f9 !important;
+        border-right: 1px solid #ccd0d4 !important;
+        padding-top: 10px !important;
+        box-sizing: border-box !important;
+    }
+
+    .acf-row-handle .acf-icon {
+        position: static !important;
+        margin: 0 auto 10px auto !important;
+        float: none !important;
+    }
+
+    .acf-repeater .acf-fields {
+        flex: 1 1 auto !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        padding: 4px 2px !important;
+        box-sizing: border-box !important;
+    }
+
+    .acf-fields>.acf-field {
+        padding: 2px 1px !important;
+        margin: 0 !important;
+        border-top: 1px solid #eee;
+    }
+
+    input,
+    textarea,
+    select,
+    .acf-input {
+        font-size: 16px !important;
+        max-width: 100% !important;
+    }
+}
