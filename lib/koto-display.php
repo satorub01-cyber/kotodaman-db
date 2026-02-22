@@ -423,7 +423,7 @@ function get_koto_trait_text_from_row($row)
 
         case 'new_traits':
             $sub = $row['new_traits'];
-            $new_map = ['support' => '応援', 'see_through' => '看破', 'assistance' => '援護', 'resonance' => '共鳴'];
+            $new_map = ['support' => '応援', 'see_through' => '看破', 'assistance' => '援護', 'resonance' => '共鳴', 'poke'=>'牽制'];
             $name = isset($new_map[$sub]) ? $new_map[$sub] : $sub;
             $limit = $row['limit_break_rate'];
 
@@ -439,6 +439,8 @@ function get_koto_trait_text_from_row($row)
                 } else {
                     $effect_text = "{$name}：自身と同じ文字のコトダマンが実体化している場合、これらのコトダマンのクリティカル率{$row['resonance_crit_rate']}%UP+クリティカルダメージ{$row['resonance_crit_damage']}%UP";
                 }
+            }elseif($sub === 'poke'){
+                $effect_text = "{$name}：敵全体に{$turn_text}{$rate}段階デバフを付与";
             }
             break;
 
@@ -1127,6 +1129,7 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                             $effect_text = "{$target_name}に{$st_name}を無効化するバリアを展開";
                             break;
                         case 'battle_field':
+                            // TODOvalue_typeへの対応
                             $field_text = [];
                             if (!empty($item['battle_field_loop']) && is_array($item['battle_field_loop'])) {
                                 foreach ($item['battle_field_loop'] as $field_item) {

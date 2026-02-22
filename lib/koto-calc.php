@@ -120,6 +120,8 @@ function get_character_spec_data($post_id)
         'trait2'        => [],
         'blessing'      => [],
         'leader'        => null,
+        'EX_skill'      => [],
+        'charge_skill'  => [],
         'corrections'   => [],
         'search_tags'   => [],
         'waza_search_tags' => [], // ★追加
@@ -138,7 +140,7 @@ function get_character_spec_data($post_id)
         'buff_counts_board'   => array_fill(0, 6, 0),
         'buff_counts_hand'   => array_fill(0, 6, 0),
         'debuff_counts' => array_fill(0, 6, 0),
-        'name-ruby'     => '',
+        'name_ruby'     => '',
         'cv'            => '',
         'acquisition'   => '', //入手場所
         'max_ls_hp'     => 0,
@@ -208,6 +210,7 @@ function get_character_spec_data($post_id)
     if ($sugo_groups && is_array($sugo_groups)) {
         $first_group = $sugo_groups[0];
         $details = $first_group['sugo_detail_loop'] ?? [];
+        $waza_target = $first_action['waza_target'] ?? '';
 
         if (!empty($details) && is_array($details)) {
             $first_action = $details[0];
@@ -220,7 +223,7 @@ function get_character_spec_data($post_id)
                 $data['priority'] = 2;
             } elseif (strpos($type, 'heal') !== false) {
                 $data['priority'] = 3;
-            } elseif (strpos($first_action['target'], 'single') !== false) {
+            } elseif (strpos($waza_target, 'single') !== false) {
                 $data['priority'] = 5;
             } else {
                 $data['priority'] = 4;
@@ -438,10 +441,23 @@ function get_character_spec_data($post_id)
     $data['kotowaza_search_tags'] = array_values(array_unique($data['kotowaza_search_tags']));
 
     $gimmick_list = get_field('gimmick', $post_id);
-    if ($gimmick_list) {
-        foreach ($gimmick_list as $g_id) {
-            $g_term = get_term($g_id);
-            if ($g_term && !is_wp_error($g_term)) $search_tags[] = 'gimmick_' . $g_term->slug;
+    if ($gimmick_list && is_array($gimmick_list)) {
+        foreach ($gimmick_list as $g_item) {
+            // オブジェクトで返ってきた場合
+            if (is_object($g_item) && isset($g_item->slug)) {
+                $search_tags[] = 'gimmick_' . $g_item->slug;
+            }
+            // 配列で返ってきた場合（← 今回のエラーの原因はおそらくコレです）
+            elseif (is_array($g_item) && isset($g_item['slug'])) {
+                $search_tags[] = 'gimmick_' . $g_item['slug'];
+            }
+            // ID(数値)で返ってきた場合
+            elseif (is_numeric($g_item)) {
+                $g_term = get_term($g_item);
+                if ($g_term && !is_wp_error($g_term)) {
+                    $search_tags[] = 'gimmick_' . $g_term->slug;
+                }
+            }
         }
     }
     $data['search_tags'] = array_values(array_unique($search_tags));
@@ -540,10 +556,10 @@ function get_character_spec_data($post_id)
             $cur_hand  = 0;
             $cur_debuff = 0;
 
-            if (!empty($var['timeline'])) {
-                foreach ($var['timeline'] as $action) {
+            if (!empty($var['timelines'])) {
+                foreach ($var['timelines'] as $action) {
                     $type   = $action['type'] ?? '';
-                    $target = $action['target'] ?? ''; // ★ターゲット判定に使用
+                    $target = $action['target']['main'] ?? ''; // ★ターゲット判定に使用
                     $amount = (int)($action['value'] ?? 0);
 
                     // A. バフ判定
@@ -689,8 +705,14 @@ function get_character_spec_data($post_id)
     $ls_loop = get_field('ls_loop', $post_id);
     if ($ls_loop) $data['leader'] = _parse_leader_skill_data($ls_loop);
 
+    // 7. EXスキル
+    $data['EX_skill'] = _parse_ex_skill($post_id);
+    // 8. チャージスキル
+    $data['charge_skill'] = _parse_charge_skill($post_id);
+
     // ★計算用補正値の生成
-    $data['corrections'] = _calculate_correction_values($data);
+    // $data['corrections'] = _calculate_correction_values($data);
+    $data['corrections'] = ['details' => []]; // 代わりに空のデータを入れておく
 
     return $data;
 }
@@ -729,7 +751,8 @@ function on_save_character_specs($post_id)
         'yokai'    => 8, // 妖
     ];
     // 1. 火力指数を計算
-    $firepower_index = _calculate_firepower_index($spec_data);
+    $firepower_index = 0;
+    // $firepower_index = _calculate_firepower_index($spec_data);
     // 2. 計算結果を配列（$spec_data）に反映させる！
     $spec_data['firepower_index'] = $firepower_index;
     // ▼▼ソート用に外に出す
@@ -856,6 +879,7 @@ function on_save_character_specs($post_id)
 
     // ▼▼▼ JSON保存前に不要な検索用タグ配列を削除 (軽量化) ▼▼▼
     $tags_to_remove = [
+        'traits',
         'search_tags',
         'waza_search_tags',
         'sugo_search_tags',
@@ -886,10 +910,11 @@ function on_save_character_specs($post_id)
     update_post_meta($post_id, '_spec_json', $json_output);
 }
 
-
+// TODO火力指数計算見直し
 // =================================================================
 //  【ヘルパー】火力指数 計算ロジック (全条件ON版)
 // =================================================================
+/*
 function _calculate_firepower_index($data)
 {
     // 1. 基礎ATK (計算済みのLv120数値を優先使用)
@@ -912,9 +937,9 @@ function _calculate_firepower_index($data)
     // 3. スキル選択 (すごわざの最初のバリエーションを優先 > わざ)
     $timeline = [];
     if (!empty($data['sugowaza']) && !empty($data['sugowaza']['variations'][0]['timeline'])) {
-        $timeline = $data['sugowaza']['variations'][0]['timeline'];
+        $timeline = $data['sugowaza']['variations'][0]['timelines'];
     } elseif (!empty($data['waza']) && !empty($data['waza']['variations'][0]['timeline'])) {
-        $timeline = $data['waza']['variations'][0]['timeline'];
+        $timeline = $data['waza']['variations'][0]['timelines'];
     }
     if (empty($timeline)) return 0;
 
@@ -930,7 +955,7 @@ function _calculate_firepower_index($data)
         // ★条件(cond)の有無に関わらず、すべて加算する (全発動前提)
 
         $type = $action['type'] ?? '';
-        $target = $action['target'] ?? '';
+        $target = $action['target']['main'] ?? '';
         $val = (float)($action['value'] ?? 0);
         $amt = (int)$val;
 
@@ -971,11 +996,13 @@ function _calculate_firepower_index($data)
 
     return floor($total_damage);
 }
+*/
 
-
+// TODO補正値作成見直し
 // =================================================================
 //  【ヘルパー】補正値計算 & カテゴリ振り分け
 // =================================================================
+/*
 function _calculate_correction_values($data)
 {
     $result = [];
@@ -1100,15 +1127,27 @@ function _calculate_correction_values($data)
     $result['details'] = $details;
     return $result;
 }
+*/
 // 対象選択フィールドグループをspec_json用に崩す関数
 function parse_target_group($grp)
 {
     $result = ['type' => '', 'obj' => []];
-    if (empty($grp)) return $result;
-    if (!is_array($grp)) return $result;
 
-    $raw_type = $grp['target_type'] ?? '';
+    // $grp が空、または配列でない、または target_type が空の場合はすぐに返す
+    if (empty($grp) || !is_array($grp) || empty($grp['target_type'])) {
+        $result['obj'][] = ['slug' => '', 'name' => ''];
+        return $result;
+    }
+
+    $raw_type = $grp['target_type'];
     $type = is_array($raw_type) ? ($raw_type['value'] ?? '') : $raw_type;
+
+    // typeが空文字の場合も処理を中断する
+    if (!$type) {
+        $result['obj'][] = ['slug' => '', 'name' => ''];
+        return $result;
+    }
+
     $result['type'] = $type;
     if ($type !== 'self' && $type !== 'all') {
         if ($type === 'other') {
@@ -1118,12 +1157,18 @@ function parse_target_group($grp)
             ];
         } else {
             $field_key = 'target_' . $type;
-            foreach ($grp[$field_key] ?? [] as $term) {
-                if (is_object($term)) {
-                    $result['obj'][] = [
-                        'slug' => $term->slug,
-                        'name' => $term->name
-                    ];
+            // ここでキーが存在するかチェックを入れる（重要！）
+            if (isset($grp[$field_key])) {
+                $target_data = $grp[$field_key];
+                if (!is_array($target_data)) $target_data = [$target_data];
+
+                foreach ($target_data as $term) {
+                    if (is_object($term)) {
+                        $result['obj'][] = [
+                            'slug' => $term->slug,
+                            'name' => $term->name
+                        ];
+                    }
                 }
             }
         }
@@ -1140,7 +1185,7 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
     $data = [];
     foreach ($trait_loop as $t) {
         $parsed = [
-            'type'=>'',
+            'type' => '',
             'sub_type' => '',
             'rate_type' => '',
             'value' => 0,
@@ -1148,11 +1193,13 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
             'whose' => 'self',
             'super_heal' => 0,
             'limit_break' => 0,
-            'turn_count'=>1,
+            'turn_count' => 1,
             'resist_status' => '',
-            'target_info'=>[],
-            'per_unit'=>false,
-            'conditions'=>[],
+            'target_info' => [],
+            'per_unit' => false,
+            'conditions' => [],
+            'crit_rate' => 0,
+            'crit_damage' => 0,
         ];
 
         // --- 基本情報 ---
@@ -1174,7 +1221,6 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
         }
         $parsed['sub_type'] = $sub;
         $parsed['rate_type'] = $t['rate_type'] ?? '';
-        $parsed['value'] = (float)$val;
         // rate_typeの修正
         $rate_type_both = [
             'status',
@@ -1313,6 +1359,7 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
             if (isset($t['trait_rate']) && $t['trait_rate'] !== '') $val = (float)$t['trait_rate'];
             elseif (isset($t['value']) && $t['value'] !== '') $val = (float)$t['value'];
         }
+        $parsed['value'] = (float)$val;
 
         // --- whose_trait ---
         $whose_raw = $t['whose_trait'] ?? 'self';
@@ -1395,7 +1442,7 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
                 }
                 if (!empty($t['resonance_crit_damage'])) $parsed['crit_damage'] = (float)$t['resonance_crit_damage'];
             }
-            if ($sub === 'see_through') {
+            if ($sub === 'see_through' || $sub === 'poke') {
                 if (isset($t['limit_break_rate']) && $t['limit_break_rate'] !== '') {
                     $parsed['limit_break'] = (int)$t['limit_break_rate'];
                 }
@@ -1454,7 +1501,7 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
     }
     return $data;
 }
-function sprit_str_camma($val)
+function split_str_comma($val)
 {
     // 1. 全角を半角に統一
     $val = str_replace('、', ',', $val);
@@ -1463,7 +1510,7 @@ function sprit_str_camma($val)
     // 3. 空文字の除去（入力が空だった場合に [] になるようにする）
     $vals = array_filter($val_array, 'strlen');
     $vals = array_map(function ($item) {
-        return is_numeric($item) ? (float)$item : $item;
+        return is_numeric($item) ? (int)$item : $item;
     }, $vals);
     return $vals;
 }
@@ -1479,7 +1526,7 @@ function _parse_trait_condition($cond_data)
         $type = $c['condition_type'] ?? '';
         $val  = $c['condition_value'] ?? '';
         $target_conds = ['type' => '', 'attr' => [], 'species' => [], 'group' => [], 'other' => ''];
-        $vals = sprit_str_camma($val);
+        $vals = split_str_comma($val);
         $target_cond = ['attr', 'species', 'group', 'other'];
         if (in_array($c['condition_type'], $target_cond)) {
             $target_group = [
@@ -1505,204 +1552,267 @@ function _parse_trait_condition($cond_data)
 // すごわざ条件解析
 function _parse_sugo_condition($cond_data)
 {
-    $is_sugo_pattern = isset($cond_data[0]['sugo_cond_loop']);
-    if ($is_sugo_pattern) {
-        foreach ($cond_data as $pattern) {
-            if (!empty($pattern['sugo_cond_loop'])) {
-                foreach ($pattern['sugo_cond_loop'] as $c) {
-                    $parsed[] = [
-                        'type' => $c['sugo_cond_type'],
-                        'val'  => $c['sugo_cond_val'],
-                        'condition_type' => $c['sugo_cond_type'],
-                        'condition_value' => $c['sugo_cond_val']
-                    ];
-                }
+    $parsed = [];
+
+    // 1. データが空、または構造が異なる場合のデフォルト設定
+    if (empty($cond_data) || !isset($cond_data[0]['sugo_cond_loop'])) {
+        return [
+            [
+                'get_place'  => 'default',
+                'need_point' => 0,
+                'conditions' => [
+                    ['type' => 'char_count', 'values' => [4]]
+                ]
+            ]
+        ];
+    }
+    foreach ($cond_data as $pattern) {
+        $conditions = [];
+        if (!empty($pattern['sugo_cond_loop'])) {
+            $conditions = [];
+            foreach ($pattern['sugo_cond_loop'] as $c) {
+                $values = $c['sugo_cond_val'] ? split_str_comma($c['sugo_cond_val']) : [(int)4];
+                $conditions[] = [
+                    'type' => $c['sugo_cond_type'] ?? 'char_count',
+                    'values'  => $values
+                ];
             }
         }
+        $get_place = $pattern['get_place'] ?? 'default';
+        $need_point = $pattern['need_blessing_point'] ?? 0;
+        $parsed[] = [
+            'get_place' => $get_place,
+            'need_point' => $need_point,
+            'conditions' => $conditions
+        ];
     }
+    return $parsed;
 }
 
 // =================================================================
-//  【内部ヘルパー】スキル解析 (全タイプ対応・完全版)
+//  【内部ヘルパー】わざ解析 (全タイプ対応・完全版)
 // =================================================================
 function _parse_skill_groups_to_data($groups, $shift_type = 'none')
 {
-    if (empty($groups)) return [];
+    // ▼ 初期化処理
+    $conditions = [[
+        'type' => '',
+        'val' => [],
+        'hp_detail' => '',
+        'cond_target' => parse_target_group([])
+    ]];
 
-    $variations = [];
+    $bt_field_eff = [[
+        'target' => parse_target_group([]),
+        'value_type' => 'normal',
+        'value' => (int)0,
+    ]];
 
+    $timelines = [[
+        'type' => '',
+        'attack_type' => [], // 配列に変更
+        'at_type_target' => parse_target_group([]), // 追加
+        'killer_rate' => (float)0,
+        'target' => [
+            'main' => '',
+            'type' => '',
+            'obj' => [['slug' => '', 'name' => '']]
+        ],
+        'color_order' => [],
+        'value' => (float)0,
+        'value_last' => (float)0,
+        'hit_count' => (int)1,
+        'is_moji_healing' => false,
+        'resist_status' => '',
+        'token_id' => '',
+        'moji_exhaust' => false,
+        'omni_advantage' => false,
+        'element' => '',
+        'turn_count' => (int)1,
+        'pressure_debuff' => [],
+        'bt_field_eff' => $bt_field_eff,
+        'conditions' => $conditions
+    ]];
+
+    $variations = [
+        'shift_value' => [], // 配列に変更
+        'timelines' => $timelines,
+    ];
+
+    // 空の場合は初期化配列を要素に持つ配列を返す
+    if (empty($groups) || !is_array($groups)) return [$variations];
+
+    $result = [];
+
+    // ▼ グループごとの解析処理
     foreach ($groups as $g) {
-        $variant = [];
+        $variant = [
+            'shift_value' => [],
+            'timelines'   => []
+        ];
 
-        // 1. シフト条件の値を取得
-        $shift_val = null;
+        // 1. シフト条件の値を取得（配列として格納）
+        $shift_val = [];
         if ($shift_type === 'random') {
-            $shift_val = $g['random_count'] ?? '';
+            $shift_val[] = (string)($g['random_count'] ?? '');
         } elseif ($shift_type === 'attr') {
             $terms = $g['sugo_shift_attr'] ?? ($g['kotowaza_shift_attr'] ?? null);
             if ($terms && is_array($terms)) {
-                $slugs = [];
-                foreach ($terms as $t) if (is_object($t)) $slugs[] = $t->slug;
-                $shift_val = $slugs;
+                foreach ($terms as $t) if (is_object($t)) $shift_val[] = $t->slug;
             }
         } elseif ($shift_type === 'moji') {
             $terms = $g['sugo_shift_moji'] ?? ($g['kotowaza_shift_moji'] ?? null);
             if ($terms && is_array($terms)) {
-                $chars = [];
-                foreach ($terms as $t) if (is_object($t)) $chars[] = $t->name;
-                $shift_val = $chars;
+                foreach ($terms as $t) if (is_object($t)) $shift_val[] = $t->name;
             }
         } elseif ($shift_type === 'attacked') {
-            $shift_val = $g['sugo_shift_attacked'] ?? ($g['kotowaza_shift_attacked'] ?? 0);
+            $shift_val[] = (string)($g['sugo_shift_attacked'] ?? ($g['kotowaza_shift_attacked'] ?? ''));
         }
         $variant['shift_value'] = $shift_val;
 
-        // 2. タイムライン解析
-        $timeline = [];
-        $details = $g['sugo_detail_loop'] ?? ($g['waza_detail_loop'] ?? ($g['kotowaza_detail_loop'] ?? []));
-
-        // グループ全体の追加条件
-        $cond_type = $g['condition_type'] ?? 'none';
-        $cond_val  = $g['condition_value'] ?? null;
-        $cond_detail = [];
-        if ($cond_type === 'attr' && !empty($g['condition_attr'])) {
-            $cond_detail['attr'] = wp_list_pluck($g['condition_attr'], 'slug');
-        } elseif ($cond_type === 'group' && !empty($g['condition_affiliation'])) {
-            $cond_detail['group'] = wp_list_pluck($g['condition_affiliation'], 'slug');
+        // 2. タイムラインの条件を取得
+        $cond_data = $g['waza_add_cond_loop'] ?? [];
+        $parsed_conditions = _parse_trait_condition($cond_data);
+        if (empty($parsed_conditions)) {
+            $parsed_conditions = $conditions; // デフォルト構造を維持
         }
+
+        // 3. タイムラインループの解析
+        $details = $g['sugo_detail_loop'] ?? ($g['waza_detail_loop'] ?? ($g['kotowaza_detail_loop'] ?? []));
 
         if (!empty($details)) {
             foreach ($details as $d) {
-                $action = [];
-
-                // --- 基本タイプ ---
+                // --- 技タイプ ---
                 $type_raw = $d['waza_type'] ?? '';
-                $action['type'] = is_array($type_raw) ? ($type_raw['value'] ?? '') : $type_raw;
+                $type = is_array($type_raw) ? ($type_raw['value'] ?? '') : $type_raw;
 
-                // --- ターゲット ---
-                $target_raw = $d['waza_target'] ?? '';
-                $action['target'] = is_array($target_raw) ? ($target_raw['value'] ?? '') : $target_raw;
+                // --- 攻撃タイプ（配列化） ---
+                $atk_type_raw = $d['attack_type'] ?? [];
+                $attack_type = [];
+                if (is_array($atk_type_raw)) {
+                    foreach ($atk_type_raw as $at) {
+                        $attack_type[] = is_array($at) ? ($at['value'] ?? '') : $at;
+                    }
+                } elseif ($atk_type_raw) {
+                    $attack_type[] = $atk_type_raw;
+                }
 
-                // --- ターゲット詳細 ---
-                if (!empty($d['waza_target_detail']) && $d['waza_target_detail'] !== 'none') {
-                    $action['target_detail'] = [
-                        'type' => $d['waza_target_detail'],
-                        'attr' => !empty($d['target_detail_attr']) ? wp_list_pluck($d['target_detail_attr'], 'slug') : [],
-                        'species' => !empty($d['target_detail_species']) ? wp_list_pluck($d['target_detail_species'], 'slug') : [],
-                        'group' => !empty($d['target_detail_group']) ? wp_list_pluck($d['target_detail_group'], 'slug') : [],
+                // --- 上昇対象 / 連携対象 ---
+                $at_type_target = parse_target_group([]);
+                if (!empty($d['advantage_target']['target_type'])) {
+                    $at_type_target = parse_target_group($d['advantage_target']);
+                } elseif ($type === 'coop_attack' && !empty($d['coop_target'])) {
+                    // 連携先グループ情報（単一タームでも配列に変換して処理）
+                    $dummy_coop = [
+                        'target_type' => 'group',
+                        'target_group' => is_array($d['coop_target']) ? $d['coop_target'] : [$d['coop_target']]
                     ];
+                    $at_type_target = parse_target_group($dummy_coop);
                 }
 
-                // --- 数値・倍率 ---
-                $action['value'] = isset($d['waza_value']) && $d['waza_value'] !== '' ? (float)$d['waza_value'] : 0;
-                $action['value_last'] = isset($d['waza_value_last']) ? (float)$d['waza_value_last'] : 0;
-                $action['hit_count'] = isset($d['hit_count']) ? (int)$d['hit_count'] : 1;
+                // --- ターゲットメイン / サブ ---
+                $waza_target_main = $d['waza_target'] ?? '';
+                $waza_target_type = $d['waza_target_detail'] ?? 'none';
 
-                // 攻撃・号令・回復 以外の場合は整数化する（バフ回数や固定値など）
-                if (strpos($action['type'], 'attack') === false && strpos($action['type'], 'command') === false && strpos($action['type'], 'heal') === false) {
-                    $action['value'] = (int)$action['value'];
+                $parsed_target = parse_target_group([]);
+                if ($waza_target_type !== 'none') {
+                    $dummy_target_grp = [
+                        'target_type'    => $waza_target_type,
+                        'target_attr'    => $d['target_detail_attr'] ?? [],
+                        'target_species' => $d['target_detail_species'] ?? [],
+                        'target_group'   => $d['target_detail_group'] ?? [],
+                        'target_other'   => $d['target_detail_other'] ?? ''
+                    ];
+                    $parsed_target = parse_target_group($dummy_target_grp);
                 }
 
-                // --- 特殊項目 ---
+                $target_array = [
+                    'main' => $waza_target_main,
+                    'type' => $parsed_target['type'],
+                    'obj'  => $parsed_target['obj']
+                ];
 
-                // A. ターン数
-                if (isset($d['turn_count']) && $d['turn_count'] !== '') {
-                    $action['turn'] = (int)$d['turn_count'];
+                // --- その他のパラメータ ---
+                $color_order = [];
+                if (!empty($d['colorfull_attack_attr'])) {
+                    foreach ($d['colorfull_attack_attr'] as $c) {
+                        if (is_object($c)) $color_order[] = $c->slug;
+                    }
                 }
 
-                // C. フィールド (battle_field)
-                if ($action['type'] === 'battle_field' && !empty($d['battle_field_loop'])) {
-                    $fields = [];
+                $token_id = '';
+                if (!empty($d['related_token'])) {
+                    $t_obj = is_array($d['related_token']) ? ($d['related_token'][0] ?? null) : $d['related_token'];
+                    if (is_object($t_obj)) $token_id = (string)$t_obj->ID;
+                }
+
+                $element = '';
+                if (!empty($d['attack_attr']) && is_object($d['attack_attr'])) {
+                    $element = $d['attack_attr']->slug;
+                }
+
+                $pressure_debuff = [];
+                if (!empty($d['pressure_debuff_count'])) {
+                    $pressure_debuff = split_str_comma($d['pressure_debuff_count']);
+                }
+
+                // --- フィールド効果 ---
+                $parsed_bt_field_eff = [];
+                if (!empty($d['battle_field_loop'])) {
                     foreach ($d['battle_field_loop'] as $f) {
-                        $fields[] = [
-                            'target' => $f['battle_field_target'] ?? '',
-                            'attr'   => !empty($f['battle_field_attr']) ? wp_list_pluck($f['battle_field_attr'], 'slug') : [],
-                            'species' => !empty($f['battle_field_species']) ? wp_list_pluck($f['battle_field_species'], 'slug') : [],
-                            'group'  => !empty($f['battle_field_affiliation']) ? wp_list_pluck($f['battle_field_affiliation'], 'slug') : [],
-                            'moji'   => !empty($f['battle_field_moji']) ? wp_list_pluck($f['battle_field_moji'], 'name') : [],
-                            'value'  => (float)($f['battle_field_value'] ?? 0)
+                        $dummy_bf_grp = [
+                            'target_type'    => $f['battle_field_target'] ?? '',
+                            'target_attr'    => $f['battle_field_attr'] ?? [],
+                            'target_species' => $f['battle_field_species'] ?? [],
+                            'target_group'   => $f['battle_field_affiliation'] ?? [],
+                            'target_moji'    => $f['battle_field_moji'] ?? [],
+                            'target_other'   => ''
+                        ];
+                        $parsed_bt_field_eff[] = [
+                            'target'     => parse_target_group($dummy_bf_grp),
+                            'value_type' => $f['battle_field_value_type'] ?? 'normal',
+                            'value'      => (int)($f['battle_field_value'] ?? 0)
                         ];
                     }
-                    $action['fields'] = $fields;
-                    if (!empty($fields[0]['value'])) {
-                        $action['value'] = $fields[0]['value'];
-                    }
+                }
+                if (empty($parsed_bt_field_eff)) {
+                    $parsed_bt_field_eff = $bt_field_eff; // デフォルト構造を維持
                 }
 
-                // D. 重圧
-                if ($action['type'] === 'pressure') {
-                    $action['debuff_count'] = isset($d['pressure_debuff_count']) ? $d['pressure_debuff_count'] : '';
-                }
-
-                // E. 状態異常バリア
-                if ($action['type'] === 'status_barrier') {
-                    $action['barrier_status'] = $d['target_status'] ?? 'all';
-                }
-
-                // F. トークン
-                if ($action['type'] === 'token' && !empty($d['related_token'])) {
-                    $token_obj = is_array($d['related_token']) ? ($d['related_token'][0] ?? null) : $d['related_token'];
-                    if ($token_obj && is_object($token_obj)) {
-                        $action['token_id'] = $token_obj->ID;
-                        $action['token_name'] = $token_obj->post_title;
-                    }
-                }
-
-                // G. 攻撃タイプ・属性・連携
-                if (strpos($action['type'], 'attack') !== false || $action['type'] === 'command') {
-                    $atk_type_raw = $d['attack_type'] ?? 'normal';
-                    $atk_type_val = is_array($atk_type_raw) ? ($atk_type_raw['value'] ?? 'normal') : $atk_type_raw;
-                    if (is_array($atk_type_val)) $atk_type_val = $atk_type_val[0] ?? 'normal';
-                    $action['attack_type'] = $atk_type_val;
-
-                    // 攻撃属性
-                    $action['element'] = '';
-                    $el = $d['attack_attr'] ?? null;
-                    if (is_object($el)) $action['element'] = $el->slug;
-
-                    // 連携対象 (coop_target)
-                    if ($action['type'] === 'coop_attack') {
-                        $ct = $d['coop_target'] ?? null;
-                        if (is_object($ct)) $action['coop_target'] = $ct->slug;
-                    }
-
-                    // ★ I. 単体単発攻撃フラグ (is_single_shot)
-                    // 条件: 攻撃系(attack/coop) かつ 敵単体(single_oppo) かつ (連携攻撃 OR Hit数1)
-                    if (strpos($action['type'], 'attack') !== false && $action['target'] === 'single_oppo') {
-                        // 連携攻撃はHit数設定がなくても単発扱い
-                        if ($action['type'] === 'coop_attack' || $action['hit_count'] === 1) {
-                            $action['is_single_shot'] = true;
-                        }
-                    }
-                }
-
-                // H. カラフル攻撃・全属性有利
-                if ($action['type'] === 'colorfull_attack') {
-                    $action['color_sequence'] = !empty($d['colorfull_attack_attr']) ? wp_list_pluck($d['colorfull_attack_attr'], 'slug') : [];
-                    $action['hit_count'] = count($action['color_sequence']);
-                }
-                $action['omni_advantage'] = !empty($d['omni_advantage']); // 全属性有利
-
-
-                // --- 条件オブジェクト ---
-                if ($cond_type !== 'none') {
-                    $action['cond'] = [
-                        'type' => $cond_type,
-                        'val' => $cond_val,
-                        'detail' => $cond_detail
-                    ];
-                } else {
-                    $action['cond'] = null;
-                }
-
-                $timeline[] = $action;
+                // タイムライン追加
+                $variant['timelines'][] = [
+                    'type'            => $type,
+                    'attack_type'     => $attack_type,
+                    'at_type_target'  => $at_type_target,
+                    'killer_rate'     => (float)($d['advantage_rate'] ?? 0),
+                    'target'          => $target_array,
+                    'color_order'     => $color_order,
+                    'value'           => (float)($d['waza_value'] ?? 0),
+                    'value_last'      => (float)($d['waza_value_last'] ?? 0),
+                    'hit_count'       => (int)($d['hit_count'] ?? 1),
+                    'is_moji_healing' => (bool)($d['is_moji_healing'] ?? false),
+                    'resist_status'   => $d['target_status'] ?? '',
+                    'token_id'        => $token_id,
+                    'moji_exhaust'    => (bool)($d['moji_exhaust'] ?? false),
+                    'omni_advantage'  => (bool)($d['omni_advantage'] ?? false),
+                    'element'         => $element,
+                    'turn_count'      => (int)($d['turn_count'] ?? 1),
+                    'pressure_debuff' => $pressure_debuff,
+                    'bt_field_eff'    => $parsed_bt_field_eff,
+                    'conditions'      => $parsed_conditions
+                ];
             }
         }
-        $variant['timeline'] = $timeline;
-        $variations[] = $variant;
+
+        // details が空だった場合のフォールバック
+        if (empty($variant['timelines'])) {
+            $variant['timelines'] = $timelines;
+        }
+
+        $result[] = $variant;
     }
 
-    return $variations;
+    return $result;
 }
 
 // lsの効果成形関数
@@ -1750,14 +1860,14 @@ function _parse_leader_skill_data($loop)
                 ]
             ]
         ];
+        $conditions = [];
         if (!empty($pattern['ls_cond_pattern_loop'])) :
-            $conditions = [];
             foreach ($pattern['ls_cond_pattern_loop'] as $cond_p) {
                 if (!empty($cond_p['ls_cond_loop'])) :
                     foreach ($cond_p['ls_cond_loop'] as $cond) {
                         $temp_cond = [
                             'type' => $cond['ls_cond_type'] ?? '',
-                            'val' => !empty($cond['ls_cond_val']) ? sprit_str_camma($cond['ls_cond_val']) : [],
+                            'val' => !empty($cond['ls_cond_val']) ? split_str_comma($cond['ls_cond_val']) : [],
                             'cond_targets' => [],
                         ];
                         switch ($temp_cond['type']):
@@ -1814,7 +1924,7 @@ function _parse_leader_skill_data($loop)
             if (!empty($pattern['per_unit_loop'])) {
                 foreach ($pattern['per_unit_loop'] as $pu) {
                     $pre_eff = [];
-                    $targets=[];
+                    $targets = [];
                     $targets[] = $pu['target_field_group'] ? parse_target_group($pu['target_field_group']) : [];
                     $values = $pu['ls_status_loop'] ? parse_ls_eff($pu['ls_status_loop']) : [];
                     $pre_eff = [
@@ -1829,9 +1939,13 @@ function _parse_leader_skill_data($loop)
                 $pre_eff = [];
                 $values = $pattern['ls_status_loop'] ? parse_ls_eff($pattern['ls_status_loop']) : [];
                 $targets_loop = $pattern['ls_target_chara_loop'] ?? [];
+                if (!is_array($targets_loop)) $targets_loop = [$targets_loop];
                 $targets = [];
                 foreach ($targets_loop as $t) {
-                    $targets[] = parse_target_group($t['target_field_group']);
+                    // $t が配列であり、かつ対象のキーが存在する場合のみ実行
+                    if (is_array($t) && isset($t['target_field_group'])) {
+                        $targets[] = parse_target_group($t['target_field_group']);
+                    }
                 }
                 $pre_eff = [
                     'targets' => $targets,
@@ -1843,10 +1957,130 @@ function _parse_leader_skill_data($loop)
         $parsed['main_eff'] = $eff_raws;
         if ($parsed['type'] === 'converged') {
             $conv_2 = (float)($pattern['converge_rate_2'] ?? 0);
-            $conv_1 = (float)($pattern['converge_rate_1']?? 0);
+            $conv_1 = (float)($pattern['converge_rate_1'] ?? 0);
             $parsed['converge_rate'] = ['conv_2' => $conv_2, 'conv_1' => $conv_1];
         }
         $data[] = $parsed;
     }
     return $data;
+}
+
+// =================================================================
+//  【内部ヘルパー】EXスキル解析
+// =================================================================
+function _parse_ex_skill($post_id)
+{
+    // ▼ 初期化処理
+    $result = [
+        'name'            => '',
+        'skill_kind'      => '',
+        'add_eff'         => [
+            'type'       => '',
+            'target'     => '',
+            'value'      => (int)0,
+            'turn_count' => (int)1
+        ],
+        'search_priority' => parse_target_group([])
+    ];
+
+    // スキル名がない場合（EXスキル非所持）は初期状態のまま返す
+    $name = get_field('ex_skill_label', $post_id);
+    if (empty($name)) {
+        return $result;
+    }
+
+    // 値の取得と代入
+    $result['name']       = (string)$name;
+    $result['skill_kind'] = (string)get_field('ex_skill_name', $post_id);
+
+    $result['add_eff']['type']   = (string)get_field('additional_effect', $post_id);
+    $result['add_eff']['target'] = (string)get_field('effect_target', $post_id);
+    $result['add_eff']['value']  = (int)get_field('effect_value', $post_id);
+
+    $turn_count = get_field('turn_count', $post_id);
+    $result['add_eff']['turn_count'] = ($turn_count !== '') ? (int)$turn_count : 1;
+
+    // サーチ優先対象（Groupフィールドはそのまま parse_target_group に渡せるフィールド名構造になっています）
+    $priority_group = get_field('search_priority', $post_id);
+    if (!empty($priority_group)) {
+        $result['search_priority'] = parse_target_group($priority_group);
+    }
+
+    return $result;
+}
+
+
+// =================================================================
+//  【内部ヘルパー】チャージスキル解析
+// =================================================================
+function _parse_charge_skill($post_id)
+{
+    // ▼ 初期化処理
+    $effect_init = [
+        'type'          => '',
+        'target'        => [
+            'main' => '',
+            'type' => '',
+            'obj'  => [['slug' => '', 'name' => '']]
+        ],
+        'target_status' => [],
+        'value'         => (int)0,
+        'turn_count'    => (int)1
+    ];
+
+    $result = [
+        'name'        => '',
+        'need_charge' => (int)0,
+        'effect'      => [$effect_init]
+    ];
+
+    // スキル名がない場合（チャージスキル非所持）は初期状態のまま返す
+    $name = get_field('charge_skill_name', $post_id);
+    if (empty($name)) {
+        return $result;
+    }
+
+    $result['name']        = (string)$name;
+    $result['need_charge'] = (int)get_field('need_charge', $post_id);
+
+    // リピーターフィールドのループ処理
+    $loop = get_field('charge_skill_loop', $post_id);
+    if (!empty($loop) && is_array($loop)) {
+        $effects = [];
+        foreach ($loop as $row) {
+            $type        = $row['charge_type'] ?? '';
+            $target_main = $row['effect_target'] ?? '';
+
+            // 対象条件の取得（Groupフィールドのサブフィールドキーが共通関数に適合しています）
+            $target_cond_group = $row['target_cond_group'] ?? [];
+            $parsed_target = parse_target_group($target_cond_group);
+
+            // parse_target_group が空を返した時の保険
+            if (empty($parsed_target['type'])) {
+                $parsed_target = parse_target_group([]);
+            }
+
+            $target_array = [
+                'main' => $target_main,
+                'type' => $parsed_target['type'],
+                'obj'  => $parsed_target['obj']
+            ];
+
+            $target_status = $row['target_resistance'] ?? [];
+
+            $value = isset($row['charge_skill_value']) && $row['charge_skill_value'] !== '' ? (int)$row['charge_skill_value'] : 0;
+            $turn  = isset($row['effect_turn']) && $row['effect_turn'] !== '' ? (int)$row['effect_turn'] : 1;
+
+            $effects[] = [
+                'type'          => $type,
+                'target'        => $target_array,
+                'target_status' => $target_status,
+                'value'         => $value,
+                'turn_count'    => $turn
+            ];
+        }
+        $result['effect'] = $effects;
+    }
+
+    return $result;
 }

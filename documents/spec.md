@@ -177,6 +177,24 @@
 |group|グループ|
 |other|その他|
 
+## すごわざ条件タイプ
+|value|label|
+|---|---|
+|char_count|文字数|
+|combo|コンボ数|
+|theme|テーマ指定|
+|start_char|頭文字指定|
+|end_char|末尾指定|
+|char_contain|含まれる文字指定|
+
+### わざシフト条件タイプ
+|value|label|
+|---|---|
+|none|なし|
+|attr|属性|
+|moji|文字|
+|attacked|殴られた回数|
+|random|ランダム|
 ## リーダーとくせいタイプ
 |value|label|
 |---|---|
@@ -263,6 +281,7 @@
 |assistance|援護|
 |resonance|共鳴|
 |crit_resonance|クリティカル共鳴(spec_jsonのみに実装)|
+|poke|牽制|
 
 ### ダメージ与える系
 |value|label|
@@ -291,7 +310,7 @@
   
 # _spec_jsonの構造
 ## 概要
-  |キー|型|要素数|データの役割|実装済み?|
+  |キー|型|要素数|データの役割|未実装?|
   |---|---|---|---|---|
   |id|int||キャラの投稿ID||
   |name|string||キャラ名||
@@ -299,7 +318,7 @@
   |_val_120_hp/atk|int||lv120時のHP/攻撃力||
   |talent_hp/atk|int||才能開花MAXで増加するHP/攻撃力||
   |is_no_lv120|bool||trueなら昇華なし(低レア、トークンなど)||
-  |rarity|str||レアリティ|none,special,legend,grand|
+  |rarity|str||レアリティnone,special,legend,grand||
   |release_date|日付||実装日||
   |attribute|str||属性||
   |sub_attributes|str|任意|サブ属性|
@@ -307,21 +326,23 @@
   |groups|連想配列|任意|グループ||
   |┣slug|str||グループのタームスラッグ||
   |┗name|str||グループのタームラベル||
-  |waza|json||わざタイムライン||
-  |sugowaza|json||すごわざタイムライン||
-  |kotowaza|json|5|ことわざタイムライン||
+  |waza|連想配列||わざタイムライン||
+  |sugowaza|連想配列||すごわざタイムライン||
+  |kotowaza|連想配列|5|ことわざタイムライン||
   |priority|int||すごわざ発動の順番|
-  |traits|json|任意|とくせい１と２||
-  |trait1|json|任意|とくせい１||
-  |trait2|json|任意|とくせい２||
-  |blessing|json|0~8|祝福とくせい||
-  |leader|json||リーダーとくせい||
+  |traits|連想配列|任意|とくせい１と２||
+  |trait1|連想配列|任意|とくせい１||
+  |trait2|連想配列|任意|とくせい２||
+  |blessing|連想配列|0~8|祝福とくせい||
+  |leader|連想配列||リーダーとくせい||
+  |EX_skill|連想配列||EXスキル詳細||
+  |charge_skill|連想配列||チャージスキル詳細||
   |corrections|json|任意|火力指数計算に必要な火力補正の配列||
   |chars|json|1~6|使える文字||
   |buff_counts_board|int|6|すごわざのみと、すごわざ＋各凸での盤面バフ||
   |buff_counts_hand|int|6|すごわざのみと、すごわざ＋各凸での手札バフ||
   |debuff_counts|int|6|すごわざのみと、すごわざ＋各凸でのデバフ||
-  |name-ruby|str||キャラ名(並べ替え用)||
+  |name_ruby|str||キャラ名(並べ替え用)||
   |cv|str||声優名||
   |acquisition|str||ガチャ産かその他||
   |max_ls_hp|int||最大リーダーhp倍率(並べ替え用)||
@@ -335,14 +356,14 @@
   
 ## 詳細
 ### chars
-  |キー|型|要素数|データの役割|実装済み?|
+  |キー|型|要素数|データの役割|未実装?|
   |---|---|---|---|---|
   |val|str||ひらがな||
   |slug|str||タクソノミーのスラッグ||
   |unlock|str||初期かとくせい1/2か祝福とくせいか||
   |attr|str||この文字の属性||
 ### waza
-  |キー|型|要素数|データの役割|実装済み?|
+  |キー|型|要素数|データの役割|未実装?|
   |---|---|---|---|---|
   |name|str||わざの名前||
   |variations|連想配列|任意|本体（わざのタイムライン）_parse_skill_groups_to_data参照||
@@ -351,7 +372,7 @@
 詳細は_parse_skill_groups_to_data参照  
 #### scailing
 詳細は$get_scaling_datas参照  
-  |キー|型|要素数|データの役割|実装済み?|
+  |キー|型|要素数|データの役割|未実装?|
   |---|---|---|---|---|
   |type|str||収束か文字数か||
   |row|連想配列|2|倍率とその条件||
@@ -366,7 +387,7 @@
   |---|---|---|---|---|
   |name|str||わざの名前||
   |condition|連想配列|or条件の数|すごわざ発動条件_parse_activation_condition参照||
-  |shift_type|str||シフト条件の種類||
+  |shift_type|str||わざシフト条件タイプ||
   |variations|連想配列|任意|本体（すごわざのタイムライン）_parse_skill_groups_to_data参照||
   |scaling|連想配列|任意|倍率表の内容（$get_scaling_datas参照）|||
 #### variations
@@ -402,7 +423,7 @@
   |contens|連想配列|任意|とくせい内容_parse_leader_skill_data参照||
 ### blessing
 連想配列_parse_leader_skill_data参照
-<!-- TODOヘルパー関数を参照させる部分はキーと型、軽い役割だけ表にしておく -->
+<!-- DONEヘルパー関数を参照させる部分はキーと型、軽い役割だけ表にしておく -->
 ### leader
 連想配列_parse_leader_skill_data参照
 ### corrections
@@ -494,9 +515,10 @@
 |_parse_sugo_condition|ACFのすごわざ発動条件のgroup_loop|連想配列|条件の連想配列|連想配列|なし|
 |_parse_leader_skill_data|ACFのリーダーとくせいループ|連想配列||連想配列|なし|
 |parse_ls_eff|ACFのls_statusloop|連想配列||連想配列|なし|
-|||||||
-|||||||
-|||||||
+|split_str_comma|任意の文字列|str|文字列の配列|配列|なし|
+|_parse_skill_groups_to_data|ACFのループ,シフトタイプ|連想配列,str|わざの連想配列|連想配列|なし|
+|_parse_ex_skill|ACFの配列|連想配列|exスキル内容|連想配列|なし|
+|_parse_charge_skill|ACFの配列|連想配列|chargeスキル内容|連想配列|なし|
 |||||||
 |||||||
 |||||||
@@ -553,6 +575,8 @@ $result=[
     ]
 ]
 ```
+### split_str_comma
+受け取った文字列の、と,でexplodeし、空白を除去した配列を返す
 ### _parse_trait_loop_to_data
 ACFのループからとくせいの中身を取り出し、データを解析する。
 戻り値
@@ -586,7 +610,7 @@ ACFのループからとくせいの中身を取り出し、データを解析�
     )
     [conditions]=>[　//以下の連想配列の配列
         [type]=>条件タイプstr
-        [val]=>[値1,値2,...] //数値は自動でfloatに変換される
+        [val]=>[値1,値2,...] //数値は自動でintに変換される
         [hp_deatil]=>more/less/just(str)
         [cond_target]=>[
             parse_target_groupの戻り値
@@ -602,7 +626,7 @@ ACFのとくせいの条件/わざ追加条件ループフィールドを受け�
 ```
 [
     [type]=>条件タイプstr
-    [val]=>[値1,値2,...] //数値は自動でfloatに変換される
+    [val]=>[値1,値2,...] //数値は自動でintに変換される
     [hp_deatil]=>more/less/just(str)
     [cond_target]=>[
         parse_target_groupの戻り値
@@ -612,6 +636,16 @@ ACFのとくせいの条件/わざ追加条件ループフィールドを受け�
 
 ### _parse_sugo_condition
 ACFのすごわざ条件のgroup_loopを受け取り、すごわざ/ことわざ発動条件を解析する
+```
+[　//以下の連想配列の配列
+    ['get_place']=>default/blessing(str)
+    ['need_point']=>必要祝福ポイントint
+    ['conditions']=>[
+        [type]=>すごわざ条件タイプstr
+        [val]=>[値1,値2,...] //数値は自動でintに変換される
+    ]
+]
+```
 
 ### _parse_leader_skill_data
 ACFのリーダーとくせいループを受け取り、jsonを成型する  
@@ -621,7 +655,7 @@ ACFのリーダーとくせいループを受け取り、jsonを成型する
     [type]=>リーダーとくせいタイプstr
     [conditions]=>[ //以下の連想配列の配列
                 [type]=>リーダーとくせい条件タイプstr
-                [val]=>[値1,値2,...] //数値は自動でfloatに変換される
+                [val]=>[値1,値2,...] //数値は自動でintに変換される
                 [cond_targets]=>[　//以下の連想配列の配列
                     [type]=>対象タイプstr
                     [obj]=>[ //以下の連想配列の配列
@@ -653,7 +687,7 @@ ACFのリーダーとくせいループを受け取り、jsonを成型する
 ]
 ```
 
-## parse_ls_eff
+### parse_ls_eff
 ACFのループから、リーダーとくせいの補正対象ステータス、はじく状態異常、補正値を成型する
 ```
 $result=[ //以下の連想配列の配列
@@ -662,7 +696,104 @@ $result=[ //以下の連想配列の配列
     [value]=>補正値float
 ]
 ```
-  
+### _parse_skill_groups_to_data
+ACFのループと受け取ったシフト条件から、わざの効果とシフト条件、追加条件を解析
+```
+$result=[ //以下の連想配列の配列
+    [shift_value]=[]シフト条件strの配列
+    [timelines]=[ //以下の連想配列の配列
+        [type]=>わざタイプstr
+        [attack_type]=>[]攻撃タイプstrの配列
+        [at_type_target]=>[
+                [type]=>対象タイプstr
+                [obj]=>[ //以下の連想配列の配列
+                    [slug]=>スラッグstr
+                    [name]=>名前str
+                ]
+        ]
+        [killer_rate]=>上昇する対象への倍率float
+        [target]=>[
+            [main]=>わざの対象str
+            [type]=>対象タイプstr
+            [obj]=>[ //以下の連想配列の配列
+                [slug]=>スラッグstr
+                [name]=>名前str
+            ]
+        ]
+        [color_order]=>[]strの配列
+        [value]=>バフの値、倍率などfloat
+        [value_last]=>連撃の最後float
+        [hit_count]=>攻撃回数int
+        [is_moji_healing]=>文字数回復bool
+        [resist_status]=>防ぐ状態異常str
+        [token_id]=>トークンのid(str)
+        [moji_exhaust]=>文字失効bool
+        [omni_advantage]=>全属性有利bool
+        [element]=>攻撃属性slug（str）
+        [turn_count]=>ターン数int
+        [pressure_debuff]=>重圧デバフintの配列
+        [bt_field_eff]=>[ //以下の連想配列の配列
+            [target]=>[
+                [type]=>対象タイプstr
+                [obj]=>[ //以下の連想配列の配列
+                    [slug]=>スラッグstr
+                    [name]=>名前str
+                ]
+            ]
+            [value_type]=>フィールド補正タイプstr
+            [value]=>フィールド補正値int
+        ]
+        [conditions]=>[ //以下の連想配列の配列
+            [type]=>条件タイプstr
+            [val]=>[値1,値2,...] //数値は自動でintに変換される
+            [hp_deatil]=>more/less/just(str)
+            [cond_target]=>[
+                parse_target_groupの戻り値
+            ]
+        ]
+    ]
+]
+```
+### _parse_ex_skill
+投稿idから、EXスキルの構造を取得
+```
+$result=[
+    [name]=>EXスキル名str
+    [skill_kind]=>EXスキルタイプstr
+    [add_eff]=>[
+        [type]=>付属効果タイプstr
+        [target]=>対象str
+        [value]=>値int
+        [turn_count]=>ターン数int
+    ]
+    [search_priority]=>[
+        parse_target_groupの戻り値
+    ]
+]
+```
+### _parse_charge_skill
+投稿idからチャージスキルの詳細を作成
+```
+$result=[
+    [name]=>チャージスキル名str
+    [need_charge]=>必要チャージint
+    [effect]=>[ //以下の連想配列の配列
+        [type]=>効果タイプstr
+        [target]=>[
+            [main]=>わざ対象str
+            [type]=>対象タイプstr
+            [obj]=>[ //以下の連想配列の配列
+                [slug]=>スラッグstr
+                [name]=>名前str
+            ]
+        ]
+        [target_status]=>[]対象状態異常strの配列
+        [value]=>値int
+        [turn_count]=>ターン数
+    ]
+]
+```
+
 ## 検索ロジック用
 
 # 検索機能の実装方針

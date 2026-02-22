@@ -18,7 +18,7 @@ function add_contribution_modal_script()
                 その他作業をしてくださる協力者も随時募集しています！</p>
 
             <div class="collab-buttons">
-                <a href="/mgn-blanck-charas/" class="collab-btn btn-check">
+                <a href="/mgn-blank-charas/" class="collab-btn btn-check">
                     📋 未入力リストを見る
                 </a>
 
