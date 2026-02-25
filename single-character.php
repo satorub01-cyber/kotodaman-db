@@ -109,8 +109,15 @@ $species_slug = $spec_data['species'] ?? '';
 $species_term = $species_slug ? get_term_by('slug', $species_slug, 'species') : null;
 
 $rarity_slug = $spec_data['rarity'] ?? '';
-$rarity_term = $rarity_slug ? get_term_by('slug', $rarity_slug, 'rarity') : null;
-$rarity_label = $rarity_term ? $rarity_term->name : 'なし';
+$rarity_detail_slug = $spec_data['rarity_detail'] ?? '';
+if (!empty($rarity_detail_slug) && $rarity_detail_slug !== 'none') {
+    $rarity_term = get_term_by('slug', $rarity_detail_slug, 'rarity');
+    $rarity_label = $rarity_term ? $rarity_term->name : 'なし';
+} else {
+    $rarity_term = $rarity_slug ? get_term_by('slug', $rarity_slug, 'rarity') : null;
+    $star_count = $rarity_term ? $rarity_term->name : 'なし';
+    $rarity_label = '★' . $star_count;
+}
 
 // 所属 (JSONにはスラッグ配列が入っているため、オブジェクトを取得してメインを判定)
 $group_objs = $spec_data['groups'] ?? [];
@@ -706,12 +713,12 @@ if ($has_waza || $has_sugo):
     }
 
     // 両方の変数が確実に boolean なので、判定が正確になります
-    if ($mgn_est === true || $koto_mgn_est === true) : 
-?>
-    <div class='mgn-note-container'>
-        <p class='mgn-note'><?php echo esc_html($est_note); ?></p>
-    </div>
-<?php endif; ?>
+    if ($mgn_est === true || $koto_mgn_est === true) :
+    ?>
+        <div class='mgn-note-container'>
+            <p class='mgn-note'><?php echo esc_html($est_note); ?></p>
+        </div>
+    <?php endif; ?>
     <div class="tab-section-wrapper">
         <?php if ($has_waza && $has_sugo): ?>
             <ul class="tab-nav">

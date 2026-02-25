@@ -319,7 +319,9 @@
   |_val_120_hp/atk|int||lv120時のHP/攻撃力||
   |talent_hp/atk|int||才能開花MAXで増加するHP/攻撃力||
   |is_no_lv120|bool||trueなら昇華なし(低レア、トークンなど)||
-  |rarity|str||レアリティnone,special,legend,grand||
+  |rarity|int||星の数||
+  |rarity_detail|str||none,specialなど||
+  |max_level|int||レアリティごと自動設定(★6は99)||
   |release_date|日付||実装日||
   |attribute|str||属性||
   |sub_attributes|str|任意|サブ属性|
