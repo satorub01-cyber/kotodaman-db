@@ -142,6 +142,7 @@ $pre_evo_name = $spec_data['pre_evo_name'] ?? get_field('pre_evo_name');
 $another_img_name = $spec_data['another_image_name'] ?? get_field('another_image_name');
 $cv = $spec_data['cv'] ?? get_field('voice_actor');
 $acquisition = $spec_data['acquisition'] ?? get_field('get_place');
+$max_lv= $spec_data['max_lavel'] ?? 99;
 
 ?>
 
@@ -395,15 +396,17 @@ $acquisition = $spec_data['acquisition'] ?? get_field('get_place');
     </thead>
     <tbody>
         <tr>
-            <th class="st-row-label">Lv.99</th>
+            <th class="st-row-label">Lv.<?php echo $max_lv; ?></th>
             <td class="st-val"><?php echo $disp_hp_99; ?></td>
             <td class="st-val"><?php echo $disp_atk_99; ?></td>
         </tr>
+        <?php if (!$spec_data['is_no_lv120']): ?>
         <tr>
             <th class="st-row-label">Lv.120</th>
             <td class="st-val"><?php echo $disp_hp_120; ?></td>
             <td class="st-val"><?php echo $disp_atk_120; ?></td>
         </tr>
+        <?php endif; ?>
         <tr>
             <th class="st-row-label">才能開MAX</th>
             <td class="st-val"><?php echo $talent_hp > 0 ? '+' . number_format($talent_hp) : '-'; ?></td>

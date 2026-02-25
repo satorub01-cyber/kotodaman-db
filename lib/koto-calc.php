@@ -50,6 +50,15 @@ function get_character_spec_data($post_id)
     if ($rarity <= 5) {
         $is_no_lv120 = true;
     }
+    $max_lv_map=[
+        6 => 99,
+        5 => 90,
+        4 => 80,
+        3 => 60,
+        2 => 40,
+        1 => 20,
+    ];
+    $max_lv = (int)($max_lv_map[$rarity] ?? 99);
 
     // 手動フラグ (計算せず数値を直接入れるか)
     $is_manual_120 = get_field('status_auto_tf', $post_id);
@@ -129,6 +138,7 @@ function get_character_spec_data($post_id)
         'is_no_lv120'   => (bool)$is_no_lv120,
         'rarity'        => $rarity,
         'rarity_detail' => $rarity_detail,
+        'max_lavel'     => $max_lv,
         'release_date'  => '', // ★追加: 実装日用キー
         'attribute'     => '',
         'sub_attributes' => [],
