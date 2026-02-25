@@ -204,6 +204,7 @@
 |over_healing|オーバーヒール|
 |over_attack|攻撃回数に応じたバフ|
 |converged|収束付与|
+|corruption|腐敗|
 
 ## リーダーとくせい条件タイプ
 |value|label|
@@ -684,6 +685,7 @@ ACFのリーダーとくせいループを受け取り、jsonを成型する
         conv_2=>二体の時float,
         conv_1=>一体の時float
         ]
+    [turn_count]=>ターン数int
 ]
 ```
 

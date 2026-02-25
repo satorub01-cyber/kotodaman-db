@@ -1843,7 +1843,8 @@ function _parse_leader_skill_data($loop)
             'main_eff' => ['targets' => [], 'value_raws' => []],
             'exp' => (int)$pattern['exp_magnification'] ?? 0,
             'buff_count' => (int)$pattern['buff_count'] ?? 0,
-            'converge_rate' => ['conv_2' => 0, 'conv_1' => 0]
+            'converge_rate' => ['conv_2' => 0, 'conv_1' => 0],
+            'turn_count' => (int)$pattern['turn_count'] ?? 0,
         ];
         if ($parsed['type'] === 'per_unit') $parsed['per_unit'] = true;
         $parsed['conditions'] = [

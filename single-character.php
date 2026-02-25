@@ -113,7 +113,13 @@ $rarity_term = $rarity_slug ? get_term_by('slug', $rarity_slug, 'rarity') : null
 $rarity_label = $rarity_term ? $rarity_term->name : 'なし';
 
 // 所属 (JSONにはスラッグ配列が入っているため、オブジェクトを取得してメインを判定)
-$group_slugs = $spec_data['groups'] ?? [];
+$group_objs = $spec_data['groups'] ?? [];
+$group_slugs = [];
+foreach ($group_objs as $obj) {
+    if (isset($obj['slug'])) {
+        $group_slugs[] = $obj['slug'];
+    }
+}
 $group_terms = [];
 foreach ($group_slugs as $gs) {
     $t = get_term_by('slug', $gs, 'affiliation');

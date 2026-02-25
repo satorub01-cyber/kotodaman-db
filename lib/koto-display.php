@@ -379,8 +379,7 @@ function get_koto_trait_text_from_row($row)
             } elseif ($sub === 'status_healing') {
                 $res = isset($row['resistance']) ? $row['resistance'] : '';
                 $res_name = isset($status_map[$res]) ? $status_map[$res] : $res;
-                $res_text = $res_name ? "{$res_name}の" : "";
-                $effect_text = "{$timing}、手札と盤面の味方の{$res_text}状態異常を回復";
+                $effect_text = "{$timing}、手札と盤面の{$target_simple}の{$res_name}状態を回復";
             }
             break;
 
@@ -423,7 +422,7 @@ function get_koto_trait_text_from_row($row)
 
         case 'new_traits':
             $sub = $row['new_traits'];
-            $new_map = ['support' => '応援', 'see_through' => '看破', 'assistance' => '援護', 'resonance' => '共鳴', 'poke'=>'牽制'];
+            $new_map = ['support' => '応援', 'see_through' => '看破', 'assistance' => '援護', 'resonance' => '共鳴', 'poke' => '牽制'];
             $name = isset($new_map[$sub]) ? $new_map[$sub] : $sub;
             $limit = $row['limit_break_rate'];
 
@@ -439,7 +438,7 @@ function get_koto_trait_text_from_row($row)
                 } else {
                     $effect_text = "{$name}：自身と同じ文字のコトダマンが実体化している場合、これらのコトダマンのクリティカル率{$row['resonance_crit_rate']}%UP+クリティカルダメージ{$row['resonance_crit_damage']}%UP";
                 }
-            }elseif($sub === 'poke'){
+            } elseif ($sub === 'poke') {
                 $effect_text = "{$name}：敵全体に{$turn_text}{$rate}段階デバフを付与";
             }
             break;
@@ -1046,7 +1045,7 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
 
                         case 'colorfull_attack':
                             $order_names = [];
-                            
+
                             // A. JSONデータ (slug配列) がある場合
                             if (!empty($item['color_sequence']) && is_array($item['color_sequence'])) {
                                 foreach ($item['color_sequence'] as $slug) {
@@ -1060,7 +1059,7 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                                     if (is_object($o)) $order_names[] = $o->name;
                                 }
                             }
-                            
+
                             $order_text = implode('・', $order_names);
                             $effect_text = "{$target_name}に{$eff_val}倍の{$order_text}属性の各一回攻撃";
                             break;
@@ -1315,6 +1314,7 @@ function get_koto_leader_skill_html($post_id = null)
         $effect_parts = [];
         $ls_type = $pattern['ls_type'];
         $effect_text = '';
+        $turn_count = $pattern['turn_count'] ? "{$pattern['turn_count']}ターン" : '';
 
         if ($ls_type === 'exp_up') {
             $mag = $pattern['exp_magnification'];
@@ -1328,6 +1328,16 @@ function get_koto_leader_skill_html($post_id = null)
                 $target_text = '';
                 $effect_parts[] = "{$adjusted_target_text}の全体攻撃に収束効果を付与<br>一体：{$conv_rate_1}倍、二体：{$conv_rate_2}倍";
             }
+        } elseif ($ls_type === 'corruption') {
+            if (!empty($pattern['ls_status_loop'])) {
+                foreach ($pattern['ls_status_loop'] as $status) {
+                    $s_type = $status['ls_status'];
+                    $s_rate = isset($status['rate']) && $status['rate'] !== '' ? $status['rate'] : '（未入力）';
+                }
+            }
+            $adjusted_target_text = str_replace('は', '', $target_text);
+            $effect_parts[] = "{$adjusted_target_text}がわざ・すごわざ・コトわざでダメージを与えた時、腐敗{$s_rate}%を{$turn_count}付与";
+            $target_text = '';
         } elseif ($ls_type === 'over_healing') {
             $effect_parts[] = "HP上限を超えて回復した時、超過した分だけ固定ダメージ";
         } elseif ($ls_type === 'over_attack') {

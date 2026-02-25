@@ -1,0 +1,221 @@
+.acf-editor-wrap {
+    max-width: 1400px;
+    margin-top: 20px;
+}
+
+.acf-editor-top-panel {
+    background: #fff;
+    padding: 15px 20px;
+    border-radius: 4px;
+    border: 1px solid #ccd0d4;
+    margin-bottom: 20px;
+    display: flex;
+}
+
+.acf-editor-top-panel select {
+    width: auto;
+}
+
+.acf-editor-columns {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.acf-editor-col-left,
+.acf-editor-col-right {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+}
+
+.acf-editor-col-left {
+    flex: 6;
+}
+
+.acf-editor-col-right {
+    flex: 4;
+    position: sticky;
+    top: 40px;
+}
+
+.acf-editor-panel-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #ccd0d4;
+    background: #f9f9f9;
+}
+
+.target-heading {
+    color: #2271b1;
+    font-weight: bold;
+    margin-top: 0;
+}
+
+.source-heading {
+    color: #d63638;
+    font-weight: bold;
+    margin-top: 0;
+}
+
+.acf-editor-main-form,
+.acf-editor-export-area {
+    padding: 20px;
+}
+
+.acf-editor-post-info {
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px dashed #eee;
+    font-size: 16px;
+}
+
+.acf-save-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+/* 右側のコピー用カードデザイン */
+.acf-single-copy-box {
+    background: #fdfdfd;
+    border: 1px solid #e2e4e7;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.copy-box-info h4 {
+    margin: 0 0 5px 0;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.field-type-badge {
+    background: #eef1f5;
+    color: #555;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: normal;
+}
+
+.copy-preview {
+    margin: 0;
+    font-size: 12px;
+    color: #666;
+    background: #f5f5f5;
+    padding: 5px 8px;
+    border-radius: 4px;
+    word-break: break-all;
+}
+
+.my-acf-copy-btn {
+    width: 100%;
+    text-align: center;
+    border-color: #2271b1 !important;
+    color: #2271b1 !important;
+    font-weight: bold !important;
+}
+
+.my-acf-copy-btn:hover {
+    background: #f0f6fc !important;
+}
+
+.acf-field-taxonomy .custom-term-selector-wrap {
+    display: none;
+}
+
+.acf-popup-box .custom-term-selector-wrap {
+    display: block !important;
+}
+
+/* =================================================================
+   スマホ・タブレット用レイアウト調整 (画面幅 782px 以下で適用)
+================================================================= */
+@media screen and (max-width: 782px) {
+
+    /* 1. 左右一括切り替えパネルを縦並びに */
+    .acf-sync-panel-flex {
+        flex-direction: column !important;
+        gap: 15px !important;
+    }
+
+    .acf-sync-col {
+        width: 100% !important;
+    }
+
+    /* 「⇔」の矢印を縦向きに */
+    .acf-sync-arrow {
+        padding-top: 5px !important;
+        padding-bottom: 5px !important;
+        margin: 0 auto;
+        transform: rotate(90deg);
+    }
+
+    /* 2. 雛型フォームを縦に並べて画面内に収める */
+    .acf-template-form {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+
+    .acf-template-form select,
+    .acf-template-form button,
+    .acf-template-form span {
+        width: 100% !important;
+        max-width: 100% !important;
+        text-align: left;
+    }
+
+    /* 3. キャラ検索 (Select2) の幅を強制的に100%に固定し、タップ領域を復活させる */
+    .select2-container {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* 4. 上部追従のアクションバー（保存ボタンなど）も折り返す */
+    .acf-sticky-actions {
+        flex-direction: column !important;
+        gap: 15px !important;
+        align-items: stretch !important;
+        height: auto !important;
+    }
+
+    .acf-sticky-actions div {
+        flex-direction: column !important;
+        width: 100% !important;
+    }
+
+    .acf-sticky-actions .button {
+        width: 100% !important;
+        text-align: center;
+    }
+
+    /* ==========================================
+        5. 左右のカラムを上下に配置
+       ========================================== */
+    .acf-editor-columns {
+        flex-direction: column !important;
+        /* 横並びを縦並びに変更 */
+    }
+
+    .acf-editor-col-left,
+    .acf-editor-col-right {
+        width: 100% !important;
+        /* 幅を画面いっぱいに */
+        flex: none !important;
+    }
+
+    .acf-editor-col-right {
+        position: static !important;
+        /* スマホではスクロール追従を解除（見づらくなるため） */
+    }
+}

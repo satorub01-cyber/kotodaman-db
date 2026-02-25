@@ -1057,9 +1057,15 @@ add_action('admin_footer', function () {
     <script>
         document.addEventListener('keydown', function(e) {
             // 感知範囲を「行の中の項目（入力欄）」に限定する
+            // 感知範囲を「入力欄、ボタン、または行(.acf-row)の中の要素」に拡張する
             const activeEl = document.activeElement;
-            const isInput = activeEl && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName);
-            if (!isInput) return;
+            if (!activeEl) return;
+
+            const isInputTarget = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(activeEl.tagName);
+            const isInsideRow = activeEl.closest('.acf-row') !== null;
+
+            // 入力欄でもなく、行の中にもいない場合は弾く
+            if (!isInputTarget && !isInsideRow) return;
 
             // Ctrl + Shift + Alt + D という「まず被らない組み合わせ」をトリガーにする
             if (e.ctrlKey && e.shiftKey && e.altKey && e.code === 'KeyD') {
@@ -1104,7 +1110,10 @@ add_action('admin_footer', function () {
                     const firstInput = topRow.querySelector('input:not([type="hidden"]), select, textarea');
                     if (firstInput) {
                         firstInput.focus();
-                        firstInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        firstInput.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center'
+                        });
                     }
                 }
             }
@@ -1116,18 +1125,18 @@ add_action('admin_footer', function () {
 <?php
 // 投稿画面のショートカット
 // TODO行追加ボタンやアコーディオンを行の項目として認識するようにする
-add_action('wp_footer', function() {
-    ?>
+add_action('wp_footer', function () {
+?>
     <script>
         document.addEventListener('keydown', (e) => {
             // Tabキーが押された、かつ何もフォーカスされていない（bodyがアクティブ）時
             if (e.key === 'Tab' && (document.activeElement === document.body || !document.activeElement)) {
-                
+
                 // ページ内のフォーカス可能な要素をすべて取得
                 const focusableElements = Array.from(document.querySelectorAll(
                     'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
                 ));
-                
+
                 // 現在のスクロール位置（表示領域の最上部）より下にある最初の要素を探す
                 const topElement = focusableElements.find(el => {
                     // ★追加: 特定のクラス（固定ヘッダーなど）に含まれる要素は無視
@@ -1140,7 +1149,7 @@ add_action('wp_footer', function() {
                     const rect = el.getBoundingClientRect();
                     return rect.top > 0; // 画面内に少しでも入っているもの
                 });
-                
+
                 if (topElement) {
                     e.preventDefault(); // デフォルトの「ページ先頭へジャンプ」を阻止
                     topElement.focus();
@@ -1148,6 +1157,8 @@ add_action('wp_footer', function() {
             }
         });
     </script>
-    <?php
+<?php
 });
+// ACFフロントエディター（管理画面版）の読み込み
+require_once get_stylesheet_directory() . '/lib/acf/acf-editor.php';
 ?>
