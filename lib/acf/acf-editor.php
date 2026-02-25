@@ -40,6 +40,11 @@ function koto_acf_relationship_query_custom($args, $field, $post_id)
     if ($field['key'] === 'field_editor_edit_post' && !current_user_can('edit_others_posts')) {
         $args['author'] = get_current_user_id();
     }
+    // ★追加: 検索キーワードが数字（ID）だった場合、ID検索に切り替える
+    if (!empty($args['s']) && is_numeric($args['s'])) {
+        $args['p'] = intval($args['s']); // IDでの完全一致検索をセット
+        unset($args['s']); // 通常のタイトルあいまい検索を解除
+    }
 
     return $args;
 }
