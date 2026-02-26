@@ -1160,4 +1160,5 @@ add_action('wp_footer', function () {
 });
 // ACFフロントエディター（管理画面版）の読み込み
 require_once get_stylesheet_directory() . '/lib/acf/acf-editor.php';
+require_once get_stylesheet_directory() . '/lib/koto-json-reform.php';
 ?>
