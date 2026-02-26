@@ -31,8 +31,44 @@
                 <div class="section-title">種族</div>
                 <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('species', 'tx_species', true); ?>
             </div>
-            <!-- TODOレアリティで検索 -->
             <!-- TODO声優で検索 -->
+            <div class="search-divider"></div>
+
+            <details class="tree-accordion">
+                <summary class="tree-summary">所属・グループを選択</summary>
+                <div class="tree-content">
+                    <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('affiliation', 'tx_group'); ?>
+                </div>
+            </details>
+
+            <details class="tree-accordion">
+                <summary class="tree-summary">実装イベントを選択</summary>
+                <div class="tree-content">
+                    <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('event', 'tx_event'); ?>
+                </div>
+            </details>
+
+            <details class="tree-accordion">
+                <summary class="tree-summary">ギミック耐性を選択</summary>
+                <div class="tree-content">
+                    <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('gimmick', 'tx_gimmick', ['open_all' => true, 'and_or' => 'AND']); ?>
+                </div>
+            </details>
+
+            <details class="tree-accordion">
+                <summary class="tree-summary">レアリティを選択</summary>
+                <div class="tree-content">
+                    <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('rarity', 'tx_rarity', ['open_all' => true]); ?>
+                </div>
+            </details>
+            <div class="search-divider"></div>
+            <div class="search-section">
+                <div class="section-title">声優名</div>
+                <input type="text" name="tx_cv" class="term-tree-search"
+                    value="<?php echo isset($_GET['tx_cv']) ? esc_attr($_GET['tx_cv']) : ''; ?>"
+                    placeholder="例：石見舞菜香（苗字・名前のみも可）" />
+            </div>
+            <div class="search-divider"></div>
 
             <!-- ▼▼▼ スキル詳細検索 ▼▼▼ -->
             <div class="search-section">
@@ -234,62 +270,6 @@
                     </details>
                 </div>
             </div>
-
-            <div class="search-divider"></div>
-
-            <!-- ▼▼▼ バフ詳細検索 (追加) ▼▼▼
-            <div class="search-section">
-                <div class="section-title">ATKバフ検索</div>
-                <div class="buff-search-container">
-                    <div class="buff-row">
-                        <label>対象属性:</label>
-                        <select name="buff_target_attr">
-                            <option value="">指定なし</option>
-                            <option value="fire">火属性</option>
-                            <option value="water">水属性</option>
-                            <option value="wood">木属性</option>
-                            <option value="light">光属性</option>
-                            <option value="dark">闇属性</option>
-                            <option value="heaven">天属性</option>
-                            <option value="void">冥属性</option>
-                        </select>
-                    </div>
-                    <div class="buff-row">
-                        <label>発動条件:</label>
-                        <label><input type="checkbox" name="buff_type[]" value="skill" checked> わざ・すごわざ</label>
-                        <label><input type="checkbox" name="buff_type[]" value="trait" checked> 実体化時</label>
-                    </div>
-                    <div class="buff-row">
-                        <label>バフ段階:</label>
-                        <select name="buff_amount">
-                            <option value="">指定なし</option>
-                            <?php for ($i = 1; $i <= 5; $i++) echo "<option value='{$i}'>{$i}段階以上</option>"; ?>
-                        </select>
-                    </div>
-                </div>
-            </div> -->
-
-            <details class="tree-accordion">
-                <summary class="tree-summary">所属・グループを選択</summary>
-                <div class="tree-content">
-                    <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('affiliation', 'tx_group'); ?>
-                </div>
-            </details>
-
-            <details class="tree-accordion">
-                <summary class="tree-summary">実装イベントを選択</summary>
-                <div class="tree-content">
-                    <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('event', 'tx_event'); ?>
-                </div>
-            </details>
-
-            <details class="tree-accordion">
-                <summary class="tree-summary">ギミック耐性を選択</summary>
-                <div class="tree-content">
-                    <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('gimmick', 'tx_gimmick'); ?>
-                </div>
-            </details>
-
         </div>
     </div>
 </form>

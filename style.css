@@ -101,3 +101,27 @@ Version:    1.1.3
 .footer {
   color: black;
 }
+
+/* ========================================= */
+/* 汎用的な区切り線クラス */
+/* ========================================= */
+.separator-line {
+  border: none;
+  /* 標準のhrデザインをリセット */
+  border-top: 1px solid #ccc;
+  /* 薄いグレーの線 */
+  margin: 15px 0;
+  /* 前後の余白 */
+  width: 100%;
+  /* 幅いっぱい */
+}
+
+/* 点線バージョンが必要な場合（オプション） */
+.separator-line.is-dashed {
+  border-top: 1px dashed #ccc;
+}
+
+/* 隙間だけ空けたい場合（オプション） */
+.separator-line.is-space-only {
+  border-top-color: transparent;
+}

@@ -139,6 +139,7 @@ function get_koto_add_moji_html($trait_slug)
 function get_koto_trait_text_from_row($row)
 {
     // ステータスマップ定義
+    if (empty($row)) return '';
     $status_map = ['poison' => '毒', 'sleep' => '睡眠', 'curse' => '呪い', 'confusion' => '混乱', 'pollution' => '汚染', 'burn' => '炎上', 'remodel' => '改造', 'weakness' => '衰弱', 'mutation' => '変異', 'erasure' => '消去', 'all' => '全て'];
     // 1. 発動条件
     $cond_parts = [];
@@ -609,20 +610,19 @@ function get_koto_trait_text_from_row($row)
 }
 
 /**
- * 4. わざ・すごわざ・コトワザのHTMLボディ生成 (waza_add_cond_loop 対応版)
+ * 4. わざ・すごわざ・コトワザのHTMLボディ生成 (タブUI対応・構造分離版)
  */
 function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type = '')
 {
     ob_start();
 
     // =========================================================
-    // A. 発動条件 (青タグ)
+    // A. 発動条件 (青タグ) - ロジック部
     // =========================================================
     $or_texts = [];
 
     if (!empty($condition_data) && is_array($condition_data)) {
         foreach ($condition_data as $pattern) {
-            // 1. 条件テキスト生成
             $conditions = isset($pattern['sugo_cond_loop']) ? $pattern['sugo_cond_loop'] : null;
             $and_texts = [];
 
@@ -666,49 +666,34 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                 }
             }
 
-            // 2. 祝福解放の注釈チェック
             $place = isset($pattern['get_palce']) ? $pattern['get_palce'] : 'default';
             $blessing_suffix = '';
 
             if ($place === 'blessing') {
                 $pt = isset($pattern['need_blessing_point']) ? $pattern['need_blessing_point'] : '';
                 $pt_text = $pt ? "(pt:{$pt})" : "";
-                $blessing_suffix = '<span style="color:#e79245; font-weight:bold; font-size:0.9em; margin-left:5px;">※祝福解放' . esc_html($pt_text) . '</span>';
+                $blessing_suffix = '<span class="blessing-note">※祝福解放' . esc_html($pt_text) . '</span>';
             }
 
-            // テキスト結合
             if (!empty($and_texts)) {
                 $line_text = implode(' <span class="cond-and"> </span> ', $and_texts);
-                $or_texts[] = $line_text . $blessing_suffix;
+                $or_texts[] = koto_replace_icons($line_text) . $blessing_suffix;
             }
         }
     }
 
-    // 表示出力
-    if (!empty($or_texts)) {
-        echo '<div class="skill-row">';
-        echo '<span class="label-tag tag-cond">条件</span>';
-        echo '<div class="skill-text-block">';
-        foreach ($or_texts as $line) {
-            echo '<div class="condition-line" style="margin-bottom:4px;">';
-            echo '<span class="skill-text">' . koto_replace_icons($line) . '</span>';
-            echo '</div>';
-        }
-        echo '</div>';
-        echo '</div>';
-    }
+    // =========================================================
+    // B. 効果リスト (赤タグ) - ロジック部
+    // =========================================================
+    $target_field = ($skill_type === 'kotowaza') ? 'koto_shift_type' : 'sugo_shift_type';
+    $shift_type = get_field($target_field);
+    $is_shift_mode = (!empty($shift_type) && $shift_type !== 'none');
 
-    // =========================================================
-    // B. 効果リスト (赤タグ) - waza_add_cond_loop 対応
-    // =========================================================
+    $tab_data = [];
+    $normal_effects = [];
+    $unique_prefix = uniqid($skill_type . '_');
+
     if ($group_data && is_array($group_data)) {
-
-        $target_field = ($skill_type === 'kotowaza') ? 'koto_shift_type' : 'sugo_shift_type';
-        $shift_type = get_field($target_field);
-        $is_shift_mode = (!empty($shift_type) && $shift_type !== 'none');
-
-        echo '<div class="skill-row"><span class="label-tag tag-effect">効果</span><div class="skill-text-block">';
-
         $grouped_data = [];
         foreach ($group_data as $group) {
             $header_text = '通常';
@@ -758,7 +743,6 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                 $grouped_data[$key] = ['text' => $header_text, 'is_shift' => $is_shift, 'items' => []];
             }
 
-            // ★修正：条件リピーター (waza_add_cond_loop) の内容をすべて取得して配列化
             $parent_conds_list = [];
             $cond_loop = isset($group['waza_add_cond_loop']) ? $group['waza_add_cond_loop'] : [];
 
@@ -767,10 +751,10 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                     $parent_conds_list[] = [
                         'type' => $c_row['condition_type'] ?? '',
                         'val'  => $c_row['condition_value'] ?? '',
-                        'attr' => $c_row['condition_attr'] ?? null,        // 属性
-                        'aff'  => $c_row['condition_affiliation'] ?? null, // グループ
-                        'species' => $c_row['condition_species'] ?? null, // 種族
-                        'hp'   => $c_row['hp_cond_detail'] ?? 'more'       // HP詳細
+                        'attr' => $c_row['condition_attr'] ?? null,
+                        'aff'  => $c_row['condition_affiliation'] ?? null,
+                        'species' => $c_row['condition_species'] ?? null,
+                        'hp'   => $c_row['hp_cond_detail'] ?? 'more'
                     ];
                 }
             }
@@ -778,33 +762,22 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
             $details = !empty($group['sugo_detail_loop']) ? $group['sugo_detail_loop'] : (!empty($group['waza_detail_loop']) ? $group['waza_detail_loop'] : []);
             if ($details) {
                 foreach ($details as $item) {
-                    // 各効果に、先ほど取得した「条件リスト」を持たせる
                     $item['_parent_cond'] = $parent_conds_list;
                     $grouped_data[$key]['items'][] = $item;
                 }
             }
         }
 
-        $circle_nums = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
         $group_idx = 0;
-
         foreach ($grouped_data as $group_info) {
             $items = $group_info['items'];
             if (empty($items)) continue;
 
-            if ($is_shift_mode) {
-                $num_icon = $circle_nums[$group_idx] ?? ($group_idx + 1);
-                echo '<div class="skill-group-header" style="margin-top: 0.8em; margin-bottom: 0.3em; font-weight:bold; color:#444; border-bottom:1px solid #eee; padding-bottom:2px;">';
-                echo '<span class="circle-num" style="color:#d00; margin-right:5px; font-size:1.1em;">' . koto_replace_icons($num_icon) . '</span>';
-                echo '<span class="shift-text" style="color:#333;">' . koto_replace_icons(esc_html($group_info['text'])) . '</span>';
-                echo '</div>';
-            }
-
+            $current_group_effects = [];
             $effect_counter = 1;
-            $all_normal_effects = [];
 
             foreach ($items as $item) {
-                // 条件テキスト生成 (★リピーター対応：複数の条件を結合)
+                // 条件テキスト生成
                 $cond_text_parts = [];
                 $p_conds = isset($item['_parent_cond']) ? $item['_parent_cond'] : [];
 
@@ -829,51 +802,32 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                                 $part_text = "「{$cv}」テーマのことばを作った時";
                                 break;
                             case 'attr':
-                                // 属性条件
                                 $attr_name = $cv;
                                 if (!empty($p_cond['attr'])) {
                                     $objs = $p_cond['attr'];
-                                    if (is_array($objs)) {
-                                        $names = wp_list_pluck($objs, 'name');
-                                    } elseif (is_object($objs)) {
-                                        $names = [$objs->name];
-                                    } else {
-                                        $names = [];
-                                    }
+                                    $names = is_array($objs) ? wp_list_pluck($objs, 'name') : (is_object($objs) ? [$objs->name] : []);
                                     if (!empty($names)) $attr_name = implode('・', $names);
                                 }
                                 $part_text = "同時に{$attr_name}属性のコトダマンがわざ・すごわざを発動した時";
                                 break;
                             case 'species':
-                                // 属性条件
                                 $spe_name = $cv;
                                 if (!empty($p_cond['species'])) {
                                     $objs = $p_cond['species'];
-                                    if (is_array($objs)) {
-                                        $names = wp_list_pluck($objs, 'name');
-                                    } elseif (is_object($objs)) {
-                                        $names = [$objs->name];
-                                    } else {
-                                        $names = [];
-                                    }
+                                    $names = is_array($objs) ? wp_list_pluck($objs, 'name') : (is_object($objs) ? [$objs->name] : []);
                                     if (!empty($names)) $spe_name = implode('・', $names);
                                 }
                                 $part_text = "同時に{$spe_name}種族のコトダマンがわざ・すごわざを発動した時";
                                 break;
                             case 'hpcond':
-                                // HP条件
                                 $hp_label = ($p_cond['hp'] === 'less') ? '以下' : '以上';
                                 $part_text = "HP{$cv}%{$hp_label}の時";
                                 break;
                             case 'group':
-                                // グループ条件
                                 $grp_name = $cv;
-                                $is_melody = false; // ★追加
-
+                                $is_melody = false;
                                 if (!empty($p_cond['aff'])) {
                                     $objs = $p_cond['aff'];
-
-                                    // ★追加: melody判定
                                     $check_objs = is_array($objs) ? $objs : [$objs];
                                     foreach ($check_objs as $o) {
                                         $o_slug = is_object($o) ? ($o->slug ?? '') : ($o['slug'] ?? '');
@@ -882,22 +836,10 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                                             break;
                                         }
                                     }
-
-                                    if (is_array($objs)) {
-                                        $names = wp_list_pluck($objs, 'name');
-                                    } elseif (is_object($objs)) {
-                                        $names = [$objs->name];
-                                    } else {
-                                        $names = [];
-                                    }
+                                    $names = is_array($objs) ? wp_list_pluck($objs, 'name') : (is_object($objs) ? [$objs->name] : []);
                                     if (!empty($names)) $grp_name = implode('・', $names);
                                 }
-
-                                if ($is_melody) {
-                                    $part_text = "同時に「全の戦律」または「斬・砲・突・重・超・打の戦律」のコトダマンがわざ・すごわざを発動した時";
-                                } else {
-                                    $part_text = "同時に「{$grp_name}」のコトダマンがわざ・すごわざを発動した時";
-                                }
+                                $part_text = $is_melody ? "同時に「全の戦律」または「斬・砲・突・重・超・打の戦律」のコトダマンがわざ・すごわざを発動した時" : "同時に「{$grp_name}」のコトダマンがわざ・すごわざを発動した時";
                                 break;
                             case 'attacked':
                                 $part_text = "敵からの攻撃を{$cv}回受けた時";
@@ -906,17 +848,13 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                                 $part_text = "{$cv}の時";
                                 break;
                         }
-
-                        if ($part_text) {
-                            $cond_text_parts[] = $part_text;
-                        }
+                        if ($part_text) $cond_text_parts[] = $part_text;
                     }
                 }
 
-                // 複数条件がある場合は「、かつ」などで繋ぐ（または単に読点）
                 $cond_text = !empty($cond_text_parts) ? implode('、または', $cond_text_parts) . '、' : '';
 
-                // 効果テキスト生成 (ここは既存ロジックのまま)
+                // 効果テキスト生成
                 $effect_text = "";
                 $eff_type   = isset($item['waza_type']) ? $item['waza_type'] : '';
                 $target_key = isset($item['waza_target']) ? $item['waza_target'] : '';
@@ -1045,21 +983,16 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
 
                         case 'colorfull_attack':
                             $order_names = [];
-
-                            // A. JSONデータ (slug配列) がある場合
                             if (!empty($item['color_sequence']) && is_array($item['color_sequence'])) {
                                 foreach ($item['color_sequence'] as $slug) {
                                     $t = get_term_by('slug', $slug, 'attribute');
                                     if ($t && !is_wp_error($t)) $order_names[] = $t->name;
                                 }
-                            }
-                            // B. ACF生データ (オブジェクト配列) がある場合 (フォールバック)
-                            elseif (!empty($item['colorfull_attack_attr']) && is_array($item['colorfull_attack_attr'])) {
+                            } elseif (!empty($item['colorfull_attack_attr']) && is_array($item['colorfull_attack_attr'])) {
                                 foreach ($item['colorfull_attack_attr'] as $o) {
                                     if (is_object($o)) $order_names[] = $o->name;
                                 }
                             }
-
                             $order_text = implode('・', $order_names);
                             $effect_text = "{$target_name}に{$eff_val}倍の{$order_text}属性の各一回攻撃";
                             break;
@@ -1128,7 +1061,6 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                             $effect_text = "{$target_name}に{$st_name}を無効化するバリアを展開";
                             break;
                         case 'battle_field':
-                            // TODOvalue_typeへの対応
                             $field_text = [];
                             if (!empty($item['battle_field_loop']) && is_array($item['battle_field_loop'])) {
                                 foreach ($item['battle_field_loop'] as $field_item) {
@@ -1147,11 +1079,9 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                                             break;
                                         case 'affiliation':
                                             $raw_targets = $field_item['battle_field_affiliation'];
-                                            $suffix = '';
                                             break;
                                         case 'moji':
                                             $raw_targets = $field_item['battle_field_moji'];
-                                            $suffix = '';
                                             break;
                                     }
                                     $names = [];
@@ -1174,41 +1104,117 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                 }
 
                 if (!empty($item['moji_exhaust'])) $effect_text .= "、使用した文字はクエスト終了まで使用不能になる";
+
                 $cond_text = koto_replace_icons($cond_text);
                 $effect_text = koto_replace_icons($effect_text);
+
                 if ($effect_text) {
                     if ($is_shift_mode) {
-                        echo "<div class='skill-effect-line' style='margin-left: 1em;'>";
-                        echo "<span class='effect-num'>({$effect_counter}) </span>";
-                        echo "{$cond_text}{$effect_text}";
-                        echo "</div>";
+                        // シフト用の配列に格納
+                        $current_group_effects[] = [
+                            'num'    => $effect_counter,
+                            'cond'   => $cond_text,
+                            'effect' => $effect_text
+                        ];
                         $effect_counter++;
                     } else {
+                        // 従来用の配列に格納
                         $key = empty($cond_text) ? 'base' : $cond_text;
-                        $all_normal_effects[$key][] = $effect_text;
+                        $normal_effects[$key][] = $effect_text;
                     }
                 }
             }
 
+            // グループの処理が完了したら、タブのデータ配列に追加
+            if ($is_shift_mode && !empty($current_group_effects)) {
+                $tab_data[] = [
+                    'id'      => $unique_prefix . '-panel-' . $group_idx,
+                    'label'   => koto_replace_icons(esc_html($group_info['text'])),
+                    'effects' => $current_group_effects
+                ];
+            }
             $group_idx++;
         }
-
-        if (!$is_shift_mode && !empty($all_normal_effects)) {
-            $counter = 1;
-            foreach ($all_normal_effects as $cond_key => $effects) {
-                $cond_key = koto_replace_icons($cond_key);
-                $effects = koto_replace_icons($effects);
-                $combined = implode('＋', $effects);
-                echo "<div class='skill-effect-line'><span class='effect-num'>({$counter}) </span>";
-                if ($cond_key !== 'base') echo "<span class='skill-sub-cond-text'>{$cond_key}</span> ";
-                echo "{$combined}</div>";
-                $counter++;
-            }
-        }
-
-        echo '</div></div>';
     }
-    return ob_get_clean();
+
+    // =========================================================
+    // C. 実際のHTML出力部 (ビュー)
+    // =========================================================
+?>
+
+    <?php /* 発動条件の出力 */ ?>
+    <?php if (!empty($or_texts)): ?>
+        <div class="skill-row">
+            <span class="label-tag tag-cond">条件</span>
+            <div class="skill-text-block">
+                <?php foreach ($or_texts as $line): ?>
+                    <div class="condition-line">
+                        <span class="skill-text"><?php echo $line; ?></span>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <?php /* 効果リストの出力 */ ?>
+    <?php if ($group_data && is_array($group_data)): ?>
+        <div class="skill-row">
+            <span class="label-tag tag-effect">効果</span>
+            <div class="skill-text-block">
+
+                <?php if ($is_shift_mode && !empty($tab_data)): ?>
+                    <div class="sugo-tab-container">
+
+                        <ul class="sugo-tab-buttons">
+                            <?php foreach ($tab_data as $index => $tab): ?>
+                                <?php $active_class = ($index === 0) ? 'is-active' : ''; ?>
+                                <li class="tab-btn <?php echo esc_attr($active_class); ?>" data-panel="<?php echo esc_attr($tab['id']); ?>">
+                                    <?php echo $tab['label']; ?>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+
+                        <div class="sugo-tab-contents">
+                            <?php foreach ($tab_data as $index => $tab): ?>
+                                <?php $active_class = ($index === 0) ? 'is-active' : ''; ?>
+                                <div class="tab-panel <?php echo esc_attr($active_class); ?>" id="<?php echo esc_attr($tab['id']); ?>">
+                                    <?php foreach ($tab['effects'] as $eff): ?>
+                                        <div class="skill-effect-line shift-effect">
+                                            <span class="effect-num">(<?php echo esc_html($eff['num']); ?>) </span>
+                                            <?php echo $eff['cond'] . $eff['effect']; ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+
+                    </div>
+                <?php else: ?>
+                    <?php if (!empty($normal_effects)): ?>
+                        <?php $counter = 1; ?>
+                        <?php foreach ($normal_effects as $cond_key => $effects): ?>
+                            <?php
+                            $cond_key = koto_replace_icons($cond_key);
+                            $combined = implode('＋', koto_replace_icons($effects));
+                            ?>
+                            <div class="skill-effect-line">
+                                <span class="effect-num">(<?php echo $counter; ?>) </span>
+                                <?php if ($cond_key !== 'base'): ?>
+                                    <span class="skill-sub-cond-text"><?php echo $cond_key; ?></span>
+                                <?php endif; ?>
+                                <?php echo $combined; ?>
+                            </div>
+                            <?php $counter++; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                <?php endif; ?>
+
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <?php return ob_get_clean(); ?>
+<?php
 }
 /**
  * 5. リーダーとくせいHTML生成関数 (新規作成)

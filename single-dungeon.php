@@ -16,5 +16,6 @@ if (!is_amp()) {
 
 <?php //投稿ページ内容
 cocoon_template_part('tmp/single-contents'); ?>
+<?php echo'Hello from single-dungeon.php!'?>
 
 <?php get_footer(); ?>

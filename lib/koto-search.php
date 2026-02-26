@@ -6,23 +6,50 @@
 /**
  * 1. 階層構造付きチェックボックスリストを出力 (所属・イベント用)
  */
-function render_frontend_term_tree($taxonomy, $name_attr)
+function render_frontend_term_tree($taxonomy, $name_attr, $args = [])
 {
+    // デフォルト設定
+    $defaults = [
+        'open_all' => false,    // デフォルトで開くかどうか
+        'show_relation' => true, // AND/OR切り替えを表示するか
+        'and_or' => 'OR'         // デフォルトのAND/OR設定 (URLパラメータがない場合)
+    ];
+    $config = array_merge($defaults, $args);
+
     $terms = get_terms([
-        'taxonomy' => $taxonomy,
+        'taxonomy'   => $taxonomy,
         'hide_empty' => false,
-        'parent' => 0,
+        'parent'     => 0,
     ]);
 
     if (empty($terms) || is_wp_error($terms)) return;
 
-    $walker = function ($terms, $walker_func) use ($name_attr, $taxonomy) {
-        echo '<div class="term-children-container">';
+    // AND/OR の初期値取得
+    $relation_val = isset($_GET[$name_attr . '_relation']) ? $_GET[$name_attr . '_relation'] : $config['and_or'];
+
+    echo '<div class="custom-term-selector-ui" data-tax="' . esc_attr($taxonomy) . '">';
+
+    // 絞り込み検索窓
+    echo '<input type="text" class="term-tree-search" placeholder="絞り込み検索..." />';
+
+    // AND/OR 切り替えスイッチ
+    if ($config['show_relation']) {
+        echo '<div class="search-options">';
+        echo '<label><input type="radio" name="' . esc_attr($name_attr) . '_relation" value="AND" ' . checked($relation_val, 'AND', false) . '> 全て含む(AND)</label> ';
+        echo '<label><input type="radio" name="' . esc_attr($name_attr) . '_relation" value="OR" ' . checked($relation_val, 'OR', false) . '> いずれかを含む(OR)</label>';
+        echo '</div>';
+    }
+
+    echo '<div class="term-tree-list">';
+
+    // 再帰関数の定義
+    $walker = function ($terms, $walker_func) use ($name_attr, $taxonomy, $config) {
+        echo '<ul class="term-children-container">';
         foreach ($terms as $term) {
             $children = get_terms([
-                'taxonomy' => $taxonomy,
+                'taxonomy'   => $taxonomy,
                 'hide_empty' => false,
-                'parent' => $term->term_id,
+                'parent'     => $term->term_id,
             ]);
 
             $checked = '';
@@ -30,10 +57,13 @@ function render_frontend_term_tree($taxonomy, $name_attr)
                 if (in_array($term->slug, $_GET[$name_attr])) $checked = 'checked';
             }
 
-            echo '<div class="term-tree-item">';
+            echo '<li class="term-tree-item">';
 
-            if (!empty($children)) {
-                echo '<details open>'; // デフォルトで開く
+            $has_children = !empty($children);
+            $open_attr = $config['open_all'] ? 'open' : '';
+
+            if ($has_children) {
+                echo '<details ' . $open_attr . '>';
                 echo '<summary class="term-summary">';
             }
 
@@ -42,21 +72,19 @@ function render_frontend_term_tree($taxonomy, $name_attr)
             echo '<span class="term-name">' . esc_html($term->name) . '</span>';
             echo '</label>';
 
-            if (!empty($children)) {
+            if ($has_children) {
                 echo '</summary>';
                 $walker_func($children, $walker_func);
                 echo '</details>';
             }
 
-            echo '</div>';
+            echo '</li>';
         }
-        echo '</div>';
+        echo '</ul>';
     };
 
-    echo '<div class="custom-term-selector-ui" data-tax="' . esc_attr($taxonomy) . '">';
-    echo '<input type="text" class="term-tree-search" placeholder="絞り込み検索..." />';
-    echo '<div class="term-tree-list">';
     $walker($terms, $walker);
+
     echo '</div>';
     echo '</div>';
 }
@@ -139,18 +167,24 @@ function custom_search_filter_query($query)
             'tx_species' => 'species',
             'tx_group'   => 'affiliation',
             'tx_event'   => 'event',
-            'tx_gimmick' => 'gimmick'
+            'tx_gimmick' => 'gimmick',
+            'tx_rarity'  => 'rarity',
         ];
 
         foreach ($targets as $param => $tax) {
             if (isset($_GET[$param]) && is_array($_GET[$param])) {
                 $terms = array_filter($_GET[$param]);
                 if (!empty($terms)) {
+                    // ★重要：ANDかORの判定
+                    // パラメータ名 + _relation (例: tx_group_relation) を取得
+                    $relation = isset($_GET[$param . '_relation']) ? $_GET[$param . '_relation'] : 'OR';
+                    // operatorを決定 (ORなら'IN'、ANDなら'AND')
+                    $operator = ($relation === 'AND') ? 'AND' : 'IN';
                     $tax_query[] = [
                         'taxonomy' => $tax,
                         'field'    => 'slug',
                         'terms'    => $terms,
-                        'operator' => 'IN',
+                        'operator' => $operator,
                     ];
                 }
             }
@@ -281,7 +315,21 @@ function custom_search_filter_query($query)
             $meta_query[] = $tags_or_query;
             $query->set('meta_query', $meta_query);
         }
+        // ------------------------------------------------
+        // G. 【追加】声優名検索 (tx_cv)
+        // ------------------------------------------------
+        if (!empty($_GET['tx_cv'])) {
+            $cv_name = sanitize_text_field($_GET['tx_cv']);
+            $meta_query = $query->get('meta_query') ?: [];
 
+            $meta_query[] = [
+                'key'     => 'voice_actor', // ACFのフィールド名
+                'value'   => $cv_name,
+                'compare' => 'LIKE'        // あいまい検索
+            ];
+            // TODO自動で声優列を表示する
+            $query->set('meta_query', $meta_query);
+        }
         // ------------------------------------------------
         // C. ソート (Meta Query & Orderby)
         // ★ここを共通設定ファイルから自動生成する形に変更

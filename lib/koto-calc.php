@@ -50,7 +50,7 @@ function get_character_spec_data($post_id)
     if ($rarity <= 5) {
         $is_no_lv120 = true;
     }
-    $max_lv_map=[
+    $max_lv_map = [
         6 => 99,
         5 => 90,
         4 => 80,
@@ -113,7 +113,8 @@ function get_character_spec_data($post_id)
         'none' => 0.1,
         'special' => 0.07,
         'legend' => 0.05,
-        'grand' => 0.05
+        'grand' => 0.05,
+        'dream' => 0.05,
     ];
 
     if (get_field('talent_status_auto_tf', $post_id)) {
@@ -1213,7 +1214,25 @@ function parse_target_group($grp)
 // =================================================================
 function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
 {
-    if (empty($trait_loop) || !is_array($trait_loop)) return [];
+    if (empty($trait_loop) || !is_array($trait_loop)) return [
+        [
+            'type' => '',
+            'sub_type' => '',
+            'rate_type' => '',
+            'value' => 0,
+            'levels' => [],
+            'whose' => 'self',
+            'super_heal' => 0,
+            'limit_break' => 0,
+            'turn_count' => 1,
+            'resist_status' => '',
+            'target_info' => [],
+            'per_unit' => false,
+            'conditions' => [],
+            'crit_rate' => 0,
+            'crit_damage' => 0,
+        ],
+    ];
 
     $data = [];
     foreach ($trait_loop as $t) {
@@ -2014,6 +2033,7 @@ function _parse_ex_skill($post_id)
             'value'      => (int)0,
             'turn_count' => (int)1
         ],
+        'add_traits' => _parse_trait_loop_to_data([]),
         'search_priority' => parse_target_group([])
     ];
 
@@ -2038,6 +2058,10 @@ function _parse_ex_skill($post_id)
     $priority_group = get_field('search_priority', $post_id);
     if (!empty($priority_group)) {
         $result['search_priority'] = parse_target_group($priority_group);
+    }
+    $add_traits_raws = get_field('ex_trait_loop', $post_id);
+    if (!empty($add_traits_raws)){
+        $result['add_traits'] = _parse_trait_loop_to_data($add_traits_raws);
     }
 
     return $result;

@@ -243,6 +243,7 @@
     margin-right: 10px;
     color: #fff;
     font-weight: bold;
+    white-space: normal;
 }
 
 .tag-cond {
@@ -253,6 +254,9 @@
     background: #6e6359;
 }
 
+.tag-ex-effect {
+    background-color: #a87b01;
+}
 
 /* 文章部分 */
 .skill-text {
@@ -1339,4 +1343,111 @@ body.admin-bar .character-tab-section {
     font-size: 0.8em;
     color: #888;
     margin-top: 5px;
+}
+
+/* ========================================= */
+/* すごわざシフト切り替えタブ (新規追加) */
+/* ========================================= */
+
+.sugo-tab-container {
+    margin-top: 10px;
+}
+
+/* タブボタンのリスト */
+.sugo-tab-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    /* スマホ等で折り返すように */
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-bottom: 2px solid #f8b862;
+    /* サイトカラーで区切り線 */
+}
+
+/* 個別のタブボタン */
+.sugo-tab-buttons .tab-btn {
+    padding: 8px 15px;
+    margin-right: 5px;
+    margin-bottom: -2px;
+    /* 下線を隠すための微調整 */
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    border-radius: 5px 5px 0 0;
+    cursor: pointer;
+    font-weight: bold;
+    color: #666;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+/* ホバー時の動き */
+.sugo-tab-buttons .tab-btn:hover {
+    background: #ffeef2;
+    color: #f8b862;
+}
+
+/* アクティブなタブ (選択中) */
+.sugo-tab-buttons .tab-btn.is-active {
+    background: #f8b862;
+    color: #fff;
+    border-color: #f8b862;
+    cursor: default;
+    /* 選択中はカーソルを元に戻す */
+}
+
+/* コンテンツエリア (枠線で囲む) */
+.sugo-tab-contents {
+    padding: 15px 10px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 5px 5px;
+}
+
+/* ▼▼▼ ここがJSで切り替えるための重要ポイント ▼▼▼ */
+/* コンテンツパネルの基本は「非表示」 */
+.sugo-tab-contents .tab-panel {
+    display: none;
+}
+
+/* 「is-active」クラスが付いたパネルだけ「表示」 */
+.sugo-tab-contents .tab-panel.is-active {
+    display: block;
+}
+
+/* ▲▲▲ -------------------------------------- ▲▲▲ */
+
+/* シフト効果の行間調整 */
+.shift-effect {
+    margin-bottom: 8px;
+}
+
+.shift-effect:last-child {
+    margin-bottom: 0;
+}
+
+/* ========================================= */
+/* 汎用的な区切り線クラス */
+/* ========================================= */
+.separator-line {
+    border: none;
+    /* 標準のhrデザインをリセット */
+    border-top: 1px solid #ccc;
+    /* 薄いグレーの線 */
+    margin: 15px 0;
+    /* 前後の余白 */
+    width: 100%;
+    /* 幅いっぱい */
+}
+
+/* 点線バージョンが必要な場合（オプション） */
+.separator-line.is-dashed {
+    border-top: 1px dashed #ccc;
+}
+
+/* 隙間だけ空けたい場合（オプション） */
+.separator-line.is-space-only {
+    border-top-color: transparent;
 }

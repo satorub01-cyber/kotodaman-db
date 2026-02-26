@@ -770,6 +770,9 @@ $result=[
         [value]=>値int
         [turn_count]=>ターン数int
     ]
+    [add_traits]=>[ //以下の連想配列の配列
+      _parse_trait_loop_to_dataの戻り値
+    ]
     [search_priority]=>[
         parse_target_groupの戻り値
     ]

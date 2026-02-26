@@ -142,7 +142,7 @@ $pre_evo_name = $spec_data['pre_evo_name'] ?? get_field('pre_evo_name');
 $another_img_name = $spec_data['another_image_name'] ?? get_field('another_image_name');
 $cv = $spec_data['cv'] ?? get_field('voice_actor');
 $acquisition = $spec_data['acquisition'] ?? get_field('get_place');
-$max_lv= $spec_data['max_lavel'] ?? 99;
+$max_lv = $spec_data['max_lavel'] ?? 99;
 
 ?>
 
@@ -401,11 +401,11 @@ $max_lv= $spec_data['max_lavel'] ?? 99;
             <td class="st-val"><?php echo $disp_atk_99; ?></td>
         </tr>
         <?php if (!$spec_data['is_no_lv120']): ?>
-        <tr>
-            <th class="st-row-label">Lv.120</th>
-            <td class="st-val"><?php echo $disp_hp_120; ?></td>
-            <td class="st-val"><?php echo $disp_atk_120; ?></td>
-        </tr>
+            <tr>
+                <th class="st-row-label">Lv.120</th>
+                <td class="st-val"><?php echo $disp_hp_120; ?></td>
+                <td class="st-val"><?php echo $disp_atk_120; ?></td>
+            </tr>
         <?php endif; ?>
         <tr>
             <th class="st-row-label">才能開MAX</th>
@@ -454,14 +454,22 @@ $add_effect_type = get_field('additional_effect'); // buff, debuff
 $effect_target   = get_field('effect_target');
 $effect_val      = get_field('effect_value');
 $effect_turn = get_field('turn_count');
-
+$add_trait = get_field('ex_trait_loop') ?? [];
+$add_trait_text = '';
+if (is_array($add_trait)) {
+    foreach ($add_trait as $raw) {
+        $temp_text = get_koto_trait_text_from_row($raw);
+        $add_trait_text = $add_trait_text . $temp_text;
+        $add_trait_text = $add_trait_text . '<br>';
+    }
+}
 $target_map = ['selected' => '選択したコトダマン', 'hand_ally' => '手札の味方', 'all_oppo' => '敵全体', 'single_oppo' => '敵単体'];
 $target_text = isset($target_map[$effect_target]) ? $target_map[$effect_target] : '対象';
 $param_text  = ($add_effect_type === 'buff') ? 'ATK' : 'DEF';
 $suffix_text = ($add_effect_type === 'buff') ? 'バフ' : 'デバフ';
 $turn_text = $effect_turn ?  "{$effect_turn}ターンの間、" : '';
 $auto_summary = "{$target_text}に{$turn_text}{$param_text}{$effect_val}段階{$suffix_text}";
-
+if ($add_trait_text) $auto_summary = '';
 if ($ex_name || $ex_label): // 名前か種類のどちらかがあれば表示
 ?>
     <div class="skill-card card-ex">
@@ -494,11 +502,28 @@ if ($ex_name || $ex_label): // 名前か種類のどちらかがあれば表示
                     </div>
                     <div class="ex-acc-icon">▼</div>
                 </div>
-                <?php if ($ex_desc): ?>
-                    <div class="ex-acc-content" style="display: none;">
-                        <div class="ex-detail-text">
-                            <?php echo nl2br(esc_html($ex_desc)); ?>
-                        </div>
+                <?php if ($ex_desc || $add_trait_text): ?>
+                    <div class="ex-acc-content">
+
+                        <?php if ($ex_desc): ?>
+                            <div class="ex-detail-text">
+                                <?php echo nl2br(esc_html($ex_desc)); ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php
+                        /* 両方の要素がある場合のみ、区切り線を出力 */
+                        if ($ex_desc && $add_trait_text): ?>
+                            <hr class="separator-line">
+                        <?php endif; ?>
+
+                        <?php if ($add_trait_text): ?>
+                            <div class="ex-detail-text">
+                                <span class="skill-badge badge-trait">追加するとくせい</span><br>
+                                <?php echo $add_trait_text; ?>
+                            </div>
+                        <?php endif; ?>
+
                     </div>
                 <?php endif; ?>
             </div>
@@ -1289,8 +1314,33 @@ wp_reset_postdata();
             }
         });
     });
+    // すごわざシフト条件用JS
+    document.addEventListener('DOMContentLoaded', function() {
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        tabButtons.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                // 同じタブセクション内のボタンとパネルだけを操作するため、closestで親コンテナを特定
+                const container = this.closest('.sugo-tab-container');
+                const containerButtons = container.querySelectorAll('.tab-btn');
+                containerButtons.forEach(function(b) {
+                    b.classList.remove('is-active');
+                });
+                this.classList.add('is-active');
+                const targetId = btn.getAttribute('data-panel');
+                const targetPanel = document.getElementById(targetId);
+                const containerPanels = container.querySelectorAll('.tab-panel');
+                console.log(targetId, targetPanel, containerPanels);
+                containerPanels.forEach(function(panel) {
+                    panel.classList.remove('is-active');
+                });
+                if (targetPanel) {
+                    targetPanel.classList.add('is-active');
+                }
+            });
+        });
+    });
 </script>
-
+<!-- google検索結果で表示するデータ作成 -->
 <?php
 // koto-calc.php の関数からキャラの詳細データを取得
 $spec = get_character_spec_data(get_the_ID());
