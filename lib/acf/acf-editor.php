@@ -289,7 +289,7 @@ function koto_acf_editor_page_html()
         'group_693971a11a6b2' => '',
         'group_693c070768756' => '',
     ];
-    $template_post_ids = [2023 => '', 2637 => '', 2638 => ''];
+    $template_post_ids = [2947 => '', 2023 => '', 2637 => '', 2638 => ''];
 
     if (function_exists('acf_get_field_group')) {
         foreach ($field_group_keys as $key => $name) {
