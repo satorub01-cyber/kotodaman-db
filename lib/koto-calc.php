@@ -121,7 +121,7 @@ function get_character_spec_data($post_id)
         $talent_hp = (int)get_field('talent_hp', $post_id);
         $talent_atk = (int)get_field('talent_atk', $post_id);
     } else {
-        $rate = $talent_rate[$rarity] ?? 0;
+        $rate = $talent_rate[$rarity_detail] ?? 0;
         $talent_hp = (int)floor($val_99_hp_total * $rate);
         $talent_atk = (int)floor($val_99_atk_total * $rate);
     }
