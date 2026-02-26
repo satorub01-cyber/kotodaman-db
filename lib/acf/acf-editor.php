@@ -30,6 +30,7 @@ function koto_acf_editor_menu()
 // =================================================================
 add_filter('acf/fields/relationship/query/key=field_editor_edit_post', 'koto_acf_relationship_query_custom', 10, 3);
 add_filter('acf/fields/relationship/query/key=field_editor_source_post', 'koto_acf_relationship_query_custom', 10, 3);
+add_filter('acf/fields/relationship/query/key=field_editor_search_template', 'koto_acf_relationship_query_custom', 10, 3);
 
 function koto_acf_relationship_query_custom($args, $field, $post_id)
 {
@@ -61,7 +62,6 @@ add_action('acf/init', function () {
         'filters'       => ['search', 'taxonomy'],
         'elements'      => ['featured_image'],
         'return_format' => 'id',
-        'max'           => 1,
     ]);
     acf_add_local_field([
         'key'           => 'field_editor_source_post',
@@ -72,18 +72,30 @@ add_action('acf/init', function () {
         'filters'       => ['search', 'taxonomy'],
         'elements'      => ['featured_image'],
         'return_format' => 'id',
-        'max'           => 1,
+    ]);
+    acf_add_local_field([
+        'key'           => 'field_editor_search_template',
+        'label'         => 'Search Template',
+        'name'          => 'search_template_id',
+        'type'          => 'relationship',
+        'post_type'     => ['character'],
+        'filters'       => ['search'],
+        'elements'      => ['featured_image'],
+        'return_format' => 'id',
     ]);
 });
 
 function koto_acf_editor_handle_actions()
 {
     $current_url = admin_url('admin.php?page=koto-acf-editor');
-
     // A. 雛型・既存キャラの複製
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acf_action']) && $_POST['acf_action'] === 'copy_template') {
-        // 検索フィールドが入力されていれば優先、なければ雛型プルダウンを使用
-        $template_id = !empty($_POST['search_template_id']) ? intval($_POST['search_template_id']) : intval($_POST['template_id']);
+        $search_temp_id = 0;
+        // こちらも $_POST の実際のキー名から取得する
+        if (!empty($_POST['field_editor_search_template']) && is_array($_POST['field_editor_search_template'])) {
+            $search_temp_id = intval($_POST['field_editor_search_template'][0]);
+        }
+        $template_id = $search_temp_id ? $search_temp_id : intval($_POST['template_id']);
         $target_group = sanitize_text_field($_POST['target_group']);
         if ($template_id) {
             $template_post = get_post($template_id);
@@ -294,15 +306,27 @@ function koto_acf_editor_page_html()
         }
     }
 
-    $edit_post_id_raw = isset($_GET['edit_post_id']) ? $_GET['edit_post_id'] : '';
-    $edit_post_id     = is_array($edit_post_id_raw) && !empty($edit_post_id_raw) ? intval($edit_post_id_raw[0]) : intval($edit_post_id_raw);
+    // ★修正: ACFが実際に送信してくるキー（field_editor_***）からIDを抽出する
+    // ★修正: ACFの検索から来た場合と、コピー後のリダイレクトで来た場合の両方に対応
+    $edit_post_id = 0;
+    if (!empty($_GET['field_editor_edit_post']) && is_array($_GET['field_editor_edit_post'])) {
+        // ACFの関係フィールド検索から飛んできた場合
+        $edit_post_id = intval($_GET['field_editor_edit_post'][0]);
+    } elseif (!empty($_GET['edit_post_id'])) {
+        // コピー処理や保存直後のシンプルなURLパラメータから飛んできた場合
+        $edit_post_id = intval($_GET['edit_post_id']);
+    }
 
-    $edit_group       = isset($_GET['acf_group']) ? sanitize_text_field($_GET['acf_group']) : '';
+    $edit_group = isset($_GET['acf_group']) ? sanitize_text_field($_GET['acf_group']) : '';
 
-    $source_post_id_raw = isset($_GET['source_post_id']) ? $_GET['source_post_id'] : '';
-    $source_post_id     = is_array($source_post_id_raw) && !empty($source_post_id_raw) ? intval($source_post_id_raw[0]) : intval($source_post_id_raw);
+    $source_post_id = 0;
+    if (!empty($_GET['field_editor_source_post']) && is_array($_GET['field_editor_source_post'])) {
+        $source_post_id = intval($_GET['field_editor_source_post'][0]);
+    } elseif (!empty($_GET['source_post_id'])) {
+        $source_post_id = intval($_GET['source_post_id']);
+    }
 
-    $source_group     = isset($_GET['source_group']) ? sanitize_text_field($_GET['source_group']) : '';
+    $source_group = isset($_GET['source_group']) ? sanitize_text_field($_GET['source_group']) : '';
 
     $target_title = $edit_post_id ? get_the_title($edit_post_id) : '【未選択】';
     $source_title = $source_post_id ? get_the_title($source_post_id) : '【未選択】';
@@ -331,18 +355,19 @@ function koto_acf_editor_page_html()
                 <div class="acf-sync-panel-flex" style="display: flex; gap: 20px; align-items: flex-start;">
                     <div class="acf-sync-col" style="flex: 1; width: 100%;">
                         <strong style="color: #2271b1;">📝【左】編集・インポート先のキャラと項目:</strong><br>
-                        <div class="acf-field acf-field-relationship" data-type="relationship" data-name="edit_post_id" data-key="field_editor_edit_post" style="padding:0; border:none;">
+                        <input type="hidden" name="edit_post_id" id="real_edit_post_id" value="<?php echo esc_attr($edit_post_id ? $edit_post_id : ''); ?>">
+
+                        <div class="acf-field acf-field-relationship" data-type="relationship" data-name="_dummy_edit_post_id" data-key="field_editor_edit_post" style="padding:0; border:none;">
                             <div class="acf-input">
                                 <?php
                                 acf_render_field([
                                     'type'          => 'relationship',
-                                    'name'          => 'edit_post_id',
+                                    'name'          => '_dummy_edit_post_id', // ★修正: ダミーの名前に変更
                                     'key'           => 'field_editor_edit_post', // 先ほどの権限フックと連動するキー
                                     'post_type'     => ['character'],
                                     'filters'       => ['search', 'taxonomy'], // 検索窓とタクソノミー絞り込みを表示
                                     'elements'      => ['featured_image'], // アイキャッチ画像を表示
                                     'return_format' => 'id',
-                                    'max'           => 1, // 1つしか選べないように制限
                                     'value'         => $edit_post_id ? [$edit_post_id] : [],
                                 ]);
                                 ?>
@@ -359,18 +384,19 @@ function koto_acf_editor_page_html()
 
                     <div class="acf-sync-col" style="flex: 1; width: 100%;">
                         <strong style="color: #d63638;">📦【右】コピー元のキャラと項目:</strong><br>
-                        <div class="acf-field acf-field-relationship" data-type="relationship" data-name="source_post_id" data-key="field_editor_source_post" style="padding:0; border:none;">
+                        <input type="hidden" name="source_post_id" id="real_source_post_id" value="<?php echo esc_attr($source_post_id ? $source_post_id : ''); ?>">
+
+                        <div class="acf-field acf-field-relationship" data-type="relationship" data-name="_dummy_source_post_id" data-key="field_editor_source_post" style="padding:0; border:none;">
                             <div class="acf-input">
                                 <?php
                                 acf_render_field([
                                     'type'          => 'relationship',
-                                    'name'          => 'source_post_id',
+                                    'name'          => '_dummy_source_post_id', // ★修正: ダミーの名前に変更
                                     'key'           => 'field_editor_source_post',
                                     'post_type'     => ['character'],
                                     'filters'       => ['search', 'taxonomy'],
                                     'elements'      => ['featured_image'],
                                     'return_format' => 'id',
-                                    'max'           => 1,
                                     'value'         => $source_post_id ? [$source_post_id] : [],
                                 ]);
                                 ?>
@@ -408,9 +434,24 @@ function koto_acf_editor_page_html()
                     <?php foreach ($template_post_ids as $id => $name) echo '<option value="' . esc_attr($id) . '">' . esc_html($name) . '</option>'; ?>
                 </select>
                 <span style="font-size: 12px; color: #666; margin: 0 5px;">または任意のキャラを検索:</span>
-                <select name="search_template_id" class="koto-character-search" style="width:250px;">
-                    <option value=""></option>
-                </select>
+                <input type="hidden" name="search_template_id" id="real_search_template_id" value="">
+
+                <div class="acf-field acf-field-relationship" data-type="relationship" data-name="_dummy_search_template_id" data-key="field_editor_search_template" style="padding:0; border:none; display:inline-block; vertical-align:middle; width:300px;">
+                    <div class="acf-input">
+                        <?php
+                        acf_render_field([
+                            'type'          => 'relationship',
+                            'name'          => '_dummy_search_template_id', // ★修正: ダミーの名前に変更
+                            'key'           => 'field_editor_search_template',
+                            'post_type'     => ['character'],
+                            'filters'       => ['search'],
+                            'elements'      => ['featured_image'],
+                            'return_format' => 'id',
+                            'value'         => [],
+                        ]);
+                        ?>
+                    </div>
+                </div>
 
                 <select name="target_group">
                     <?php foreach ($field_group_keys as $key => $name) echo '<option value="' . esc_attr($key) . '">' . esc_html($name) . '</option>'; ?>
@@ -442,7 +483,7 @@ function koto_acf_editor_page_html()
             <div style="display:flex; gap:10px;">
                 <?php if ($edit_post_id && $edit_group): ?>
                     <button type="button" class="button" id="btn_draft_sticky">下書き保存</button>
-                    <button type="button" class="button button-primary button-large" id="btn_publish_sticky">公開 / 更新 (Ctrl+S)</button>
+                    <button type="button" class="button button-primary button-large" id="btn_publish_sticky">公開 / 更新 </button>
                 <?php else: ?>
                     <span style="color:#888; font-size:12px;">※左のキャラを指定すると保存できます</span>
                 <?php endif; ?>
