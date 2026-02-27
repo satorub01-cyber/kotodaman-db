@@ -107,7 +107,7 @@ get_header();
                 <div class="tax-grid">
                     <a href="<?php echo home_url('/rarity/grand/'); ?>" class="tax-btn grand">グランド</a>
                     <a href="<?php echo home_url('/rarity/legend/'); ?>" class="tax-btn legend">レジェンド</a>
-                    <a href="<?php echo home_url('/rarity/dream/'); ?>" class="tax-btn special">ドリーム</a>
+                    <a href="<?php echo home_url('/rarity/dream/'); ?>" class="tax-btn dream">ドリーム</a>
                     <a href="<?php echo home_url('/rarity/special/'); ?>" class="tax-btn special">スペシャル</a>
                 </div>
             </section>
@@ -368,6 +368,10 @@ get_header();
 
     .tax-btn.special {
         border-bottom: 4px solid #66b5ffff;
+    }
+
+    .tax-btn.dream {
+        border-bottom: 4px solid rgb(232 225 106);
     }
 
     .tax-btn.spe {
