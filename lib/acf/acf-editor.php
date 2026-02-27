@@ -281,13 +281,13 @@ if (!function_exists('koto_acf_render_preview_html')) {
 function koto_acf_editor_page_html()
 {
     $field_group_keys = [
-        'group_69204fa4dd82e' => '',
-        'group_6937900895bf1' => '',
-        'group_693790bd6b499' => '',
-        'group_693969515ca4d' => '',
-        'group_693790ee221c3' => '',
-        'group_693971a11a6b2' => '',
-        'group_693c070768756' => '',
+        'group_69204fa4dd82e' => '基本データ',
+        'group_6937900895bf1' => 'わざ、すごわざ',
+        'group_693790bd6b499' => 'ことわざ',
+        'group_693969515ca4d' => 'リーダーとくせい',
+        'group_693790ee221c3' => 'とくせい',
+        'group_693971a11a6b2' => '祝福',
+        'group_693c070768756' => 'EXスキル',
     ];
     $template_post_ids = [2947 => '', 2023 => '', 2637 => '', 2638 => ''];
 
@@ -459,9 +459,9 @@ function koto_acf_editor_page_html()
                 <button type="submit" class="button button-secondary" onclick="return confirm('選択した雛型を複製して新しい下書きを作成しますか？');">複製して作成</button>
             </form>
         </div>
-        <div class="acf-sticky-actions" style="position: sticky; top: 32px; z-index: 999; background: #fff; padding: 10px 20px; border-bottom: 2px solid #ccc; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <div style="display:flex; gap:10px;">
-                <strong style="line-height: 2;">🌐 サイト確認:</strong>
+        <div id="koto-sticky-bar" class="acf-sticky-actions" style="position: sticky; top: 32px; z-index: 999; background: #fff; padding: 10px 20px; border-bottom: 2px solid #ccc; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="display:flex; gap:10px; align-items:center;">
+                <strong style="margin:0;">🌐 サイト確認:</strong>
                 <?php
                 if ($edit_post_id) {
                     $t_status = get_post_status($edit_post_id);
@@ -477,10 +477,18 @@ function koto_acf_editor_page_html()
                 <a href="https://kotodaman-db.com/magnification-calc/" target="_blank" class="button">倍率計算</a>
             </div>
 
+            <div class="acf-sticky-group-tabs">
+                <?php foreach ($field_group_keys as $key => $name): ?>
+                    <button type="button" class="button group-switch-btn <?php echo ($edit_group === $key) ? 'button-primary' : ''; ?>" data-group="<?php echo esc_attr($key); ?>">
+                        <?php echo esc_html($name); ?>
+                    </button>
+                <?php endforeach; ?>
+            </div>
+
             <script>
                 var kotoCurrentPostStatus = "<?php echo $edit_post_id ? esc_js(get_post_status($edit_post_id)) : ''; ?>";
             </script>
-            <div style="display:flex; gap:10px;">
+            <div style="display:flex; gap:10px; align-items:center;">
                 <?php if ($edit_post_id && $edit_group): ?>
                     <button type="button" class="button" id="btn_draft_sticky">下書き保存</button>
                     <button type="button" class="button button-primary button-large" id="btn_publish_sticky">公開 / 更新 </button>

@@ -219,3 +219,19 @@
         /* スマホではスクロール追従を解除（見づらくなるため） */
     }
 }
+
+/* ==============================================
+   固定バーのフィールドグループ切り替えボタン用
+   ============================================== */
+.acf-sticky-group-tabs {
+    display: block;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: center;
+    flex: 1;
+    margin: 0 15px;
+}
+
+.acf-hidden-select {
+    display: none !important;
+}
