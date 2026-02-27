@@ -1484,4 +1484,126 @@ function get_koto_blessing_sugo_list($post_id = null)
     }
     return $results;
 }
-?>
+
+function koto_replace_icons($buffer)
+{
+
+    // ==========================================
+    // 0. 除外（マスク）処理
+    // ==========================================
+
+    // ★手順A: ここに「誤爆させたくない単語」を追加してください
+    $ignore_words = [
+        '植物・',  // 「物」種族の誤爆防止
+        '花火・',  // 「火」属性の誤爆防止
+        '生き物・',  // 「物」種族の誤爆防止
+        // 必要に応じて追加
+    ];
+
+    // 除外したいクラス名やタグの正規表現リスト
+    $ignore_patterns = [
+        // 1. .article h1 (h1タグ全体を保護)
+        '/<h1\b[^>]*>.*?<\/h1>/us',
+
+        // 2. 指定されたクラス名を含むタグ
+        '/<([a-z0-9]+)\b[^>]*class=["\'][^"\']*(?:prev-post-title|next-post-title|entry-title|grid-char-name|tab-text|tab-link)[^"\']*["\'][^>]*>.*?<\/\1>/us',
+
+        // 3. titleタグ
+        '/<title>.*?<\/title>/us',
+
+        // 4. 属性値の中身 (alt="火・水" など)
+        '/=["\'][^"\']*["\']/s',
+    ];
+
+    // ★手順B: 単語リストを正規表現に変換してパターンに追加
+    if (! empty($ignore_words)) {
+        // (植物・|花火・|生物・) という形に変換
+        $ignore_regex_parts = array_map(function ($word) {
+            return preg_quote($word, '/');
+        }, $ignore_words);
+
+        // リストに追加
+        $ignore_patterns[] = '/' . implode('|', $ignore_regex_parts) . '/u';
+    }
+
+    // マスクした内容を保存しておく金庫
+    $saved_masks = [];
+
+    // 除外対象を一時的にプレースホルダー (##MASK_0## 等) に置き換える
+    foreach ($ignore_patterns as $pattern) {
+        $buffer = preg_replace_callback($pattern, function ($matches) use (&$saved_masks) {
+            $placeholder = '##MASK_' . count($saved_masks) . '##';
+            $saved_masks[$placeholder] = $matches[0];
+            return $placeholder;
+        }, $buffer);
+    }
+
+
+    // ==========================================
+    // 1. 属性の置換処理
+    // ==========================================
+    $slug_map = koto_get_attr_map();
+
+    $keys_regex = implode('|', array_keys($slug_map));
+    $pattern_attr = '/(' . $keys_regex . ')(属性|・)/u';
+
+    $buffer = preg_replace_callback($pattern_attr, function ($matches) use ($slug_map) {
+        $element_name = $matches[1];
+        $suffix       = $matches[2];
+
+        if (! isset($slug_map[$element_name])) return $matches[0];
+
+        $slug = $slug_map[$element_name];
+        $img_tag = '<img src="https://www.kotodaman-db.com/wp-content/uploads/2025/12/icon-' . $slug . '.png" alt="' . $element_name . '属性" class="attr-icon-img">';
+
+        if ($suffix === '・') {
+            return $img_tag . '・';
+        } else {
+            return $img_tag;
+        }
+    }, $buffer);
+
+
+    // ==========================================
+    // 2. 種族の置換処理
+    // ==========================================
+    $slug_map_race = koto_get_species_map();
+
+    $race_keys_regex = implode('|', array_keys($slug_map_race));
+    $pattern_race = '/(' . $race_keys_regex . ')(種族|・)/u';
+
+    $buffer = preg_replace_callback($pattern_race, function ($matches) use ($slug_map_race) {
+        $name   = $matches[1];
+        $suffix = $matches[2];
+
+        if (! isset($slug_map_race[$name])) return $matches[0];
+
+        $slug = $slug_map_race[$name];
+        $img_tag = '<img src="https://www.kotodaman-db.com/wp-content/uploads/2025/12/icon-' . $slug . '.png" alt="' . $name . '種族" class="species-icon-img">';
+
+        if ($suffix === '・') {
+            return $img_tag . '・';
+        } else {
+            return $img_tag;
+        }
+    }, $buffer);
+
+
+    // ==========================================
+    // 3. マスク解除
+    // ==========================================
+    if (! empty($saved_masks)) {
+        $buffer = str_replace(array_keys($saved_masks), array_values($saved_masks), $buffer);
+    }
+
+    return $buffer;
+}
+
+function global_replace_buffer_end()
+{
+    if (is_admin()) return;
+
+    if (ob_get_length()) {
+        ob_end_flush();
+    }
+}
