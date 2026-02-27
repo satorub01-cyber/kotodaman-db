@@ -408,7 +408,7 @@ $max_lv = $spec_data['max_lavel'] ?? 99;
             </tr>
         <?php endif; ?>
         <tr>
-            <th class="st-row-label">才能開MAX</th>
+            <th class="st-row-label">才能開花MAX</th>
             <td class="st-val"><?php echo $talent_hp > 0 ? '+' . number_format($talent_hp) : '-'; ?></td>
             <td class="st-val"><?php echo $talent_atk > 0 ? '+' . number_format($talent_atk) : '-'; ?></td>
         </tr>

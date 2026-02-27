@@ -134,17 +134,31 @@ function get_character_spec_data($post_id)
         '_val_99_atk'   => (int)$val_99_atk_total,
         '_val_120_hp'   => (int)$val_120_hp_total,
         '_val_120_atk'  => (int)$val_120_atk_total,
-        'talent_hp'     => $talent_hp,
-        'talent_atk'    => $talent_atk,
+        'talent_hp'     => (int)$talent_hp,
+        'talent_atk'    => (int)$talent_atk,
         'is_no_lv120'   => (bool)$is_no_lv120,
-        'rarity'        => $rarity,
+        'rarity'        => (int)$rarity,
         'rarity_detail' => $rarity_detail,
-        'max_lavel'     => $max_lv,
+        'max_lavel'     => (int)$max_lv,
         'release_date'  => '', // ★追加: 実装日用キー
         'attribute'     => '',
         'sub_attributes' => [],
         'species'       => '',
         'groups'        => [],
+        'chars'         => [],
+        'buff_counts_board'   => array_fill(0, 6, 0),
+        'buff_counts_hand'   => array_fill(0, 6, 0),
+        'debuff_counts' => array_fill(0, 6, 0),
+        'name_ruby'     => '',
+        'cv'            => '',
+        'acquisition'   => '', //入手場所
+        'max_ls_hp'     => 0,
+        'max_ls_atk'    => 0,
+        'firepower_index' => 0,
+        'is_estimate'   => (bool)$is_estimate,
+        'is_koto_estimate' => (bool)$is_koto_estimate,
+        'pre_evo_name'  => '', // ★追加
+        'another_image_name' => '', // ★追加
         'waza'          => null,
         'sugowaza'      => null,
         'kotowaza'      => [],
@@ -170,26 +184,12 @@ function get_character_spec_data($post_id)
         'trait_search_tags_1' => [], // ★追加
         'trait_search_tags_2' => [], // ★追加
         'trait_search_tags_blessing' => [], // ★追加
-        'chars'         => [],
-        'buff_counts_board'   => array_fill(0, 6, 0),
-        'buff_counts_hand'   => array_fill(0, 6, 0),
-        'debuff_counts' => array_fill(0, 6, 0),
-        'name_ruby'     => '',
-        'cv'            => '',
-        'acquisition'   => '', //入手場所
-        'max_ls_hp'     => 0,
-        'max_ls_atk'    => 0,
-        'firepower_index' => 0,
-        'is_estimate'   => (bool)$is_estimate,
-        'is_koto_estimate' => (bool)$is_koto_estimate,
-        'pre_evo_name'  => '', // ★追加
-        'another_image_name' => '', // ★追加
     ];
     $data['name_ruby'] = get_field('name_ruby', $post_id) ?: '';
     $data['cv'] = get_field('voice_actor', $post_id) ?: '';
     $data['acquisition'] = get_field('get_place', $post_id) ?: '';
-    $data['max_ls_hp'] = get_field('max_ls_hp', $post_id) ?: '';
-    $data['max_ls_atk'] = get_field('max_ls_atk', $post_id) ?: '';
+    $data['max_ls_hp'] = (int)(get_field('max_ls_hp', $post_id) ?: 0);
+    $data['max_ls_atk'] = (int)(get_field('max_ls_atk', $post_id) ?: 0);
     $data['acquisition'] = $data['acquisition'] === 'gacha' ? 'ガチャ' : 'その他';
     $data['pre_evo_name'] = get_field('pre_evo_name', $post_id) ?: '';
     $data['another_image_name'] = get_field('another_image_name', $post_id) ?: '';
@@ -2060,7 +2060,7 @@ function _parse_ex_skill($post_id)
         $result['search_priority'] = parse_target_group($priority_group);
     }
     $add_traits_raws = get_field('ex_trait_loop', $post_id);
-    if (!empty($add_traits_raws)){
+    if (!empty($add_traits_raws)) {
         $result['add_traits'] = _parse_trait_loop_to_data($add_traits_raws);
     }
 

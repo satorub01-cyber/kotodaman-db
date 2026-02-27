@@ -13,6 +13,7 @@ add_editor_style();
  * @param string $class_name imgタグにつけるクラス名
  * @return string imgタグまたはターム名
  */
+require_once get_stylesheet_directory() . '/lib/koto-variables.php';
 function get_term_icon_html($term, $class_name = 'term-icon')
 {
     if (!$term || !is_object($term)) return '未設定';
@@ -1160,5 +1161,5 @@ add_action('wp_footer', function () {
 });
 // ACFフロントエディター（管理画面版）の読み込み
 require_once get_stylesheet_directory() . '/lib/acf/acf-editor.php';
-require_once get_stylesheet_directory() . '/lib/koto-json-reform.php';
+require_once get_stylesheet_directory() . '/lib/koto-json-reformer.php';
 ?>
