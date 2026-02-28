@@ -185,7 +185,7 @@ add_action('save_post', 'auto_set_slug_to_id_multi', 10, 2);
 // 1. 検索ロジックファイルの読み込み (正しいファイル名に修正)
 // =================================================================
 // ※必ずサーバー上のファイル名を koto-search.php に直してから実行してください
-require_once get_stylesheet_directory() . '/lib/koto-search.php';
+require_once get_stylesheet_directory() . '/lib/character-search/koto-search.php';
 require_once get_stylesheet_directory() . '/lib/koto-modal-displayer.php';
 
 
@@ -588,7 +588,7 @@ require_once get_stylesheet_directory() . '/lib/koto-display.php';
 // 計算・データ保存関連の関数
 require_once get_stylesheet_directory() . '/lib/koto-calc.php';
 
-require_once get_stylesheet_directory() . '/lib/chara-list-functions.php';
+require_once get_stylesheet_directory() . '/lib/chacter-search/chara-list-functions.php';
 /**
  * 1. event と affiliation の権限設定を強制的に上書き（特注の鍵穴にする）
  */
