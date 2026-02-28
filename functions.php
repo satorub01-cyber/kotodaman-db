@@ -588,7 +588,7 @@ require_once get_stylesheet_directory() . '/lib/koto-display.php';
 // 計算・データ保存関連の関数
 require_once get_stylesheet_directory() . '/lib/koto-calc.php';
 
-require_once get_stylesheet_directory() . '/lib/chacter-search/chara-list-functions.php';
+require_once get_stylesheet_directory() . '/lib/character-search/chara-list-functions.php';
 /**
  * 1. event と affiliation の権限設定を強制的に上書き（特注の鍵穴にする）
  */
@@ -937,7 +937,7 @@ function koto_custom_search_template($template)
 
         // キャラクター検索の場合 -> search-character.php を使用
         if ($post_type === 'character') {
-            $new_template = locate_template(['search-character.php']);
+            $new_template = locate_template(['/lib/character-search/search-character.php']);
             if ($new_template) return $new_template;
         }
     }
@@ -1080,5 +1080,5 @@ add_action('wp_footer', function () {
 });
 // ACFフロントエディター（管理画面版）の読み込み
 require_once get_stylesheet_directory() . '/lib/acf/acf-editor.php';
-require_once get_stylesheet_directory() . '/lib/koto-json-reformer.php';
+require_once get_stylesheet_directory() . '/lib/character-search/koto-json-reformer.php';
 ?>

@@ -12,6 +12,13 @@ function koto_get_column_config()
             'show'  => true,
             'header_class' => 'th-icon'
         ],
+        'id'   =>[
+            'label' => 'ID',
+            'class' => 'col-id',
+            'sort'  => 'id',
+            'show'  => false,
+            'header_class' => 'th-id'
+        ],
         'name' => [
             'label' => 'キャラ名',
             'class' => 'col-name',
@@ -39,7 +46,7 @@ function koto_get_column_config()
         'species' => [
             'label' => '種族',
             'class' => 'col-species',
-            'sort'  => 'species',
+            'sort'  => 'spe',
             'meta'  => '_sort_species_index',
             'type'  => 'NUMERIC',
             'show'  => false,

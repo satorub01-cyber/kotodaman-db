@@ -26,16 +26,17 @@ get_header(); ?>
         <?php get_search_form(); ?>
     </div>
     <?php
-    // ▼▼▼ 修正: 検索時はメインクエリをそのまま使う ▼▼▼
-    if (is_search()) {
-        global $wp_query;
-        $the_query = $wp_query;
-    } else {
-        // 固定ページとして使う場合のみ、独自のクエリを発行
-        $paged = (get_query_var('paged')) ? get_query_var('paged') : ((get_query_var('page')) ? get_query_var('page') : 1);
-        $args = get_koto_character_args($_GET, $paged);
-        $the_query = new WP_Query($args);
-    }
+    // JS移行に伴い削除
+    // // ▼▼▼ 修正: 検索時はメインクエリをそのまま使う ▼▼▼
+    // if (is_search()) {
+    //     global $wp_query;
+    //     $the_query = $wp_query;
+    // } else {
+    //     // 固定ページとして使う場合のみ、独自のクエリを発行
+    //     $paged = (get_query_var('paged')) ? get_query_var('paged') : ((get_query_var('page')) ? get_query_var('page') : 1);
+    //     $args = get_koto_character_args($_GET, $paged);
+    //     $the_query = new WP_Query($args);
+    // }
 
     // ★設定読み込み (chara-list-functions.php で定義)
     $config = koto_get_column_config();
@@ -44,24 +45,15 @@ get_header(); ?>
     $sort_key   = $_GET['orderby'] ?? 'name_ruby';
     $sort_order = $_GET['order'] ?? 'ASC';
 
-    // ソートリンク生成ヘルパー
-    $get_sort_link = function ($key, $label) use ($sort_key, $sort_order) {
-        $new_order = 'DESC';
-        if ($key === 'name_ruby') $new_order = 'ASC';
-
+    // ▼▼▼ 差し替え：JS用ソートリンク生成ヘルパー ▼▼▼
+    $get_sort_link = function ($key, $label) {
+        // 初期状態は薄い下向き矢印
         $arrow_html = '<span class="sort-arrow faint">▼</span>';
-        $active_class = '';
 
-        if ($sort_key === $key) {
-            $new_order = ($sort_order === 'ASC') ? 'DESC' : 'ASC';
-            $active_class = 'is-active';
-            $arrow_char = ($sort_order === 'ASC') ? '▲' : '▼';
-            $arrow_html = '<span class="sort-arrow active">' . $arrow_char . '</span>';
-        }
-
-        $url = add_query_arg(['orderby' => $key, 'order' => $new_order]);
-        return "<a href='{$url}' class='sort-link {$active_class}'>{$label}{$arrow_html}</a>";
+        // href="#" でページ遷移を防ぎ、JS操作用のクラス「js-sort-link」と、ソート対象の「data-sort-key」を付与
+        return "<a href='#' class='sort-link js-sort-link' data-sort-key='{$key}'>{$label}{$arrow_html}</a>";
     };
+    // ▲▲▲ 差し替えここまで ▲▲▲
     ?>
 
     <details class="column-config-box">
@@ -110,18 +102,6 @@ get_header(); ?>
                 </tr>
             </thead>
             <tbody id="chara-list-body">
-                <?php if ($the_query->have_posts()) : ?>
-                    <?php while ($the_query->have_posts()) : $the_query->the_post(); ?>
-
-                        <?php echo get_koto_character_row_html(get_the_ID()); ?>
-
-                    <?php endwhile; ?>
-                <?php else : ?>
-                    <tr>
-                        <td colspan="100%" class="no-data">キャラクターが見つかりませんでした。</td>
-                    </tr>
-                <?php endif; ?>
-                <?php wp_reset_postdata(); ?>
             </tbody>
         </table>
     </div>
@@ -129,9 +109,6 @@ get_header(); ?>
     <div id="loading-spinner" style="display:none; text-align:center; padding: 20px;">
         <span class="loading-dots">読み込み中</span>
     </div>
-    <div id="scroll-observer" style="height: 20px;"></div>
-    <input type="hidden" id="current-page" value="<?php echo max(1, $paged); ?>">
-    <input type="hidden" id="max-pages" value="<?php echo $the_query->max_num_pages; ?>">
 </div>
 
 <?php
@@ -167,7 +144,12 @@ if ($_SERVER['HTTP_HOST'] === 'www.kotodaman-db.com'):
     </script>
 <?php endif; ?>
 <?php get_footer(); ?>
+<?php
+$js_path = get_stylesheet_directory() . '/lib/character-search/search-engine.js';
+$version = file_exists($js_path) ? @filemtime($js_path) : '1.0';
+?>
 
+<script src="<?php echo get_stylesheet_directory_uri(); ?>/lib/character-search/search-engine.js?v=<?php echo $version; ?>"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const checkboxes = document.querySelectorAll('.col-toggle');
@@ -175,7 +157,6 @@ if ($_SERVER['HTTP_HOST'] === 'www.kotodaman-db.com'):
 
         // 指定クラスの列を表示/非表示にする関数
         const toggleColumn = (targetClass, isVisible) => {
-            // targetClass を持つ要素 (th と td の両方についているはず)
             const cells = document.querySelectorAll('.' + targetClass);
             cells.forEach(cell => {
                 if (isVisible) {
@@ -186,6 +167,13 @@ if ($_SERVER['HTTP_HOST'] === 'www.kotodaman-db.com'):
             });
         };
 
+        // ★修正ポイント：search-engine.js からも呼び出せるように window オブジェクトに入れる
+        window.applyCurrentColumnSettings = () => {
+            checkboxes.forEach(cb => {
+                toggleColumn(cb.dataset.target, cb.checked);
+            });
+        };
+
         // 設定読み込み
         const loadSettings = () => {
             const saved = localStorage.getItem(storageKey);
@@ -193,7 +181,6 @@ if ($_SERVER['HTTP_HOST'] === 'www.kotodaman-db.com'):
                 const hiddenCols = JSON.parse(saved);
                 checkboxes.forEach(cb => {
                     const target = cb.dataset.target;
-                    // 保存データに含まれている＝非表示(チェック外す)
                     if (hiddenCols.includes(target)) {
                         cb.checked = false;
                         toggleColumn(target, false);
@@ -203,7 +190,6 @@ if ($_SERVER['HTTP_HOST'] === 'www.kotodaman-db.com'):
                     }
                 });
             } else {
-                // 初回はHTMLのchecked属性(PHP側で制御)に従う
                 checkboxes.forEach(cb => {
                     toggleColumn(cb.dataset.target, cb.checked);
                 });
@@ -230,71 +216,5 @@ if ($_SERVER['HTTP_HOST'] === 'www.kotodaman-db.com'):
         // 初期実行
         loadSettings();
 
-        // --- 無限スクロール ---
-        const observerTarget = document.getElementById('scroll-observer');
-        const loadingSpinner = document.getElementById('loading-spinner');
-        const tableBody = document.getElementById('chara-list-body');
-        const pageInput = document.getElementById('current-page');
-        const maxPageInput = document.getElementById('max-pages');
-        let isLoading = false;
-
-        // Ajaxで読み込んだ後にも列設定を適用する必要がある
-        const applyCurrentColumnSettings = () => {
-            checkboxes.forEach(cb => {
-                toggleColumn(cb.dataset.target, cb.checked);
-            });
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && !isLoading) {
-                loadNextPage();
-            }
-        }, {
-            rootMargin: '200px'
-        });
-
-        if (observerTarget) {
-            observer.observe(observerTarget);
-        }
-
-        function loadNextPage() {
-            let currentPage = parseInt(pageInput.value);
-            let maxPages = parseInt(maxPageInput.value);
-            if (currentPage >= maxPages) return;
-
-            isLoading = true;
-            loadingSpinner.style.display = 'block';
-
-            let nextPage = currentPage + 1;
-            const params = new URLSearchParams();
-            params.append('action', 'load_more_characters');
-            params.append('paged', nextPage);
-
-            const urlParams = new URLSearchParams(window.location.search);
-            urlParams.forEach((value, key) => {
-                params.append(key, value);
-            });
-
-            fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
-                    method: 'POST',
-                    body: params
-                })
-                .then(response => response.text())
-                .then(data => {
-                    if (data.trim() !== '') {
-                        tableBody.insertAdjacentHTML('beforeend', data);
-                        pageInput.value = nextPage;
-                        // 追加されたDOMに対して表示設定を適用
-                        applyCurrentColumnSettings();
-                    } else {
-                        observer.disconnect();
-                    }
-                })
-                .catch(err => console.error('Error:', err))
-                .finally(() => {
-                    isLoading = false;
-                    loadingSpinner.style.display = 'none';
-                });
-        }
     });
 </script>

@@ -10,6 +10,26 @@ function koto_get_flat_char_data($post_id)
     if (!is_array($spec) || empty($spec)) {
         return null;
     }
+    // 画像URLの取得
+    $thumb_url = get_the_post_thumbnail_url($post_id, 'thumbnail') ?? '';
+
+    // ギミック名の抽出
+    $gimmicks = [];
+    $gimmick_slugs = [];
+    $contents_trait1   = $spec['trait1']['contents'] ?? [];
+    $contents_trait2   = $spec['trait2']['contents'] ?? [];
+    $contents_blessing = $spec['blessing']['contents'] ?? [];
+
+    $traits = array_merge($contents_trait1, $contents_trait2, $contents_blessing);
+    if (!empty($traits)) {
+        foreach ($traits as $t) {
+            if ($t['type'] === 'gimmick' && !empty($t['sub_type'])) {
+                $term = get_term_by('slug', $t['sub_type'], 'gimmick');
+                if ($term) $gimmicks[] = $term->name;
+                if ($term) $gimmick_slugs[] = $term->slug;
+            }
+        }
+    }
     $attr_num = koto_get_attr_num();
     $species_num = koto_get_species_num();
     $sub_attributes = array_map(function ($item) use ($attr_num) {
@@ -17,32 +37,59 @@ function koto_get_flat_char_data($post_id)
     }, $spec['sub_attributes']);
     $groups = array_map(function ($item) {
         return $item['slug'] ?? '';
-    }, $spec['groups']);
+    }, $spec['groups'] ?? []);
     $unlock_map = [
-        'default'=>'def',
-        'first_trait'=> '1',
-        'second_trait'=> '2',
-        'blessing'    =>'bl',
+        'default' => 'def',
+        'first_trait' => '1',
+        'second_trait' => '2',
+        'blessing'    => 'bl',
     ];
     $charas = array_map(function ($item) use ($attr_num, $unlock_map) {
         return [
-            'val' => $item['val'] ?? '', 
-            'attr' => $attr_num[$item['attr']] ?? 0, 
+            'val' => $item['val'] ?? '',
+            'attr' => $attr_num[$item['attr']] ?? 0,
             'unlock' => $unlock_map[$item['unlock']] ?? 'def',
-            ];
-    }, $spec['chars']);
+        ];
+    }, $spec['chars'] ?? []);
+
+    // ★5. レアリティの検索用配列を高速生成 (例: ["6", "legend"])
+    $rarity_slugs = [];
+    if (!empty($spec['rarity'])) {
+        $rarity_slugs[] = (string) $spec['rarity'];
+    }
+    if (!empty($spec['rarity_detail']) && $spec['rarity_detail'] !== 'none') {
+        $rarity_slugs[] = $spec['rarity_detail'];
+    }
+
+    // 4. イベントのスラッグ配列
+    $events = wp_get_post_terms($post_id, 'event', ['fields' => 'slugs']);
+
+    // 6. スキルタグ文字列 (カンマ区切りなどを配列にするか、文字列のままか。検索を簡単にするため文字列のままにして `includes` で判定するのも手です)
+    $waza_tags = get_post_meta($post_id, '_waza_tags_str', true) ?: '';
+    $sugo_tags = get_post_meta($post_id, '_sugo_tags_str', true) ?: '';
+    $koto_tags = get_post_meta($post_id, '_kotowaza_tags_str', true) ?: '';
+
+    // 7. とくせいタグ文字列
+    $t1_tags = get_post_meta($post_id, '_trait_tags_str_1', true) ?: '';
+    $t2_tags = get_post_meta($post_id, '_trait_tags_str_2', true) ?: '';
+    $blessing_tags = get_post_meta($post_id, '_trait_tags_str_blessing', true) ?: '';
 
     return [
         'id'           => $post_id,
+        'thumb_url'    => $thumb_url,
         'name'         => $spec['name'],
+        'pre_name'      => $spec['pre_evo_name'],
+        'ano_name'      => $spec['another_image_name'],
         'name_ruby'    => $spec['name_ruby'],
         'chars'        => $charas,
         'attr'        => $attr_num[$spec['attribute']],
         'sub_attrs'     => $sub_attributes,
         'spe'          => $species_num[$spec['species']],
         'grp'          => $groups,
+        'events'       => is_array($events) ? $events : [],
         'rar'          => $spec['rarity'],
         'rar_d'        => $spec['rarity_detail'],
+        'rar_t'        => array_values(array_unique($rarity_slugs)),
         'date'         => $spec['release_date'],
         'cv'           => $spec['cv'],
         'acq'          => $spec['acquisition'],
@@ -55,12 +102,19 @@ function koto_get_flat_char_data($post_id)
         'hnd_buff'     => $spec['buff_counts_hand'],
         'bd_buff'     => $spec['buff_counts_board'],
         'debuf'           => $spec['debuff_counts'],
-        'pre_name'      => $spec['pre_evo_name'],
-        'ano_name'      => $spec['another_image_name'],
+        'gimmicks'     => array_values(array_unique($gimmicks)),
+        'gim_t'        => array_values(array_unique($gimmick_slugs)),
         'ls_hp'        => ($spec['max_ls_hp'] ?? 0),
         'ls_atk'       => ($spec['max_ls_atk'] ?? 0),
         'est'          => !empty($spec['is_estimate']) ? 1 : 0,
         'koto_est'     => !empty($spec['is_koto_estimate']) ? 1 : 0,
+        // スキル/とくせいは文字列として保持しておく (例: " type_attack_single type_atk_buff ")
+        'waza_t'       => $waza_tags,
+        'sugo_t'       => $sugo_tags,
+        'koto_t'       => $koto_tags,
+        't1_t'         => $t1_tags,
+        't2_t'         => $t2_tags,
+        'bles_t'       => $blessing_tags,
     ];
 }
 
@@ -85,7 +139,7 @@ function koto_generate_search_json_all()
         }
     }
 
-    $json_file_path = get_stylesheet_directory() . '/all_characters_search.json';
+    $json_file_path = get_stylesheet_directory() . '/lib/character-search/all_characters_search.json';
     $json_output = json_encode($flattened_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
     if ($json_output) {
@@ -98,7 +152,7 @@ function koto_generate_search_json_all()
 // =========================================================
 function koto_update_search_json_single($post_id)
 {
-    $json_file_path = get_stylesheet_directory() . '/all_characters_search.json';
+    $json_file_path = get_stylesheet_directory() . '/lib/character-search/all_characters_search.json';
     $existing_data = [];
 
     // 既存のJSONを読み込む
@@ -137,7 +191,7 @@ function koto_update_search_json_single($post_id)
 // =========================================================
 function koto_delete_search_json_single($post_id)
 {
-    $json_file_path = get_stylesheet_directory() . '/all_characters_search.json';
+    $json_file_path = get_stylesheet_directory() . '/lib/character-search/all_characters_search.json';
     if (!file_exists($json_file_path)) return;
 
     $json_content = file_get_contents($json_file_path);
@@ -199,7 +253,7 @@ function koto_add_json_reform_page()
 function koto_render_json_reform_page()
 {
     $message = '';
-    $json_file_path = get_stylesheet_directory() . '/all_characters_search.json';
+    $json_file_path = get_stylesheet_directory() . '/lib/character-search/all_characters_search.json';
 
     // 手動生成ボタンが押された時の処理
     if (isset($_POST['generate_koto_json']) && check_admin_referer('koto_generate_json_action', 'koto_generate_json_nonce')) {
