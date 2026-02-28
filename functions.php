@@ -716,17 +716,78 @@ function force_update_all_characters_index()
 }
 // デバッグ用ショートコード: [debug_koto_json id=123]
 add_shortcode('debug_koto_json', function ($atts) {
-    $atts = shortcode_atts(['id' => get_the_ID()], $atts);
-    $json = get_post_meta($atts['id'], '_spec_json', true);
+    static $instance_count = 0;
+    $instance_count++;
 
-    if (!$json) return 'データがありません。保存し直すか一括更新を実行してください。';
+    // 1. IDの決定
+    $default_id = get_the_ID();
+    $atts = shortcode_atts(['id' => $default_id], $atts);
+    
+    // このショートコードインスタンス専用のパラメータ名 (例: debug_id_1)
+    $param_name = 'debug_id_' . $instance_count;
+    
+    // GETパラメータがあればそれを優先
+    $target_id = isset($_GET[$param_name]) ? intval($_GET[$param_name]) : intval($atts['id']);
 
-    $data = json_decode($json, true);
+    // 2. データ取得
+    $json = get_post_meta($target_id, '_spec_json', true);
+    
+    // HTML要素用のユニークID (ターゲットID + インスタンス番号)
+    $html_id_suffix = $target_id . '_' . $instance_count;
 
-    // 見やすく出力
-    return '<pre style="background:#eee; padding:10px; font-size:12px; height:400px; overflow:auto;">'
-        . print_r($data, true)
-        . '</pre>';
+    // 3. 出力バッファリング開始
+    ob_start();
+    ?>
+    <div class="debug-json-box" style="border:1px solid #ccc; padding:15px; background:#f9f9f9; margin:20px 0;">
+        <!-- ID切り替えフォーム -->
+        <form method="get" action="" style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
+            <label style="font-weight:bold;">確認したい記事ID: 
+                <input type="number" name="<?php echo esc_attr($param_name); ?>" value="<?php echo esc_attr($target_id); ?>" style="width:100px; padding:5px;">
+            </label>
+            
+            <?php 
+            // 他のパラメータを維持するためのhiddenフィールド
+            foreach ($_GET as $key => $val) {
+                if ($key !== $param_name && !is_array($val)) {
+                    echo '<input type="hidden" name="' . esc_attr($key) . '" value="' . esc_attr($val) . '">';
+                }
+            }
+            ?>
+
+            <button type="submit" style="padding:5px 15px; cursor:pointer; background:#2271b1; color:#fff; border:none; border-radius:3px;">表示</button>
+            
+            <?php if ($json): ?>
+                <button type="button" id="copy-json-btn-<?php echo esc_attr($html_id_suffix); ?>" style="padding:5px 15px; cursor:pointer; background:#fff; border:1px solid #2271b1; color:#2271b1; border-radius:3px;">📋 JSONをコピー</button>
+            <?php endif; ?>
+        </form>
+
+        <?php if (!$json): ?>
+            <p style="color:red; font-weight:bold;">ID: <?php echo esc_html($target_id); ?> のJSONデータが見つかりません。<br>記事を保存し直すか、一括更新を実行してください。</p>
+        <?php else: ?>
+            <?php 
+                $data = json_decode($json, true);
+                // 見やすく整形 (JSON形式)
+                $pretty_json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            ?>
+            <textarea id="json-textarea-<?php echo esc_attr($html_id_suffix); ?>" style="width:100%; height:500px; font-family:monospace; font-size:12px; line-height:1.5; white-space:pre; background:#fff; border:1px solid #ddd; padding:10px;" readonly><?php echo esc_textarea($pretty_json); ?></textarea>
+            
+            <script>
+            document.getElementById('copy-json-btn-<?php echo esc_js($html_id_suffix); ?>').addEventListener('click', function() {
+                var copyText = document.getElementById("json-textarea-<?php echo esc_js($html_id_suffix); ?>");
+                copyText.select();
+                copyText.setSelectionRange(0, 99999); // スマホ対応
+                
+                navigator.clipboard.writeText(copyText.value).then(function() {
+                    alert("JSONデータをクリップボードにコピーしました！");
+                }).catch(function(err) {
+                    console.error('コピーに失敗しました', err);
+                });
+            });
+            </script>
+        <?php endif; ?>
+    </div>
+    <?php
+    return ob_get_clean();
 });
 
 // -----------------------------------------------------------------
