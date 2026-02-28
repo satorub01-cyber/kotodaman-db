@@ -3,3 +3,4 @@ acf-stubs.php
 search-moc.html
 *.pdf
 *.pem
+/lib/character-search/all_character_search.json
