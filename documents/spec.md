@@ -205,6 +205,7 @@
 |over_attack|攻撃回数に応じたバフ|
 |converged|収束付与|
 |corruption|腐敗|
+|random_crit|乱打クリティカル|
 
 ## リーダーとくせい条件タイプ
 |value|label|
