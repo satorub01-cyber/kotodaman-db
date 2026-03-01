@@ -61,14 +61,14 @@
                 <details class="tree-accordion">
                     <summary class="tree-summary">ギミック耐性を選択</summary>
                     <div class="tree-content">
-                        <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('gimmick', 'tx_gimmick', ['open_all' => true, 'and_or' => 'AND']); ?>
+                        <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('gimmick', 'tx_gimmick', ['open_all' => true, 'and_or' => 'AND', 'parent_sync' => false]); ?>
                     </div>
                 </details>
 
                 <details class="tree-accordion">
                     <summary class="tree-summary">レアリティを選択</summary>
                     <div class="tree-content">
-                        <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('rarity', 'tx_rarity', ['open_all' => true]); ?>
+                        <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('rarity', 'tx_rarity', ['open_all' => true, 'parent_sync' => false]); ?>
                     </div>
                 </details>
 
@@ -319,7 +319,10 @@
 
                 // チェックボックスを外す
                 const checkboxes = document.getElementById('searchform').querySelectorAll('input[type="checkbox"]');
-                checkboxes.forEach(box => box.checked = false);
+                checkboxes.forEach(box => {
+                    box.checked = false;
+                    box.indeterminate = false; // ★追加: 半チェック状態も確実に解除する
+                });
 
                 // セレクトボックスをリセット
                 const selects = document.getElementById('searchform').querySelectorAll('select');
@@ -366,6 +369,77 @@
                         }
                     }
                 });
+            });
+        });
+        // =========================================================
+        // 4. 親子チェックボックスの連動ロジック (指定したものだけ)
+        // =========================================================
+        // ★専用クラス「js-parent-checkbox」がついている親だけを取得する
+        const parentCheckboxes = document.querySelectorAll('.js-parent-checkbox');
+
+        parentCheckboxes.forEach(parentCheckbox => {
+            // 親となる details 要素を探す
+            const details = parentCheckbox.closest('details');
+            if (!details) return;
+
+            // その details の中にある子のコンテナを探す
+            const childContainer = details.querySelector('.tag-children, .term-children-container');
+            if (!childContainer) return;
+
+            // 子コンテナの中のチェックボックスを取得
+            const childCheckboxes = childContainer.querySelectorAll('input[type="checkbox"]');
+
+            if (childCheckboxes.length > 0) {
+                const updateParentState = () => {
+                    const total = childCheckboxes.length;
+                    const checkedCount = Array.from(childCheckboxes).filter(cb => cb.checked).length;
+
+                    if (checkedCount === 0) {
+                        parentCheckbox.checked = false;
+                        parentCheckbox.indeterminate = false; // 半チェック解除
+                    } else if (checkedCount === total) {
+                        parentCheckbox.checked = true;
+                        parentCheckbox.indeterminate = false;
+                    } else {
+                        // 一部だけチェックされている場合は「半チェック」にする
+                        parentCheckbox.checked = false;
+                        parentCheckbox.indeterminate = true;
+                    }
+                };
+
+                // 初期状態の反映
+                updateParentState();
+
+                // ① 親がクリックされた時 ➡ 子をすべて親と同じ状態にする
+                parentCheckbox.addEventListener('change', function() {
+                    const isChecked = this.checked;
+                    childCheckboxes.forEach(child => {
+                        child.checked = isChecked;
+                    });
+
+                    // 検索を実行
+                    if (typeof window.filterCharacters === 'function') {
+                        window.filterCharacters();
+                    }
+                });
+
+                // ② 子がクリックされた時 ➡ 親の状態を再計算する
+                childCheckboxes.forEach(child => {
+                    child.addEventListener('change', function() {
+                        updateParentState();
+                    });
+                });
+            }
+        });
+
+        // =========================================================
+        // 5. 親チェックボックスクリック時のアコーディオン開閉を防ぐ
+        // =========================================================
+        // 親をチェックしようとした瞬間にアコーディオンがパカパカ開閉して鬱陶しくなるのを防ぎます
+        const parentLabels = document.querySelectorAll('summary .term-label, summary .parent-label');
+        parentLabels.forEach(label => {
+            label.addEventListener('click', function(e) {
+                e.stopPropagation(); // クリックイベントが裏のsummaryに伝わるのを防ぐ
             });
         });
     });

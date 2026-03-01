@@ -10,9 +10,10 @@ function render_frontend_term_tree($taxonomy, $name_attr, $args = [])
 {
     // デフォルト設定
     $defaults = [
-        'open_all' => false,    // デフォルトで開くかどうか
-        'show_relation' => true, // AND/OR切り替えを表示するか
-        'and_or' => 'OR'         // デフォルトのAND/OR設定 (URLパラメータがない場合)
+        'open_all'      => false, // デフォルトで開くかどうか
+        'show_relation' => true,  // AND/OR切り替えを表示するか
+        'and_or'        => 'OR',  // デフォルトのAND/OR設定 (URLパラメータがない場合)
+        'parent_sync'   => true   // ★追加：親子連動(全選択)を有効にするか
     ];
     $config = array_merge($defaults, $args);
 
@@ -67,8 +68,11 @@ function render_frontend_term_tree($taxonomy, $name_attr, $args = [])
                 echo '<summary class="term-summary">';
             }
 
+            // ★変更点：子要素を持っていて、かつ連動機能がオンならクラスを付与する
+            $checkbox_class = ($has_children && $config['parent_sync']) ? 'class="js-parent-checkbox"' : '';
+
             echo '<label class="term-label">';
-            echo '<input type="checkbox" name="' . esc_attr($name_attr) . '[]" value="' . esc_attr($term->slug) . '" ' . $checked . '>';
+            echo '<input type="checkbox" ' . $checkbox_class . ' name="' . esc_attr($name_attr) . '[]" value="' . esc_attr($term->slug) . '" ' . $checked . '>';
             echo '<span class="term-name">' . esc_html($term->name) . '</span>';
             echo '</label>';
 
