@@ -27,7 +27,7 @@ function is_attack_value_missing($move_data, $is_estimate = false)
 
         foreach ($variation['timeline'] as $action) {
             // typeキーがあり、かつ 'attack' を含む（attack, all_attack, random_attack等）
-            if (isset($action['type']) && strpos($action['type'], 'attack') !== false) {
+            if (isset($action['type']) && (strpos($action['type'], 'attack') !== false||strpos($action['type'], 'heal') !== false)) {
                 // valueが 0, "0", "", null の場合は未入力とみなす
                 if (empty($action['value'])) {
                     return true;
@@ -109,13 +109,18 @@ function is_attack_value_missing($move_data, $is_estimate = false)
                                         $missing_parts[] = 'すごわざ';
                                     }
                                     // 3. ことわざ (配列構造に対応)
-                                    if (isset($data['kotowaza']) && is_array($data['kotowaza'])) {
-                                        // ことわざは [0], [1], [2]... とレベルごとに分かれているためループで確認
+                                    if (isset($data['kotowaza']) && is_array($data['kotowaza']) && !empty($data['kotowaza'])) {
+                                        $all_koto_missing = true;
                                         foreach ($data['kotowaza'] as $k_level) {
-                                            if (is_attack_value_missing($k_level, $is_koto_estimate)) {
-                                                $missing_parts[] = 'ことわざ';
-                                                break; // 1つでも未入力レベルがあれば「ことわざ」としてマークしてループを抜ける
+                                            // 1つでも入力済み（missingではない）があればフラグを下ろして終了
+                                            if (!is_attack_value_missing($k_level,false)) {
+                                                $all_koto_missing = false;
+                                                break;
                                             }
+                                        }
+                                        // 全て未入力だった場合のみ追加
+                                        if ($all_koto_missing) {
+                                            $missing_parts[] = 'ことわざ';
                                         }
                                     }
 
