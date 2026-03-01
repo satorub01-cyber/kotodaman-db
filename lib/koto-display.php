@@ -936,6 +936,8 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                                     $modifiers[] = '福';
                                 } elseif ($t === 'target') {
                                     $is_target_adv = true;
+                                } elseif($t === 'hp'){
+                                    $modifiers[] = '残りHP';
                                 }
                             }
 
