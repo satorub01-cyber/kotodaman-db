@@ -128,7 +128,8 @@
 |moji|文字数上昇|
 |fuku|福上昇|
 |target|対象により変化|
-|hp|hpに応じた倍率|
+|hp_up|hpが多いほど威力の上がる攻撃|
+|hp_down|hpが少ないほど威力の上がる攻撃|
 ## 対象タイプ
 |value|label|
 |---|---|
@@ -727,7 +728,7 @@ $result=[ //以下の連想配列の配列
         ]
         [color_order]=>[]strの配列
         [value]=>バフの値、倍率などfloat
-        [value_last]=>連撃の最後float
+        [value_last]=>連撃の最後、HP上昇倍率の最大倍率float
         [hit_count]=>攻撃回数int
         [is_moji_healing]=>文字数回復bool
         [resist_status]=>防ぐ状態異常str

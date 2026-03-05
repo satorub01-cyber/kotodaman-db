@@ -924,6 +924,8 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                             $is_converged = false;
                             $is_target_adv = false;
                             $needs_link = false;
+                            $at_type_suffix = [];
+                            $rate_range_flag = false;
 
                             foreach ($raw_types as $t) {
                                 if ($t === 'converged' || $eff_type === 'converged_attack') {
@@ -932,19 +934,38 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                                 } elseif ($t === 'moji') {
                                     $modifiers[] = '文字数';
                                     $needs_link = true;
+                                    $at_type_suffix['depend'] = 'に応じた';
                                 } elseif ($t === 'fuku') {
                                     $modifiers[] = '福';
+                                    $at_type_suffix['depend'] = 'に応じた';
                                 } elseif ($t === 'target') {
                                     $is_target_adv = true;
-                                } elseif($t === 'hp'){
-                                    $modifiers[] = '残りHP';
+                                    $at_type_suffix['depend'] = 'に応じた';
+                                } elseif (strpos($t, 'hp') !== false) {
+                                    $rate_range_flag = true;
+                                    if (strpos($t, 'up') !== false) {
+                                        $hp_mod = '残りHPが多いほど威力が上昇する';
+                                    } elseif (strpos($t, 'down') !== false) {
+                                        $hp_mod = '残りHPが少ないほど威力が上昇する';
+                                    }
+                                    $saidai_text = '';
                                 }
                             }
 
                             $atk_noun = $is_converged ? "収束攻撃" : "攻撃";
                             $mod_text = "";
-                            if (!empty($modifiers)) $mod_text = implode('・', $modifiers) . "に応じた";
+                            if (!empty($modifiers)) {
+                                // 「文字数・福」のように繋ぐ
+                                $base_list = implode('・', $modifiers);
+                                // 「に応じた」を付与
+                                $mod_text = $base_list . ($at_type_suffix['depend'] ?? '');
+                            }
 
+                            // 最後にHPの文言を合体させる
+                            if (!empty($hp_mod)) {
+                                // 前に文字数などがあればスペースで区切る
+                                $mod_text .= ($mod_text ? '、' : '') . $hp_mod;
+                            }
                             if ($is_target_adv) {
                                 $adv_label = "対象";
                                 if (!empty($item['advantage_target']) && function_exists('get_koto_target_label')) {
@@ -958,10 +979,13 @@ function get_koto_sugowaza_html($condition_data = null, $group_data, $skill_type
                             $attr_text = "{$attack_attr}属性";
                             $is_omni = !empty($item['omni_advantage']);
                             $omni_text = $is_omni ? "全属性に有利な" : "";
-                            $base_phrase = "{$saidai_text}{$eff_val}倍の{$omni_text}{$mod_text}{$attr_text}{$atk_noun}";
-
                             $hit_count = isset($item['hit_count']) ? $item['hit_count'] : 1;
                             $val_last  = isset($item['waza_value_last']) ? $item['waza_value_last'] : 0;
+                            if ($rate_range_flag) {
+                                $base_phrase = "{$eff_val}～{$val_last}倍の{$omni_text}{$mod_text}{$attr_text}{$atk_noun}";
+                            } else {
+                                $base_phrase = "{$saidai_text}{$eff_val}倍の{$omni_text}{$mod_text}{$attr_text}{$atk_noun}";
+                            }
 
                             if ($hit_count > 1) {
                                 if ($val_last > 0) {
