@@ -231,7 +231,19 @@ $max_lv = $spec_data['max_lavel'] ?? 99;
                 if (mainImg) {
                     mainImg.style.opacity = 0.5; // フェード演出
                     setTimeout(() => {
+                        // WebP化プラグイン等でpictureタグがある場合、sourceタグを削除しないと画像が変わらない
+                        const parent = mainImg.closest('picture');
+                        if (parent) {
+                            parent.querySelectorAll('source').forEach(s => s.remove());
+                        }
+
                         mainImg.src = url;
+                        mainImg.removeAttribute('srcset');
+                        mainImg.removeAttribute('sizes');
+                        // LazyLoad対策
+                        mainImg.removeAttribute('data-src');
+                        mainImg.removeAttribute('data-srcset');
+
                         mainImg.style.opacity = 1;
                     }, 100);
                 }
