@@ -213,6 +213,87 @@ get_header();
     .buff_input {
         width: 50%;
     }
+
+    .history-box {
+        margin: 20px 0;
+        padding: 15px;
+        background-color: #f0f0f1;
+        border-left: 5px solid #e9a242;
+    }
+
+    .history-title {
+        margin-top: 0;
+        margin-bottom: 15px;
+        font-size: 16px;
+        color: #333;
+        text-align: center;
+    }
+
+    .history-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 15px 0;
+    }
+
+    .history-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #fff;
+        padding: 10px;
+        margin-bottom: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .history-name-input {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .history-val-box {
+        text-align: right;
+        min-width: 80px;
+    }
+
+    .history-val {
+        font-size: 22px;
+        font-weight: bold;
+        color: #d63638;
+    }
+
+    .btn-remove-history {
+        background: #e0e0e0;
+        color: #333;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background 0.2s;
+    }
+
+    .btn-remove-history:hover {
+        background: #d63638;
+        color: #fff;
+    }
+
+    .history-actions {
+        text-align: right;
+    }
+
+    .btn-clear-history {
+        background: #777;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 15px;
+        cursor: pointer;
+        font-size: 12px;
+    }
 </style>
 
 <div class="calc-container">
@@ -329,12 +410,14 @@ get_header();
             </div>
         </div>
 
-        <button type="button" class="btn-calc" onclick="calcReverse()">① 倍率を逆算する</button>
+        <button type="button" class="btn-calc" onclick="calcReverse()">① 倍率を計算する</button>
 
-        <div id="reverseResultArea" class="result-box" style="display:none;">
-            <div>推定わざ倍率</div>
-            <div id="calcResult" class="result-val">---</div>
-            <div class="small-note">※繰り上げの影響で微細な誤差が出ます</div>
+        <div id="historyContainer" class="history-box" style="display:none;">
+            <h3 class="history-title">倍率計算履歴</h3>
+            <ul id="historyList" class="history-list"></ul>
+            <div class="history-actions">
+                <button type="button" class="btn-clear-history" onclick="clearHistory()">履歴をすべてクリア</button>
+            </div>
         </div>
 
         <div class="verify-area">
@@ -440,7 +523,7 @@ get_header();
         }
 
         let step1_Atk = p.baseAtk + totalLeaderBonus + p.addAtk + (p.parcentage_atk * p.baseAtk / 100);
-        let step2_Combo = Math.ceil(step1_Atk * (1+(p.comboCount-1)/10));
+        let step2_Combo = Math.ceil(step1_Atk * (1 + (p.comboCount - 1) / 10));
 
         let buffMult = 1 + (p.buffCount * 0.25);
         let debuffMult = 1 + (p.debuffCount * 0.10);
@@ -459,6 +542,29 @@ get_header();
     }
 
     // ① 逆算機能
+    let calcHistory = [];
+    let historyIdCounter = 0;
+    const STORAGE_KEY = 'kotodaman_calc_history';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadHistory();
+    });
+
+    function loadHistory() {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+            calcHistory = JSON.parse(stored);
+            if (calcHistory.length > 0) {
+                historyIdCounter = Math.max(...calcHistory.map(item => item.id));
+            }
+            renderHistory();
+        }
+    }
+
+    function saveHistory() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(calcHistory));
+    }
+
     function calcReverse() {
         const p = getParams();
         if (!p.dmg) {
@@ -476,12 +582,78 @@ get_header();
 
         const resultRate = p.dmg / denominator;
 
-        document.getElementById('calcResult').innerText = resultRate.toFixed(4);
-        document.getElementById('reverseResultArea').style.display = 'block';
-        document.getElementById('reverseResultArea').scrollIntoView({
-            behavior: "smooth",
-            block: "center"
+        addHistory(resultRate.toFixed(4));
+    }
+
+    function addHistory(rateStr) {
+        historyIdCounter++;
+
+        calcHistory.push({
+            id: historyIdCounter,
+            rate: rateStr,
+            name: ""
         });
+
+        saveHistory();
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const container = document.getElementById('historyContainer');
+        const list = document.getElementById('historyList');
+
+        list.innerHTML = '';
+
+        if (calcHistory.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'block';
+
+        calcHistory.forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'history-item';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'history-name-input';
+            input.placeholder = 'メモを入力';
+            input.value = item.name;
+            input.oninput = (e) => {
+                item.name = e.target.value;
+                saveHistory();
+            };
+
+            const valBox = document.createElement('div');
+            valBox.className = 'history-val-box';
+            valBox.innerHTML = `<span class="history-val">${item.rate}</span>`;
+
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn-remove-history';
+            delBtn.innerText = '削除';
+            delBtn.onclick = () => removeHistory(item.id);
+
+            li.appendChild(input);
+            li.appendChild(valBox);
+            li.appendChild(delBtn);
+            list.appendChild(li);
+        });
+    }
+
+    function removeHistory(id) {
+        calcHistory = calcHistory.filter(item => item.id !== id);
+        saveHistory();
+        renderHistory();
+    }
+
+    function clearHistory() {
+        if (confirm("履歴をすべて削除しますか？")) {
+            calcHistory = [];
+            saveHistory();
+            renderHistory();
+        }
     }
 
     // ② 検算機能
