@@ -20,7 +20,10 @@
 
             <div class="search-modal-header">
                 <h2 class="modal-title">詳細検索</h2>
-                <button type="button" id="close-modal-btn" class="modal-close-btn">✕</button>
+                <div class="modal-header-btns">
+                    <button type="button" id="modal-reset-search-btn" class="reset-btn">条件クリア</button>
+                    <button type="button" id="close-modal-btn" class="modal-close-btn">✕</button>
+                </div>
             </div>
 
             <div class="search-modal-body" id="advanced-search-panel">
@@ -313,35 +316,49 @@
         });
 
         // 2. リセットボタンの動作
-        const resetBtn = document.getElementById('reset-search-btn');
-        if (resetBtn) {
-            resetBtn.addEventListener('click', function() {
-                // テキスト入力を空にする
-                const textInputs = document.getElementById('searchform').querySelectorAll('input[type="text"]');
-                textInputs.forEach(input => input.value = '');
+        // 外側とモーダル内、両方のボタンを取得
+        const resetButtons = [
+            document.getElementById('reset-search-btn'),
+            document.getElementById('modal-reset-search-btn')
+        ];
 
-                // チェックボックスを外す
-                const checkboxes = document.getElementById('searchform').querySelectorAll('input[type="checkbox"]');
-                checkboxes.forEach(box => {
-                    if (box.name === 'scope_skill[]' || box.name === 'scope_trait[]')return;
-                    box.checked = false;
-                    box.indeterminate = false; // ★追加: 半チェック状態も確実に解除する
-                });
+        // リセット処理の実体
+        const performReset = function() {
+            const form = document.getElementById('searchform');
 
-                // セレクトボックスをリセット
-                const selects = document.getElementById('searchform').querySelectorAll('select');
-                selects.forEach(sel => sel.selectedIndex = 0);
+            // テキスト入力を空にする
+            const textInputs = form.querySelectorAll('input[type="text"]');
+            textInputs.forEach(input => input.value = '');
 
-                // ツリー検索の絞り込み表示もリセット
-                const treeItems = document.querySelectorAll('.term-tree-item');
-                treeItems.forEach(el => el.style.display = '');
-
-                // JS検索エンジンに全件表示を指示
-                if (typeof window.filterCharacters === 'function') {
-                    window.filterCharacters();
-                }
+            // チェックボックスを外す
+            const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(box => {
+                // scope系以外をリセット
+                if (box.name === 'scope_skill[]' || box.name === 'scope_trait[]') return;
+                box.checked = false;
+                box.indeterminate = false; // 半チェック状態も解除
             });
-        }
+
+            // セレクトボックスをリセット
+            const selects = form.querySelectorAll('select');
+            selects.forEach(sel => sel.selectedIndex = 0);
+
+            // ツリー検索の絞り込み表示もリセット
+            const treeItems = document.querySelectorAll('.term-tree-item');
+            treeItems.forEach(el => el.style.display = '');
+
+            // JS検索エンジンに全件表示を指示（もし実装されていれば）
+            if (typeof window.filterCharacters === 'function') {
+                window.filterCharacters();
+            }
+        };
+
+        // 両方のボタンにクリックイベントを設定
+        resetButtons.forEach(btn => {
+            if (btn) {
+                btn.addEventListener('click', performReset);
+            }
+        });
 
         // 3. ツリー検索フィルター
         const treeSearches = document.querySelectorAll('.term-tree-search');
@@ -600,6 +617,28 @@
         font-size: 16px;
         font-weight: bold;
         color: #333;
+    }
+
+    .modal-header-btns {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        /* リセットボタンと✕ボタンの間の距離 */
+    }
+
+    /* モーダル内のリセットボタンの微調整 */
+    #modal-reset-search-btn {
+        padding: 4px 10px;
+        font-size: 12px;
+        border: 1px solid #d63638;
+        color: #d63638;
+        background: #fff;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+
+    #modal-reset-search-btn:hover {
+        background: #fff0f0;
     }
 
     .modal-close-btn {
