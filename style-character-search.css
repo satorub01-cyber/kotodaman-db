@@ -499,6 +499,10 @@
 }
 
 @media (max-width: 768px) {
+    .no-sidebar .content-in .main {
+        padding: 0px !important;
+    }
+
     .scroll-hint-text {
         display: block;
     }
