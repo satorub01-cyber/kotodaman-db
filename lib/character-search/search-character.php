@@ -147,9 +147,15 @@ if ($_SERVER['HTTP_HOST'] === 'www.kotodaman-db.com'):
 <?php
 $js_path = get_stylesheet_directory() . '/lib/character-search/search-engine.js';
 $version = file_exists($js_path) ? @filemtime($js_path) : '1.0';
+$grp_map = koto_get_group_map();
+$event_map = koto_get_event_map();
 ?>
 
 <script src="<?php echo get_stylesheet_directory_uri(); ?>/lib/character-search/search-engine.js?v=<?php echo $version; ?>"></script>
+<script>
+    const KOTO_GROUP_MAP = <?php echo json_encode($grp_map) ?>;
+    const KOTO_EVENT_MAP = <?php echo json_encode($event_map) ?>;
+</script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const checkboxes = document.querySelectorAll('.col-toggle');

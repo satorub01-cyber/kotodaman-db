@@ -280,6 +280,9 @@
 </form>
 
 <script>
+    const kotoColumnConfig = <?php echo json_encode(koto_get_column_config()); ?>;
+</script>
+<script>
     document.addEventListener('DOMContentLoaded', function() {
 
         // 1. モーダル（詳細検索ポップアップ）の開閉ロジック
@@ -320,6 +323,7 @@
                 // チェックボックスを外す
                 const checkboxes = document.getElementById('searchform').querySelectorAll('input[type="checkbox"]');
                 checkboxes.forEach(box => {
+                    if (box.name === 'scope_skill[]' || box.name === 'scope_trait[]')return;
                     box.checked = false;
                     box.indeterminate = false; // ★追加: 半チェック状態も確実に解除する
                 });
