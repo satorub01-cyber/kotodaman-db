@@ -976,30 +976,23 @@ add_action('admin_footer', function () {
 ?>
     <script>
         document.addEventListener('keydown', function(e) {
-            // 感知範囲を「行の中の項目（入力欄）」に限定する
-            // 感知範囲を「入力欄、ボタン、または行(.acf-row)の中の要素」に拡張する
             const activeEl = document.activeElement;
             if (!activeEl) return;
 
             const isInputTarget = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(activeEl.tagName);
             const isInsideRow = activeEl.closest('.acf-row') !== null;
 
-            // 入力欄でもなく、行の中にもいない場合は弾く
             if (!isInputTarget && !isInsideRow) return;
 
-            // Ctrl + Shift + Alt + D という「まず被らない組み合わせ」をトリガーにする
             if (e.ctrlKey && e.shiftKey && e.altKey && e.code === 'KeyD') {
                 e.preventDefault();
                 const row = activeEl ? activeEl.closest('.acf-row') : null;
                 if (row) {
-                    // ★修正: 行のハンドル(.acf-row-handle)内にある削除ボタンを厳密に取得（誤爆防止）
                     const deleteBtn = row.querySelector('.acf-row-handle .acf-icon.-minus');
                     if (deleteBtn) {
                         deleteBtn.click();
-                        // 0.1秒待って確認ボタンが出てきたらクリック
                         setTimeout(() => {
                             let confirmBtn = row.querySelector('.acf-row-handle .acf-icon.-minus.-confirm');
-                            // ボタン自体が変化している場合もあるためチェック
                             if (!confirmBtn && deleteBtn.classList.contains('-confirm')) {
                                 confirmBtn = deleteBtn;
                             }
@@ -1008,13 +1001,12 @@ add_action('admin_footer', function () {
                     }
                 }
             }
-            // 【追加】先頭へ移動 (Ctrl+Shift+Alt+T)
+
             if (e.ctrlKey && e.shiftKey && e.altKey && e.code === 'KeyT') {
                 e.preventDefault();
                 let current = activeEl;
                 let topRow = null;
 
-                // 親を遡って一番外側の .acf-row を探す
                 while (current && current.parentElement) {
                     const row = current.closest('.acf-row');
                     if (row) {
@@ -1026,11 +1018,19 @@ add_action('admin_footer', function () {
                 }
 
                 if (topRow) {
-                    // 最初に見つかる入力要素（hidden以外）にフォーカス
-                    const firstInput = topRow.querySelector('input:not([type="hidden"]), select, textarea');
-                    if (firstInput) {
-                        firstInput.focus();
-                        firstInput.scrollIntoView({
+                    const inputs = topRow.querySelectorAll('input:not([type="hidden"]), select, textarea');
+                    let targetInput = null;
+
+                    for (let i = 0; i < inputs.length; i++) {
+                        if (inputs[i].offsetWidth > 0 || inputs[i].offsetHeight > 0) {
+                            targetInput = inputs[i];
+                            break;
+                        }
+                    }
+
+                    if (targetInput) {
+                        targetInput.focus();
+                        targetInput.scrollIntoView({
                             behavior: 'smooth',
                             block: 'center'
                         });
