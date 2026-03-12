@@ -98,39 +98,6 @@ get_header(); ?>
         <span class="loading-dots">読み込み中</span>
     </div>
 </div>
-
-<?php
-// 本番環境、かつ検索パラメータが何か1つでもある場合のみ出力 (GA4連携)
-if ($_SERVER['HTTP_HOST'] === 'www.kotodaman-db.com'):
-
-    // ▼ ヘルパー関数
-    function my_ga4_param_str($key)
-    {
-        if (empty($_GET[$key])) return '';
-        $val = $_GET[$key];
-        return is_array($val) ? implode(',', $val) : $val;
-    }
-
-    $p_term    = $_GET['s'] ?? '';
-    $p_attr    = my_ga4_param_str('tx_attr');
-    $p_species = my_ga4_param_str('tx_species');
-    $p_group   = my_ga4_param_str('tx_group');
-    $p_gimmick = my_ga4_param_str('tx_gimmick');
-    $p_event   = my_ga4_param_str('tx_event');
-?>
-    <script>
-        gtag('event', 'character_search', {
-            'event_category': 'search',
-            'event_label': 'custom_search_bar',
-            'search_term': '<?php echo esc_js($p_term); ?>',
-            'filter_attr': '<?php echo esc_js($p_attr); ?>',
-            'filter_species': '<?php echo esc_js($p_species); ?>',
-            'filter_group': '<?php echo esc_js($p_group); ?>',
-            'filter_gimmick': '<?php echo esc_js($p_gimmick); ?>',
-            'filter_event': '<?php echo esc_js($p_event); ?>'
-        });
-    </script>
-<?php endif; ?>
 <?php get_footer(); ?>
 <?php
 $js_path = get_stylesheet_directory() . '/lib/character-search/search-engine.js';

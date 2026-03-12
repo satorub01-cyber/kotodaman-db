@@ -304,6 +304,11 @@
         const closeModal = () => {
             overlay.style.display = 'none';
             document.body.style.overflow = '';
+
+            // ▼▼▼ ここを追記：モーダルが閉じるタイミングでURL更新＆GA4送信 ▼▼▼
+            if (typeof updateSearchUrlAndAnalytics === 'function') {
+                updateSearchUrlAndAnalytics();
+            }
         };
 
         openBtn.addEventListener('click', openModal);
