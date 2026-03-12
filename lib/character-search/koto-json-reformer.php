@@ -59,7 +59,7 @@ function koto_get_flat_char_data($post_id)
     if (!empty($spec['rarity'])) {
         $rarity_slugs[] = (string) $spec['rarity'];
     }
-    if (!empty($spec['rarity_detail']) && $spec['rarity_detail'] !== 'none') {
+    if (!empty($spec['rarity_detail'])) {
         $rarity_slugs[] = $spec['rarity_detail'];
     }
 
@@ -89,8 +89,8 @@ function koto_get_flat_char_data($post_id)
         'spe'          => $species_num[$spec['species']],
         'grp'          => $groups,
         'events'       => is_array($events) ? $events : [],
-        'rar'          => $spec['rarity'],
-        'rar_d'        => $spec['rarity_detail'],
+        'rar'          => $spec['rarity'], //検索では不使用
+        'rar_d'        => $spec['rarity_detail'], //検索では不使用
         'rar_t'        => array_values(array_unique($rarity_slugs)),
         'date'         => $spec['release_date'],
         'cv'           => $spec['cv'],
