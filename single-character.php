@@ -162,7 +162,7 @@ $max_lv = $spec_data['max_lavel'] ?? 99;
     $main_img_data = $main_img_id ? wp_get_attachment_image_src($main_img_id, 'medium_large') : null;
     $main_img_url = $main_img_data ? $main_img_data[0] : '';
     $main_width   = $main_img_data ? $main_img_data[1] : 768; // デフォルトサイズ
-    $main_height  = $main_img_data ? $main_img_data[2] : 768;
+    $main_height  = $main_img_data ? $main_img_data[2] : 640;
 
     // --- 進化後（アナザー/モードシフト）画像 ---
     $sub_img_id = get_field('another_character_image');
