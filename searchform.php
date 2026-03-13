@@ -1,28 +1,28 @@
-<form role="search" method="get" id="searchform" class="searchform" action="<?php echo home_url('/'); ?>">
+<form role="search" method="get" id="searchform" class="searchform js-search-form" action="<?php echo home_url('/'); ?>">
     <input type="hidden" name="post_type" value="character" />
 
     <div class="search-wrapper">
         <div class="search-row-top">
             <input type="text" value="<?php echo get_search_query(); ?>" name="s" id="s" placeholder="キャラ名・キーワード..." />
-            <button type="submit" id="searchsubmit" class="submit-btn">検索</button>
+            <button type="submit" class="submit-btn">検索</button>
         </div>
 
         <div class="search-row-bottom">
-            <button type="button" id="toggle-advanced-search" aria-label="詳細検索を開く" class="toggle-btn">
+            <button type="button" class="toggle-btn js-toggle-advanced-search" aria-label="詳細検索を開く">
                 <span class="filter-icon">🔍</span> 詳細フィルターを開く
             </button>
-            <button type="button" id="reset-search-btn" class="reset-btn">条件クリア</button>
+            <button type="button" class="reset-btn js-reset-search-btn">条件クリア</button>
         </div>
     </div>
 
-    <div id="search-modal-overlay" class="search-modal-overlay" style="display: none;">
+    <div class="search-modal-overlay js-search-modal-overlay" style="display: none;">
         <div class="search-modal-content">
 
             <div class="search-modal-header">
                 <h2 class="modal-title">詳細検索</h2>
                 <div class="modal-header-btns">
-                    <button type="button" id="modal-reset-search-btn" class="reset-btn">条件クリア</button>
-                    <button type="button" id="close-modal-btn" class="modal-close-btn">✕</button>
+                    <button type="button" class="reset-btn js-modal-reset-search-btn">条件クリア</button>
+                    <button type="button" class="modal-close-btn js-close-modal-btn">✕</button>
                 </div>
             </div>
 
@@ -275,7 +275,7 @@
             </div>
 
             <div class="search-modal-footer">
-                <button type="button" id="apply-modal-btn" class="modal-apply-btn">この条件で絞り込む</button>
+                <button type="button" class="modal-apply-btn js-apply-modal-btn">この条件で絞り込む</button>
             </div>
 
         </div>
@@ -288,84 +288,70 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
 
-        // 1. モーダル（詳細検索ポップアップ）の開閉ロジック
-        const overlay = document.getElementById('search-modal-overlay');
-        const openBtn = document.getElementById('toggle-advanced-search');
-        const closeBtn = document.getElementById('close-modal-btn');
-        const applyBtn = document.getElementById('apply-modal-btn');
+        // 各種ボタンとモーダルの要素をクラス名で一括取得
+        const overlays = document.querySelectorAll('.js-search-modal-overlay');
+        const openBtns = document.querySelectorAll('.js-toggle-advanced-search');
+        const closeBtns = document.querySelectorAll('.js-close-modal-btn');
+        const applyBtns = document.querySelectorAll('.js-apply-modal-btn');
+        const resetButtons = document.querySelectorAll('.js-reset-search-btn, .js-modal-reset-search-btn');
 
-        // モーダルを開く（背景のスクロールを止める）
+        // モーダルを開き、背景のスクロールを無効化する処理
         const openModal = () => {
-            overlay.style.display = 'flex';
+            overlays.forEach(overlay => overlay.style.display = 'flex');
             document.body.style.overflow = 'hidden';
         };
 
-        // モーダルを閉じる（背景のスクロールを戻す）
+        // モーダルを閉じ、背景のスクロールを有効化する処理
         const closeModal = () => {
-            overlay.style.display = 'none';
+            overlays.forEach(overlay => overlay.style.display = 'none');
             document.body.style.overflow = '';
-
-            // ▼▼▼ ここを追記：モーダルが閉じるタイミングでURL更新＆GA4送信 ▼▼▼
             if (typeof updateSearchUrlAndAnalytics === 'function') {
                 updateSearchUrlAndAnalytics();
             }
         };
 
-        openBtn.addEventListener('click', openModal);
-        closeBtn.addEventListener('click', closeModal);
-        applyBtn.addEventListener('click', closeModal);
+        // 取得した全てのボタンに開閉イベントを付与
+        openBtns.forEach(btn => btn.addEventListener('click', openModal));
+        [...closeBtns, ...applyBtns].forEach(btn => btn.addEventListener('click', closeModal));
 
-        // 背景の黒い部分をクリックしても閉じる
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) closeModal();
+        // 背景のオーバーレイ部分のクリックでモーダルを閉じる処理
+        overlays.forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) closeModal();
+            });
         });
 
-        // 2. リセットボタンの動作
-        // 外側とモーダル内、両方のボタンを取得
-        const resetButtons = [
-            document.getElementById('reset-search-btn'),
-            document.getElementById('modal-reset-search-btn')
-        ];
-
-        // リセット処理の実体
+        // フォーム内の入力を初期状態に戻す処理
         const performReset = function() {
-            const form = document.getElementById('searchform');
+            const forms = document.querySelectorAll('.js-search-form');
 
-            // テキスト入力を空にする
-            const textInputs = form.querySelectorAll('input[type="text"]');
-            textInputs.forEach(input => input.value = '');
+            forms.forEach(form => {
+                const textInputs = form.querySelectorAll('input[type="text"]');
+                textInputs.forEach(input => input.value = '');
 
-            // チェックボックスを外す
-            const checkboxes = form.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(box => {
-                // scope系以外をリセット
-                if (box.name === 'scope_skill[]' || box.name === 'scope_trait[]') return;
-                box.checked = false;
-                box.indeterminate = false; // 半チェック状態も解除
+                const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach(box => {
+                    if (box.name === 'scope_skill[]' || box.name === 'scope_trait[]') return;
+                    box.checked = false;
+                    box.indeterminate = false;
+                });
+
+                const selects = form.querySelectorAll('select');
+                selects.forEach(sel => sel.selectedIndex = 0);
             });
 
-            // セレクトボックスをリセット
-            const selects = form.querySelectorAll('select');
-            selects.forEach(sel => sel.selectedIndex = 0);
-
-            // ツリー検索の絞り込み表示もリセット
             const treeItems = document.querySelectorAll('.term-tree-item');
             treeItems.forEach(el => el.style.display = '');
 
-            // JS検索エンジンに全件表示を指示（もし実装されていれば）
             if (typeof window.filterCharacters === 'function') {
                 window.filterCharacters();
             }
         };
 
-        // 両方のボタンにクリックイベントを設定
-        resetButtons.forEach(btn => {
-            if (btn) {
-                btn.addEventListener('click', performReset);
-            }
-        });
+        // 取得した全てのリセットボタンにイベントを付与
+        resetButtons.forEach(btn => btn.addEventListener('click', performReset));
 
-        // 3. ツリー検索フィルター
+        // ツリー検索フィルター
         const treeSearches = document.querySelectorAll('.term-tree-search');
         treeSearches.forEach(function(input) {
             input.addEventListener('input', function() {
@@ -397,22 +383,16 @@
                 });
             });
         });
-        // =========================================================
-        // 4. 親子チェックボックスの連動ロジック (指定したものだけ)
-        // =========================================================
-        // ★専用クラス「js-parent-checkbox」がついている親だけを取得する
-        const parentCheckboxes = document.querySelectorAll('.js-parent-checkbox');
 
+        // 親子チェックボックスの連動ロジック
+        const parentCheckboxes = document.querySelectorAll('.js-parent-checkbox');
         parentCheckboxes.forEach(parentCheckbox => {
-            // 親となる details 要素を探す
             const details = parentCheckbox.closest('details');
             if (!details) return;
 
-            // その details の中にある子のコンテナを探す
             const childContainer = details.querySelector('.tag-children, .term-children-container');
             if (!childContainer) return;
 
-            // 子コンテナの中のチェックボックスを取得
             const childCheckboxes = childContainer.querySelectorAll('input[type="checkbox"]');
 
             if (childCheckboxes.length > 0) {
@@ -422,34 +402,29 @@
 
                     if (checkedCount === 0) {
                         parentCheckbox.checked = false;
-                        parentCheckbox.indeterminate = false; // 半チェック解除
+                        parentCheckbox.indeterminate = false;
                     } else if (checkedCount === total) {
                         parentCheckbox.checked = true;
                         parentCheckbox.indeterminate = false;
                     } else {
-                        // 一部だけチェックされている場合は「半チェック」にする
                         parentCheckbox.checked = false;
                         parentCheckbox.indeterminate = true;
                     }
                 };
 
-                // 初期状態の反映
                 updateParentState();
 
-                // ① 親がクリックされた時 ➡ 子をすべて親と同じ状態にする
                 parentCheckbox.addEventListener('change', function() {
                     const isChecked = this.checked;
                     childCheckboxes.forEach(child => {
                         child.checked = isChecked;
                     });
 
-                    // 検索を実行
                     if (typeof window.filterCharacters === 'function') {
                         window.filterCharacters();
                     }
                 });
 
-                // ② 子がクリックされた時 ➡ 親の状態を再計算する
                 childCheckboxes.forEach(child => {
                     child.addEventListener('change', function() {
                         updateParentState();
@@ -458,14 +433,11 @@
             }
         });
 
-        // =========================================================
-        // 5. 親チェックボックスクリック時のアコーディオン開閉を防ぐ
-        // =========================================================
-        // 親をチェックしようとした瞬間にアコーディオンがパカパカ開閉して鬱陶しくなるのを防ぎます
+        // 親チェックボックスクリック時のアコーディオン開閉を防ぐ処理
         const parentLabels = document.querySelectorAll('summary .term-label, summary .parent-label');
         parentLabels.forEach(label => {
             label.addEventListener('click', function(e) {
-                e.stopPropagation(); // クリックイベントが裏のsummaryに伝わるのを防ぐ
+                e.stopPropagation();
             });
         });
     });
@@ -507,7 +479,7 @@
         margin: 0;
     }
 
-    button#searchsubmit.submit-btn {
+    button.submit-btn {
         flex: 0 0 80px;
         height: 44px;
         padding: 0;
@@ -520,12 +492,12 @@
         cursor: pointer;
     }
 
-    button#searchsubmit.submit-btn:hover {
+    button.submit-btn:hover {
         background: #135e96;
     }
 
     /* モーダルを開くボタン */
-    button#toggle-advanced-search.toggle-btn {
+    button.js-toggle-advanced-search.toggle-btn {
         flex: 1;
         height: 36px;
         font-size: 14px;
@@ -539,12 +511,12 @@
         transition: all 0.2s;
     }
 
-    button#toggle-advanced-search.toggle-btn:hover {
+    button.js-toggle-advanced-search.toggle-btn:hover {
         background: #2271b1;
         color: #fff;
     }
 
-    button#reset-search-btn.reset-btn {
+    button.js-reset-search-btn.reset-btn {
         flex: 0 0 80px;
         height: 36px;
         font-size: 12px;
@@ -556,14 +528,14 @@
         text-align: center;
     }
 
-    button#reset-search-btn.reset-btn:hover {
+    button.js-reset-search-btn.reset-btn:hover {
         background: #fff0f0;
         border-color: #d63638;
     }
 
     /* =========================================================
-       ▼▼▼ モーダル（ポップアップ）用のCSS ▼▼▼
-    ========================================================= */
+   ▼▼▼ モーダル（ポップアップ）用のCSS ▼▼▼
+========================================================= */
     .search-modal-overlay {
         position: fixed;
         top: 0;
@@ -572,9 +544,7 @@
         height: 100%;
         background-color: rgba(0, 0, 0, 0.6);
         z-index: 99999;
-        /* 確実に最前面へ */
         display: flex;
-        /* JSで display:flex に切り替えます */
         align-items: center;
         justify-content: center;
         padding: 10px;
@@ -587,7 +557,6 @@
         width: 100%;
         max-width: 600px;
         max-height: 90vh;
-        /* 画面の高さの90%まで */
         border-radius: 8px;
         display: flex;
         flex-direction: column;
@@ -628,11 +597,10 @@
         display: flex;
         align-items: center;
         gap: 15px;
-        /* リセットボタンと✕ボタンの間の距離 */
     }
 
     /* モーダル内のリセットボタンの微調整 */
-    #modal-reset-search-btn {
+    .js-modal-reset-search-btn {
         padding: 4px 10px;
         font-size: 12px;
         border: 1px solid #d63638;
@@ -642,7 +610,7 @@
         border-radius: 4px;
     }
 
-    #modal-reset-search-btn:hover {
+    .js-modal-reset-search-btn:hover {
         background: #fff0f0;
     }
 
@@ -663,7 +631,6 @@
     .search-modal-body {
         padding: 15px;
         overflow-y: auto;
-        /* 中身が長い場合はここだけスクロール */
         flex: 1;
     }
 
@@ -691,8 +658,8 @@
     }
 
     /* =========================================================
-       ▼▼▼ モーダル内の各項目（既存のCSSを引き継ぎ） ▼▼▼
-    ========================================================= */
+   ▼▼▼ モーダル内の各項目（既存のCSSを引き継ぎ） ▼▼▼
+========================================================= */
     .search-section {
         margin-bottom: 20px;
     }
