@@ -169,6 +169,12 @@ function koto_get_flat_char_data($post_id)
     $blessing_tags = get_post_meta($post_id, '_trait_tags_str_blessing', true) ?: '';
     $other_tags = get_post_meta($post_id, '_search_tags_str', true) ?: '';
 
+    // 軸(axis)タグの抽出
+    $axis = [];
+    if (preg_match_all('/axis_[a-zA-Z0-9_]+/', $other_tags, $matches)) {
+        $axis = array_values(array_unique($matches[0]));
+    }
+
     // リーダーとくせい
     $leader_raws = $spec['leader'] ?? [];
     $learder_flat = [];
@@ -206,6 +212,7 @@ function koto_get_flat_char_data($post_id)
         'gimmicks'     => array_values(array_unique($gimmicks)),
         'gim_t'        => array_values(array_unique($gimmick_slugs)),
         'leader'       => $learder_flat,
+        'axis'         => $axis,
         'ls_hp'        => ($spec['max_ls_hp'] ?? 0),
         'ls_atk'       => ($spec['max_ls_atk'] ?? 0),
         // スキル/とくせいは文字列として保持しておく (例: " type_attack_single type_atk_buff ")

@@ -841,8 +841,8 @@ function on_save_character_specs($post_id)
     // ▲▲並べ替え用ここまで
 
     // ★修正: 検索用タグ文字列の保存
-    if (!empty($spec['search_tags'])) {
-        $tags_str = ' ' . implode(' ', $spec['search_tags']) . ' ';
+    if (!empty($spec_data['search_tags'])) {
+        $tags_str = ' ' . implode(' ', $spec_data['search_tags']) . ' ';
         update_post_meta($post_id, '_search_tags_str', $tags_str);
     } else {
         delete_post_meta($post_id, '_search_tags_str');
