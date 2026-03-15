@@ -70,3 +70,21 @@ function koto_get_group_map()
     if (!is_wp_error($group_terms)) foreach ($group_terms as $t) $group_map[$t->slug] = $t->name;
     return $group_map;
 }
+
+function koto_get_status_map()
+{
+    $status_map = [
+        'poison' => '毒',
+        'sleep' => '睡眠',
+        'curse' => '呪い',
+        'confusion' => '混乱',
+        'pollution' => '汚染',
+        'burn' => '炎上',
+        'remodel' => '改造',
+        'weakness' => '衰弱',
+        'mutation' => '変異',
+        'erasure' => '消去',
+        'all' => '全て'
+    ];
+    return $status_map;
+}
