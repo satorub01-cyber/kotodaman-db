@@ -1111,3 +1111,14 @@ add_action('init', function () {
         'type'          => 'string',
     ]);
 });
+
+/**
+ * ログイン中ならSite KitのGA4タグ出力をシステムレベルで止める
+ */
+add_filter('googlesitekit_analytics-4_tag_blocked', function ($is_blocked) {
+    // ログインしている（管理バーが出ている状態）なら、強制的に「ブロック=true」を返す
+    if (is_user_logged_in()) {
+        return true;
+    }
+    return $is_blocked;
+}, 100); // 100は優先順位。他の設定より後から上書きするために大きくしています。
