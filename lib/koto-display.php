@@ -354,7 +354,7 @@ function get_koto_trait_text_from_row($row)
             } elseif ($sub === 'critical_damage') {
                 $effect_text = "{$target_prefix}{$prefix}クリティカル時のダメージ{$rate}{$unit}UP";
             } elseif ($sub === 'healing_effect') {
-                $effect_text = "{$target_prefix}{$prefix}の回復効果を{$rate}{$unit}UP";
+                $effect_text = "{$target_prefix}{$prefix}回復効果を{$rate}{$unit}UP";
             } else {
                 $param = strtoupper($sub);
                 $effect_text = "{$prefix}{$target_prefix}{$param}{$rate}{$unit}UP";
