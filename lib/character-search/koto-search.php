@@ -2,170 +2,158 @@
 // =========================================================
 // iPhone風トグルスイッチを出力する共通関数（CSS＆JS内包版）
 // =========================================================
-function render_ios_toggle($name, $current_val = 'OR', $label_off = 'OR', $label_on = 'AND')
+function render_ios_toggle($name, $current_val = 'OR', $label_off = 'OR', $label_on = 'AND', $width = 40)
 {
-    // static変数を使って、同じページで何回呼ばれてもCSS/JSの出力は最初の1回だけにする
     static $assets_outputted = false;
 
     $is_on = ($current_val === 'AND');
     $active_off = !$is_on ? 'active' : '';
     $active_on = $is_on ? 'active' : '';
 
+    // スイッチの比率計算
+    $height = round($width * 0.56); // 高さを横幅の約56%に
+    $padding = 2; // ノブの余白
+    $knob_size = $height - ($padding * 2); // ノブの直径
+    $translate_x = $width - $knob_size - ($padding * 2); // 移動距離
+
     ob_start();
 
-    // 最初の1回だけスタイルタグとスクリプトを出力
     if (!$assets_outputted) {
 ?>
         <style>
-            .ios-toggle-container {
-                display: flex;
+            .ios-toggle-container-minimal {
+                display: inline-flex;
                 align-items: center;
-                gap: 10px;
-                font-size: 13px;
-                margin-bottom: 12px;
-                background: #f9f9f9;
-                padding: 8px 12px;
-                border-radius: 8px;
-                border: 1px solid #eee;
+                gap: 8px;
+                font-size: 14px;
+                vertical-align: middle;
+                color: #666;
             }
 
-            .ios-toggle-label {
-                color: #aaa;
-                transition: color 0.3s, font-weight 0.3s;
+            .ios-toggle-label-text {
                 cursor: pointer;
+                transition: color 0.2s, font-weight 0.2s;
+                user-select: none;
             }
 
-            .ios-toggle-label.active {
-                color: #333;
+            .ios-toggle-label-text.active {
+                color: #000;
                 font-weight: bold;
             }
 
-            .ios-toggle-switch {
-                position: relative;
-                display: inline-block;
-                width: 46px;
-                height: 26px;
-                margin: 0;
+            .ios-toggle-label-text:not(.active) {
+                color: #ccc;
             }
 
-            .ios-toggle-switch input[type="checkbox"] {
+            .ios-toggle-switch-dynamic {
+                position: relative;
+                display: inline-block;
+                width: var(--sw-width);
+                height: var(--sw-height);
+            }
+
+            .ios-toggle-switch-dynamic input {
                 opacity: 0;
                 width: 0;
                 height: 0;
                 position: absolute;
             }
 
-            .ios-toggle-slider {
+            .ios-toggle-slider-dynamic {
                 position: absolute;
                 cursor: pointer;
                 top: 0;
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background-color: #d1d1d6;
+                background-color: #e5e5ea;
                 transition: .3s;
-                border-radius: 34px;
+                border-radius: var(--sw-height);
             }
 
-            .ios-toggle-slider:before {
+            .ios-toggle-slider-dynamic:before {
                 position: absolute;
                 content: "";
-                height: 22px;
-                width: 22px;
-                left: 2px;
-                bottom: 2px;
+                height: var(--sw-knob);
+                width: var(--sw-knob);
+                left: var(--sw-pad);
+                bottom: var(--sw-pad);
                 background-color: white;
                 transition: .3s;
                 border-radius: 50%;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             }
 
-            .ios-toggle-checkbox:checked+.ios-toggle-slider {
+            .ios-toggle-checkbox:checked+.ios-toggle-slider-dynamic {
                 background-color: #2271b1;
-                /* iOSグリーン */
             }
 
-            .ios-toggle-checkbox:checked+.ios-toggle-slider:before {
-                transform: translateX(20px);
-                /* 右へ移動 */
+            .ios-toggle-checkbox:checked+.ios-toggle-slider-dynamic:before {
+                transform: translateX(var(--sw-translate));
             }
         </style>
         <script>
             document.addEventListener('DOMContentLoaded', function() {
-                // 1. スイッチが切り替わった時の文字色変更
+                // 文字クリックとスイッチを連動させる共通処理
                 document.body.addEventListener('change', function(e) {
                     if (e.target.classList.contains('ios-toggle-checkbox')) {
-                        const container = e.target.closest('.ios-toggle-container');
+                        const container = e.target.closest('.ios-toggle-container-minimal');
                         if (container) {
-                            const labels = container.querySelectorAll('.ios-toggle-label');
-                            if (labels.length >= 2) {
-                                if (e.target.checked) {
-                                    labels[0].classList.remove('active'); // ORを薄く
-                                    labels[1].classList.add('active'); // ANDを濃く
-                                } else {
-                                    labels[0].classList.add('active'); // ORを濃く
-                                    labels[1].classList.remove('active'); // ANDを薄く
-                                }
-                            }
+                            const labels = container.querySelectorAll('.ios-toggle-label-text');
+                            const isChecked = e.target.checked;
+                            labels[0].classList.toggle('active', !isChecked);
+                            labels[1].classList.toggle('active', isChecked);
                         }
                     }
                 });
 
-                // 2. 左右の文字（OR/AND）をタップした時もスイッチを切り替える
                 document.body.addEventListener('click', function(e) {
-                    if (e.target.classList.contains('ios-toggle-label')) {
-                        const container = e.target.closest('.ios-toggle-container');
-                        if (container) {
-                            const checkbox = container.querySelector('.ios-toggle-checkbox');
-                            const isFirstLabel = e.target === container.querySelectorAll('.ios-toggle-label')[0];
+                    const label = e.target.closest('.ios-toggle-label-text');
+                    if (!label) return;
 
-                            // 状態が違う場合のみチェックを反転させてイベントを発火
-                            if (isFirstLabel && checkbox.checked) {
-                                checkbox.checked = false;
-                                checkbox.dispatchEvent(new Event('change', {
-                                    bubbles: true
-                                }));
-                            } else if (!isFirstLabel && !checkbox.checked) {
-                                checkbox.checked = true;
-                                checkbox.dispatchEvent(new Event('change', {
-                                    bubbles: true
-                                }));
-                            }
-                        }
+                    const container = label.closest('.ios-toggle-container-minimal');
+                    const checkbox = container.querySelector('.ios-toggle-checkbox');
+                    const labels = container.querySelectorAll('.ios-toggle-label-text');
+                    const isFirstLabel = (label === labels[0]);
+
+                    if ((isFirstLabel && checkbox.checked) || (!isFirstLabel && !checkbox.checked)) {
+                        checkbox.checked = !checkbox.checked;
+                        checkbox.dispatchEvent(new Event('change', {
+                            bubbles: true
+                        }));
                     }
                 });
-
-                // 3. 「条件クリア」ボタンが押された時に文字色もリセットする
-                const resetBtn = document.getElementById('reset-search-btn');
-                if (resetBtn) {
-                    resetBtn.addEventListener('click', function() {
-                        document.querySelectorAll('.ios-toggle-container').forEach(container => {
-                            const labels = container.querySelectorAll('.ios-toggle-label');
-                            if (labels.length >= 2) {
-                                labels[0].classList.add('active'); // ORを濃く
-                                labels[1].classList.remove('active'); // ANDを薄く
-                            }
-                        });
-                    });
-                }
             });
         </script>
     <?php
-        $assets_outputted = true; // フラグを立てて2回目以降は出力しない
+        $assets_outputted = true;
     }
-
     ?>
-    <div class="ios-toggle-container">
-        <span class="ios-toggle-label <?php echo $active_off; ?>"><?php echo esc_html($label_off); ?></span>
-        <label class="ios-toggle-switch">
+    <span class="ios-toggle-container-minimal" style="
+        --sw-width: <?php echo $width; ?>px;
+        --sw-height: <?php echo $height; ?>px;
+        --sw-knob: <?php echo $knob_size; ?>px;
+        --sw-pad: <?php echo $padding; ?>px;
+        --sw-translate: <?php echo $translate_x; ?>px;
+    ">
+        <span class="ios-toggle-label-text <?php echo $active_off; ?>"><?php echo esc_html($label_off); ?></span>
+        <label class="ios-toggle-switch-dynamic">
             <input type="hidden" name="<?php echo esc_attr($name); ?>" value="OR">
             <input type="checkbox" class="ios-toggle-checkbox" name="<?php echo esc_attr($name); ?>" value="AND" <?php checked($is_on, true); ?>>
-            <span class="ios-toggle-slider"></span>
+            <span class="ios-toggle-slider-dynamic"></span>
         </label>
-        <span class="ios-toggle-label <?php echo $active_on; ?>"><?php echo esc_html($label_on); ?></span>
-    </div>
+        <span class="ios-toggle-label-text <?php echo $active_on; ?>"><?php echo esc_html($label_on); ?></span>
+    </span>
 <?php
     return ob_get_clean();
+}
+// シンプルなチェックボックスでrender_ios_toggleを利用するための関数
+function render_simple_relation_toggle($name)
+{
+    $relation = isset($_GET["{$name}_relation"]) ? $_GET["{$name}_relation"] : 'OR';
+    if (function_exists('render_ios_toggle')) {
+        echo render_ios_toggle("{$name}_relation", $relation);
+    }
 }
 // =================================================================
 // コトダマンDB 検索機能拡張ロジック

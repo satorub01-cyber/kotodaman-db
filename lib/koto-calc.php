@@ -251,16 +251,16 @@ function get_character_spec_data($post_id)
     if ($sugo_groups && is_array($sugo_groups)) {
         $first_group = $sugo_groups[0];
         $details = $first_group['sugo_detail_loop'] ?? [];
-        $waza_target = $details['waza_target'] ?? '';
-
+        
         if (!empty($details) && is_array($details)) {
             $first_action = $details[0];
+            $waza_target = $first_action['waza_target'] ?? '';
             $type_raw = $first_action['waza_type'] ?? '';
             $type = is_array($type_raw) ? ($type_raw['value'] ?? '') : $type_raw;
 
             if ($type === 'battle_field') {
                 $data['priority'] = 1;
-            } elseif (strpos($type, 'buff') !== false || strpos($type, 'debuff') !== false) {
+            } elseif (strpos($type, 'buff') !== false) {
                 $data['priority'] = 2;
             } elseif (strpos($type, 'heal') !== false) {
                 $data['priority'] = 3;
@@ -706,7 +706,7 @@ function get_character_spec_data($post_id)
             }
             // 共鳴とクリティカル共鳴の区別
             if ($t_sub === 'resonance') {
-                if (!empty($tr['crit_rate'])) {
+                if (!empty($tr['resonance_crit_rate'])) {
                     $t_sub = 'resonance_crit';
                 } else {
                     $t_sub = 'resonance_atk';
@@ -849,8 +849,7 @@ function on_save_character_specs($post_id)
 
     // ★修正: 検索用タグ文字列の保存
     if (!empty($spec_data['search_tags'])) {
-        $tags_str = ' ' . implode(' ', $spec_data['search_tags']) . ' ';
-        update_post_meta($post_id, '_search_tags_str', $tags_str);
+        update_post_meta($post_id, '_search_tags_str', $spec_data['search_tags']);
     } else {
         delete_post_meta($post_id, '_search_tags_str');
     }
@@ -1298,14 +1297,14 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
         $is_both = false; // フラグを準備
         $is_fixed = false; // フラグを準備
 
-        foreach ($rate_type_both as $type) {
-            if (strpos($type_raw, $type) !== false) {
+        foreach ($rate_type_both as $rt_type) {
+            if (strpos($type_raw, $rt_type) !== false) {
                 $is_both = true; // 1つでも見つかったらフラグを立てる
                 break;
             }
         }
-        foreach ($rate_type_fixed as $type) {
-            if (strpos($type_raw, $type) !== false) {
+        foreach ($rate_type_fixed as $rt_type) {
+            if (strpos($type_raw, $rt_type) !== false) {
                 $is_fixed = true; // 1つでも見つかったらフラグを立てる
                 break;
             }
@@ -1488,7 +1487,7 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
                 if (isset($t['limit_break_rate'])) $parsed['limit_break'] = (int)$t['limit_break_rate'];
                 if (!empty($t['resonance_crit_rate'])) {
                     $parsed['crit_rate'] = (float)$t['resonance_crit_rate'];
-                    $parsed['sub_type'] = 'crit_resonance';
+                    $parsed['sub_type'] = 'resonance_crit';
                 }
                 if (!empty($t['resonance_crit_damage'])) $parsed['crit_damage'] = (float)$t['resonance_crit_damage'];
             }

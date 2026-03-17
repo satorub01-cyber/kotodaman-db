@@ -33,7 +33,11 @@
                     <input type="text" name="search_char" class="term-tree-search"
                         value="<?php echo isset($_GET['search_char']) ? esc_attr($_GET['search_char']) : ''; ?>"
                         placeholder="例：あい（「あ」または「い」を持つキャラ）" />
-                    <p class="section-title">文字の軸</p>
+                    <p class="section-title">文字の軸
+                        <?php
+                        render_simple_relation_toggle('tx_axis');
+                        ?>
+                    </p>
                     <div class="simple-tag-row">
                         <label><input type="checkbox" name="tx_axis[]" value="axis_i"> <span>イ軸</span></label>
                         <label><input type="checkbox" name="tx_axis[]" value="axis_u"> <span>ウ軸</span></label>
@@ -44,17 +48,33 @@
                 </div>
 
                 <div class="search-section">
-                    <div class="section-title">属性</div>
+                    <div class="section-title">属性
+                        <?php
+                        render_simple_relation_toggle('tx_attr');
+                        ?>
+                    </div>
+                    <p class="section-sub-title">副属性</p>
+                    <?php
+                    echo render_ios_toggle('tx_attr_sub', isset($_GET['tx_attr_sub']) ? $_GET['tx_attr_sub'] : 'OR', '含む', '含まない');
+                    ?>
                     <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('attribute', 'tx_attr', true); ?>
                 </div>
 
                 <div class="search-section">
-                    <div class="section-title">種族</div>
+                    <div class="section-title">種族
+                        <?php
+                        render_simple_relation_toggle('tx_species');
+                        ?>
+                    </div>
                     <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('species', 'tx_species', true); ?>
                 </div>
 
                 <div class="search-section">
-                    <p class="section-title">入手方法</p>
+                    <p class="section-title">入手方法
+                        <?php
+                        render_simple_relation_toggle('tx_acq');
+                        ?>
+                    </p>
                     <div class="simple-tag-row">
                         <label><input type="checkbox" name="tx_acq[]" value="ガチャ"> <span>ガチャ</span></label>
                         <label><input type="checkbox" name="tx_acq[]" value="その他"> <span>その他</span></label>
@@ -101,7 +121,11 @@
                 <div class="search-divider"></div>
 
                 <div class="search-section">
-                    <div class="section-title">わざ・すごわざ・コトワザ</div>
+                    <div class="section-title">わざ・すごわざ・コトワザ
+                        <?php
+                        render_simple_relation_toggle('tx_skill_tags');
+                        ?>
+                    </div>
                     <p class="section-sub-title">行動順</p>
                     <div class="simple-checkbox">
                         <label><input type="checkbox" name="tx_priority[]" value="1"> <span>フィールド</span></label>
@@ -117,7 +141,7 @@
                         <label><input type="checkbox" name="scope_skill[]" value="sugo" checked> すごわざ</label>
                         <label><input type="checkbox" name="scope_skill[]" value="kotowaza" checked> コトワザ</label>
                     </div>
-                    
+
 
                     <div class="tag-accordion-group">
                         <details class="tag-details">
@@ -176,8 +200,11 @@
                 </div>
 
                 <div class="search-section">
-                    <div class="section-title">とくせい・祝福</div>
-
+                    <div class="section-title">とくせい・祝福
+                        <?php
+                        render_simple_relation_toggle('tx_trait_tags');
+                        ?>
+                    </div>
                     <div class="scope-selector">
                         <span class="scope-label">検索対象:</span>
                         <label><input type="checkbox" name="scope_trait[]" value="t1" checked> とくせい1</label>
@@ -698,7 +725,8 @@
         padding-left: 8px;
         color: #333;
     }
-    .section-sub-title{
+
+    .section-sub-title {
         font-weight: bold;
         font-size: 13px;
         margin: 10px 0 5px;

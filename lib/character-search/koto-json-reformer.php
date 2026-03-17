@@ -169,12 +169,6 @@ function koto_get_flat_char_data($post_id)
     $blessing_tags = get_post_meta($post_id, '_trait_tags_str_blessing', true) ?: '';
     $other_tags = get_post_meta($post_id, '_search_tags_str', true) ?: '';
 
-    // 軸(axis)タグの抽出
-    $axis = [];
-    if (preg_match_all('/axis_[a-zA-Z0-9_]+/', $other_tags, $matches)) {
-        $axis = array_values(array_unique($matches[0]));
-    }
-
     // リーダーとくせい
     $leader_raws = $spec['leader'] ?? [];
     $learder_flat = [];
@@ -212,11 +206,10 @@ function koto_get_flat_char_data($post_id)
         'gimmicks'     => array_values(array_unique($gimmicks)),
         'gim_t'        => array_values(array_unique($gimmick_slugs)),
         'leader'       => $learder_flat,
-        'axis'         => $axis,
         'ls_hp'        => ($spec['max_ls_hp'] ?? 0),
         'ls_atk'       => ($spec['max_ls_atk'] ?? 0),
         // スキル/とくせいは文字列として保持しておく (例: " type_attack_single type_atk_buff ")
-        'other_t'      => $other_tags,
+        'axis'      => $other_tags,
         'waza_t'       => $waza_tags,
         'sugo_t'       => $sugo_tags,
         'koto_t'       => $koto_tags,
@@ -387,12 +380,35 @@ function koto_render_json_reform_page()
 
     echo '<form method="post" action="">';
     wp_nonce_field('koto_generate_json_action', 'koto_generate_json_nonce');
-    echo '<p><input type="submit" name="generate_koto_json" class="button button-primary" value="全件を手動で再生成する (リセット用)"></p>';
+    echo '<p>';
+    echo '<input type="submit" name="generate_koto_json" class="button button-primary" value="全件を手動で再生成する (リセット用)">';
+    if (!empty($current_json_preview)) {
+        echo ' <button type="button" id="download-koto-json" class="button">JSONをダウンロード</button>';
+    }
+    echo '</p>';
     echo '</form>';
 
     echo '<h2>現在のファイル内容 (' . intval($char_count) . 'キャラ収録)</h2>';
     if (!empty($current_json_preview)) {
-        echo '<textarea style="width: 100%; height: 600px; font-family: monospace; background: #fff; padding: 10px; border: 1px solid #ccc; white-space: pre;" readonly>' . esc_textarea($current_json_preview) . '</textarea>';
+        echo '<textarea id="koto-json-preview-area" style="width: 100%; height: 600px; font-family: monospace; background: #fff; padding: 10px; border: 1px solid #ccc; white-space: pre;" readonly>' . esc_textarea($current_json_preview) . '</textarea>';
+        echo '<script>
+            document.getElementById("download-koto-json").addEventListener("click", function() {
+                var content = document.getElementById("koto-json-preview-area").value;
+                if (!content) {
+                    alert("ダウンロードするデータがありません。");
+                    return;
+                }
+                var blob = new Blob([content], { type: "application/json" });
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = "all_characters_search.json";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            });
+        </script>';
     } else {
         echo '<p style="color: red;">まだJSONファイルが存在しないか、データが空です。「全件を手動で再生成する」ボタンを押してください。</p>';
     }
