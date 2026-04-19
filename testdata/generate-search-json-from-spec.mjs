@@ -79,6 +79,55 @@ const STATUS_LABELS = {
   all: '全て',
 };
 
+const TRAIT_LABELS = {
+  give_trait: '特性付与',
+  damage_correction: '火力補正',
+  damage_correction_oneself: '自身の威力up',
+  damage_correction_killer: 'キラー',
+  damage_correction_break_limit: '自身の上限解放',
+  damage_correction_single_shot: '単体単発補正',
+  damage_correction_week_killer: '弱点キラー',
+  status_up: 'ステータス・クリティカル補正',
+  status_up_atk: 'ATKUP',
+  status_up_hp: 'HPUP',
+  status_up_critical_rate: 'クリティカル率',
+  status_up_critical_damage: 'クリティカルダメージ',
+  status_up_resistance: '状態異常耐性',
+  status_up_healing_effect: '回復効果UP',
+  status_up_mitigation: 'ダメージ軽減',
+  status_up_dodge: '心眼回避',
+  draw_eff: 'ドロー時効果',
+  draw_eff_atk_buff: '攻撃バフ',
+  draw_eff_def_buff: '防御バフ',
+  draw_eff_healing: '回復',
+  draw_eff_status_healing: '状態異常回復',
+  on_play_eff: '実体時効果',
+  on_play_eff_atk_buff: '攻撃バフ',
+  on_play_eff_def_buff: '防御バフ',
+  new_traits: '新とくせい',
+  new_traits_support: '応援',
+  new_traits_see_through: '看破',
+  new_traits_assistance: '援護',
+  new_traits_resonance_atk: '共鳴',
+  new_traits_resonance_crit: 'クリティカル共鳴',
+  new_traits_poke: '牽制',
+  after_attack: '反撃・腐敗など',
+  after_attack_counter: 'わざ反撃',
+  after_attack_sugo_counter: 'すごわざ反撃',
+  after_attack_corruption: '腐敗',
+  after_attack_reflection: 'ダメージ反射',
+  mode_shift: 'モードシフト・変身',
+  mode_shift_mode_shift: 'モードシフト',
+  mode_shift_transform: '変身',
+  other: 'その他',
+  other_combo_plus: 'コンボ＋',
+  other_penetration: 'バリア貫通',
+  other_over_healing: 'オーバーヒール',
+  other_exp_up: '経験値UP',
+  other_pressure_break: '重圧の上限解放',
+  other_other: 'その他の固有とくせい',
+};
+
 function uniqueBilingualPairs(pairs) {
   const seen = new Set();
   const en = [];
@@ -121,6 +170,87 @@ function collectStatusResistancePairs(statusSlugs) {
       jp: STATUS_LABELS[String(slug || '').trim()] || '',
     })),
   );
+}
+
+function extractTraitContents(section) {
+  if (!section || typeof section !== 'object') {
+    return [];
+  }
+
+  if (Array.isArray(section.contents)) {
+    return section.contents;
+  }
+
+  return Array.isArray(section) ? section : [];
+}
+
+function getTraitWhoseType(trait) {
+  const whose = trait?.whose ?? 'self';
+  let whoseType = '';
+
+  if (whose && typeof whose === 'object' && !Array.isArray(whose)) {
+    whoseType = String(whose.type || '').trim();
+  } else {
+    whoseType = String(whose || '').trim();
+  }
+
+  return whoseType || 'self';
+}
+
+function normalizeTraitSearchSlugs(trait) {
+  const type = String(trait?.type || '').trim();
+  if (!type) return [];
+
+  const canonicalType = type === 'other_traits' ? 'other' : type;
+  const slugs = [canonicalType];
+
+  if (canonicalType === 'mode_shift') {
+    const relation = String(trait?.shift_relation || trait?.relation_ship || '').trim();
+    if (relation === 'mode_shift') {
+      slugs.push('mode_shift_mode_shift');
+    } else if (relation === 'before_transform' || relation === 'after_transform') {
+      slugs.push('mode_shift_transform');
+    }
+  } else {
+    let subType = String(trait?.sub_type || '').trim();
+    if (subType === 'healling') {
+      subType = 'healing';
+    }
+
+    if (canonicalType === 'new_traits' && (subType === 'resonance' || subType === 'resonance_crit')) {
+      const hasCritResonance = Boolean(
+        trait?.crit_rate
+        || trait?.crit_damage
+        || trait?.resonance_crit_rate
+        || trait?.resonance_crit_damage
+        || subType === 'resonance_crit',
+      );
+      subType = hasCritResonance ? 'resonance_crit' : 'resonance_atk';
+    }
+
+    if (subType) {
+      slugs.push(`${canonicalType}_${subType}`);
+    }
+  }
+
+  if (getTraitWhoseType(trait) !== 'self') {
+    slugs.push('give_trait');
+  }
+
+  return [...new Set(slugs.filter(Boolean))];
+}
+
+function collectTraitPairs(traits) {
+  const pairs = [];
+
+  for (const trait of traits) {
+    for (const slug of normalizeTraitSearchSlugs(trait)) {
+      if (!TRAIT_LABELS[slug]) continue;
+      pairs.push({ en: slug, jp: TRAIT_LABELS[slug] });
+    }
+  }
+
+  return uniqueBilingualPairs(pairs);
 }
 
 function collectAxisTags(chars) {
@@ -210,10 +340,13 @@ function buildCharacter(spec) {
   );
 
   const gimmickPairs = [];
+  const trait1Contents = extractTraitContents(spec.trait1);
+  const trait2Contents = extractTraitContents(spec.trait2);
+  const blessingContents = extractTraitContents(spec.blessing);
   const traitContents = [
-    ...(spec.trait1?.contents || []),
-    ...(spec.trait2?.contents || []),
-    ...(spec.blessing?.contents || []),
+    ...trait1Contents,
+    ...trait2Contents,
+    ...blessingContents,
   ];
 
   for (const trait of traitContents) {
@@ -228,6 +361,9 @@ function buildCharacter(spec) {
   }
 
   const gimmicks = uniqueBilingualPairs(gimmickPairs);
+  const trait1Pairs = collectTraitPairs(trait1Contents);
+  const trait2Pairs = collectTraitPairs(trait2Contents);
+  const blessingPairs = collectTraitPairs(blessingContents);
   const traitStatusResistances = collectStatusResistancePairs(
     traitContents
       .filter((trait) => (trait?.type || '') === 'status_up' && (trait?.sub_type || '') === 'resistance')
@@ -291,9 +427,12 @@ function buildCharacter(spec) {
     waza_t: '',
     sugo_t: '',
     koto_t: '',
-    t1_t: '',
-    t2_t: '',
-    bles_t: '',
+    trait1_en: trait1Pairs.en,
+    trait1_jp: trait1Pairs.jp,
+    trait2_en: trait2Pairs.en,
+    trait2_jp: trait2Pairs.jp,
+    blessing_en: blessingPairs.en,
+    blessing_jp: blessingPairs.jp,
   };
 }
 

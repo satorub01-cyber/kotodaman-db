@@ -139,6 +139,109 @@ function koto_collect_status_resistance_pairs($status_slugs, $status_map)
     return koto_unique_bilingual_pairs($pairs);
 }
 
+function koto_extract_trait_contents($section)
+{
+    if (!is_array($section)) {
+        return [];
+    }
+
+    if (isset($section['contents']) && is_array($section['contents'])) {
+        return $section['contents'];
+    }
+
+    if ($section === []) {
+        return [];
+    }
+
+    return array_keys($section) === range(0, count($section) - 1) ? $section : [];
+}
+
+function koto_get_trait_whose_type($trait)
+{
+    $whose = $trait['whose'] ?? 'self';
+    $whose_type = '';
+
+    if (is_array($whose)) {
+        $whose_type = trim((string) ($whose['type'] ?? ''));
+    } elseif (is_object($whose)) {
+        $whose_type = trim((string) ($whose->type ?? ''));
+    } else {
+        $whose_type = trim((string) $whose);
+    }
+
+    return $whose_type === '' ? 'self' : $whose_type;
+}
+
+function koto_normalize_trait_search_slug($trait)
+{
+    $type = trim((string) ($trait['type'] ?? ''));
+    if ($type === '') {
+        return [];
+    }
+
+    $canonical_type = ($type === 'other_traits') ? 'other' : $type;
+    $slugs = [$canonical_type];
+
+    if ($canonical_type === 'mode_shift') {
+        $relation = trim((string) ($trait['shift_relation'] ?? ($trait['relation_ship'] ?? '')));
+        if ($relation === 'mode_shift') {
+            $slugs[] = 'mode_shift_mode_shift';
+        } elseif ($relation === 'before_transform' || $relation === 'after_transform') {
+            $slugs[] = 'mode_shift_transform';
+        }
+    } else {
+        $sub_type = trim((string) ($trait['sub_type'] ?? ''));
+        if ($sub_type === 'healling') {
+            $sub_type = 'healing';
+        }
+
+        if ($canonical_type === 'new_traits' && ($sub_type === 'resonance' || $sub_type === 'resonance_crit')) {
+            $has_crit_resonance = !empty($trait['crit_rate'])
+                || !empty($trait['crit_damage'])
+                || !empty($trait['resonance_crit_rate'])
+                || !empty($trait['resonance_crit_damage'])
+                || $sub_type === 'resonance_crit';
+            $sub_type = $has_crit_resonance ? 'resonance_crit' : 'resonance_atk';
+        }
+
+        if ($sub_type !== '') {
+            $slugs[] = $canonical_type . '_' . $sub_type;
+        }
+    }
+
+    if (koto_get_trait_whose_type($trait) !== 'self') {
+        $slugs[] = 'give_trait';
+    }
+
+    return array_values(array_unique(array_filter($slugs, function ($slug) {
+        return $slug !== '';
+    })));
+}
+
+function koto_collect_trait_search_pairs($trait_contents, $label_map)
+{
+    $pairs = [];
+
+    foreach ($trait_contents as $trait) {
+        if (!is_array($trait)) {
+            continue;
+        }
+
+        foreach (koto_normalize_trait_search_slug($trait) as $slug) {
+            if (empty($label_map[$slug])) {
+                continue;
+            }
+
+            $pairs[] = [
+                'en' => $slug,
+                'jp' => $label_map[$slug],
+            ];
+        }
+    }
+
+    return koto_unique_bilingual_pairs($pairs);
+}
+
 
 // =========================================================
 // 1. 1キャラ分のデータを抽出する共通関数（★キー名の短縮などはここを編集）
@@ -150,6 +253,7 @@ function koto_get_flat_char_data($post_id)
     $attr_num = koto_get_attr_num();
     $species_num = koto_get_species_num();
     $status_map = function_exists('koto_get_status_map') ? koto_get_status_map() : [];
+    $trait_label_map = function_exists('koto_get_trait_search_label_map') ? koto_get_trait_search_label_map() : [];
     $japanese_tags = '';
 
     if (!is_array($spec) || empty($spec)) {
@@ -160,9 +264,9 @@ function koto_get_flat_char_data($post_id)
 
     // ギミック名の抽出
     $gimmick_pairs = [];
-    $contents_trait1   = $spec['trait1']['contents'] ?? [];
-    $contents_trait2   = $spec['trait2']['contents'] ?? [];
-    $contents_blessing = $spec['blessing']['contents'] ?? [];
+    $contents_trait1 = koto_extract_trait_contents($spec['trait1'] ?? []);
+    $contents_trait2 = koto_extract_trait_contents($spec['trait2'] ?? []);
+    $contents_blessing = koto_extract_trait_contents($spec['blessing'] ?? []);
 
     $traits = array_merge($contents_trait1, $contents_trait2, $contents_blessing);
     if (!empty($traits)) {
@@ -179,6 +283,9 @@ function koto_get_flat_char_data($post_id)
         }
     }
     $gimmicks = koto_unique_bilingual_pairs($gimmick_pairs);
+    $trait1_pairs = koto_collect_trait_search_pairs($contents_trait1, $trait_label_map);
+    $trait2_pairs = koto_collect_trait_search_pairs($contents_trait2, $trait_label_map);
+    $blessing_pairs = koto_collect_trait_search_pairs($contents_blessing, $trait_label_map);
     $trait_status_resistance_slugs = [];
     foreach ($traits as $trait) {
         if (($trait['type'] ?? '') !== 'status_up' || ($trait['sub_type'] ?? '') !== 'resistance') {
@@ -237,10 +344,6 @@ function koto_get_flat_char_data($post_id)
     $sugo_tags = get_post_meta($post_id, '_sugo_tags_str', true) ?: '';
     $koto_tags = get_post_meta($post_id, '_kotowaza_tags_str', true) ?: '';
 
-    // 7. とくせいタグ文字列
-    $t1_tags = get_post_meta($post_id, '_trait_tags_str_1', true) ?: '';
-    $t2_tags = get_post_meta($post_id, '_trait_tags_str_2', true) ?: '';
-    $blessing_tags = get_post_meta($post_id, '_trait_tags_str_blessing', true) ?: '';
     $other_tags = get_post_meta($post_id, '_search_tags_str', true) ?: '';
 
     // リーダーとくせい
@@ -308,9 +411,12 @@ function koto_get_flat_char_data($post_id)
         'waza_t'       => $waza_tags,
         'sugo_t'       => $sugo_tags,
         'koto_t'       => $koto_tags,
-        't1_t'         => $t1_tags,
-        't2_t'         => $t2_tags,
-        'bles_t'       => $blessing_tags,
+        'trait1_en'    => $trait1_pairs['en'],
+        'trait1_jp'    => $trait1_pairs['jp'],
+        'trait2_en'    => $trait2_pairs['en'],
+        'trait2_jp'    => $trait2_pairs['jp'],
+        'blessing_en'  => $blessing_pairs['en'],
+        'blessing_jp'  => $blessing_pairs['jp'],
         'jp_t'         => $japanese_tags,
     ];
 }
