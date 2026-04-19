@@ -311,7 +311,79 @@
 |exp_up|経験値up|
 |pressure_break|重圧の上限解放|
 |other|その他|
-  
+
+# all_characters_search.json の trait検索 schema
+
+## trait系フィールド
+|キー|型|役割|
+|---|---|---|
+|trait1_en|string[]|trait1 の canonical slug 一覧|
+|trait1_jp|string[]|trait1 の日本語ラベル一覧|
+|trait2_en|string[]|trait2 の canonical slug 一覧|
+|trait2_jp|string[]|trait2 の日本語ラベル一覧|
+|blessing_en|string[]|blessing の canonical slug 一覧|
+|blessing_jp|string[]|blessing の日本語ラベル一覧|
+
+- `t1_t` / `t2_t` / `bles_t` は廃止
+- `_en[i]` と `_jp[i]` は同じ trait を指す
+- parent slug と child slug を同じ配列に含める
+- `give_trait` は `whose !== self` の trait があるとき追加する
+
+## canonical slug 一覧
+- `give_trait`
+- `damage_correction`
+- `damage_correction_oneself`
+- `damage_correction_killer`
+- `damage_correction_break_limit`
+- `damage_correction_single_shot`
+- `damage_correction_week_killer`
+- `status_up`
+- `status_up_atk`
+- `status_up_hp`
+- `status_up_critical_rate`
+- `status_up_critical_damage`
+- `status_up_resistance`
+- `status_up_healing_effect`
+- `status_up_mitigation`
+- `status_up_dodge`
+- `draw_eff`
+- `draw_eff_atk_buff`
+- `draw_eff_def_buff`
+- `draw_eff_healing`
+- `draw_eff_status_healing`
+- `on_play_eff`
+- `on_play_eff_atk_buff`
+- `on_play_eff_def_buff`
+- `new_traits`
+- `new_traits_support`
+- `new_traits_see_through`
+- `new_traits_assistance`
+- `new_traits_resonance_atk`
+- `new_traits_resonance_crit`
+- `new_traits_poke`
+- `after_attack`
+- `after_attack_counter`
+- `after_attack_sugo_counter`
+- `after_attack_corruption`
+- `after_attack_reflection`
+- `mode_shift`
+- `mode_shift_mode_shift`
+- `mode_shift_transform`
+- `other`
+- `other_combo_plus`
+- `other_penetration`
+- `other_over_healing`
+- `other_exp_up`
+- `other_pressure_break`
+- `other_other`
+
+## 正規化ルール
+- 基本は詳細検索checkboxの `trait_*` から先頭の `trait_` を落とした値を canonical slug とする
+- `other_traits` は外向き schema では `other` 系へ寄せる
+- `new_traits.resonance` はクリティカル共鳴なら `new_traits_resonance_crit`、それ以外は `new_traits_resonance_atk`
+- `mode_shift` は `shift_relation` が `mode_shift` なら `mode_shift_mode_shift`、`before_transform` / `after_transform` なら `mode_shift_transform`
+- `draw_eff.healling` は schema では `draw_eff_healing` に正規化する
+ 
 # _spec_jsonの構造
 ## 概要
   |キー|型|要素数|データの役割|未実装?|
@@ -842,4 +914,3 @@ $result=[
   "traits": ["god_buff", "super_heal", "shield_break"]
 }
 ```
-
