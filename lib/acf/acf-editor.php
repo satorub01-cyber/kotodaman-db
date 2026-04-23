@@ -669,6 +669,20 @@ function koto_acf_editor_page_html()
                             <strong>現在の編集対象: <?php echo esc_html($target_title); ?></strong>
                         </div>
                         <?php
+                        switch ($edit_group) {
+                            case 'group_6937900895bf1': //わざ、すごわざ
+                                break;
+                            case 'group_693790bd6b499': //ことわざ
+                                break;
+                            case 'group_693969515ca4d': //リーダーとくせい
+                                break;
+                            case 'group_693790ee221c3': //とくせい
+                                break;
+                            case 'group_693971a11a6b2': //祝福
+                                echo '<textarea class="auto-resize acf-auto-inputer" id="blessing_trait_auto_input_textarea" placeholder="祝福の文言をここに入力してEnterで反映" style="width:100%; height:30px; margin-bottom:15px;"></textarea>';
+                                echo '<input type="button" class="bulk_acf_auto_inputer" id="blessing_trait_bulk" value="祝福の文言をすべての行に一括反映" style="margin-bottom:15px;">';
+                                break;
+                        }
                         acf_form([
                             'post_id' => $edit_post_id,
                             'field_groups' => [$edit_group],
