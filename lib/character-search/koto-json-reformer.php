@@ -515,10 +515,16 @@ function koto_delete_search_json_single($post_id)
 // =========================================================
 // 5. 自動更新のフック設定
 // =========================================================
-add_action('save_post_character', 'koto_auto_update_json_on_save', 10, 3);
-function koto_auto_update_json_on_save($post_id, $post, $update)
+add_action('acf/save_post', 'koto_auto_update_json_on_save', 99, 1);
+function koto_auto_update_json_on_save($post_id)
 {
+    // オプションページなど投稿ID以外の保存時はスキップ
+    if (!is_numeric($post_id)) return;
+
     if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) return;
+
+    $post = get_post($post_id);
+    if (!$post || $post->post_type !== 'character') return;
 
     if ($post->post_status === 'publish') {
         // 公開時は単体上書き処理のみ走る（激速）

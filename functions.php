@@ -311,58 +311,6 @@ function get_koto_target_label($group_data)
     }
 }
 
-/**
- * ACFのリピーター(moji_bind_loop)内の文字を、
- * 実際のWordPressのタクソノミー(moji)として自動保存する処理
- */
-function my_update_moji_terms($post_id)
-{
-
-    // 1. オートセーブやリビジョンの時は何もしない
-    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-    if (wp_is_post_revision($post_id)) return;
-
-    // 2. リピーターフィールド名とタクソノミースラッグを設定
-    $repeater_key = 'available_moji_loop'; // リピーター名
-    $sub_field_key = 'available_moji';     // その中の文字フィールド名
-    $taxonomy_slug = 'available_moji';          // 文字タクソノミーのスラッグ (例: kotodaman_moji など)
-
-    // ※タクソノミーのスラッグが 'moji' じゃない場合は書き換えてください！
-    // 管理画面のURL ...?taxonomy=ここ を確認
-
-    // 3. リピーターの値を取得
-    $rows = get_field($repeater_key, $post_id);
-    $term_ids = [];
-
-    if ($rows) {
-        foreach ($rows as $row) {
-            // 文字オブジェクトを取得 (複数選択対応)
-            $terms = $row[$sub_field_key];
-
-            if ($terms) {
-                // 複数選択の場合は配列、単一の場合はオブジェクトが来るので統一して処理
-                if (is_array($terms)) {
-                    foreach ($terms as $t) {
-                        if (isset($t->term_id)) $term_ids[] = (int) $t->term_id;
-                    }
-                } elseif (isset($terms->term_id)) {
-                    $term_ids[] = (int) $terms->term_id;
-                }
-            }
-        }
-    }
-
-    // 4. 重複を削除して整数化
-    $term_ids = array_unique(array_map('intval', $term_ids));
-
-    // 5. 投稿にタームをセットする (上書き保存)
-    // これで「検索」や「アーカイブページ」にヒットするようになります！
-    wp_set_object_terms($post_id, $term_ids, $taxonomy_slug);
-}
-
-// ACFの保存処理が終わった後に実行させるフック
-add_action('acf/save_post', 'my_update_moji_terms', 20);
-
 // 寄稿者の権限コントロール
 function add_upload_files_to_contributor()
 {

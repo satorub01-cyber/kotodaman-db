@@ -29,18 +29,6 @@ function get_character_spec_data($post_id)
     if (!is_numeric($rarity)) {
         $rarity_detail = $rarity;
         $rarity = (int)6;
-        // 1. 子タームのIDを取得
-        if ($rarity_term && !is_wp_error($rarity_term)) {
-            $child_term_id = $rarity_term->term_id;
-            // 2. 「6」というスラッグを持つ親タームのIDを取得
-            $parent_term = get_term_by('slug', '6', $taxonomy);
-
-            if ($parent_term && !is_wp_error($parent_term)) {
-                // 親(6)と子(詳細)の両方を配列にセット
-                $term_ids = array((int)$parent_term->term_id, (int)$child_term_id);
-                wp_set_object_terms($post_id, $term_ids, $taxonomy, false);
-            }
-        }
     } else {
         $rarity_detail = 'none';
         $rarity = (int)$rarity;
