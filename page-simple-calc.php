@@ -415,7 +415,7 @@ get_header();
                 </div>
             </div>
         </div>
-
+        <?php echo render_ios_toggle('healing_toggle', '攻撃', '攻撃', '回復'); ?>
         <button type="button" class="btn-calc" onclick="calcReverse()">① 倍率を計算する</button>
 
         <div id="historyContainer" class="history-box" style="display:none;">
@@ -480,6 +480,8 @@ get_header();
 
     // パラメータ取得
     function getParams() {
+        const healingToggle = document.querySelector('input[name="healing_toggle"][type="checkbox"]');
+        const isHealing = healingToggle && healingToggle.checked;
         const leaderCount = parseInt(document.getElementById('leader_count_selector').value);
         let leaderBuffs = [];
         for (let i = 1; i <= leaderCount; i++) {
@@ -489,8 +491,8 @@ get_header();
 
         // キラー + フィールド (全て加算)
         const kMain = parseFloat(document.getElementById('killer_percent_main').value) || 0;
-        const k17 = parseFloat(document.getElementById('killer_percent_17').value) || 0;
-        const k4 = parseFloat(document.getElementById('killer_percent_4').value) || 0;
+        const k17 = isHealing ? 0 : (parseFloat(document.getElementById('killer_percent_17').value) || 0);
+        const k4 = isHealing ? 0 : (parseFloat(document.getElementById('killer_percent_4').value) || 0);
         const fieldP = parseFloat(document.getElementById('field_percent').value) || 0;
         const totalPercent = kMain + k17 + k4 + fieldP;
         const correctionMult = 1 + (totalPercent / 100);
@@ -503,8 +505,8 @@ get_header();
             leaders: leaderBuffs,
             comboCount: parseFloat(document.getElementById('combo_count').value) || 1.0,
             buffCount: parseInt(document.getElementById('buff_count').value) || 0,
-            debuffCount: parseInt(document.getElementById('debuff_count').value) || 0,
-            elemMult: parseFloat(document.getElementById('elem_mult').value) || 1.0,
+            debuffCount: isHealing ? 0 : (parseInt(document.getElementById('debuff_count').value) || 0),
+            elemMult: isHealing ? 1.0 : (parseFloat(document.getElementById('elem_mult').value) || 1.0),
             correctionMult: correctionMult,
             extraMult: parseFloat(document.getElementById('other_mult_extra').value) || 1.0
         };
@@ -539,7 +541,38 @@ get_header();
 
     document.addEventListener('DOMContentLoaded', () => {
         loadHistory();
+
+        const healingToggle = document.querySelector('input[name="healing_toggle"][type="checkbox"]');
+        if (healingToggle) {
+            healingToggle.addEventListener('change', updateHealingDisplay);
+            updateHealingDisplay(); // 初期表示用
+        }
     });
+
+    function updateHealingDisplay() {
+        const healingToggle = document.querySelector('input[name="healing_toggle"][type="checkbox"]');
+        const isHealing = healingToggle && healingToggle.checked;
+        
+        // 親要素ごと薄くする項目
+        const parentTargetIds = ['killer_percent_17', 'killer_percent_4', 'elem_mult'];
+        parentTargetIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.parentElement) {
+                el.parentElement.style.opacity = isHealing ? '0.4' : '1';
+                el.style.backgroundColor = isHealing ? '#f0f0f0' : '';
+            }
+        });
+
+        // デバフ数（直前のラベルと合わせて薄くする）
+        const debuffEl = document.getElementById('debuff_count');
+        if (debuffEl) {
+            debuffEl.style.opacity = isHealing ? '0.4' : '1';
+            debuffEl.style.backgroundColor = isHealing ? '#f0f0f0' : '';
+            if (debuffEl.previousElementSibling) {
+                debuffEl.previousElementSibling.style.opacity = isHealing ? '0.4' : '1';
+            }
+        }
+    }
 
     function loadHistory() {
         const stored = localStorage.getItem(STORAGE_KEY);
