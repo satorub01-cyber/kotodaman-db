@@ -408,9 +408,11 @@ get_header();
                     <select id="other_mult_extra">
                         <option value="1.0">等倍</option>
                         <option value="1.5">クリティカル</option>
+                        <option value="2.0">オーバークリティカル</option>
                         <option value="1.5">言気ハツラツ</option>
                         <option value="2.25">言気ハツラツかつクリティカル</option>
                         <option value="3.0">塊心の一撃</option>
+                        <option value="6.0">超塊心の一撃</option>
                     </select>
                 </div>
             </div>
