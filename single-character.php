@@ -889,7 +889,8 @@ if ($koto_outside):
 $trait1_loop = $all_fields['first_trait_loop'] ?? null;
 $trait1_lines = [];
 $add_moji_1 = function_exists('get_koto_add_moji_html') ? get_koto_add_moji_html('first_trait') : '';
-if ($add_moji_1) $trait1_lines[] = $add_moji_1;
+if (!empty($add_moji_1[0])) $trait1_lines[] = $add_moji_1[0];
+if(!empty($add_moji_1[1])) $trait1_lines[] = $add_moji_1[1];
 if ($trait1_loop) {
     foreach ($trait1_loop as $row) {
         $text = function_exists('get_koto_trait_text_from_row') ? get_koto_trait_text_from_row($row) : '';
@@ -900,7 +901,8 @@ if ($trait1_loop) {
 $trait2_loop = $all_fields['second_trait_loop'] ?? null;
 $trait2_lines = [];
 $add_moji_2 = function_exists('get_koto_add_moji_html') ? get_koto_add_moji_html('second_trait') : '';
-if ($add_moji_2) $trait2_lines[] = $add_moji_2;
+if (!empty($add_moji_2[0])) $trait2_lines[] = $add_moji_2[0];
+if(!empty($add_moji_2[1])) $trait2_lines[] = $add_moji_2[1];
 if ($trait2_loop) {
     foreach ($trait2_loop as $row) {
         $text = function_exists('get_koto_trait_text_from_row') ? get_koto_trait_text_from_row($row) : '';
@@ -966,6 +968,7 @@ $has_blessing_data = ($blessing_loop && is_array($blessing_loop));
 
 // 1. 文字追加情報の取得
 $add_moji_blessing = function_exists('get_koto_add_moji_html') ? get_koto_add_moji_html('blessing') : '';
+$add_moji_blessing = $add_moji_blessing[0] ?? ''; // 祝福とくせい用の文字追加がある場合は取得
 
 // 2. ★追加：すごわざ条件解放情報の取得
 $add_sugo_blessing_list = function_exists('get_koto_blessing_sugo_list') ? get_koto_blessing_sugo_list() : [];
