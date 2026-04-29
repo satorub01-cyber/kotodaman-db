@@ -344,6 +344,7 @@ $max_lv = $spec_data['max_lavel'] ?? 99;
                     $slug = $c['slug'] ?? '';
                     $attr_slug = $c['attr'] ?? 'none';
                     $place = $c['unlock'] ?? 'normal';
+                    $group_cond = $c['moji_group_cond'] ?? false;
 
                     $suffix = '';
                     if ($place === 'super_copy') {
@@ -352,6 +353,9 @@ $max_lv = $spec_data['max_lavel'] ?? 99;
                         $suffix = '<span style="font-size:0.85em; color:#333; margin-left:2px;">(Sチェンジ)</span>';
                     } elseif ($place === 'super_both') {
                         $suffix = '<span style="font-size:0.85em; color:#333; margin-left:2px;">(Sコ・Sチ)</span>';
+                    }
+                    if ($group_cond) {
+                        $suffix = '<span style="font-size:0.85em; color:#333; margin-left:2px;">(グループ条件)</span>';
                     }
 
                     $term_link = '#';

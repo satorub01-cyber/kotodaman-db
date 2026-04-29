@@ -103,7 +103,7 @@ function get_character_spec_data($post_id)
         'legend' => 0.05,
         'grand' => 0.05,
         'dream' => 0.05,
-        'miracle'=> 0.05,
+        'miracle' => 0.05,
     ];
 
     if (get_field('talent_status_auto_tf', $post_id)) {
@@ -241,7 +241,7 @@ function get_character_spec_data($post_id)
     if ($sugo_groups && is_array($sugo_groups)) {
         $first_group = $sugo_groups[0];
         $details = $first_group['sugo_detail_loop'] ?? [];
-        
+
         if (!empty($details) && is_array($details)) {
             $first_action = $details[0];
             $waza_target = $first_action['waza_target'] ?? '';
@@ -275,6 +275,8 @@ function get_character_spec_data($post_id)
         foreach ($moji_rows as $row) {
             $unlock_place = $row['unlock_place'] ?? 'normal';
             if (empty($unlock_place)) $unlock_place = 'normal';
+            $grp_cond = $row['moji_group_cond'] ?? false;
+            $unlock_place = $grp_cond ? 'group_cond_' . $unlock_place : $unlock_place;
 
             // ★修正: 属性の取得ロジックを強化 (ID, オブジェクト, 配列に対応)
             $attr_slug = '';
