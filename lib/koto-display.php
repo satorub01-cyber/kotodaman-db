@@ -121,12 +121,12 @@ function get_koto_add_moji_html($trait_slug)
     // 投稿IDを取得できるよう、関数内で呼び出すか引数で渡すのが一般的ですが、get_fieldは現在の投稿を参照します
     $moji_loop = koto_get_field_cached('available_moji_loop');
     $html_parts = [];
-    $grp_html = '';
+    $all_grp_cond_chars = [];
+    $grp_html_parts = [];
     if ($moji_loop) {
         foreach ($moji_loop as $m) {
             // 変数を毎回初期化（前回のループの値が残らないように）
             $current_row_chars = [];
-            $grp_cond_current_row_chars = [];
             $pt_html = '';
 
             if (isset($m['unlock_place']) && $m['unlock_place'] === $trait_slug) {
@@ -140,7 +140,7 @@ function get_koto_add_moji_html($trait_slug)
                     case true:
                         foreach ($chars_array as $c_obj) {
                             if (isset($c_obj->name)) {
-                                $grp_cond_current_row_chars[] = '<span class="char-font attr-' . esc_attr($slug) . '">' . esc_html($c_obj->name) . '</span>';
+                                $all_grp_cond_chars[] = '<span class="char-font attr-' . esc_attr($slug) . '">' . esc_html($c_obj->name) . '</span>';
                             }
                         }
                         break;
@@ -159,17 +159,33 @@ function get_koto_add_moji_html($trait_slug)
                 if (!empty($current_row_chars)) {
                     $html_parts[] = implode('・', $current_row_chars) . $pt_html;
                 }
-                if (!empty($grp_cond_current_row_chars)) {
-                    $affiliation_obj = koto_get_field_cached('affiliation');
-                    $affiliation_name = is_object($affiliation_obj) ? ($affiliation_obj->name ?? 'グループ条件') : 'グループ条件';
-                    $grp_html = 'デッキ内に「' . esc_html($affiliation_name) . '」の味方がいるとき、文字' . implode('・', $grp_cond_current_row_chars) . 'を追加';
-                }
             }
         }
+        if (!empty($all_grp_cond_chars)) {
+            $affiliation_obj = koto_get_field_cached('affiliation');
+            $affiliation_names = [];
+            if ($affiliation_obj) {
+                $aff_array = is_array($affiliation_obj) ? $affiliation_obj : [$affiliation_obj];
+                foreach ($aff_array as $aff) {
+                    if (is_object($aff) && isset($aff->name)) {
+                        $affiliation_names[] = $aff->name;
+                    } elseif (is_array($aff) && isset($aff['name'])) {
+                        $affiliation_names[] = $aff['name'];
+                    } elseif (is_numeric($aff)) {
+                        $t = get_term($aff, 'affiliation');
+                        if ($t && !is_wp_error($t)) {
+                            $affiliation_names[] = $t->name;
+                        }
+                    }
+                }
+            }
+            $affiliation_name = !empty($affiliation_names) ? implode('・', $affiliation_names) : 'グループ条件';
+            $grp_html_parts[] = 'デッキ内に「' . esc_html($affiliation_name) . '」の味方がいるとき、文字' . implode('・', $all_grp_cond_chars) . 'を追加';
+        }
     }
-    if (!empty($html_parts) || !empty($grp_html)) {
+    if (!empty($html_parts) || !empty($grp_html_parts)) {
         $moji_prefix = !empty($html_parts) ? '追加文字：' : '';
-        return [$moji_prefix . implode('・', $html_parts), $grp_html];
+        return [$moji_prefix . implode('・', $html_parts), implode('<br>', $grp_html_parts)];
     }
     return ['', ''];
 }

@@ -704,7 +704,7 @@ function koto_acf_editor_page_html()
                             case 'group_693790ee221c3': //とくせい
                                 break;
                             case 'group_693971a11a6b2': //祝福
-                                echo '<textarea class="auto-resize acf-auto-inputer" id="blessing_trait_auto_input_textarea" placeholder="祝福の文言をここに入力してEnterで反映" style="width:100%; height:30px; margin-bottom:15px;"></textarea>';
+                                echo '<textarea class="auto-resize acf-auto-inputer" id="blessing_trait_auto_input_textarea" placeholder="！未実装！祝福の文言をここに入力してEnterで反映" style="width:100%; height:30px; margin-bottom:15px;"></textarea>';
                                 echo '<input type="button" class="bulk_acf_auto_inputer" id="blessing_trait_bulk" value="祝福の文言をすべての行に一括反映" style="margin-bottom:15px;">';
                                 break;
                         }
