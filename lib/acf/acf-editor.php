@@ -491,7 +491,7 @@ function koto_acf_editor_page_html()
     <div class="wrap acf-editor-wrap">
         <h1 class="wp-heading-inline">コトダマンDB エディタ</h1>
         <div id="koto-sticky-bar" class="acf-sticky-actions" style="position: sticky; top: 32px; z-index: 999; background: #fff; padding: 10px 20px; border-bottom: 2px solid #ccc; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <div style="display:flex; gap:10px; align-items:center;">
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
                 <strong style="margin:0;">🌐 サイト確認:</strong>
                 <?php
                 if ($edit_post_id) {
@@ -506,6 +506,31 @@ function koto_acf_editor_page_html()
                 }
                 ?>
                 <a href="https://kotodaman-db.com/magnification-calc/" target="_blank" class="button">倍率計算</a>
+
+                <!-- Map手動選択ドロップダウン -->
+                <select id="koto-manual-map-select" style="margin-left: 10px; padding: 5px 10px;">
+                    <option value="">🗺️ Map手動選択...</option>
+                    <optgroup label="全体攻撃">
+                        <option value="allOppoMaps_0">ブラスト</option>
+                        <option value="allOppoMaps_1">ストーム</option>
+                    </optgroup>
+                    <optgroup label="単体攻撃">
+                        <option value="singleOppoMaps_0">スラッシュ</option>
+                        <option value="singleOppoMaps_1">ランス</option>
+                        <option value="singleOppoMaps_2">クロー</option>
+                        <option value="singleOppoMaps_3">ショット</option>
+                        <option value="singleOppoMaps_4">ブロー</option>
+                    </optgroup>
+                    <optgroup label="複数単体">
+                        <option value="multiSingleMaps_0">ブレイド</option>
+                        <option value="multiSingleMaps_1">ナックル</option>
+                    </optgroup>
+                    <optgroup label="ランダム複数">
+                        <option value="multiRandomMaps_0">ブラスター</option>
+                        <option value="multiRandomMaps_1">ラッシュ</option>
+                    </optgroup>
+                </select>
+                <button type="button" id="koto-lock-map-btn" class="button" style="margin-left: 5px;" title="現在のマップを固定">🔒</button>
             </div>
 
             <div class="acf-sticky-group-tabs">
