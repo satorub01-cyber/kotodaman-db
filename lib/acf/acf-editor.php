@@ -515,15 +515,15 @@ function koto_acf_editor_page_html()
                         <option value="allOppoMaps_1">ストーム</option>
                     </optgroup>
                     <optgroup label="単体攻撃">
-                        <option value="singleOppoMaps_0">スラッシュ</option>
-                        <option value="singleOppoMaps_1">ランス</option>
-                        <option value="singleOppoMaps_2">クロー</option>
+                        <option value="singleOppoMaps_0">ランス</option>
+                        <option value="singleOppoMaps_1">クロー</option>
+                        <option value="singleOppoMaps_2">スラッシュ</option>
                         <option value="singleOppoMaps_3">ショット</option>
                         <option value="singleOppoMaps_4">ブロー</option>
                     </optgroup>
-                    <optgroup label="複数単体">
-                        <option value="multiSingleMaps_0">ブレイド</option>
-                        <option value="multiSingleMaps_1">ナックル</option>
+                    <optgroup label="単体連撃">
+                        <option value="singleOppoMaps_5">ブレイド</option>
+                        <option value="singleOppoMaps_6">ナックル</option>
                     </optgroup>
                     <optgroup label="ランダム複数">
                         <option value="multiRandomMaps_0">ブラスター</option>
