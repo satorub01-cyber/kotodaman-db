@@ -120,18 +120,19 @@ add_action('acf/init', function () {
 // （異なるフィールドへコピーした際に値が消えるのを防ぐため）
 // =================================================================
 if (!function_exists('koto_acf_convert_to_name_keys')) {
-    function koto_acf_convert_to_name_keys($data, $field) {
+    function koto_acf_convert_to_name_keys($data, $field)
+    {
         if (!is_array($data) || empty($field['sub_fields'])) {
             return $data;
         }
-        
+
         $sub_fields_by_key = [];
         $sub_fields_by_name = [];
         foreach ($field['sub_fields'] as $sub) {
             $sub_fields_by_key[$sub['key']] = $sub;
             $sub_fields_by_name[$sub['name']] = $sub;
         }
-        
+
         $converted = [];
         foreach ($data as $k => $v) {
             $sub_field = null;
@@ -313,7 +314,7 @@ function koto_acf_editor_handle_actions()
             foreach ($copy_items as $item) {
                 $src_key = $item['field_key'];
                 $tgt_key_raw = isset($item['target_field_key']) ? $item['target_field_key'] : $src_key;
-                
+
                 $tgt_key = $tgt_key_raw;
                 if (strpos($tgt_key_raw, 'field_') !== 0 && function_exists('acf_get_field')) {
                     $f_obj = acf_get_field($tgt_key_raw);
@@ -324,7 +325,7 @@ function koto_acf_editor_handle_actions()
 
                 $fields_to_update[$src_key][$tgt_key][] = intval($item['row_index']);
             }
-            
+
             foreach ($fields_to_update as $src_key => $targets) {
                 $source_field_obj = function_exists('acf_get_field') ? acf_get_field($src_key) : null;
                 $source_data = get_field($src_key, $source_post_id, false);
@@ -491,46 +492,52 @@ function koto_acf_editor_page_html()
     <div class="wrap acf-editor-wrap">
         <h1 class="wp-heading-inline">コトダマンDB エディタ</h1>
         <div id="koto-sticky-bar" class="acf-sticky-actions" style="position: sticky; top: 32px; z-index: 999; background: #fff; padding: 10px 20px; border-bottom: 2px solid #ccc; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <div style="display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
-                <strong style="margin:0;">🌐 サイト確認:</strong>
-                <?php
-                if ($edit_post_id) {
-                    $t_status = get_post_status($edit_post_id);
-                    $t_link = ($t_status === 'publish') ? get_permalink($edit_post_id) : get_preview_post_link($edit_post_id);
-                    echo '<a href="' . esc_url($t_link) . '" target="_blank" class="button">📝 左(編集中)を見る</a>';
-                }
-                if ($source_post_id) {
-                    $s_status = get_post_status($source_post_id);
-                    $s_link = ($s_status === 'publish') ? get_permalink($source_post_id) : get_preview_post_link($source_post_id);
-                    echo '<a href="' . esc_url($s_link) . '" target="_blank" class="button">📦 右(コピー元)を見る</a>';
-                }
-                ?>
-                <a href="https://kotodaman-db.com/magnification-calc/" target="_blank" class="button">倍率計算</a>
+            <div style="display:flex; gap:20px; align-items:flex-start; flex-wrap: wrap;">
+                <div style="display:flex; flex-direction:column; gap:5px; align-items:flex-start;">
+                    <strong style="margin:0;">🌐 サイト確認:</strong>
+                    <?php
+                    if ($edit_post_id) {
+                        $t_status = get_post_status($edit_post_id);
+                        $t_link = ($t_status === 'publish') ? get_permalink($edit_post_id) : get_preview_post_link($edit_post_id);
+                        echo '<a href="' . esc_url($t_link) . '" target="_blank" class="button" style="width: 100%; text-align: center;">📝 左(編集中)を見る</a>';
+                    }
+                    if ($source_post_id) {
+                        $s_status = get_post_status($source_post_id);
+                        $s_link = ($s_status === 'publish') ? get_permalink($source_post_id) : get_preview_post_link($source_post_id);
+                        echo '<a href="' . esc_url($s_link) . '" target="_blank" class="button" style="width: 100%; text-align: center;">📦 右(コピー元)を見る</a>';
+                    }
+                    ?>
+                </div>
 
-                <!-- Map手動選択ドロップダウン -->
-                <select id="koto-manual-map-select" style="margin-left: 10px; padding: 5px 10px;">
-                    <option value="">🗺️ Map手動選択...</option>
-                    <optgroup label="全体攻撃">
-                        <option value="allOppoMaps_0">ブラスト</option>
-                        <option value="allOppoMaps_1">ストーム</option>
-                    </optgroup>
-                    <optgroup label="単体攻撃">
-                        <option value="singleOppoMaps_0">ランス</option>
-                        <option value="singleOppoMaps_1">クロー</option>
-                        <option value="singleOppoMaps_2">スラッシュ</option>
-                        <option value="singleOppoMaps_3">ショット</option>
-                        <option value="singleOppoMaps_4">ブロー</option>
-                    </optgroup>
-                    <optgroup label="単体連撃">
-                        <option value="singleOppoMaps_5">ブレイド</option>
-                        <option value="singleOppoMaps_6">ナックル</option>
-                    </optgroup>
-                    <optgroup label="ランダム複数">
-                        <option value="multiRandomMaps_0">ブラスター</option>
-                        <option value="multiRandomMaps_1">ラッシュ</option>
-                    </optgroup>
-                </select>
-                <button type="button" id="koto-lock-map-btn" class="button" style="margin-left: 5px;" title="現在のマップを固定">🔒</button>
+                <div style="display:flex; flex-direction:column; gap:5px; align-items:stretch;">
+                    <a href="https://kotodaman-db.com/magnification-calc/" target="_blank" class="button" style="text-align: center;">倍率計算</a>
+                    <?php if ($edit_group === 'group_6937900895bf1' || $edit_group === 'group_693790bd6b499') : ?>
+                        <!-- Map手動選択ドロップダウン -->
+                        <select id="koto-manual-map-select" style="padding: 3px 10px; height: auto;">
+                            <option value="">🗺️ Map手動選択...</option>
+                            <optgroup label="全体攻撃">
+                                <option value="allOppoMaps_0">ブラスト</option>
+                                <option value="allOppoMaps_1">ストーム</option>
+                            </optgroup>
+                            <optgroup label="単体攻撃">
+                                <option value="singleOppoMaps_0">ランス</option>
+                                <option value="singleOppoMaps_1">クロー</option>
+                                <option value="singleOppoMaps_2">スラッシュ</option>
+                                <option value="singleOppoMaps_3">ショット</option>
+                                <option value="singleOppoMaps_4">ブロー</option>
+                            </optgroup>
+                            <optgroup label="単体連撃">
+                                <option value="singleOppoMaps_5">ブレイド</option>
+                                <option value="singleOppoMaps_6">ナックル</option>
+                            </optgroup>
+                            <optgroup label="ランダム複数">
+                                <option value="multiRandomMaps_0">ブラスター</option>
+                                <option value="multiRandomMaps_1">ラッシュ</option>
+                            </optgroup>
+                        </select>
+                        <button type="button" id="koto-lock-map-btn" class="button" title="現在のマップを固定" style="text-align: center;">🔒 マップ固定</button>
+                    <?php endif; ?>
+                </div>
             </div>
 
             <div class="acf-sticky-group-tabs">
@@ -546,8 +553,22 @@ function koto_acf_editor_page_html()
             </script>
             <div style="display:flex; gap:10px; align-items:center;">
                 <?php if ($edit_post_id && $edit_group): ?>
-                    <button type="button" class="button" id="btn_draft_sticky">下書き保存</button>
-                    <button type="button" class="button button-primary button-large" id="btn_publish_sticky">公開 / 更新 </button>
+                    <div style="display:flex; flex-direction:column; justify-content:center;">
+                        <?php
+                        $t_status = get_post_status($edit_post_id);
+                        if ($t_status === 'publish') {
+                            echo '<span style="color: #008a20; font-weight: bold; font-size: 13px; padding: 4px 8px; border: 1px solid #008a20; border-radius: 4px; text-align: center;">公開済み</span>';
+                        } elseif ($t_status === 'draft') {
+                            echo '<span style="color: #d63638; font-weight: bold; font-size: 13px; padding: 4px 8px; border: 1px solid #d63638; border-radius: 4px; text-align: center;">下書き</span>';
+                        } else {
+                            echo '<span style="color: #666; font-weight: bold; font-size: 13px; padding: 4px 8px; border: 1px solid #666; border-radius: 4px; text-align: center;">' . esc_html($t_status) . '</span>';
+                        }
+                        ?>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:5px; align-items:stretch;">
+                        <button type="button" class="button" id="btn_draft_sticky" style="text-align: center;">下書き保存</button>
+                        <button type="button" class="button button-primary button-large" id="btn_publish_sticky" style="text-align: center; height: auto; min-height: 32px; padding: 0 10px;">公開 / 更新 </button>
+                    </div>
                 <?php else: ?>
                     <span style="color:#888; font-size:12px;">※左のキャラを指定すると保存できます</span>
                 <?php endif; ?>
@@ -778,7 +799,7 @@ function koto_acf_editor_page_html()
                                                 <input type="hidden" name="source_post_id" value="<?php echo esc_attr($source_post_id); ?>">
                                                 <input type="hidden" name="source_field_key" value="<?php echo esc_attr($field['key']); ?>">
                                                 <input type="hidden" name="field_label" value="<?php echo esc_attr($field['label']); ?>">
-                                                
+
                                                 <?php if (isset($compatible_fields[$field['name']])) : ?>
                                                     <select name="target_field_key" style="font-size:12px; padding:0 24px 0 8px; min-height:28px;">
                                                         <?php foreach ($compatible_fields[$field['name']] as $comp) : ?>
@@ -851,7 +872,7 @@ function koto_acf_editor_page_html()
                                                                 <input type="hidden" name="source_field_key" value="<?php echo esc_attr($field['key']); ?>">
                                                                 <input type="hidden" name="row_index" value="<?php echo esc_attr($row_index); ?>">
                                                                 <input type="hidden" name="field_label" value="<?php echo esc_attr($field['label']); ?>">
-                                                                
+
                                                                 <?php if (isset($compatible_fields[$field['name']])) : ?>
                                                                     <select name="target_field_key" style="font-size:12px; padding:0 24px 0 8px; min-height:26px;">
                                                                         <?php foreach ($compatible_fields[$field['name']] as $comp) : ?>
@@ -891,34 +912,34 @@ function koto_acf_editor_page_html()
     </div>
 
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var form = document.getElementById('multi-copy-form');
-        if (form) {
-            form.addEventListener('submit', function(e) {
-                var items = [];
-                document.querySelectorAll('.multi-copy-check:checked').forEach(function(chk) {
-                    var fieldKey = chk.getAttribute('data-field-key');
-                    var rowIndex = chk.getAttribute('data-row-index');
-                    
-                    var targetKey = fieldKey;
-                    var container = chk.closest('.acf-single-copy-box');
-                    if (container) {
-                        var select = container.querySelector('select[name="target_field_key"]');
-                        if (select) {
-                            targetKey = select.value;
+        document.addEventListener('DOMContentLoaded', function() {
+            var form = document.getElementById('multi-copy-form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    var items = [];
+                    document.querySelectorAll('.multi-copy-check:checked').forEach(function(chk) {
+                        var fieldKey = chk.getAttribute('data-field-key');
+                        var rowIndex = chk.getAttribute('data-row-index');
+
+                        var targetKey = fieldKey;
+                        var container = chk.closest('.acf-single-copy-box');
+                        if (container) {
+                            var select = container.querySelector('select[name="target_field_key"]');
+                            if (select) {
+                                targetKey = select.value;
+                            }
                         }
-                    }
-                    
-                    items.push({
-                        field_key: fieldKey,
-                        row_index: rowIndex,
-                        target_field_key: targetKey
+
+                        items.push({
+                            field_key: fieldKey,
+                            row_index: rowIndex,
+                            target_field_key: targetKey
+                        });
                     });
+                    document.getElementById('copy_items_json').value = JSON.stringify(items);
                 });
-                document.getElementById('copy_items_json').value = JSON.stringify(items);
-            });
-        }
-    });
+            }
+        });
     </script>
 <?php
 }
