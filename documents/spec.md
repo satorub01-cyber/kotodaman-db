@@ -57,8 +57,8 @@
 わざやとくせいの数値は[value]で、条件の値は[val]
 
 ## 属性
-  - fire,water,wood,light,dark,void,heaven
-  - indexは左から1,2,3,4,5,6,7
+  - fire,water,wood,light,dark,void,heaven,rainbow
+  - indexは左から1,2,3,4,5,6,7,8
 ## 種族
   - god,demon,hero,dragon,beast,spirit,artifact,yokai
   - indexは左から1,2,3,4,5,6,7,8

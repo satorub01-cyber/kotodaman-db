@@ -1087,3 +1087,132 @@ add_action('wp_enqueue_scripts', 'enqueue_character_search_assets');
 
 // ターム一括付与Ajax処理
 require_once get_stylesheet_directory() . '/lib/term-setter/term-setter-ajax.php';
+
+// ショートコード [test_acf_mapping] を定義する関数
+function test_acf_mapping_shortcode()
+{
+    ob_start();
+
+    // CSVファイルのパス（使用しているテーマフォルダ直下を想定）
+    $csv_path = get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv';
+
+    // モックデータ（ファイルがない場合用）
+    $mock_csv = [
+        ['種別' => 'とくせい', '文言' => '福{$val}で{$gimmick_name}が解放', 'ACFに入力するJSON' => '{"trait_type" : "gimmick","gimmick" : "$gimmick_name","condition_type_loop" : [{"condition_type" : "fuku_count","condition_value" : "$val"}]}'],
+        ['種別' => 'とくせい', '文言' => '【{$val}】属性のATKを{$val}UP', 'ACFに入力するJSON' => '{"trait_type" : "status_up","target" : "$val","rate" : "$val"}']
+    ];
+
+    // CSVの読み込み処理
+    $csv_data = [];
+    if (file_exists($csv_path)) {
+        $file = fopen($csv_path, 'r');
+        $headers = fgetcsv($file);
+        while (($row = fgetcsv($file)) !== FALSE) {
+            if (count($headers) == count($row)) {
+                $csv_data[] = array_combine($headers, $row);
+            }
+        }
+        fclose($file);
+    } else {
+        $csv_data = $mock_csv;
+        echo "<p style='color:red;'>※CSVファイルが見つかりません。テスト用のモックデータで実行します。</p>";
+    }
+
+    // フォーム送信時の処理
+    $input_text = isset($_POST['test_text']) ? sanitize_text_field($_POST['test_text']) : '';
+    $result_output = '';
+
+    if ($input_text) {
+        $match_found = false;
+        foreach ($csv_data as $row) {
+            $template = $row['文言'] ?? '';
+            $json_template = $row['ACFに入力するJSON'] ?? '';
+
+            // 1. {$xxx} のプレースホルダーを探し出す
+            preg_match_all('/\{\$(.*?)\}/', $template, $ph_matches);
+            $pattern = preg_quote($template, '/');
+
+            $seen_vars = []; // すでに出現した変数名を記録する配列
+
+            if (!empty($ph_matches[1])) {
+                foreach ($ph_matches[1] as $idx => $var_name) {
+                    // エスケープされたプレースホルダー（例: "\{\$val\}"）
+                    $quoted_ph = preg_quote($ph_matches[0][$idx], '/');
+
+                    // ▼ 修正ポイント: 正規表現置換ではなく、文字列検索(strpos)で場所を特定
+                    $pos = strpos($pattern, $quoted_ph);
+                    if ($pos !== false) {
+                        if (!in_array($var_name, $seen_vars)) {
+                            // 1回目の出現：名前付きキャプチャグループ (?P<name>.+?) を作成
+                            $replacement = '(?P<' . $var_name . '>.+?)';
+                            $seen_vars[] = $var_name;
+                        } else {
+                            // 2回目以降の出現：後方参照 (?P=name) を使用
+                            $replacement = '(?P=' . $var_name . ')';
+                        }
+                        // ▼ substr_replaceで、見つけた場所をピンポイントで置換する
+                        $pattern = substr_replace($pattern, $replacement, $pos, strlen($quoted_ph));
+                    }
+                }
+            }
+            $pattern = '/^' . $pattern . '$/u';
+
+            // 正規表現によるマッチング
+            if (preg_match($pattern, $input_text, $matches)) {
+                $match_found = true;
+                $json_str = $json_template;
+
+                // 置換処理
+                foreach ($matches as $key => $value) {
+                    if (is_string($key)) {
+                        $json_str = str_replace('$' . $key, $value, $json_str);
+                    }
+                }
+
+                // JSON文字列を連想配列に変換
+                $acf_data = json_decode($json_str, true);
+
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    $result_output = "<p style='color:red;'>JSONパースエラー: " . json_last_error_msg() . "<br>生成された文字列: " . esc_html($json_str) . "</p>";
+                } else {
+                    // 特殊ロジック（大きくUPならスーパー化）の適用
+                    if (isset($acf_data['gimmick_prefix'])) {
+                        if ($acf_data['gimmick_prefix'] === '大きく') {
+                            $acf_data['gimmick'] = 'スーパー' . $acf_data['gimmick'];
+                        }
+                        unset($acf_data['gimmick_prefix']);
+                    }
+
+                    $result_output = "<h3 style='color:green;'>マッチ成功！</h3>";
+                    $result_output .= "<p><strong>適用されたテンプレート:</strong> " . esc_html($template) . "</p>";
+                    $result_output .= "<h4>▼ 生成されたACF用配列（この配列をupdate_fieldに渡します）</h4>";
+                    $result_output .= "<pre style='background:#f4f4f4; padding:10px; border:1px solid #ccc;'>" . esc_html(print_r($acf_data, true)) . "</pre>";
+                }
+                break;
+            }
+        }
+
+        if (!$match_found) {
+            $result_output = "<h3 style='color:orange;'>一致するテンプレートが見つかりませんでした。</h3>";
+        }
+    }
+
+    // UIの描画
+?>
+    <div style="max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h2>CSV対応表 テストツール</h2>
+        <form method="post" action="">
+            <label for="test_text"><strong>AI抽出テキスト（ゲーム内文言）:</strong></label><br>
+            <input type="text" id="test_text" name="test_text" value="<?php echo esc_attr($input_text); ?>" style="width: 100%; padding: 8px; margin: 10px 0;" placeholder="例: 福30でシールドブレイカーが解放">
+            <button type="submit" style="padding: 10px 20px; background: #0073aa; color: white; border: none; border-radius: 4px; cursor: pointer;">テスト実行</button>
+        </form>
+        <hr>
+        <div>
+            <?php echo $result_output; ?>
+        </div>
+    </div>
+<?php
+
+    return ob_get_clean();
+}
+add_shortcode('test_acf_mapping', 'test_acf_mapping_shortcode');
