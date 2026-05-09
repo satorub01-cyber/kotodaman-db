@@ -18,13 +18,13 @@
 とくせい,自身の威力が{$val}%増加,"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""oneself"", ""trait_rate"" : ""$val""}"
 とくせい,{$character_target}の敵に与えるダメージが{$val}%増加,"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""killer"", ""trait_rate"" : ""$val"",""rate_type"" : ""percentage"" ,""target_field_group"" : [$character_target]}"
 とくせい,{$character_target}からのダメージを{$val}%軽減,"{""target_type"" : ""status_up"", ""status_up"" : ""mitigation"", ""target_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
-とくせい,デッキ内の{$character_target}ATK{$val}%UP,"{""target_type"" : ""status_up"", ""status_up"" : ""atk"", ""target_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
-とくせい,デッキ内の{$character_target}HP{$val}%UP,"{""target_type"" : ""status_up"", ""status_up"" : ""hp"", ""target_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
 とくせい,バリアを使用している敵に{$val}%のダメージを与える,"{""trait_type"" : ""other_traits"",""other_traits"" : ""penetration"",""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
 とくせい,デッキ内の{$character_target}の単体単発攻撃で敵に与えるダメージが{$val}%UP,"{""trait_type"" :""damage_correction"",""damage_correction"" : ""single_shot"", ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage"" ,""target_field_group"" : [$character_target]}"
 とくせい,デッキ内の{$character_target}の単体単発攻撃で敵に与えるダメージが{$val}%UP・単体単発攻撃で与えることができるダメージの上限を{$val2}増加,"{""trait_type"" :""damage_correction"",""damage_correction"" : ""single_shot"", ""limit_break_rate"" : ""$val2"", ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage"" ,""target_field_group"" : [$character_target]}"
 とくせい,デッキ内の{$character_target}の単体単発攻撃で与えることができるダメージの上限を{$val}増加,"{""trait_type"" :""damage_correction"",""damage_correction"" : ""single_shot"", ""limit_break_rate"" : ""$val"", ""target_field_group"" : [$character_target]}"
-とくせい,,
+とくせい,デッキ内の{$character_target}の文字が「{$dot_separated_moji}」の時、そのコトダマンの威力が{$val}%UP,"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""oneself"", ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage"", ""whose_trait"" : [$character_target], ""condition_type_loop"" : [{""condition_type"" : ""char"", ""condition_value"" : ""$dot_separated_moji""}]}"
+とくせい,デッキ内の{$character_target}のATK{$val}%UP,"{""target_type"" : ""status_up"", ""status_up"" : ""atk"", ""target_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
+とくせい,デッキ内の{$character_target}のHP{$val}%UP,"{""target_type"" : ""status_up"", ""status_up"" : ""hp"", ""target_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
 とくせい,,
 とくせい,,
 とくせい,,
