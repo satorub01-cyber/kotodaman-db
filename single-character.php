@@ -390,6 +390,23 @@ $max_lv = $spec_data['max_lavel'] ?? 99;
             ?>
         </dd>
     </dl>
+    <dl class="spec-row full-width">
+        <dt>適正クエスト</dt>
+        <dd>
+            <?php
+            $quests = get_the_terms(get_the_ID(), 'suitable_quest');
+            if ($quests && !is_wp_error($quests)):
+                $quest_links = [];
+                foreach ($quests as $quest) {
+                    $quest_links[] = '<a href="' . get_term_link($quest) . '">' . esc_html($quest->name) . '</a>';
+                }
+                echo implode('・', $quest_links);
+            else:
+                echo '未設定';
+            endif;
+            ?>
+        </dd>
+    </dl>
 
     <dl class="spec-row full-width">
         <dt>実装日</dt>

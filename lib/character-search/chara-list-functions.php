@@ -64,7 +64,7 @@ function koto_get_column_config()
             'sort'  => null,
             'show'  => false, // 基本は隠しておく
             'header_class' => 'th-group',
-            'related_filters' => ['tx_group[]'] // グループ検索と連動！
+            'related_filters' => ['tx_group'] // グループ検索と連動！
         ],
         'event' => [
             'label' => 'イベント',
@@ -72,7 +72,15 @@ function koto_get_column_config()
             'sort'  => null,
             'show'  => false, // 基本は隠しておく
             'header_class' => 'th-event',
-            'related_filters' => ['tx_event[]'] // イベント検索と連動！
+            'related_filters' => ['tx_event'] // イベント検索と連動！
+        ],
+        'quest' => [
+            'label' => '適正クエスト',
+            'class' => 'col-quest',
+            'sort'  => null,
+            'show'  => false,
+            'header_class' => 'th-quest',
+            'related_filters' => ['tx_quest'] // 適正クエスト検索と連動！
         ],
         'hp99' => [
             'label' => 'HP<span class="th-sub">99</span>',
@@ -248,113 +256,5 @@ if (!function_exists('koto_get_term_html_helper')) {
 }
 
 // =================================================================
-//  ★Step 2: クエリ引数生成 (設定から自動生成)
+//  ★Step 2: 検索処理はsearch-engine.jsで実装済みのため不要
 // =================================================================
-function get_koto_character_args($request_data, $paged = 1)
-{
-    $config = koto_get_column_config();
-    $sort_key   = $request_data['orderby'] ?? 'name_ruby';
-    $sort_order = $request_data['order'] ?? 'ASC';
-
-    // 1. 基本引数
-    $args = [
-        'post_type'      => 'character',
-        'posts_per_page' => 20,
-        'paged'          => $paged,
-        'post_status'    => 'publish',
-        's'              => $request_data['s'] ?? '', // キーワード検索を反映
-        'meta_query'     => ['relation' => 'AND'],
-        'tax_query'      => ['relation' => 'AND'],
-    ];
-
-    // 2. タクソノミー絞り込み (属性・種族・所属・イベント・ギミック)
-    $tax_params = [
-        'tx_attr'    => 'attribute',
-        'tx_species' => 'species',
-        'tx_group'   => 'affiliation',
-        'tx_event'   => 'event',
-        'tx_gimmick' => 'gimmick'
-    ];
-    foreach ($tax_params as $param => $tax) {
-        if (!empty($request_data[$param]) && is_array($request_data[$param])) {
-            $args['tax_query'][] = [
-                'taxonomy' => $tax,
-                'field'    => 'slug',
-                'terms'    => array_filter($request_data[$param]),
-                'operator' => 'IN',
-            ];
-        }
-    }
-
-    // 3. 使用可能文字の入力検索 (OR検索)
-    if (!empty($request_data['search_char'])) {
-        $chars = preg_split('//u', $request_data['search_char'], -1, PREG_SPLIT_NO_EMPTY);
-        if (!empty($chars)) {
-            $char_query = ['relation' => 'OR'];
-            foreach ($chars as $char) {
-                if (trim($char) === '' || $char === ',' || $char === '、') continue;
-                $char_query[] = [
-                    'taxonomy' => 'available_moji',
-                    'field'    => 'name',
-                    'terms'    => $char,
-                ];
-            }
-            if (count($char_query) > 1) $args['tax_query'][] = $char_query;
-        }
-    }
-
-    // 4. スキル・とくせいタグ検索 (スペース区切り・LIKE検索対応)
-    // --- スキル詳細検索 ---
-    if (!empty($request_data['tx_skill_tags']) && is_array($request_data['tx_skill_tags'])) {
-        $scopes = !empty($request_data['scope_skill']) ? $request_data['scope_skill'] : ['waza', 'sugo', 'kotowaza'];
-        foreach ($request_data['tx_skill_tags'] as $tag) {
-            $scope_query = ['relation' => 'OR'];
-            foreach ($scopes as $scope) {
-                $key = ($scope === 'waza') ? '_waza_tags_str' : (($scope === 'sugo') ? '_sugo_tags_str' : '_kotowaza_tags_str');
-                $scope_query[] = [
-                    'key'     => $key,
-                    'value'   => ' ' . $tag . ' ', // 前後にスペースを入れて誤爆防止
-                    'compare' => 'LIKE'
-                ];
-            }
-            $args['meta_query'][] = $scope_query;
-        }
-    }
-
-    // --- とくせい詳細検索 ---
-    if (!empty($request_data['tx_trait_tags']) && is_array($request_data['tx_trait_tags'])) {
-        $scopes = !empty($request_data['scope_trait']) ? $request_data['scope_trait'] : ['t1', 't2', 'blessing'];
-        foreach ($request_data['tx_trait_tags'] as $tag) {
-            $scope_query = ['relation' => 'OR'];
-            foreach ($scopes as $scope) {
-                $key = ($scope === 't1') ? '_trait_tags_str_1' : (($scope === 't2') ? '_trait_tags_str_2' : '_trait_tags_str_blessing');
-                $scope_query[] = [
-                    'key'     => $key,
-                    'value'   => ' ' . $tag . ' ',
-                    'compare' => 'LIKE'
-                ];
-            }
-            $args['meta_query'][] = $scope_query;
-        }
-    }
-
-    // 5. ソート設定 (既存のロジックを維持)
-    $sort_definitions = ['name_ruby' => ['key' => 'name_ruby', 'type' => 'CHAR']];
-    foreach ($config as $col) {
-        if (!empty($col['sort']) && !empty($col['meta'])) {
-            $sort_definitions[$col['sort']] = ['key' => $col['meta'], 'type' => $col['type'] ?? 'NUMERIC'];
-        }
-    }
-
-    $def = $sort_definitions[$sort_key] ?? $sort_definitions['name_ruby'];
-    $args['meta_query']['primary_sort'] = ['key' => $def['key'], 'type' => $def['type']];
-
-    if ($def['key'] !== 'name_ruby') {
-        $args['meta_query']['secondary_sort'] = ['key' => 'name_ruby', 'type' => 'CHAR'];
-        $args['orderby'] = ['primary_sort' => strtoupper($sort_order), 'secondary_sort' => 'ASC'];
-    } else {
-        $args['orderby'] = ['primary_sort' => strtoupper($sort_order)];
-    }
-
-    return $args;
-}

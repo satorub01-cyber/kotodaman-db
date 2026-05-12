@@ -72,6 +72,13 @@ function koto_get_group_map()
     if (!is_wp_error($group_terms)) foreach ($group_terms as $t) $group_map[$t->slug] = $t->name;
     return $group_map;
 }
+function koto_get_suitable_quest_map()
+{
+    $quest_terms = get_terms(['taxonomy' => 'suitable_quest', 'hide_empty' => false]);
+    $quest_map = [];
+    if (!is_wp_error($quest_terms)) foreach ($quest_terms as $t) $quest_map[$t->slug] = $t->name;
+    return $quest_map;
+}
 
 function koto_get_status_map()
 {
