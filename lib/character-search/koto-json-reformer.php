@@ -338,6 +338,7 @@ function koto_get_flat_char_data($post_id)
 
     // 4. イベントのスラッグ配列
     $events = wp_get_post_terms($post_id, 'event', ['fields' => 'slugs']);
+    $suitable_quests = wp_get_post_terms($post_id, 'suitable_quest', ['fields' => 'slugs']);
 
     // 6. スキルタグ文字列 (カンマ区切りなどを配列にするか、文字列のままか。検索を簡単にするため文字列のままにして `includes` で判定するのも手です)
     $waza_tags = get_post_meta($post_id, '_waza_tags_str', true) ?: '';
@@ -381,6 +382,7 @@ function koto_get_flat_char_data($post_id)
         'group_en'     => $groups['en'],
         'group_jp'     => $groups['jp'],
         'events'       => is_array($events) ? $events : [],
+        'quests' => is_array($suitable_quests) ? $suitable_quests : [],
         'rar'          => $spec['rarity'], //検索では不使用
         'rar_d'        => $spec['rarity_detail'], //検索では不使用
         'rar_t'        => array_values(array_unique($rarity_slugs)),

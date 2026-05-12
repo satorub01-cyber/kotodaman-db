@@ -125,6 +125,12 @@
                             <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('event', 'tx_event'); ?>
                         </div>
                     </details>
+                    <details class="tree-accordion">
+                        <summary class="tree-summary">適正クエストを選択</summary>
+                        <div class="tree-content">
+                            <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('suitable_quest', 'tx_quest'); ?>
+                        </div>
+                    </details>
 
                     <details class="tree-accordion">
                         <summary class="tree-summary">ギミック耐性を選択</summary>
