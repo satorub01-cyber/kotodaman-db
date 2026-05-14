@@ -1,7 +1,7 @@
 ﻿種別,文言,ACFに入力するJSON
 とくせい,福{$val}で{$gimmick_name}が解放,"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name"",""condition_type_loop"" : [{""condition_type"" : ""fuku_count"",""condition_value"" : ""$val""}]}"
 とくせい,{$gimmick_name}ブロックから受けるダメージを軽減,"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name""}"
-とくせい,{$gimmick_name}ブロックへのダメージを{$gimmick_prefix}UP,"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name"",""gimmick_prefix"" : ""$prefix""}"
+とくせい,{$gimmick_name}ブロックへのダメージを{$gimmick_prefix}UP,"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name"",""gimmick_prefix"" : ""$gimmick_prefix""}"
 とくせい,{$gimmick_name}マスの効果を受けない,"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name""}"
 とくせい,{$gimmick_name}マスの効果を受けない。さらに{$gimmick_name}がある場合、文字変換に「$dot_separated_val」が追加される,"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name""}""|""{""available_moji"" : ""$dot_separated_val"",""moji_attr"" : ""default"",""unlock_place"" : ""$gimmick_name""}"
 とくせい,弱体マスに入れた場合、弱体効果を受けず強化効果を付与,"{""trait_type"" : ""gimmick"",""gimmick"" : ""super_weakening""}"
@@ -17,22 +17,51 @@
 とくせい,自身の１回の攻撃で与えることができるダメージの上限を{$val}増加,"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""limit_break"",""limit_break_rate"" : ""$val""}"
 とくせい,自身の威力が{$val}%増加,"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""oneself"", ""trait_rate"" : ""$val""}"
 とくせい,{$character_target}の敵に与えるダメージが{$val}%増加,"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""killer"", ""trait_rate"" : ""$val"",""rate_type"" : ""percentage"" ,""target_field_group"" : [$character_target]}"
-とくせい,{$character_target}からのダメージを{$val}%軽減,"{""target_type"" : ""status_up"", ""status_up"" : ""mitigation"", ""target_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
+とくせい,{$character_target}からのダメージを{$val}%軽減,"{""trait_type"" : ""status_up"", ""status_up"" : ""mitigation"", ""target_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
 とくせい,バリアを使用している敵に{$val}%のダメージを与える,"{""trait_type"" : ""other_traits"",""other_traits"" : ""penetration"",""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
 とくせい,デッキ内の{$character_target}の単体単発攻撃で敵に与えるダメージが{$val}%UP,"{""trait_type"" :""damage_correction"",""damage_correction"" : ""single_shot"", ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage"" ,""target_field_group"" : [$character_target]}"
 とくせい,デッキ内の{$character_target}の単体単発攻撃で敵に与えるダメージが{$val}%UP・単体単発攻撃で与えることができるダメージの上限を{$val2}増加,"{""trait_type"" :""damage_correction"",""damage_correction"" : ""single_shot"", ""limit_break_rate"" : ""$val2"", ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage"" ,""target_field_group"" : [$character_target]}"
 とくせい,デッキ内の{$character_target}の単体単発攻撃で与えることができるダメージの上限を{$val}増加,"{""trait_type"" :""damage_correction"",""damage_correction"" : ""single_shot"", ""limit_break_rate"" : ""$val"", ""target_field_group"" : [$character_target]}"
 とくせい,デッキ内の{$character_target}の文字が「{$dot_separated_moji}」の時、そのコトダマンの威力が{$val}%UP,"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""oneself"", ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage"", ""whose_trait"" : [$character_target], ""condition_type_loop"" : [{""condition_type"" : ""char"", ""condition_value"" : ""$dot_separated_moji""}]}"
-とくせい,デッキ内の{$character_target}のATK{$val}%UP,"{""target_type"" : ""status_up"", ""status_up"" : ""atk"", ""target_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
-とくせい,デッキ内の{$character_target}のHP{$val}%UP,"{""target_type"" : ""status_up"", ""status_up"" : ""hp"", ""target_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
+とくせい,{$character_target}の敵に与えるダメージが{$val}%UP,"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""killer"", ""trait_rate"" : ""$val"",""rate_type"" : ""percentage"" ,""target_field_group"" : [$character_target]}"
+とくせい,自身が弱点を突いたときのダメージが{$val}%UP,"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""weak_killer"", ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
+とくせい,デッキ内の{$character_target}のATK{$val}%UP,"{""trait_type"" : ""status_up"", ""status_up"" : ""atk"", ""target_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
+とくせい,デッキ内の{$character_target}のHP{$val}%UP,"{""trait_type"" : ""status_up"", ""status_up"" : ""hp"", ""target_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
+とくせい,このコトダマンが敵からの攻撃を受けた場合、ATKが{$val}上昇する(上限{$val2}回),"{""trait_type"" : ""status_up"", ""status_up"" : ""atk"", ""trait_rate"" : ""$val"", ""rate_type"" : ""fixed"", ""condition_type_loop"" : [{""condition_type"" : ""attacked""}], ""attack_limit_count"" : ""$val2""}"
+とくせい,このコトダマンが敵からの攻撃を受けた場合、HPが{$val}上昇する(上限{$val2}回),"{""trait_type"" : ""status_up"", ""status_up"" : ""hp"", ""trait_rate"" : ""$val"", ""rate_type"" : ""fixed"", ""condition_type_loop"" : [{""condition_type"" : ""attacked""}], ""attack_limit_count"" : ""$val2""}"
+とくせい,自身のすごわざ発動条件に「{$sugowaza_condition}」を追加する,"{""trait_type"" : ""sugowaza_condition"",""sugowaza_condition"" : ""$sugowaza_condition""}"
+とくせい,HPを{$val}UP,"{""trait_type"" : ""status_up"", ""status_up"" : ""hp"", ""trait_rate"" : ""$val"", ""rate_type"" : ""fixed""}"
+とくせい,ATKの基礎値を{$val}UP,"{""trait_type"" : ""status_up"", ""status_up"" : ""atk"", ""trait_rate"" : ""$val"", ""rate_type"" : ""fixed""}"
+とくせい,デッキの{$character_target}1枚につきATKを{$val}UP,"{""trait_type"" : ""status_up"", ""status_up"" : ""atk"", ""per_unit_tf"" : ""true"",""deck_ally_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""fixed""}"
+とくせい,デッキの{$character_target}1枚につきHPを{$val}UP,"{""trait_type"" : ""status_up"", ""status_up"" : ""hp"", ""per_unit_tf"" : ""true"",""deck_ally_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""fixed""}"
+とくせい,{$attr}からのダメージを{$val}%軽減,"{""trait_type"" : ""status_up"", ""status_up"" : ""mitigation"", ""target_field_group"" : [""target_type"" : ""attr"", ""target_attr"" : $attr""], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
+とくせい,自身の{$status}耐性{$val}%,"{""trait_type"" : ""status_up"", ""status_up"" : ""resistance"",""resistance"" : ""$status"",trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
+とくせい,デッキ内の「{$affiliation}」のATK{$val}%UP・{$resistance}耐性{$val2}%,"{""trait_type"" : ""status_up"", ""status_up"" : ""atk"", ""target_field_group"" : [""field_group_type"" : ""affiliation"", ""target_group"" : ""$affiliation""], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}""|""{""trait_type"" : ""status_up"", ""status_up"" : ""resistance"", ""resistance"" : ""$resistance"", ""trait_rate"" : ""$val2"", ""rate_type"" : ""percentage"", ""target_field_group"" : [""field_group_type"" : ""affiliation"", ""target_group"" : ""$affiliation""]}"
+とくせい,デッキ内の「{$affiliation}」のクリティカル発生率が{$val}%UP・{$resistance}耐性{$val2}%,"{""trait_type"" : ""status_up"", ""status_up"" : ""critical_rate"", ""target_field_group"" : [""field_group_type"" : ""affiliation"", ""target_group"" : ""$affiliation""], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}""|""{""trait_type"" : ""status_up"", ""status_up"" : ""resistance"", ""resistance"" : ""$resistance"", ""trait_rate"" : ""$val2"", ""rate_type"" : ""percentage"", ""target_field_group"" : [""field_group_type"" : ""affiliation"", ""target_group"" : ""$affiliation""]}"
+とくせい,デッキ内の「{$affiliation}」の{$resistance}耐性が{$val}%UP,"{""trait_type"" : ""status_up"", ""status_up"" : ""resistance"", ""resistance"" : ""$resistance"", ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage"", ""target_field_group"" : [""field_group_type"" : ""affiliation"", ""target_group"" : ""$affiliation""]}"
+とくせい,{$val}%の確率で敵からの攻撃を回避する,"{""trait_type"" : ""status_up"", ""status_up"" : ""dodge"", ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
+とくせい,自身のクリティカル発生率が{$val}%UP,"{""trait_type"" : ""status_up"", ""status_up"" : ""critical_rate"", ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
+とくせい,自身のクリティカル時の威力が{$val}%UP,"{""trait_type"" : ""status_up"", ""status_up"" : ""critical_damage"", ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
+とくせい,自身の回復効果を{$val}%UP,"{""trait_type"" : ""status_up"", ""status_up"" : ""healing_effect"", ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
+とくせい,ドロー時に{$character_target}のATKを{$prefix}強化を{$val}ターン付与,"{""trait_type"" : ""draw_eff"", ""draw_eff"" : ""atk_buff"", ""target_field_group"" :[$character_target], ""trait_rate"" : ""$prefix"", ""rate_type"" : ""fixed"", ""draw_trait_turn"" : ""$val""}"
+とくせい,ドロー時{$character_target}にダメージ軽減{$prefix}を{$val}ターン付与,"{""trait_type"" : ""draw_eff"", ""draw_eff"" : ""deff_buff"", ""target_field_group"" :[$character_target], ""trait_rate"" : ""$prefix"", ""rate_type"" : ""fixed"", ""draw_trait_turn"" : ""$val""}"
+とくせい,ドロー時にHPを{$val}%回復,"{""trait_type"" : ""draw_eff"", ""draw_eff"" : ""healing"", ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
+とくせい,ドロー時に{$character_target}の「$resistance」状態異常を回復,"{""trait_type"" : ""draw_eff"", ""draw_eff"" : ""status_healing"", ""target_field_group"" :[$character_target], ""resistance"" : ""$resistance""}"
+とくせい,実体化時に{$character_target}のATKを{$prefix}強化,"{""trait_type"" : ""on_play_eff"", ""on_play_eff"" : ""atk_buff"", ""target_field_group"" :[$character_target], ""trait_rate"" : ""$prefix"", ""rate_type"" : ""fixed""}"
+とくせい,実体化時に最大HPの{$val}%のダメージを受け、{$character_target}のATKを{$prefix}強化,"{""trait_type"" : ""on_play_eff"", ""on_play_eff"" : ""self_harm"", ""target_field_group"" :[$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage"", ""atk_prefix"" : ""$prefix""}""|""{""trait_type"" : ""on_play_eff"", ""on_play_eff"" : ""atk_buff"", ""trait_rate"" : ""$prefix"", ""rate_type"" : ""fixed"", ""target_field_group"" :[$character_target]}"
+とくせい,,
+とくせい,,
+とくせい,,
 とくせい,,
 とくせい,,
 とくせい,,
 とくせい条件,デッキ内に自身以外の「{$affiliation}」がいる場合、,"{""condition_type"" : ""group"", ""condition_group"" : ""$affiliation""}"
 とくせい条件,自身の文字が「{$dot_camma_val}」の時、,"{""condition_type"" : ""char"",""condition_value"" : ""$dot_camma_val""}"
-とくせい条件,,
-とくせい条件,,
-とくせい条件,,
-とくせい条件,,
+とくせい条件,{$val}テーマの言葉を作成した時、,"{""condition_type"" : ""theme"",""condition_value"" : ""$val""}"
+とくせい条件,{$val}文字以上の言葉を作成した時,"{""condition_type"" : ""moji_count"",""condition_value"" : ""$val""}"
+とくせい条件,{$val}コンボ以上で,"{""condition_type"" : ""comb"",""condition_value"" : ""$val""}"
+とくせい条件,大討伐の場合,"{""condition_type"" : ""raid_battle""}"
+とくせい条件,HPが{$val}%以下の時、,"{""condition_type"" : ""hpcond"", ""condition_value"" : ""$val"", ""hp_cond_detail"" : ""less""}"
+とくせい条件,HPが{$val}%以上の時、,"{""condition_type"" : ""hpcond"", ""condition_value"" : ""$val"", ""hp_cond_detail"" : ""more""}"
 とくせい条件,,
 ,,
