@@ -235,3 +235,44 @@
 .acf-hidden-select {
     display: none !important;
 }
+
+.acf-auto-input-container {
+    display: flex;
+    background: #f9f9f9;
+    border: 1px solid #000;
+    padding: 15px;
+    margin-bottom: 20px;
+    flex-direction: column;
+}
+
+.acf-auto-input-row {
+    display: flex;
+    align-items: center;
+}
+
+.acf-auto-input-label {
+    width: 120px;
+    flex-shrink: 0;
+}
+
+.acf-auto-input-text {
+    width: 200px;
+    padding: 5px 8px;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+}
+.acf-auto-input-header {
+    font-size: 25px;
+    align-self: center;
+    font-weight: bold;
+    margin: 10px 0;
+    cursor: pointer;
+    user-select: none;
+}
+.acf-auto-input-content {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    font-size: 14px;
+}

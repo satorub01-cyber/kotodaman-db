@@ -715,6 +715,20 @@ function koto_acf_editor_page_html()
                 <button type="submit" class="button button-secondary" onclick="return confirm('選択した雛型を複製して新しい下書きを作成しますか？');">複製して作成</button>
             </form>
         </div>
+        <div class="acf-auto-input-container">
+            <div class="acf-auto-input-header">自動入力を使用する</div>
+            <div class="acf-auto-input-content">
+                <div class="acf-auto-input-row"><label for="auto_input_character_name" class="acf-auto-input-label">キャラ名：</label><input type="text" class="acf-auto-input-text" id="auto_input_character_name" placeholder="例: コトダマン"></div>
+                <div class="acf-auto-input-row"><label for="auto_input_waza" class="acf-auto-input-label">わざ内容：</label><input type="text" class="acf-auto-input-text" id="auto_input_waza"></div>
+                <div class="acf-auto-input-row"><label for="auto_input_sugowaza" class="acf-auto-input-label">すごわざ内容：</label><input type="text" class="acf-auto-input-text" id="auto_input_sugowaza"></div>
+                <div class="acf-auto-input-row"><label for="auto_input_sugowaza_condition" class="acf-auto-input-label">すごわざ条件：</label><input type="text" class="acf-auto-input-text" id="auto_input_sugowaza_condition"></div>
+                <div class="acf-auto-input-row"><label for="auto_input_trait1" class="acf-auto-input-label">とくせい１内容：</label><input type="text" class="acf-auto-input-text" id="auto_input_trait1" placeholder="とくせい1の内容"></div>
+                <div class="acf-auto-input-row"><label for="auto_input_trait2" class="acf-auto-input-label">とくせい２内容：</label><input type="text" class="acf-auto-input-text" id="auto_input_trait2" placeholder="とくせい2の内容"></div>
+                <div class="acf-auto-input-row"><label for="auto_input_blessing" class="acf-auto-input-label">祝福内容：</label><input type="text" class="acf-auto-input-text" id="auto_input_blessing" placeholder="祝福の内容"></div>
+                <button type="button" class="button button-secondary" id="btn_auto_input_fill">これらの内容を自動入力</button>
+                <button type="button" class="button button-secondary" id="btn_auto_input_make">これらの内容を自動入力して記事を作成</button>
+            </div>
+        </div>
 
         <div class="acf-editor-columns">
             <div class="acf-editor-col-left">
