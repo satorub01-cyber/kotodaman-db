@@ -91,6 +91,16 @@ function koto_get_status_map()
     return $status_map;
 }
 
+function koto_get_buff_prefix_map(){
+    return[
+        '少し' => 1,
+        ''=>2,
+        '大きく'=>3,
+        '超大きく'=>4,
+        '超絶大きく'=>5,
+    ];
+}
+
 function koto_get_trait_search_label_map()
 {
     return [
