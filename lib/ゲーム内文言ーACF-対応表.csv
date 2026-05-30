@@ -14,7 +14,7 @@
 とくせい,自身の福に応じて文字変換が追加 福{$dot_separated_fuku_val}で{$special_separated_moji}の文字を追加する,"{""available_moji"" : ""$special_separated_moji"",""moji_attr"" : ""default"",""unlock_place"" : ""$trait_num"",""unlock_need_point"" : ""$fuku_val""}"
 とくせい,自身の福に応じてサブ属性文字変換（{$attr}）が追加 福{$fuku_val}で「{$dot_separated_moji}」の文字を追加する,"{""available_moji"" : ""$dot_separated_moji"",""moji_attr"" : ""$attr"",""unlock_place"" : ""$trait_num"",""unlock_need_point"" : ""$fuku_val""}"
 とくせい,自身の福に応じてサブ属性文字変換（{$attr}）が追加 福{$dot_separated_fuku_val}で「{$special_separated_moji}」の文字を追加する,"{""available_moji"" : ""$special_separated_moji"",""moji_attr"" : ""$attr"",""unlock_place"" : ""$trait_num"",""unlock_need_point"" : ""$fuku_val""}"
-とくせい,自身の１回の攻撃で与えることができるダメージの上限を{$val}増加,"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""limit_break"",""limit_break_rate"" : ""$val""}"
+とくせい,自身の1回の攻撃で与えることができるダメージの上限を{$val}増加,"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""limit_break"",""limit_break_rate"" : ""$val""}"
 とくせい,自身の威力が{$val}%増加,"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""oneself"", ""trait_rate"" : ""$val""}"
 とくせい,{$character_target}の敵に与えるダメージが{$val}%増加,"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""killer"", ""trait_rate"" : ""$val"",""rate_type"" : ""percentage"" ,""target_field_group"" : [$character_target]}"
 とくせい,{$character_target}からのダメージを{$val}%軽減,"{""trait_type"" : ""status_up"", ""status_up"" : ""mitigation"", ""target_field_group"" : [$character_target], ""trait_rate"" : ""$val"", ""rate_type"" : ""percentage""}"
