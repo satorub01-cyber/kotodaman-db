@@ -927,7 +927,7 @@ add_action('admin_footer', function () {
             const activeEl = document.activeElement;
             if (!activeEl) return;
 
-            const isInputTarget = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(activeEl.tagName);
+            const isInputTarget = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A', 'DIV'].includes(activeEl.tagName);
             const isInsideRow = activeEl.closest('.acf-row') !== null;
 
             if (!isInputTarget && !isInsideRow) return;
@@ -966,7 +966,7 @@ add_action('admin_footer', function () {
                 }
 
                 if (topRow) {
-                    const inputs = topRow.querySelectorAll('.acf-accordion-title, input:not([type="hidden"]), select, textarea');
+                    const inputs = topRow.querySelectorAll('.acf-accordion-title, button:not([disabled]), div[tabindex], input:not([type="hidden"]):not([disabled]):not([readonly]), select:not([disabled]):not([readonly]), textarea:not([disabled]):not([readonly])');
                     let targetInput = null;
 
                     for (let i = 0; i < inputs.length; i++) {
@@ -977,7 +977,7 @@ add_action('admin_footer', function () {
                     }
 
                     if (targetInput) {
-                        if (!['INPUT', 'SELECT', 'TEXTAREA'].includes(targetInput.tagName) && !targetInput.hasAttribute('tabindex')) {
+                        if (!['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(targetInput.tagName) && !targetInput.hasAttribute('tabindex')) {
                             targetInput.setAttribute('tabindex', '-1');
                         }
                         targetInput.focus();

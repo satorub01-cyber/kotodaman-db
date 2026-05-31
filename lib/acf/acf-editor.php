@@ -133,6 +133,40 @@ add_action('acf/init', function () {
 });
 
 // =================================================================
+// DBに誤って保存されたWP_TermやWP_PostオブジェクトをIDに変換してエラーを防ぐ
+// =================================================================
+add_filter('acf/load_value/type=taxonomy', 'koto_sanitize_acf_object_value', 5, 3);
+add_filter('acf/update_value/type=taxonomy', 'koto_sanitize_acf_object_value', 5, 3);
+add_filter('acf/load_value/type=relationship', 'koto_sanitize_acf_object_value', 5, 3);
+add_filter('acf/update_value/type=relationship', 'koto_sanitize_acf_object_value', 5, 3);
+add_filter('acf/load_value/type=post_object', 'koto_sanitize_acf_object_value', 5, 3);
+add_filter('acf/update_value/type=post_object', 'koto_sanitize_acf_object_value', 5, 3);
+
+function koto_sanitize_acf_object_value($value, $post_id, $field) {
+    if (empty($value)) return $value;
+
+    if (is_array($value)) {
+        foreach ($value as $k => $v) {
+            if (is_object($v)) {
+                if (isset($v->term_id)) {
+                    $value[$k] = (int) $v->term_id;
+                } elseif (isset($v->ID)) {
+                    $value[$k] = (int) $v->ID;
+                }
+            }
+        }
+    } elseif (is_object($value)) {
+        if (isset($value->term_id)) {
+            $value = (int) $value->term_id;
+        } elseif (isset($value->ID)) {
+            $value = (int) $value->ID;
+        }
+    }
+
+    return $value;
+}
+
+// =================================================================
 // ACFリピーター等の行データを、フィールドキーではなくフィールド名をキーにした配列に変換する
 // （異なるフィールドへコピーした際に値が消えるのを防ぐため）
 // =================================================================

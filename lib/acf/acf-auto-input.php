@@ -39,7 +39,7 @@ function koto_group_csv_by_type($csv_data)
 // =================================================================
 // 2. 正規表現パターンの生成関数とマッチング
 // =================================================================
-function koto_generate_regex_pattern($template, &$seen_vars)
+function koto_generate_regex_pattern($template, &$seen_vars, $match_mode = 'exact')
 {
     preg_match_all('/\{\$(.*?)\}/', $template, $ph_matches);
     $pattern = preg_quote($template, '/');
@@ -59,16 +59,19 @@ function koto_generate_regex_pattern($template, &$seen_vars)
             }
         }
     }
-    return '/^' . $pattern . '$/u';
+    if ($match_mode === 'exact') return '/^' . $pattern . '$/u';
+    if ($match_mode === 'prefix') return '/^' . $pattern . '/u';
+    if ($match_mode === 'suffix') return '/' . $pattern . '$/u';
+    return '/' . $pattern . '/u'; // partial
 }
 
-function koto_match_csv_template($text, $csv_rows, $input_key = '')
+function koto_match_csv_template($text, $csv_rows, $input_key = '', $match_mode = 'exact')
 {
     foreach ($csv_rows as $row) {
         if (empty($row['文言'])) continue;
 
         $seen_vars = [];
-        $pattern = koto_generate_regex_pattern($row['文言'], $seen_vars);
+        $pattern = koto_generate_regex_pattern($row['文言'], $seen_vars, $match_mode);
 
         if (preg_match($pattern, $text, $matches)) {
             if ($input_key === 'auto_input_trait1') {
@@ -101,8 +104,23 @@ function koto_apply_variables_to_json($json_template, $matches)
             // ▼ ここに事前に決めた命名規則による特殊処理を書く ▼
             if (strpos($key, 'dot_camma_val') === 0) {
                 $value = str_replace('・', ',', $value);
+            } elseif (strpos($key, 'gimmick_name_super_guard') === 0) {
+                $term = get_term_by('name', 'スーパー' . trim($value) . 'ガード', 'gimmick');
+                if ($term) $value = $term->term_id;
+            } elseif (strpos($key, 'gimmick_name_super_breaker') === 0) {
+                $term = get_term_by('name', 'スーパー' . trim($value) . 'ブレイカー', 'gimmick');
+                if ($term) $value = $term->term_id;
+            } elseif (strpos($key, 'gimmick_name_guard') === 0) {
+                $prefix = (!empty($matches['gimmick_prefix']) && strpos($matches['gimmick_prefix'], '大きくUP') !== false) ? 'スーパー' : '';
+                $term = get_term_by('name', $prefix . trim($value) . 'ガード', 'gimmick');
+                if ($term) $value = $term->term_id;
+            } elseif (strpos($key, 'gimmick_name_breaker') === 0) {
+                $prefix = (!empty($matches['gimmick_prefix']) && strpos($matches['gimmick_prefix'], '大きくUP') !== false) ? 'スーパー' : '';
+                $term = get_term_by('name', $prefix . trim($value) . 'ブレイカー', 'gimmick');
+                if ($term) $value = $term->term_id;
             } elseif (strpos($key, 'gimmick_name') === 0) {
-                $term = get_term_by('name', trim($value), 'gimmick');
+                $prefix = (!empty($matches['gimmick_prefix']) && strpos($matches['gimmick_prefix'], '大きくUP') !== false) ? 'スーパー' : '';
+                $term = get_term_by('name', $prefix . trim($value), 'gimmick');
                 if ($term) $value = $term->term_id;
             } elseif (strpos($key, 'dot_separated_moji') === 0) {
                 $mojis = explode('・', $value);
@@ -195,10 +213,24 @@ function koto_apply_variables_to_json($json_template, $matches)
             } elseif (strpos($key, 'resistance') === 0) {
                 $status_map = koto_get_status_map();
                 $value = array_search($value, $status_map, true);
+                if (function_exists('koto_get_status_map')) {
+                    $status_map = koto_get_status_map();
+                    $value = array_search($value, $status_map, true);
+                }
             } elseif (strpos($key, 'prefix') === 0) {
                 $value = str_replace(['増加', '強化'], ['', ''], $value);
                 $prefix_map = koto_get_buff_prefix_map();
                 $value = $prefix_map[$value];
+                if (function_exists('koto_get_buff_prefix_map')) {
+                    $prefix_map = koto_get_buff_prefix_map();
+                    if (isset($prefix_map[$value])) {
+                        $value = $prefix_map[$value];
+                    }
+                }
+            }
+            
+            if (is_array($value)) {
+                $value = implode(',', $value);
             }
             $json_str = str_replace('$' . $key, $value, $json_str);
         }
@@ -261,12 +293,20 @@ function koto_parse_trait($text, $grouped_csv, $input_key = '')
 
         $condition_rows = $grouped_csv['とくせい条件'] ?? [];
         while (true) {
-            $match = koto_match_csv_template($remaining_text, $condition_rows, $input_key);
+            // とくせい条件は文の前半部分なので「前方一致」でマッチさせる
+            $match = koto_match_csv_template($remaining_text, $condition_rows, $input_key, 'prefix');
             if ($match) {
                 if (is_array($match['acf_data'])) {
-                    $conditions = array_merge($conditions, $match['acf_data']);
+                    if (isset($match['acf_data']['condition_type_loop'])) {
+                        foreach ($match['acf_data']['condition_type_loop'] as $cond_item) {
+                            $conditions[] = $cond_item;
+                        }
+                    } else {
+                        $conditions[] = $match['acf_data'];
+                    }
                 }
-                $remaining_text = trim(str_replace($match['matched_text'], '', $remaining_text));
+                // マッチした前方部分だけを確実に削る
+                $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
             } else {
                 break;
             }
@@ -274,22 +314,26 @@ function koto_parse_trait($text, $grouped_csv, $input_key = '')
 
         $trait_rows = $grouped_csv['とくせい'] ?? [];
         $effect_data = [];
-        $match = koto_match_csv_template($remaining_text, $trait_rows, $input_key);
+        // 条件の消し残りを考慮し、とくせいの効果部分は「後方一致」でマッチさせる
+        $match = koto_match_csv_template($remaining_text, $trait_rows, $input_key, 'suffix');
         if ($match) {
             $effect_data = $match['acf_data'];
 
             if (isset($effect_data['gimmick_prefix'])) {
-                if ($effect_data['gimmick_prefix'] === 'が大きくUP') {
-                    $effect_data['gimmick'] = 'スーパー' . $effect_data['gimmick'];
-                }
                 unset($effect_data['gimmick_prefix']);
             }
         }
 
         if (is_array($effect_data)) {
-            $merged = array_merge($effect_data, $conditions);
-            if (!empty($merged)) {
-                $results[] = $merged;
+            if (!empty($conditions)) {
+                if (isset($effect_data['condition_type_loop']) && is_array($effect_data['condition_type_loop'])) {
+                    $effect_data['condition_type_loop'] = array_merge($effect_data['condition_type_loop'], $conditions);
+                } else {
+                    $effect_data['condition_type_loop'] = $conditions;
+                }
+            }
+            if (!empty($effect_data)) {
+                $results[] = $effect_data;
             }
         }
     }
@@ -309,10 +353,10 @@ function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '')
         case 'すごわざ条件':
         case '祝福':
         case 'リーダーとくせい':
-            // $rows = $grouped_csv[$type] ?? [];
-            // $match = koto_match_csv_template($text, $rows, $input_key);
-            // return $match ? $match['acf_data'] : null;
-
+            // $trait_rows = $grouped_csv[$type] ?? [];
+            // $match = koto_match_csv_template($text, $trait_rows, $input_key);
+            //  return $match ? $match['acf_data'] : null;
+            return null;
         default:
             return null;
     }
@@ -426,6 +470,22 @@ function koto_create_character_post_from_acf($character_name, $acf_data)
 
     if ($post_id && !is_wp_error($post_id)) {
         koto_update_character_post_with_acf($post_id, $acf_data);
+
+        if (!empty($character_name)) {
+            $re = '/^(?:(?![^・]*[\(（])(?!(?:[\x{30A0}-\x{30FF}]+)・)(?:[^・]+)・(.+)|(.+))$/u';
+            if (preg_match($re, $character_name, $match)) {
+                $dispName = !empty($match[1]) ? $match[1] : (!empty($match[2]) ? $match[2] : $character_name);
+            } else {
+                $dispName = $character_name;
+            }
+
+            // 「(」や「（」が含まれる場合、それ以下をすべて捨てる
+            $dispName = preg_replace('/[\(（].*$/u', '', $dispName);
+
+            // カタカナをひらがなに変換する
+            $name_ruby = mb_convert_kana($dispName, 'c', 'UTF-8');
+            update_field('name_ruby', $name_ruby, $post_id);
+        }
     }
 
     return $post_id;
