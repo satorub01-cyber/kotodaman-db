@@ -65,8 +65,53 @@ function koto_generate_regex_pattern($template, &$seen_vars, $match_mode = 'exac
     return '/' . $pattern . '/u'; // partial
 }
 
-function koto_match_csv_template($text, $csv_rows, $input_key = '', $match_mode = 'exact')
+/**
+ * CSVテンプレートマッチのオプションを正規化する。
+ *
+ * @param array $options {
+ *   @type null|array $no_match_return  文言に一致する行が無いときの戻り値（既定: null）
+ *   @type null|array $empty_acf_return  マッチしたがACF行が空のときの acf_data（既定: [[]]）
+ * }
+ */
+function koto_normalize_csv_match_options($options = [])
 {
+    $defaults = [
+        'no_match_return' => null,
+        'empty_acf_return' => [[]],
+    ];
+    return array_merge($defaults, $options);
+}
+
+/**
+ * koto_match_csv_template の戻り値が「マッチあり」かどうか。
+ * no_match_return に [] を指定した場合も区別できる。
+ */
+function koto_is_csv_template_match($result)
+{
+    return is_array($result) && array_key_exists('matched_text', $result);
+}
+
+/**
+ * 生成したACF行配列を、empty_acf_return の方針に合わせて仕上げる。
+ */
+function koto_finalize_match_acf_data($acf_rows, $empty_acf_return)
+{
+    $non_empty_rows = [];
+    foreach ($acf_rows as $row) {
+        if (is_array($row) && !empty($row)) {
+            $non_empty_rows[] = $row;
+        }
+    }
+    if (empty($non_empty_rows)) {
+        return $empty_acf_return;
+    }
+    return $non_empty_rows;
+}
+
+function koto_match_csv_template($text, $csv_rows, $input_key = '', $match_mode = 'exact', $options = [])
+{
+    $options = koto_normalize_csv_match_options($options);
+
     foreach ($csv_rows as $row) {
         if (empty($row['文言'])) continue;
 
@@ -82,26 +127,101 @@ function koto_match_csv_template($text, $csv_rows, $input_key = '', $match_mode 
                 $matches['trait_num'] = 'blessing';
             }
 
-            $acf_json = koto_apply_variables_to_json($row['ACFに入力するJSON'], $matches);
+            // 文言がマッチした時点でこの行を採用（JSONが空・不正でも後続行へ進まない）
+            $acf_rows = koto_apply_variables_to_json_rows($row['ACFに入力するJSON'] ?? '', $matches);
             return [
-                'acf_data' => $acf_json,
-                'matched_text' => $matches[0]
+                'acf_data' => koto_finalize_match_acf_data($acf_rows, $options['empty_acf_return']),
+                'matched_text' => $matches[0],
             ];
         }
     }
-    return null;
+    return $options['no_match_return'];
 }
 
 // =================================================================
 // 3. JSONへの変数適用＆特殊処理関数 (確実に引き継ぐ)
 // =================================================================
+
+/**
+ * CSVの「ACFに入力するJSON」列で | 区切りの複数JSONを分割する。
+ * fgetcsv 後はオブジェクト間が }"|{ になる（CSV上は ""|""）。
+ */
+function koto_split_json_templates_by_pipe($json_template)
+{
+    $json_template = trim((string) $json_template);
+    if ($json_template === '') {
+        return [];
+    }
+
+    // fgetcsv 後の不要なダブルクォーテーションを削除
+    // CSV上で ""|""{ のようになっていると |"{ として読み込まれる
+    $json_template = str_replace('}"|"{', '}|{', $json_template);
+
+    $parts = preg_split('/\s*\|\s*(?=\{)/u', $json_template);
+    if ($parts === false || count($parts) === 0) {
+        return [trim($json_template, ' "')];
+    }
+
+    // 各パートの先頭と末尾に残る可能性のある空白やダブルクォーテーションを削除
+    $parts = array_map(function($part) {
+        return trim($part, ' "');
+    }, $parts);
+
+    return array_values(array_filter($parts, function ($part) {
+        return $part !== '';
+    }));
+}
+
+/**
+ * マッチ結果の acf_data を行の配列に正規化する（単一連想配列 or 複数行）。
+ */
+function koto_ensure_acf_data_list($acf_data)
+{
+    if ($acf_data === null) {
+        return [];
+    }
+    if (!is_array($acf_data) || empty($acf_data)) {
+        return [];
+    }
+    if (isset($acf_data[0]) && is_array($acf_data[0])) {
+        return $acf_data;
+    }
+    return [$acf_data];
+}
+
+/**
+ * テンプレート（| 区切り可）に変数を適用し、デコード済み行の配列を返す。
+ */
+function koto_apply_variables_to_json_rows($json_template, $matches)
+{
+    $json_template = trim((string) $json_template);
+    if ($json_template === '') {
+        return [[]];
+    }
+
+    $parts = koto_split_json_templates_by_pipe($json_template);
+    if (empty($parts)) {
+        return [[]];
+    }
+
+    $rows = [];
+    foreach ($parts as $part) {
+        $decoded = koto_apply_variables_to_json($part, $matches);
+        $rows[] = is_array($decoded) ? $decoded : [];
+    }
+    return $rows;
+}
+
 function koto_apply_variables_to_json($json_template, $matches)
 {
-    $json_str = $json_template;
+    $replacements = [];
+    $unquote_keys = [];
 
     foreach ($matches as $key => $value) {
-        if (is_string($key)) {
-            // ▼ ここに事前に決めた命名規則による特殊処理を書く ▼
+        if (!is_string($key)) {
+            continue;
+        }
+        // ▼ ここに事前に決めた命名規則による特殊処理を書く ▼
             if (strpos($key, 'dot_camma_val') === 0) {
                 $value = str_replace('・', ',', $value);
             } elseif (strpos($key, 'gimmick_name_super_guard') === 0) {
@@ -124,6 +244,9 @@ function koto_apply_variables_to_json($json_template, $matches)
                 if ($term) $value = $term->term_id;
             } elseif (strpos($key, 'dot_separated_moji') === 0) {
                 $mojis = explode('・', $value);
+                $mojis = array_map(function ($moji) {
+                    return str_replace(['「', '」'], '', $moji);
+                }, $mojis);
                 $term_ids = [];
                 foreach ($mojis as $moji) {
                     $term = get_term_by('name', trim($moji), 'available_moji');
@@ -131,8 +254,18 @@ function koto_apply_variables_to_json($json_template, $matches)
                         $term_ids[] = $term->term_id;
                     }
                 }
-                $value = implode(',', $term_ids);
-            } elseif (strpos($key, 'attr') === 0) {
+                $value = $term_ids;
+            } elseif (strpos($key, 'affiliation') === 0) {
+                $attr_names = explode('・', $value);
+                $attr_ids = [];
+                foreach ($attr_names as $name) {
+                    $term = get_term_by('name', trim($name), 'affiliation');
+                    if ($term) {
+                        $attr_ids[] = $term->term_id;
+                    }
+                }
+                $value = $attr_ids;
+            } elseif ($key === 'attr') {
                 $value = str_replace('属性', '', $value);
                 $attr_names = explode('・', $value);
                 $attr_ids = [];
@@ -149,16 +282,6 @@ function koto_apply_variables_to_json($json_template, $matches)
                 $attr_ids = [];
                 foreach ($attr_names as $name) {
                     $term = get_term_by('name', trim($name), 'species');
-                    if ($term) {
-                        $attr_ids[] = $term->term_id;
-                    }
-                }
-                $value = $attr_ids;
-            } elseif (strpos($key, 'affiliation') === 0) {
-                $attr_names = explode('・', $value);
-                $attr_ids = [];
-                foreach ($attr_names as $name) {
-                    $term = get_term_by('name', trim($name), 'affiliation');
                     if ($term) {
                         $attr_ids[] = $term->term_id;
                     }
@@ -200,27 +323,17 @@ function koto_apply_variables_to_json($json_template, $matches)
                     $target_detail = ',"target_group" : [' . implode(',', array_filter($values)) . ']';
                 }
                 $value = '{"target_type" :"' . $target_type . '"' . $target_detail . '}';
-            } elseif (strpos($key, 'dot_separated_moji') === 0) {
-                $mojis = explode('・', $value);
-                $term_ids = [];
-                foreach ($mojis as $moji) {
-                    $term = get_term_by('name', trim($moji), 'available_moji');
-                    if ($term) {
-                        $term_ids[] = $term->term_id;
-                    }
-                }
-                $value = $term_ids;
+                $unquote_keys[] = $key;
             } elseif (strpos($key, 'resistance') === 0) {
-                $status_map = koto_get_status_map();
-                $value = array_search($value, $status_map, true);
                 if (function_exists('koto_get_status_map')) {
                     $status_map = koto_get_status_map();
-                    $value = array_search($value, $status_map, true);
+                    $mapped = array_search($value, $status_map, true);
+                    if ($mapped !== false) {
+                        $value = $mapped;
+                    }
                 }
             } elseif (strpos($key, 'prefix') === 0) {
                 $value = str_replace(['増加', '強化'], ['', ''], $value);
-                $prefix_map = koto_get_buff_prefix_map();
-                $value = $prefix_map[$value];
                 if (function_exists('koto_get_buff_prefix_map')) {
                     $prefix_map = koto_get_buff_prefix_map();
                     if (isset($prefix_map[$value])) {
@@ -228,16 +341,40 @@ function koto_apply_variables_to_json($json_template, $matches)
                     }
                 }
             }
-            
+
             if (is_array($value)) {
-                $value = implode(',', $value);
+                $value = '[' . implode(',', $value) . ']';
+            $unquote_keys[] = $key;
+        } elseif (is_numeric($value)) {
+            $unquote_keys[] = $key;
             }
-            $json_str = str_replace('$' . $key, $value, $json_str);
-        }
+            $replacements[$key] = $value;
     }
 
-    // 文字列を連想配列にして返す
-    return json_decode($json_str, true);
+    // $val が $val2 を壊さないよう、長いプレースホルダ名から置換
+    uksort($replacements, function ($a, $b) {
+        return strlen($b) - strlen($a);
+    });
+    $json_str = $json_template;
+    foreach ($replacements as $key => $value) {
+        $val_str = (string) $value;
+        if (in_array($key, $unquote_keys, true)) {
+            $json_str = str_replace('"$' . $key . '"', $val_str, $json_str);
+        }
+        $json_str = str_replace('$' . $key, $val_str, $json_str);
+    }
+
+    // --- デバッグ用ログ出力 ---
+    $decoded = json_decode($json_str, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+        if (strpos($host, 'kotodaman-db.com') === false) {
+            error_log('[AutoInput Error] JSON Decode Failed: ' . json_last_error_msg() . ' / String: ' . $json_str);
+        }
+    }
+    // -------------------------
+
+    return $decoded;
 }
 
 // =================================================================
@@ -292,39 +429,55 @@ function koto_parse_trait($text, $grouped_csv, $input_key = '')
         $conditions = [];
 
         $condition_rows = $grouped_csv['とくせい条件'] ?? [];
+        $condition_match_options = [
+            'no_match_return' => null,
+            'empty_acf_return' => null,
+        ];
         while (true) {
             // とくせい条件は文の前半部分なので「前方一致」でマッチさせる
-            $match = koto_match_csv_template($remaining_text, $condition_rows, $input_key, 'prefix');
-            if ($match) {
-                if (is_array($match['acf_data'])) {
-                    if (isset($match['acf_data']['condition_type_loop'])) {
-                        foreach ($match['acf_data']['condition_type_loop'] as $cond_item) {
+            $match = koto_match_csv_template(
+                $remaining_text,
+                $condition_rows,
+                $input_key,
+                'prefix',
+                $condition_match_options
+            );
+            if (!koto_is_csv_template_match($match)) {
+                break;
+            }
+            if ($match['acf_data'] !== null) {
+                foreach (koto_ensure_acf_data_list($match['acf_data']) as $acf_item) {
+                    if (empty($acf_item)) {
+                        continue;
+                    }
+                    if (isset($acf_item['condition_type_loop']) && is_array($acf_item['condition_type_loop'])) {
+                        foreach ($acf_item['condition_type_loop'] as $cond_item) {
                             $conditions[] = $cond_item;
                         }
                     } else {
-                        $conditions[] = $match['acf_data'];
+                        $conditions[] = $acf_item;
                     }
                 }
-                // マッチした前方部分だけを確実に削る
-                $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
-            } else {
-                break;
             }
+            // 条件がなくても文言がマッチしていれば前方テキストを削る
+            $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
         }
 
         $trait_rows = $grouped_csv['とくせい'] ?? [];
         $effect_data = [];
         // 条件の消し残りを考慮し、とくせいの効果部分は「後方一致」でマッチさせる
         $match = koto_match_csv_template($remaining_text, $trait_rows, $input_key, 'suffix');
-        if ($match) {
-            $effect_data = $match['acf_data'];
+        $effect_rows = koto_is_csv_template_match($match)
+            ? koto_ensure_acf_data_list($match['acf_data'])
+            : [];
 
+        foreach ($effect_rows as $effect_data) {
+            if (!is_array($effect_data) || empty($effect_data)) {
+                continue;
+            }
             if (isset($effect_data['gimmick_prefix'])) {
                 unset($effect_data['gimmick_prefix']);
             }
-        }
-
-        if (is_array($effect_data)) {
             if (!empty($conditions)) {
                 if (isset($effect_data['condition_type_loop']) && is_array($effect_data['condition_type_loop'])) {
                     $effect_data['condition_type_loop'] = array_merge($effect_data['condition_type_loop'], $conditions);
@@ -332,9 +485,7 @@ function koto_parse_trait($text, $grouped_csv, $input_key = '')
                     $effect_data['condition_type_loop'] = $conditions;
                 }
             }
-            if (!empty($effect_data)) {
-                $results[] = $effect_data;
-            }
+            $results[] = $effect_data;
         }
     }
 
@@ -403,6 +554,12 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
 {
     if (!$post_id || empty($acf_data)) return false;
 
+    $default_attr_id = null;
+    $terms = get_the_terms($post_id, 'attribute');
+    if ($terms && !is_wp_error($terms) && isset($terms[0])) {
+        $default_attr_id = $terms[0]->term_id;
+    }
+
     $fields_to_update = [];
 
     foreach ($acf_data as $input_key => $values) {
@@ -415,6 +572,25 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
 
         foreach ($values as $item) {
             if (!is_array($item)) continue;
+
+            if (isset($item['moji_attr']) && $item['moji_attr'] === 'default') {
+                $item['moji_attr'] = $default_attr_id !== null ? $default_attr_id : null;
+            }
+
+            // ギミックが文字列（ターム名や "[ID]"）で直書きされた場合、ID配列に変換する
+            if (isset($item['gimmick']) && is_string($item['gimmick'])) {
+                if (preg_match('/^\[(\d+)\]$/', trim($item['gimmick']), $m)) {
+                    $item['gimmick'] = [(int)$m[1]];
+                } else {
+                    $term = get_term_by('name', trim($item['gimmick']), 'gimmick');
+                    if ($term && !is_wp_error($term)) {
+                        $item['gimmick'] = [$term->term_id];
+                    } else {
+                        // タームが見つからない場合はエラー防止のため削除
+                        unset($item['gimmick']);
+                    }
+                }
+            }
 
             $acf_field_name = '';
 
@@ -525,9 +701,19 @@ function koto_ajax_update_post_from_auto_input()
     $grouped_csv = koto_group_csv_by_type($csv_data);
 
     $acf_data = koto_build_acf_data_from_inputs($texts, $grouped_csv);
+
+    if (empty($acf_data)) {
+        wp_send_json_error([
+            'message' => 'パース結果が空です。対応表に未登録の文言、またはJSONの生成に失敗した可能性があります。',
+        ]);
+    }
+
     $result = koto_update_character_post_with_acf($post_id, $acf_data);
 
     if ($result) {
+        // ACFフィールドの更新後に計算用データを再生成（spec等の更新）
+        do_action('acf/save_post', $post_id);
+
         wp_send_json_success(['message' => '自動入力を反映しました。画面を更新します。']);
     } else {
         wp_send_json_error(['message' => '自動入力の反映に失敗しました']);
@@ -548,6 +734,9 @@ function koto_ajax_create_post_from_auto_input()
     $post_id = koto_create_character_post_from_acf($character_name, $acf_data);
 
     if ($post_id && !is_wp_error($post_id)) {
+        // ACFフィールドの更新後に計算用データを再生成（spec等の更新）
+        do_action('acf/save_post', $post_id);
+
         wp_send_json_success([
             'post_id' => $post_id,
             'message' => '記事を作成しました',
