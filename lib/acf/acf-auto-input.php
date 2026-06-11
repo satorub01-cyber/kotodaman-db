@@ -163,7 +163,7 @@ function koto_split_json_templates_by_pipe($json_template)
     }
 
     // 各パートの先頭と末尾に残る可能性のある空白やダブルクォーテーションを削除
-    $parts = array_map(function($part) {
+    $parts = array_map(function ($part) {
         return trim($part, ' "');
     }, $parts);
 
@@ -222,133 +222,133 @@ function koto_apply_variables_to_json($json_template, $matches)
             continue;
         }
         // ▼ ここに事前に決めた命名規則による特殊処理を書く ▼
-            if (strpos($key, 'dot_camma_val') === 0) {
-                $value = str_replace('・', ',', $value);
-            } elseif (strpos($key, 'gimmick_name_super_guard') === 0) {
-                $term = get_term_by('name', 'スーパー' . trim($value) . 'ガード', 'gimmick');
-                if ($term) $value = $term->term_id;
-            } elseif (strpos($key, 'gimmick_name_super_breaker') === 0) {
-                $term = get_term_by('name', 'スーパー' . trim($value) . 'ブレイカー', 'gimmick');
-                if ($term) $value = $term->term_id;
-            } elseif (strpos($key, 'gimmick_name_guard') === 0) {
-                $prefix = (!empty($matches['gimmick_prefix']) && strpos($matches['gimmick_prefix'], '大きくUP') !== false) ? 'スーパー' : '';
-                $term = get_term_by('name', $prefix . trim($value) . 'ガード', 'gimmick');
-                if ($term) $value = $term->term_id;
-            } elseif (strpos($key, 'gimmick_name_breaker') === 0) {
-                $prefix = (!empty($matches['gimmick_prefix']) && strpos($matches['gimmick_prefix'], '大きくUP') !== false) ? 'スーパー' : '';
-                $term = get_term_by('name', $prefix . trim($value) . 'ブレイカー', 'gimmick');
-                if ($term) $value = $term->term_id;
-            } elseif (strpos($key, 'gimmick_name') === 0) {
-                $prefix = (!empty($matches['gimmick_prefix']) && strpos($matches['gimmick_prefix'], '大きくUP') !== false) ? 'スーパー' : '';
-                $term = get_term_by('name', $prefix . trim($value), 'gimmick');
-                if ($term) $value = $term->term_id;
-            } elseif (strpos($key, 'dot_separated_moji') === 0) {
-                $mojis = explode('・', $value);
-                $mojis = array_map(function ($moji) {
-                    return str_replace(['「', '」'], '', $moji);
-                }, $mojis);
-                $term_ids = [];
-                foreach ($mojis as $moji) {
-                    $term = get_term_by('name', trim($moji), 'available_moji');
-                    if ($term) {
-                        $term_ids[] = $term->term_id;
-                    }
-                }
-                $value = $term_ids;
-            } elseif (strpos($key, 'affiliation') === 0) {
-                $attr_names = explode('・', $value);
-                $attr_ids = [];
-                foreach ($attr_names as $name) {
-                    $term = get_term_by('name', trim($name), 'affiliation');
-                    if ($term) {
-                        $attr_ids[] = $term->term_id;
-                    }
-                }
-                $value = $attr_ids;
-            } elseif ($key === 'attr') {
-                $value = str_replace('属性', '', $value);
-                $attr_names = explode('・', $value);
-                $attr_ids = [];
-                foreach ($attr_names as $name) {
-                    $term = get_term_by('name', trim($name), 'attribute');
-                    if ($term) {
-                        $attr_ids[] = $term->term_id;
-                    }
-                }
-                $value = $attr_ids;
-            } elseif (strpos($key, 'species') === 0) {
-                $value = str_replace('種族', '', $value);
-                $attr_names = explode('・', $value);
-                $attr_ids = [];
-                foreach ($attr_names as $name) {
-                    $term = get_term_by('name', trim($name), 'species');
-                    if ($term) {
-                        $attr_ids[] = $term->term_id;
-                    }
-                }
-                $value = $attr_ids;
-            } elseif (strpos($key, 'character_target') === 0 || strpos($key, 'whose_trait') === 0) {
-                $target_type = 'self';
-                $target_detail = '';
-                if (strpos($value, '自身') !== false) {
-                    $target_type = 'self';
-                } elseif ($value === '味方') {
-                    $target_type = 'all';
-                } elseif (strpos($value, '属性') !== false) {
-                    $target_type = 'attr';
-                    $value = str_replace('属性', '', $value);
-                    $values = explode('・', $value);
-                    $values = array_map(function ($v) {
-                        $term = get_term_by('name', trim($v), 'attribute');
-                        return $term ? $term->term_id : null;
-                    }, $values);
-                    $target_detail = ',"target_attr" : [' . implode(',', array_filter($values)) . ']';
-                } elseif (strpos($value, '種族') !== false) {
-                    $target_type = 'species';
-                    $value = str_replace('種族', '', $value);
-                    $values = explode('・', $value);
-                    $values = array_map(function ($v) {
-                        $term = get_term_by('name', trim($v), 'species');
-                        return $term ? $term->term_id : null;
-                    }, $values);
-                    $target_detail = ',"target_species" : [' . implode(',', array_filter($values)) . ']';
-                } elseif (strpos($value, '「') !== false) {
-                    $target_type = 'group';
-                    $value = str_replace(['「', '」'], ['', ''], $value);
-                    $values = explode('・', $value);
-                    $values = array_map(function ($v) {
-                        $term = get_term_by('name', trim($v), 'affiliation');
-                        return $term ? $term->term_id : null;
-                    }, $values);
-                    $target_detail = ',"target_group" : [' . implode(',', array_filter($values)) . ']';
-                }
-                $value = '{"target_type" :"' . $target_type . '"' . $target_detail . '}';
-                $unquote_keys[] = $key;
-            } elseif (strpos($key, 'resistance') === 0) {
-                if (function_exists('koto_get_status_map')) {
-                    $status_map = koto_get_status_map();
-                    $mapped = array_search($value, $status_map, true);
-                    if ($mapped !== false) {
-                        $value = $mapped;
-                    }
-                }
-            } elseif (strpos($key, 'prefix') === 0) {
-                $value = str_replace(['増加', '強化'], ['', ''], $value);
-                if (function_exists('koto_get_buff_prefix_map')) {
-                    $prefix_map = koto_get_buff_prefix_map();
-                    if (isset($prefix_map[$value])) {
-                        $value = $prefix_map[$value];
-                    }
+        if (strpos($key, 'dot_camma_val') === 0) {
+            $value = str_replace('・', ',', $value);
+        } elseif (strpos($key, 'gimmick_name_super_guard') === 0) {
+            $term = get_term_by('name', 'スーパー' . trim($value) . 'ガード', 'gimmick');
+            if ($term) $value = $term->term_id;
+        } elseif (strpos($key, 'gimmick_name_super_breaker') === 0) {
+            $term = get_term_by('name', 'スーパー' . trim($value) . 'ブレイカー', 'gimmick');
+            if ($term) $value = $term->term_id;
+        } elseif (strpos($key, 'gimmick_name_guard') === 0) {
+            $prefix = (!empty($matches['gimmick_prefix']) && strpos($matches['gimmick_prefix'], '大きくUP') !== false) ? 'スーパー' : '';
+            $term = get_term_by('name', $prefix . trim($value) . 'ガード', 'gimmick');
+            if ($term) $value = $term->term_id;
+        } elseif (strpos($key, 'gimmick_name_breaker') === 0) {
+            $prefix = (!empty($matches['gimmick_prefix']) && strpos($matches['gimmick_prefix'], '大きくUP') !== false) ? 'スーパー' : '';
+            $term = get_term_by('name', $prefix . trim($value) . 'ブレイカー', 'gimmick');
+            if ($term) $value = $term->term_id;
+        } elseif (strpos($key, 'gimmick_name') === 0) {
+            $prefix = (!empty($matches['gimmick_prefix']) && strpos($matches['gimmick_prefix'], '大きくUP') !== false) ? 'スーパー' : '';
+            $term = get_term_by('name', $prefix . trim($value), 'gimmick');
+            if ($term) $value = $term->term_id;
+        } elseif (strpos($key, 'dot_separated_moji') === 0) {
+            $mojis = explode('・', $value);
+            $mojis = array_map(function ($moji) {
+                return str_replace(['「', '」'], '', $moji);
+            }, $mojis);
+            $term_ids = [];
+            foreach ($mojis as $moji) {
+                $term = get_term_by('name', trim($moji), 'available_moji');
+                if ($term) {
+                    $term_ids[] = $term->term_id;
                 }
             }
+            $value = $term_ids;
+        } elseif (strpos($key, 'affiliation') === 0) {
+            $attr_names = explode('・', $value);
+            $attr_ids = [];
+            foreach ($attr_names as $name) {
+                $term = get_term_by('name', trim($name), 'affiliation');
+                if ($term) {
+                    $attr_ids[] = $term->term_id;
+                }
+            }
+            $value = $attr_ids;
+        } elseif ($key === 'attr') {
+            $value = str_replace('属性', '', $value);
+            $attr_names = explode('・', $value);
+            $attr_ids = [];
+            foreach ($attr_names as $name) {
+                $term = get_term_by('name', trim($name), 'attribute');
+                if ($term) {
+                    $attr_ids[] = $term->term_id;
+                }
+            }
+            $value = $attr_ids;
+        } elseif (strpos($key, 'species') === 0) {
+            $value = str_replace('種族', '', $value);
+            $attr_names = explode('・', $value);
+            $attr_ids = [];
+            foreach ($attr_names as $name) {
+                $term = get_term_by('name', trim($name), 'species');
+                if ($term) {
+                    $attr_ids[] = $term->term_id;
+                }
+            }
+            $value = $attr_ids;
+        } elseif (strpos($key, 'character_target') === 0 || strpos($key, 'whose_trait') === 0) {
+            $target_type = 'self';
+            $target_detail = '';
+            if (strpos($value, '自身') !== false) {
+                $target_type = 'self';
+            } elseif ($value === '味方') {
+                $target_type = 'all';
+            } elseif (strpos($value, '属性') !== false) {
+                $target_type = 'attr';
+                $value = str_replace('属性', '', $value);
+                $values = explode('・', $value);
+                $values = array_map(function ($v) {
+                    $term = get_term_by('name', trim($v), 'attribute');
+                    return $term ? $term->term_id : null;
+                }, $values);
+                $target_detail = ',"target_attr" : [' . implode(',', array_filter($values)) . ']';
+            } elseif (strpos($value, '種族') !== false) {
+                $target_type = 'species';
+                $value = str_replace('種族', '', $value);
+                $values = explode('・', $value);
+                $values = array_map(function ($v) {
+                    $term = get_term_by('name', trim($v), 'species');
+                    return $term ? $term->term_id : null;
+                }, $values);
+                $target_detail = ',"target_species" : [' . implode(',', array_filter($values)) . ']';
+            } elseif (strpos($value, '「') !== false) {
+                $target_type = 'group';
+                $value = str_replace(['「', '」'], ['', ''], $value);
+                $values = explode('・', $value);
+                $values = array_map(function ($v) {
+                    $term = get_term_by('name', trim($v), 'affiliation');
+                    return $term ? $term->term_id : null;
+                }, $values);
+                $target_detail = ',"target_group" : [' . implode(',', array_filter($values)) . ']';
+            }
+            $value = '{"target_type" :"' . $target_type . '"' . $target_detail . '}';
+            $unquote_keys[] = $key;
+        } elseif (strpos($key, 'resistance') === 0) {
+            if (function_exists('koto_get_status_map')) {
+                $status_map = koto_get_status_map();
+                $mapped = array_search($value, $status_map, true);
+                if ($mapped !== false) {
+                    $value = $mapped;
+                }
+            }
+        } elseif (strpos($key, 'prefix') === 0) {
+            $value = str_replace(['増加', '強化'], ['', ''], $value);
+            if (function_exists('koto_get_buff_prefix_map')) {
+                $prefix_map = koto_get_buff_prefix_map();
+                if (isset($prefix_map[$value])) {
+                    $value = $prefix_map[$value];
+                }
+            }
+        }
 
-            if (is_array($value)) {
-                $value = '[' . implode(',', $value) . ']';
+        if (is_array($value)) {
+            $value = '[' . implode(',', $value) . ']';
             $unquote_keys[] = $key;
         } elseif (is_numeric($value)) {
             $unquote_keys[] = $key;
-            }
-            $replacements[$key] = $value;
+        }
+        $replacements[$key] = $value;
     }
 
     // $val が $val2 を壊さないよう、長いプレースホルダ名から置換
@@ -371,6 +371,21 @@ function koto_apply_variables_to_json($json_template, $matches)
         if (strpos($host, 'kotodaman-db.com') === false) {
             error_log('[AutoInput Error] JSON Decode Failed: ' . json_last_error_msg() . ' / String: ' . $json_str);
         }
+    } elseif (is_array($decoded)) {
+        // Groupフィールドが誤って配列でラップされている場合に修正します。
+        // これらはGroupフィールドであり、単一の連想配列であるべきです。
+        $group_fields = ['target_field_group', 'whose_trait', 'deck_ally_field_group'];
+
+        foreach ($group_fields as $field_name) {
+            if (isset($decoded[$field_name]) && is_array($decoded[$field_name])) {
+                $field_value = $decoded[$field_name];
+                // 値が1行だけのリピーター形式 [ 0 => [ 'key' => 'value' ] ] になっているかチェックします。
+                if (count($field_value) === 1 && isset($field_value[0]) && is_array($field_value[0])) {
+                    // Groupフィールドの正しい形式（単一の連想配列）にアンラップします。
+                    $decoded[$field_name] = $field_value[0];
+                }
+            }
+        }
     }
     // -------------------------
 
@@ -383,7 +398,7 @@ function koto_apply_variables_to_json($json_template, $matches)
 function koto_preprocess_text($text)
 {
     $ignore_texts = [
-        'サブ属性を対象とするリーダーとくせい・とくせいの効果を受けることができる（受ける効果はメイン属性と重複しない）',
+        '。サブ属性を対象とするリーダーとくせい・とくせいの効果を受けることができる(受ける効果はメイン属性と重複しない)',
         '(福に応じて数値が変動)',
         '※濁音、半濁音、小文字も同じ文字とする',
         '(メイン属性のみを参照する)',
@@ -392,11 +407,32 @@ function koto_preprocess_text($text)
         '※同じとくせいを持ったコトダマンが複数いる場合、1ターンに2体まで発動する',
         'また、クエスト終了まで変身状態は維持される。',
         '※この効果は重複しません。',
-        ' ',
     ];
-    $text = trim(str_replace($ignore_texts, '', $text));
 
     $text = preg_replace('/\(敵の行動時、そのターンに自身が各敵にわざ・すごわざ・コトわざで与えた合計ダメージの\d+%の値で固定ダメージを与える効果\)/u', '', $text);
+    // 英数字とスペースを半角に
+    $text = mb_convert_kana($text, 'as', 'UTF-8');
+
+    // CSVのフォーマットに合わせるため、特定の記号を全角または半角に正規化
+    $hankaku_to_zenkaku = [
+        '[' => '【',
+        ']' => '】',
+        '｢' => '「',
+        '｣' => '」',
+        '･' => '・', // 半角中点を全角に
+    ];
+    $zenkaku_to_hankaku = [
+        '％' => '%',
+        '（' => '(',
+        '）' => ')',
+    ];
+    $text = str_replace(array_keys($hankaku_to_zenkaku), array_values($hankaku_to_zenkaku), $text);
+    $text = str_replace(array_keys($zenkaku_to_hankaku), array_values($zenkaku_to_hankaku), $text);
+
+    // 改行コードを統一
+    $text = str_replace(['\n', '\r', "\n", "\r"], "\n", $text);
+    $text = str_replace(' ','', $text);
+    $text = trim(str_replace($ignore_texts, '', $text));
 
     return trim($text);
 }
@@ -715,7 +751,7 @@ function koto_ajax_update_post_from_auto_input()
         // ACFフィールドの更新後に計算用データを再生成（spec等の更新）
         do_action('acf/save_post', $post_id);
 
-        wp_send_json_success(['message' => '自動入力を反映しました。画面を更新します。']);
+        wp_send_json_success(['message' => '自動入力を反映しました。内容を保存します。']);
     } else {
         wp_send_json_error(['message' => '自動入力の反映に失敗しました']);
     }

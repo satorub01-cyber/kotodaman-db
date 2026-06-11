@@ -1281,6 +1281,19 @@ function parse_target_group($grp)
                             'slug' => $term->slug,
                             'name' => $term->name
                         ];
+                    } elseif (is_array($term) && isset($term['slug'])) {
+                        $result['obj'][] = [
+                            'slug' => $term['slug'],
+                            'name' => $term['name'] ?? ''
+                        ];
+                    } elseif (is_numeric($term)) {
+                        $t_obj = get_term($term);
+                        if ($t_obj && !is_wp_error($t_obj)) {
+                            $result['obj'][] = [
+                                'slug' => $t_obj->slug,
+                                'name' => $t_obj->name
+                            ];
+                        }
                     }
                 }
             }
