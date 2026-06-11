@@ -1,0 +1,132 @@
+.koto-ocr-panel {
+    margin: 14px 0;
+    border: 1px solid #b9d7ee;
+    border-left: 4px solid #2271b1;
+    background: #f6fbff;
+}
+
+.koto-ocr-panel__toggle {
+    width: 100%;
+    padding: 12px 14px;
+    border: 0;
+    background: transparent;
+    color: #135e96;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+}
+
+.koto-ocr-panel__body {
+    padding: 0 14px 14px;
+}
+
+.koto-ocr-dropzone {
+    display: flex;
+    min-height: 96px;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed #8bbce0;
+    border-radius: 8px;
+    background: #fff;
+    color: #135e96;
+    cursor: pointer;
+}
+
+.koto-ocr-dropzone input {
+    display: none;
+}
+
+.koto-ocr-dropzone.is-dragover {
+    border-color: #135e96;
+    background: #e7f3ff;
+}
+
+.koto-ocr-preview {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.koto-ocr-thumb {
+    padding: 8px;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.koto-ocr-thumb img {
+    display: block;
+    width: 100%;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.koto-ocr-thumb span {
+    display: block;
+    margin-top: 4px;
+    overflow: hidden;
+    color: #646970;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.koto-ocr-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 12px;
+}
+
+.koto-ocr-actions .spinner.is-active {
+    float: none;
+    visibility: visible;
+}
+
+.koto-ocr-status {
+    color: #646970;
+}
+
+.koto-ocr-result {
+    margin-top: 12px;
+}
+
+.koto-ocr-result details {
+    margin-top: 8px;
+    padding: 8px;
+    border: 1px solid #dcdcde;
+    background: #fff;
+}
+
+.koto-ocr-result pre {
+    max-height: 220px;
+    overflow: auto;
+    white-space: pre-wrap;
+}
+
+.koto-ocr-review-panel {
+    margin: 14px 0;
+    padding: 14px;
+    border: 1px solid #f0c36d;
+    border-left: 4px solid #dba617;
+    background: #fff8e5;
+}
+
+.koto-ocr-review-panel h2 {
+    margin-top: 0;
+}
+
+.koto-ocr-review-panel details {
+    margin-top: 8px;
+    padding: 8px;
+    border: 1px solid #e0c878;
+    background: #fff;
+}
+
+.koto-ocr-review-panel pre {
+    max-height: 220px;
+    overflow: auto;
+    white-space: pre-wrap;
+}

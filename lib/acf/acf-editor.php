@@ -751,6 +751,8 @@ function koto_acf_editor_page_html()
                 <button type="submit" class="button button-secondary" onclick="return confirm('選択した雛型を複製して新しい下書きを作成しますか？');">複製して作成</button>
             </form>
         </div>
+        <?php if (function_exists('koto_ocr_render_draft_panel')) koto_ocr_render_draft_panel(); ?>
+        <?php if (function_exists('koto_ocr_render_existing_draft_review')) koto_ocr_render_existing_draft_review($edit_post_id); ?>
         <div class="acf-auto-input-container">
             <div class="acf-auto-input-header">自動入力を使用する</div>
             <div class="acf-auto-input-content">
