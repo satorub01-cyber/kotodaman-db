@@ -128,7 +128,7 @@ function koto_match_csv_template($text, $csv_rows, $input_key = '', $match_mode 
             }
 
             // 文言がマッチした時点でこの行を採用（JSONが空・不正でも後続行へ進まない）
-            $acf_rows = koto_apply_variables_to_json_rows($row['ACFに入力するJSON'] ?? '', $matches);
+            $acf_rows = koto_apply_variables_to_json_rows($row['ACFに入力するJSON'] ?? '', $matches, $input_key);
             return [
                 'acf_data' => koto_finalize_match_acf_data($acf_rows, $options['empty_acf_return']),
                 'matched_text' => $matches[0],
@@ -192,7 +192,7 @@ function koto_ensure_acf_data_list($acf_data)
 /**
  * テンプレート（| 区切り可）に変数を適用し、デコード済み行の配列を返す。
  */
-function koto_apply_variables_to_json_rows($json_template, $matches)
+function koto_apply_variables_to_json_rows($json_template, $matches, $input_key = '')
 {
     $json_template = trim((string) $json_template);
     if ($json_template === '') {
@@ -206,13 +206,13 @@ function koto_apply_variables_to_json_rows($json_template, $matches)
 
     $rows = [];
     foreach ($parts as $part) {
-        $decoded = koto_apply_variables_to_json($part, $matches);
+        $decoded = koto_apply_variables_to_json($part, $matches, $input_key);
         $rows[] = is_array($decoded) ? $decoded : [];
     }
     return $rows;
 }
 
-function koto_apply_variables_to_json($json_template, $matches)
+function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
 {
     $replacements = [];
     $unquote_keys = [];
@@ -374,7 +374,7 @@ function koto_apply_variables_to_json($json_template, $matches)
     } elseif (is_array($decoded)) {
         // Groupフィールドが誤って配列でラップされている場合に修正します。
         // これらはGroupフィールドであり、単一の連想配列であるべきです。
-        $group_fields = ['target_field_group', 'whose_trait', 'deck_ally_field_group'];
+        $group_fields = ['target_field_group', 'field_69397ce6c85cb', 'field_693981d871588', 'deck_ally_field_group'];
 
         foreach ($group_fields as $field_name) {
             if (isset($decoded[$field_name]) && is_array($decoded[$field_name])) {
@@ -386,7 +386,77 @@ function koto_apply_variables_to_json($json_template, $matches)
                 }
             }
         }
+        $key_map = [];
+        if ($input_key === 'auto_input_trait1') {
+            $key_map = [
+                'whose_trait' => [
+                    'parent' => 'field_69397ce6c85cb',
+                    'children' => [
+                        'target_type'    => 'field_69397ce6c85d2',
+                        'target_attr'    => 'field_69397ce6c85d3',
+                        'target_species' => 'field_69397ce6c85d4',
+                        'target_group'   => 'field_69397ce6c85d5',
+                        'target_other'   => 'field_69397ce6c85d6'
+                    ]
+                ],
+                'deck_ally_field_group' => [
+                    'parent' => 'field_69397bdd6ca4b',
+                    'children' => [
+                        'target_type'    => 'field_69397bde6ca52',
+                        'target_attr'    => 'field_69397bde6ca53',
+                        'target_species' => 'field_69397bde6ca54',
+                        'target_group'   => 'field_69397bde6ca55',
+                        'target_other'   => 'field_69397bde6ca56'
+                    ]
+                ]
+            ];
+        } elseif ($input_key === 'auto_input_trait2') {
+            $key_map = [
+                'whose_trait' => [
+                    'parent' => 'field_693981d871588',
+                    'children' => [
+                        'target_type'    => 'field_693981d871589',
+                        'target_attr'    => 'field_693981d87158a',
+                        'target_species' => 'field_693981d87158b',
+                        'target_group'   => 'field_693981d87158c',
+                        'target_other'   => 'field_693981d87158d'
+                    ]
+                ],
+                'deck_ally_field_group' => [
+                    'parent' => 'field_693981d871590',
+                    'children' => [
+                        'target_type'    => 'field_693981d871591',
+                        'target_attr'    => 'field_693981d871592',
+                        'target_species' => 'field_693981d871593',
+                        'target_group'   => 'field_693981d871594',
+                        'target_other'   => 'field_693981d871595'
+                    ]
+                ]
+            ];
+        }
+
+        // 定義したマップに従って、パース後の配列キーを安全に置換する
+        foreach ($key_map as $group_name => $map) {
+            if (isset($decoded[$group_name])) {
+                $group_data = $decoded[$group_name];
+                $new_group_data = [];
+
+                if (is_array($group_data)) {
+                    foreach ($group_data as $sub_key => $sub_val) {
+                        if (isset($map['children'][$sub_key])) {
+                            $new_group_data[$map['children'][$sub_key]] = $sub_val;
+                        } else {
+                            $new_group_data[$sub_key] = $sub_val;
+                        }
+                    }
+                }
+
+                $decoded[$map['parent']] = $new_group_data;
+                unset($decoded[$group_name]);
+            }
+        }
     }
+
     // -------------------------
 
     return $decoded;
@@ -431,7 +501,7 @@ function koto_preprocess_text($text)
 
     // 改行コードを統一
     $text = str_replace(['\n', '\r', "\n", "\r"], "\n", $text);
-    $text = str_replace(' ','', $text);
+    $text = str_replace(' ', '', $text);
     $text = trim(str_replace($ignore_texts, '', $text));
 
     return trim($text);
