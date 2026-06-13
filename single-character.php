@@ -742,15 +742,17 @@ if ($ls_html): ?>
         <div class="skill-row">
             <span class="label-tag tag-effect">効果</span>
             <div class="skill-text-block">
-                <div class="skill-text-area"><?php echo $ls_html; ?></div>
-                <?php if ($miracle_lines): ?>
-                    <?php
-                    $index = $ls_count;
-                    foreach ($miracle_lines as $line):
-                    ?>
-                        <span class="effect-num"><br>（<?php echo $index++; ?>）</span><?php echo $line; ?>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+                <div class="skill-text-area">
+                    <?php echo $ls_html; ?>
+                    <?php if ($miracle_lines): ?>
+                        <?php
+                        $index = $ls_count;
+                        foreach ($miracle_lines as $line):
+                        ?>
+                            <span class="effect-num"><br>（<?php echo $index++; ?>）</span><?php echo $line; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>
