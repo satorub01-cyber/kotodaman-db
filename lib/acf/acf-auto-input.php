@@ -668,6 +668,7 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
     }
 
     $fields_to_update = [];
+    $normal_fields_to_update = [];
 
     foreach ($acf_data as $input_key => $values) {
         if (!is_array($values)) continue;
@@ -679,6 +680,15 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
 
         foreach ($values as $item) {
             if (!is_array($item)) continue;
+
+            // 通常フィールドの更新として処理する
+            if (isset($item['is_normal_field']) && $item['is_normal_field'] === true) {
+                unset($item['is_normal_field']); // フィールド値としては不要なため削除
+                foreach ($item as $field_key => $field_value) {
+                    $normal_fields_to_update[$field_key] = $field_value;
+                }
+                continue;
+            }
 
             if (isset($item['moji_attr']) && $item['moji_attr'] === 'default') {
                 $item['moji_attr'] = $default_attr_id !== null ? $default_attr_id : null;
@@ -736,6 +746,11 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
         }
 
         update_field($acf_field_name, $existing_data, $post_id);
+    }
+
+    // 通常のフィールドをまとめて更新する
+    foreach ($normal_fields_to_update as $field_key => $field_value) {
+        update_field($field_key, $field_value, $post_id);
     }
 
     return true;

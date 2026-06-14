@@ -79,5 +79,40 @@
 とくせい条件,大討伐の場合、,"{""condition_type"" : ""raid_battle""}"
 とくせい条件,HPが{$val}%以下の時、,"{""condition_type"" : ""hpcond"", ""condition_value"" : ""$val"", ""hp_cond_detail"" : ""less""}"
 とくせい条件,HPが{$val}%以上の時、,"{""condition_type"" : ""hpcond"", ""condition_value"" : ""$val"", ""hp_cond_detail"" : ""more""}"
-とくせい条件,,
-,,
+とくせい条件,HPがMAX時、,"{""condition_type"" : ""hpcond"", ""condition_value"" : ""100"", ""hp_cond_detail"" : ""more""}"
+わざ,,
+わざ,,
+わざ,,
+わざ,,
+わざ,,
+わざ,,
+わざ,,
+わざ,,
+わざ,,
+わざ,,
+わざ,,
+わざ,,
+わざ,,
+わざ条件,{$val}文字以上の場合、,"{""condition_type"" : ""moji_count"",""condition_value"" : ""$val""}"
+わざ条件,{$val}テーマの言葉を作った場合、,"{""condition_type"" : ""theme"",""condition_value"" : ""$val""}"
+わざ条件,{$val}コンボ以上の場合、,"{""condition_type"" : ""comb"",""condition_value"" : ""$val""}"
+わざ条件,HPが{$val}%以下の場合、,"{""condition_type"" : ""hpcond"", ""condition_value"" : ""$val"", ""hp_cond_detail"" : ""less""}"
+わざ条件,HPが{$val}%以上の場合、,"{""condition_type"" : ""hpcond"", ""condition_value"" : ""$val"", ""hp_cond_detail"" : ""more""}"
+わざ条件,HPMAXの場合、,"{""condition_type"" : ""hpcond"", ""condition_value"" : ""100"", ""hp_cond_detail"" : ""more""}"
+わざ条件,同時に「{$affiliation}」のコトダマンがわざ・すごわざを発動させていた場合、,"{""condition_type"" : ""group"", ""condition_affiliation"" : ""$affiliation"",""target_cond_detail"" : ""simultaneous""}"
+わざ条件,同時に「{$affiliation}」のコトダマンがわざ・すごわざを発動させていた,"{""condition_type"" : ""group"", ""condition_affiliation"" : ""$affiliation"",""target_cond_detail"" : ""simultaneous""}"
+わざ条件,同時に「{$affiliation}」または{$species}種族のコトダマンがわざ・すごわざを発動させていた場合、,"{""condition_type"" : ""group"", ""condition_affiliation"" : ""$affiliation"",""target_cond_detail"" : ""simultaneous""}|{""condition_type"" : ""species"", ""condition_value"" : ""$species"",""target_cond_detail"" : ""simultaneous""}"
+わざ条件,同時に「{$affiliation}」または{$species}種族のコトダマンがわざ・すごわざを発動させていた,"{""condition_type"" : ""group"", ""condition_affiliation"" : ""$affiliation"",""target_cond_detail"" : ""simultaneous""}|{""condition_type"" : ""species"", ""condition_value"" : ""$species"",""target_cond_detail"" : ""simultaneous""}"
+わざ条件,同時に「{$affiliation}」または{$attr}属性のコトダマンがわざ・すごわざを発動させていた場合、,"{""condition_type"" : ""group"", ""condition_affiliation"" : ""$affiliation"",""target_cond_detail"" : ""simultaneous""}|{""condition_type"" : ""attr"", ""condition_value"" : ""$attr"",""target_cond_detail"" : ""simultaneous""}"
+わざ条件,同時に「{$affiliation}」または{$attr}属性のコトダマンがわざ・すごわざを発動させていた,"{""condition_type"" : ""group"", ""condition_affiliation"" : ""$affiliation"",""target_cond_detail"" : ""simultaneous""}|{""condition_type"" : ""attr"", ""condition_value"" : ""$attr"",""target_cond_detail"" : ""simultaneous""}"
+わざ条件,デッキ内に自身以外の「{$affiliation}」が{$val}体以上いる場合、,"{""condition_type"" : ""group"",""condition_value"" : ""$val"", ""condition_affiliation"" : ""$affiliation"",""target_cond_detail"" : ""deck""}"
+わざ条件,同時に{$species}種族のコトダマンがわざ・すごわざを発動させていた場合、,"{""condition_type"" : ""species"", ""condition_value"" : ""$species"",""target_cond_detail"" : ""simultaneous""}"
+わざ条件,同時に{$attr}属性のコトダマンがわざ・すごわざを発動させていた場合、,"{""condition_type"" : ""attr"", ""condition_value"" : ""$attr"",""target_cond_detail"" : ""simultaneous""}"
+わざ条件,「{$dot_camma_val}」の時、,"{""sugo_shift_moji"" : ""$dot_camma_val""}"
+わざ条件,攻撃を{$val}回以上受けた場合、,"{""sugo_shift_attacked"" : ""$val""}"
+わざ条件,,
+わざ条件,,
+わざシフトタイプ,自身の文字に応じて効果が変化する,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""char_change""}"
+わざシフトタイプ,自身の属性に応じて{$attr}属性の時は【.*?】、{$attr2}属性の時は【.*?】に効果が変化する,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""attr""}|{""sugo_shift_attr"" : ""$attr""}"
+わざシフトタイプ,このコトダマンがクエスト中に敵から受けた攻撃の回数に応じて効果が変化する,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""attacked""}"
+わざシフトタイプ,次の{$val}つからランダムで1つ発動する,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""random""}"
