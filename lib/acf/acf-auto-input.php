@@ -243,7 +243,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $term = get_term_by('name', $prefix . trim($value), 'gimmick');
             if ($term) $value = $term->term_id;
         } elseif (strpos($key, 'dot_separated_moji') === 0) {
-            $mojis = explode('・', $value);
+            $mojis = preg_split('/[・\|]/u', $value);
             $mojis = array_map(function ($moji) {
                 return str_replace(['「', '」'], '', $moji);
             }, $mojis);
@@ -256,7 +256,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             }
             $value = $term_ids;
         } elseif (strpos($key, 'affiliation') === 0) {
-            $attr_names = explode('・', $value);
+            $attr_names = preg_split('/[・\|]/u', $value);
             $attr_ids = [];
             foreach ($attr_names as $name) {
                 $term = get_term_by('name', trim($name), 'affiliation');
@@ -267,7 +267,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $value = $attr_ids;
         } elseif ($key === 'attr') {
             $value = str_replace('属性', '', $value);
-            $attr_names = explode('・', $value);
+            $attr_names = preg_split('/[・\|]/u', $value);
             $attr_ids = [];
             foreach ($attr_names as $name) {
                 $term = get_term_by('name', trim($name), 'attribute');
@@ -278,7 +278,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $value = $attr_ids;
         } elseif (strpos($key, 'species') === 0) {
             $value = str_replace('種族', '', $value);
-            $attr_names = explode('・', $value);
+            $attr_names = preg_split('/[・\|]/u', $value);
             $attr_ids = [];
             foreach ($attr_names as $name) {
                 $term = get_term_by('name', trim($name), 'species');
@@ -297,7 +297,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             } elseif (strpos($value, '属性') !== false) {
                 $target_type = 'attr';
                 $value = str_replace('属性', '', $value);
-                $values = explode('・', $value);
+                $values = preg_split('/[・\|]/u', $value);
                 $values = array_map(function ($v) {
                     $term = get_term_by('name', trim($v), 'attribute');
                     return $term ? $term->term_id : null;
@@ -306,7 +306,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             } elseif (strpos($value, '種族') !== false) {
                 $target_type = 'species';
                 $value = str_replace('種族', '', $value);
-                $values = explode('・', $value);
+                $values = preg_split('/[・\|]/u', $value);
                 $values = array_map(function ($v) {
                     $term = get_term_by('name', trim($v), 'species');
                     return $term ? $term->term_id : null;
@@ -315,7 +315,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             } elseif (strpos($value, '「') !== false) {
                 $target_type = 'group';
                 $value = str_replace(['「', '」'], ['', ''], $value);
-                $values = explode('・', $value);
+                $values = preg_split('/[・\|]/u', $value);
                 $values = array_map(function ($v) {
                     $term = get_term_by('name', trim($v), 'affiliation');
                     return $term ? $term->term_id : null;

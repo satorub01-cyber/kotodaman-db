@@ -80,12 +80,26 @@
 とくせい条件,HPが{$val}%以下の時、,"{""condition_type"" : ""hpcond"", ""condition_value"" : ""$val"", ""hp_cond_detail"" : ""less""}"
 とくせい条件,HPが{$val}%以上の時、,"{""condition_type"" : ""hpcond"", ""condition_value"" : ""$val"", ""hp_cond_detail"" : ""more""}"
 とくせい条件,HPがMAX時、,"{""condition_type"" : ""hpcond"", ""condition_value"" : ""100"", ""hp_cond_detail"" : ""more""}"
+わざ,敵単体に自身の福に応じて威力が強化される{$attr}属性攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""fuku""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""6"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に{$species}種族に対して威力が{$at_target_up}する{$at_prefix_slash}な{$attr}属性攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""target""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""$at_prefix"", ""advantage_target"":{""target_type"" : ""species"",""target_species"" : ""$species""}, ""advantage_rate"" : ""$at_target_up"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に文字数に応じて威力が上昇する{$attr}属性攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""moji""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""14"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に{$at_prefix_slash}な{$attr}属性攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""normal""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""$at_prefix"",""waza_target"" : ""single_oppo""}"
 わざ,,
-わざ,,
-わざ,,
-わざ,,
-わざ,,
-わざ,,
+わざ,敵単体に爆絶強力な{$attr}属性の10回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""normal""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""1.3"", ""hit_count"" : ""10"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に自身の福に応じて威力が強化される{$attr}属性の10回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""fuku""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""1.3"", ""hit_count"" : ""10"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に超絶強力な{$attr}属性の8回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""normal""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""0.75"",""waza_value_last"" : ""2.35"", ""hit_count"" : ""8"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に敵単体に自身の福に応じて威力が強化される{$attr}属性の8回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""fuku""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""0.75"",""waza_value_last"" : ""2.35"", ""hit_count"" : ""8"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に超強力な{$attr}属性の6回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""normal""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""0.7"",""waza_value_last"" : ""1.9"", ""hit_count"" : ""6"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に敵単体に自身の福に応じて威力が強化される{$attr}属性の6回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""fuku""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""0.7"",""waza_value_last"" : ""1.9"", ""hit_count"" : ""6"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に強力な{$attr}属性の4回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""normal""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""0.65"",""waza_value_last"" : ""1.05"", ""hit_count"" : ""8"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に敵単体に自身の福に応じて威力が強化される{$attr}属性の4回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""fuku""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""0.65"",""waza_value_last"" : ""1.05"", ""hit_count"" : ""8"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に超絶強力な{$attr}属性の5回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""normal""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""1.2"",""waza_value_last"" : ""2.2"", ""hit_count"" : ""5"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に敵単体に自身の福に応じて威力が強化される{$attr}属性の5回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""fuku""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""1.2"",""waza_value_last"" : ""2.2"", ""hit_count"" : ""5"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に強力な{$attr}属性の3回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""normal""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""1"",""waza_value_last"" : ""1.3"", ""hit_count"" : ""3"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に敵単体に自身の福に応じて威力が強化される{$attr}属性の3回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""fuku""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""1"",""waza_value_last"" : ""1.3"", ""hit_count"" : ""3"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に自身の福に応じて威力が強化される{$attr}属性の{$val}回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""fuku""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""1"", ""hit_count"" : ""$val"",""waza_target"" : ""single_oppo""}"
+わざ,敵単体に{$at_prefix}な{$attr}属性の{$val}回攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""normal""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""1"", ""hit_count"" : ""$val"",""waza_target"" : ""single_oppo""}"
+わざ,敵全体に爆絶強力な{$attr}属性攻撃,"{""waza_type"" : ""attack"", ""attack_type"" : [""normal""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""1.3"", ""hit_count"" : ""10"",""waza_target"" : ""all_oppo""}"
 わざ,,
 わざ,,
 わざ,,
@@ -113,6 +127,6 @@
 わざ条件,,
 わざ条件,,
 わざシフトタイプ,自身の文字に応じて効果が変化する,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""char_change""}"
-わざシフトタイプ,自身の属性に応じて{$attr}属性の時は【.*?】、{$attr2}属性の時は【.*?】に効果が変化する,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""attr""}|{""sugo_shift_attr"" : ""$attr""}"
+わざシフトタイプ,自身の属性に応じて{$attr}属性の時は【.*?】、{$attr2}属性の時は【.*?】に効果が変化する。,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""attr""}|{""sugo_shift_attr"" : ""$attr""}"
 わざシフトタイプ,このコトダマンがクエスト中に敵から受けた攻撃の回数に応じて効果が変化する,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""attacked""}"
 わざシフトタイプ,次の{$val}つからランダムで1つ発動する,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""random""}"
