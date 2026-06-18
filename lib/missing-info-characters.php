@@ -177,12 +177,3 @@ function koto_delete_missing_info_json_single($post_id)
 
     file_put_contents($json_file_path, json_encode(array_values($new_data), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 }
-
-// =========================================================
-// 自動更新のフック設定 (koto-json-reformer内で全て回す際に統合するためフックのみ登録)
-// =========================================================
-add_action('acf/save_post', function ($post_id) {
-    if (get_post_type($post_id) === 'character' && get_post_status($post_id) === 'publish') {
-        koto_update_missing_info_json_single($post_id);
-    }
-}, 99, 1);

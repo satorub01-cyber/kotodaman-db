@@ -531,6 +531,9 @@ function koto_auto_update_json_on_save($post_id)
     if ($post->post_status === 'publish') {
         // 公開時は単体上書き処理のみ走る（激速）
         koto_update_search_json_single($post_id);
+        if (function_exists('koto_update_missing_info_json_single')) {
+            koto_update_missing_info_json_single($post_id);
+        }
     }
 }
 
@@ -542,6 +545,9 @@ function koto_auto_update_json_on_trash($new_status, $old_status, $post)
     if ($old_status === 'publish' && $new_status !== 'publish') {
         // 非公開になったらJSONから抜き取る
         koto_delete_search_json_single($post->ID);
+        if (function_exists('koto_delete_missing_info_json_single')) {
+            koto_delete_missing_info_json_single($post->ID);
+        }
     }
 }
 
@@ -569,7 +575,10 @@ function koto_render_json_reform_page()
     // 手動生成ボタンが押された時の処理
     if (isset($_POST['generate_koto_json']) && check_admin_referer('koto_generate_json_action', 'koto_generate_json_nonce')) {
         koto_generate_search_json_all();
-        $message = '<div class="updated"><p>全キャラクターのJSONを手動で再生成しました。</p></div>';
+        if (function_exists('koto_generate_missing_info_json_all')) {
+            koto_generate_missing_info_json_all();
+        }
+        $message = '<div class="updated"><p>全キャラクターの検索用JSONおよび未入力情報JSONを手動で再生成しました。</p></div>';
     }
 
     // 常に現在のファイルの中身を読み込んで整形
@@ -583,6 +592,18 @@ function koto_render_json_reform_page()
         }
     }
 
+    // 未入力用JSONの中身を読み込んで整形
+    $missing_json_file_path = get_stylesheet_directory() . '/lib/missing-info.json';
+    $missing_json_preview = '';
+    $missing_char_count = 0;
+    if (file_exists($missing_json_file_path)) {
+        $missing_raw_data = json_decode(file_get_contents($missing_json_file_path), true);
+        if (is_array($missing_raw_data)) {
+            $missing_char_count = count($missing_raw_data);
+            $missing_json_preview = json_encode($missing_raw_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        }
+    }
+
     echo '<div class="wrap">';
     echo '<h1>検索用JSONファイル 管理画面</h1>';
     echo $message;
@@ -593,14 +614,17 @@ function koto_render_json_reform_page()
     echo '<p>';
     echo '<input type="submit" name="generate_koto_json" class="button button-primary" value="全件を手動で再生成する (リセット用)">';
     if (!empty($current_json_preview)) {
-        echo ' <button type="button" id="download-koto-json" class="button">JSONをダウンロード</button>';
+        echo ' <button type="button" id="download-koto-json" class="button">検索用JSONをダウンロード</button>';
+    }
+    if (!empty($missing_json_preview)) {
+        echo ' <button type="button" id="download-missing-json" class="button">未入力JSONをダウンロード</button>';
     }
     echo '</p>';
     echo '</form>';
 
-    echo '<h2>現在のファイル内容 (' . intval($char_count) . 'キャラ収録)</h2>';
+    echo '<h2>検索用JSONファイル内容 (' . intval($char_count) . 'キャラ収録)</h2>';
     if (!empty($current_json_preview)) {
-        echo '<textarea id="koto-json-preview-area" style="width: 100%; height: 600px; font-family: monospace; background: #fff; padding: 10px; border: 1px solid #ccc; white-space: pre;" readonly>' . esc_textarea($current_json_preview) . '</textarea>';
+        echo '<textarea id="koto-json-preview-area" style="width: 100%; height: 400px; font-family: monospace; background: #fff; padding: 10px; border: 1px solid #ccc; white-space: pre;" readonly>' . esc_textarea($current_json_preview) . '</textarea>';
         echo '<script>
             document.getElementById("download-koto-json").addEventListener("click", function() {
                 var content = document.getElementById("koto-json-preview-area").value;
@@ -621,6 +645,31 @@ function koto_render_json_reform_page()
         </script>';
     } else {
         echo '<p style="color: red;">まだJSONファイルが存在しないか、データが空です。「全件を手動で再生成する」ボタンを押してください。</p>';
+    }
+
+    echo '<h2 style="margin-top: 30px;">未入力キャラJSONファイル内容 (' . intval($missing_char_count) . 'キャラ収録)</h2>';
+    if (!empty($missing_json_preview)) {
+        echo '<textarea id="koto-missing-json-preview-area" style="width: 100%; height: 300px; font-family: monospace; background: #fff; padding: 10px; border: 1px solid #ccc; white-space: pre;" readonly>' . esc_textarea($missing_json_preview) . '</textarea>';
+        echo '<script>
+            document.getElementById("download-missing-json").addEventListener("click", function() {
+                var content = document.getElementById("koto-missing-json-preview-area").value;
+                if (!content) {
+                    alert("ダウンロードするデータがありません。");
+                    return;
+                }
+                var blob = new Blob([content], { type: "application/json" });
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = "missing-info.json";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            });
+        </script>';
+    } else {
+        echo '<p style="color: green;">現在、未入力のキャラクターはいません（またはファイルが未生成です）。</p>';
     }
     echo '</div>';
 }
