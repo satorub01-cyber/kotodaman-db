@@ -1032,6 +1032,7 @@ add_action('wp_footer', function () {
 // ACFフロントエディター（管理画面版）の読み込み
 require_once get_stylesheet_directory() . '/lib/acf/acf-editor.php';
 require_once get_stylesheet_directory() . '/lib/character-search/koto-json-reformer.php';
+require_once get_stylesheet_directory() . '/lib/missing-info-characters.php';
 
 $current_domain = $_SERVER['HTTP_HOST'] ?? '';
 if (str_ends_with($current_domain, 'kotodaman-db.com')) {

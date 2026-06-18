@@ -7,36 +7,6 @@
 get_header();
 $x_account_id = 'kotodamanDB';
 
-/**
- * 判定用関数：指定された技データの配列内に、
- * type='attack' かつ valueが未入力(0 or 空)のものがあるかチェック
- * * @param array $move_data _spec_json内の [waza] や [sugowaza] の配列
- * @param bool $is_estimate 推定フラグ
- * @return boolean 未入力があれば true
- */
-function is_attack_value_missing($move_data, $is_estimate = false)
-{
-    if ($is_estimate) return true;
-
-    // データがない、または変な形式なら除外
-    if (empty($move_data) || !is_array($move_data)) return false;
-    if (empty($move_data['variations']) || !is_array($move_data['variations'])) return false;
-
-    foreach ($move_data['variations'] as $variation) {
-        if (empty($variation['timeline']) || !is_array($variation['timeline'])) continue;
-
-        foreach ($variation['timeline'] as $action) {
-            // typeキーがあり、かつ 'attack' を含む（attack, all_attack, random_attack等）
-            if (isset($action['type']) && (strpos($action['type'], 'attack') !== false || strpos($action['type'], 'heal') !== false)) {
-                // valueが 0, "0", "", null の場合は未入力とみなす
-                if (empty($action['value'])) {
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
-}
 ?>
 
 <div id="content" class="content">
@@ -67,70 +37,27 @@ function is_attack_value_missing($move_data, $is_estimate = false)
                         </thead>
                         <tbody>
                             <?php
-                            // IDだけを取得して高速化
-                            $args = array(
-                                'post_type'      => 'character',
-                                'post_status'    => 'publish',
-                                'posts_per_page' => -1,
-                                'fields'         => 'ids',
-                            );
+                            $json_path = get_stylesheet_directory() . '/lib/missing-info.json';
+                            $missing_data = [];
+                            if (file_exists($json_path)) {
+                                $json_content = file_get_contents($json_path);
+                                if ($json_content) {
+                                    $missing_data = json_decode($json_content, true);
+                                    if (!is_array($missing_data)) $missing_data = [];
+                                }
+                            }
 
-                            $the_query = new WP_Query($args);
-                            $has_missing_data = false; // 1件でも見つかったかどうかのフラグ
+                            $has_missing_data = !empty($missing_data); // 1件でも見つかったかどうかのフラグ
 
-                            if ($the_query->have_posts()) :
-                                while ($the_query->have_posts()) : $the_query->the_post();
-                                    $post_id = get_the_ID();
+                            if ($has_missing_data) :
+                                foreach ($missing_data as $data) :
+                                    $post_id = $data['id'];
+                                    $char_name = $data['name'];
+                                    $missing_parts = $data['missing'];
 
-                                    // データ取得
-                                    $raw_data = get_post_meta($post_id, '_spec_json', true);
-
-                                    // 【修正点】データが文字列（JSON）ならデコード、配列ならそのまま使う
-                                    if (is_string($raw_data)) {
-                                        $data = json_decode($raw_data, true);
-                                    } elseif (is_array($raw_data)) {
-                                        $data = $raw_data;
-                                    } else {
-                                        $data = null;
-                                    }
-
-                                    $is_estimate = !empty($data['is_estimate']);
-                                    $is_koto_estimate = !empty($data['is_koto_estimate']);
-
-                                    // 各要素をチェック
-                                    $missing_parts = [];
-
-                                    // わざ
-                                    if (isset($data['waza']) && is_attack_value_missing($data['waza'], $is_estimate)) {
-                                        $missing_parts[] = 'わざ';
-                                    }
-                                    // すごわざ
-                                    if (isset($data['sugowaza']) && is_attack_value_missing($data['sugowaza'], $is_estimate)) {
-                                        $missing_parts[] = 'すごわざ';
-                                    }
-                                    // 3. ことわざ (配列構造に対応)
-                                    if (isset($data['kotowaza']) && is_array($data['kotowaza']) && !empty($data['kotowaza'])) {
-                                        $all_koto_missing = true;
-                                        foreach ($data['kotowaza'] as $k_level) {
-                                            // 1つでも入力済み（missingではない）があればフラグを下ろして終了
-                                            if (!is_attack_value_missing($k_level, $is_estimate)) {
-                                                $all_koto_missing = false;
-                                                break;
-                                            }
-                                        }
-                                        // 全て未入力だった場合のみ追加
-                                        if ($all_koto_missing) {
-                                            $missing_parts[] = 'ことわざ';
-                                        }
-                                    }
-
-                                    // 何か一つでも欠けていれば表示
-                                    if (!empty($missing_parts)) :
-                                        $has_missing_data = true;
-                                        // ★X投稿用のURLを作成
-                                        $char_name = get_the_title($post_id);
-                                        $tweet_text = "@" . $x_account_id . " 【情報提供】" . $char_name . "のデータについて\n";
-                                        $x_url = 'https://twitter.com/intent/tweet?text=' . urlencode($tweet_text);
+                                    // ★X投稿用のURLを作成
+                                    $tweet_text = "@" . $x_account_id . " 【情報提供】" . $char_name . "のデータについて\n";
+                                    $x_url = 'https://twitter.com/intent/tweet?text=' . urlencode($tweet_text);
                             ?>
                                         <tr>
                                             <td><?php echo esc_html($char_name); ?></td>
@@ -146,10 +73,8 @@ function is_attack_value_missing($move_data, $is_estimate = false)
                                             </td>
                                         </tr>
                             <?php
-                                    endif;
-                                endwhile;
+                                endforeach;
                             endif;
-                            wp_reset_postdata();
                             ?>
                         </tbody>
                     </table>
