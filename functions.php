@@ -1217,3 +1217,48 @@ function test_acf_mapping_shortcode()
     return ob_get_clean();
 }
 add_shortcode('test_acf_mapping', 'test_acf_mapping_shortcode');
+
+// 管理画面のダッシュボード上部（ admin_notices ）にランダム変更ボタンを設置
+function add_random_color_theme_button()
+{
+    // 処理用のURL（現在のページURLにクエリパラメータを付与）
+    $ajax_url = wp_nonce_url(add_query_arg('action', 'set_random_admin_color'), 'random_color_nonce');
+
+    echo '<div class="notice notice-info is-dismissible" style="margin-top: 15px;">';
+    echo '<p>🎨 <a href="' . esc_url($ajax_url) . '" class="button button-primary">管理者の管理画面のテーマ色をランダムに変える</a></p>';
+    echo '</div>';
+}
+add_action('admin_notices', 'add_random_color_theme_button');
+
+// ボタンが押されたときの処理
+function handle_random_admin_color_change()
+{
+    if (isset($_GET['action']) && $_GET['action'] === 'set_random_admin_color') {
+        // セキュリティチェック（Nonceの検証）
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'random_color_nonce')) {
+            wp_die('セキュリティエラーが発生しました。');
+        }
+
+        // WordPress標準のテーマ色スラッグのリスト
+        $schemes = ['fresh', 'light', 'blue', 'coffee', 'ectoplasm', 'midnight', 'ocean', 'sunrise'];
+
+        // ランダムに1つ選択
+        $random_scheme = $schemes[array_rand($schemes)];
+
+        // 現在のユーザーIDを取得してメタデータを更新
+        $user_id = get_current_user_id();
+        update_user_meta($user_id, 'admin_color', $random_scheme);
+        update_user_meta(1, 'admin_color', $random_scheme);
+
+        // クエリパラメータを除去した元のURLに戻してリロード
+        $redirect_url = remove_query_arg(['action', '_wpnonce']);
+        wp_safe_redirect($redirect_url);
+        exit;
+    }
+}
+add_action('admin_init', 'handle_random_admin_color_change');
+
+add_filter('manage_users_columns', function ($columns) {
+    $columns['user_id'] = 'ID';
+    return $columns;
+});
