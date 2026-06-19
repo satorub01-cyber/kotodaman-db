@@ -1243,11 +1243,12 @@ function handle_random_admin_color_change()
         $schemes = ['fresh', 'light', 'blue', 'coffee', 'ectoplasm', 'midnight', 'ocean', 'sunrise'];
 
         // ランダムに1つ選択
-        $random_scheme = $schemes[array_rand($schemes)];
-
+        
         // 現在のユーザーIDを取得してメタデータを更新
         $user_id = get_current_user_id();
+        $random_scheme = $schemes[array_rand($schemes)];
         update_user_meta($user_id, 'admin_color', $random_scheme);
+        $random_scheme = $schemes[array_rand($schemes)];
         update_user_meta(1, 'admin_color', $random_scheme);
 
         // クエリパラメータを除去した元のURLに戻してリロード
