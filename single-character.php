@@ -147,6 +147,14 @@ $cv = $spec_data['cv'] ?? ($all_fields['voice_actor'] ?? null);
 $acquisition = $spec_data['acquisition'] ?? ($all_fields['get_place'] ?? null);
 $max_lv = $spec_data['max_lavel'] ?? 99;
 
+$moji_axis_tags = get_post_meta($post_id, '_search_tags_str', true) ?: '';
+$moji_axis_map = function_exists('koto_moji_axis_map') ? koto_moji_axis_map() : [];
+$moji_axis_labels = array_map(function ($slug) use ($moji_axis_map) {
+    return $moji_axis_map[$slug] ?? $slug;
+}, $moji_axis_tags);
+$moji_axis_display = !empty($moji_axis_labels) ? implode('・', $moji_axis_labels) : 'なし';
+
+
 ?>
 
 <div class="character-visual">
@@ -369,6 +377,14 @@ $max_lv = $spec_data['max_lavel'] ?? 99;
                 }
             }
             echo !empty($links) ? implode('・', $links) : '未入力';
+            ?>
+        </dd>
+    </dl>
+    <dl class="spec-row full-width">
+        <dt>文字軸</dt>
+        <dd>
+            <?php
+            echo esc_html($moji_axis_display);
             ?>
         </dd>
     </dl>

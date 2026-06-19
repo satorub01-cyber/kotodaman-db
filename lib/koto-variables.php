@@ -156,3 +156,13 @@ function koto_get_trait_search_label_map()
         'other_other' => 'その他の固有とくせい',
     ];
 }
+
+function koto_moji_axis_map(){
+    return [
+        'axis_i' => 'い軸',
+        'axis_u' => 'う軸',
+        'axis_youon' => 'やゆよ軸',
+        'char_small_yuyo' => '小文字ゆよ',
+        'char_connector' => 'つなぎ文字',
+    ];
+}

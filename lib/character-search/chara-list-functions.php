@@ -38,6 +38,14 @@ function koto_get_column_config()
             'header_class' => 'th-moji',
             'related_filters' => ['search_char']
         ],
+        'moji_axis' => [
+            'label' => '文字軸',
+            'class' => 'col-moji-axis',
+            'sort'  => null,
+            'show'  => false,
+            'header_class' => 'th-moji-axis',
+            'related_filters' => ['tx_axis[]']
+        ],
         'attr' => [
             'label' => '属性',
             'class' => 'col-attr',
