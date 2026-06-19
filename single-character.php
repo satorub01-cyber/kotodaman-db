@@ -148,10 +148,12 @@ $acquisition = $spec_data['acquisition'] ?? ($all_fields['get_place'] ?? null);
 $max_lv = $spec_data['max_lavel'] ?? 99;
 
 $moji_axis_tags = get_post_meta($post_id, '_search_tags_str', true) ?: '';
-$moji_axis_map = function_exists('koto_moji_axis_map') ? koto_moji_axis_map() : [];
-$moji_axis_labels = array_map(function ($slug) use ($moji_axis_map) {
-    return $moji_axis_map[$slug] ?? $slug;
-}, $moji_axis_tags);
+if (!empty($moji_axis_tags)) {
+    $moji_axis_map = function_exists('koto_moji_axis_map') ? koto_moji_axis_map() : [];
+    $moji_axis_labels = array_map(function ($slug) use ($moji_axis_map) {
+        return $moji_axis_map[$slug] ?? $slug;
+    }, $moji_axis_tags);
+}
 $moji_axis_display = !empty($moji_axis_labels) ? implode('・', $moji_axis_labels) : 'なし';
 
 
@@ -730,6 +732,25 @@ if ($charge_name || $charge_loop):
                         endforeach;
                     endif;
                     ?>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
+<?php
+// =================================================================
+//  専用コトバースト
+// =================================================================
+if (!empty($all_fields['koto_burst_text'])):
+?>
+    <div class="skill-card card-burst">
+        <div class="skill-badge-area"><span class="skill-badge badge-burst">専用コトバースト</span></div>
+        <div class="skill-row">
+            <span class="label-tag tag-effect">効果</span>
+            <div class="skill-text-block">
+                <div class="skill-text-area">
+                    <?php echo esc_html($all_fields['koto_burst_text']); ?>
                 </div>
             </div>
         </div>
