@@ -621,28 +621,36 @@ function force_update_all_characters_index()
         require_once $calc_file;
     }
 
-    // 4. 全キャラクター取得
-    $args = [
-        'post_type'      => 'character',
-        'posts_per_page' => -1,
-        'post_status'    => 'publish', // 公開済みのみ
-        'fields'         => 'ids',     // IDだけ取得
-    ];
-    $query = new WP_Query($args);
+    // 4. 全キャラクター取得を 100 件ずつのバッチ処理で実行
+    $posts_per_page = 100;
+    $paged = isset($_GET['batch_page']) ? max(1, intval($_GET['batch_page'])) : 1;
+    $count = 0;
 
     echo '<div style="background:#fff; padding:20px; border:2px solid #00a0d2; margin:20px; z-index:9999; position:relative;">';
     echo "<h3>デバッグ情報</h3>";
     echo "<ul>";
     echo "<li>計算ファイルパス: " . $calc_file . " (" . (file_exists($calc_file) ? '発見' : '見つかりません') . ")</li>";
-    echo "<li>対象キャラクター数: " . $query->found_posts . " 体</li>";
     echo "<li>保存関数 (on_save_character_specs): " . (function_exists('on_save_character_specs') ? '有効' : '無効(見つかりません)') . "</li>";
     echo "</ul>";
 
-    $count = 0;
+    $args = [
+        'post_type'      => 'character',
+        'posts_per_page' => $posts_per_page,
+        'post_status'    => 'publish',
+        'fields'         => 'ids',
+        'paged'          => $paged,
+    ];
+
+    $query = new WP_Query($args);
+    $found_posts = $query->found_posts;
+
+    echo "<ul>";
+    echo "<li>対象キャラクター数: " . $found_posts . " 体</li>";
+    echo "<li>現在のバッチ: " . $paged . " / " . max(1, $query->max_num_pages) . "</li>";
+    echo "</ul>";
+
     if ($query->have_posts()) {
         foreach ($query->posts as $post_id) {
-
-            // 関数が存在する場合のみ実行
             if (function_exists('on_save_character_specs')) {
                 on_save_character_specs($post_id);
                 $count++;
@@ -650,15 +658,23 @@ function force_update_all_characters_index()
         }
     }
 
-    // 完了メッセージ
+    wp_reset_postdata();
+
     echo "<h3>更新結果</h3>";
     echo "<p><strong>{$count}</strong> 体のデータを更新しました。</p>";
 
-    if ($count === 0 && $query->found_posts > 0) {
+    if ($count === 0 && $found_posts > 0) {
         echo "<p style='color:red;'>※キャラクターはいるのに更新数が0です。保存関数が読み込めていません。<br>koto-calc.php がテーマフォルダ直下にあるか確認してください。</p>";
     }
 
-    echo '<a href="' . remove_query_arg('run_update_index') . '" style="display:inline-block; margin-top:10px; padding:10px 20px; background:#00a0d2; color:#fff; text-decoration:none;">元の画面に戻る</a>';
+    if ($query->max_num_pages > $paged) {
+        $next_page = $paged + 1;
+        $next_url = add_query_arg(['run_update_index' => '1', 'batch_page' => $next_page]);
+        echo '<a href="' . esc_url($next_url) . '" style="display:inline-block; margin-top:10px; padding:10px 20px; background:#00a0d2; color:#fff; text-decoration:none;">次の100体を更新</a>';
+    } else {
+        echo '<a href="' . remove_query_arg(['run_update_index', 'batch_page']) . '" style="display:inline-block; margin-top:10px; padding:10px 20px; background:#00a0d2; color:#fff; text-decoration:none;">元の画面に戻る</a>';
+    }
+
     echo '</div>';
     exit;
 }
@@ -1243,7 +1259,6 @@ function handle_random_admin_color_change()
         $schemes = ['fresh', 'light', 'blue', 'coffee', 'ectoplasm', 'midnight', 'ocean', 'sunrise'];
 
         // ランダムに1つ選択
-        
         // 現在のユーザーIDを取得してメタデータを更新
         $user_id = get_current_user_id();
         $random_scheme = $schemes[array_rand($schemes)];
