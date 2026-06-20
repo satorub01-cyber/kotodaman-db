@@ -912,15 +912,26 @@ function koto_custom_search_template($template)
 // キャラクターアーカイブ (/character/) を検索結果へリダイレクト
 // =================================================================
 add_action('template_redirect', function () {
-    // キャラクターのアーカイブページ、かつ検索ページでない場合
+    // キャラクターのアーカイブページ、かつ検索ページ（sパラメータが存在する状態）でない場合
     if (is_post_type_archive('character') && !is_search()) {
 
-        // 検索クエリ（全件表示）付きのURLを生成
-        // ?s=&post_type=character
-        $search_url = home_url('/?s=&post_type=character');
+        // 現在のURLパラメータを連想配列として取得
+        $url_params = $_GET;
 
-        // リダイレクト実行 (301: 恒久的な移動)
-        wp_safe_redirect($search_url, 301);
+        // s パラメータが含まれていない、またはnullの場合に空文字で追加
+        if (!isset($url_params['s'])) {
+            $url_params['s'] = '';
+        }
+
+        // 現在のベースURLを取得
+        $base_url = home_url('/');
+
+        // パラメータをURLクエリ文字列に再構築して合体させる
+        // 例: ?post_type=character&tx_attr%5B0%5D=light&s=
+        $redirect_url = add_query_arg($url_params, $base_url);
+
+        // リダイレクトを実行
+        wp_safe_redirect($redirect_url);
         exit;
     }
 });
