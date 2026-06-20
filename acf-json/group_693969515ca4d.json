@@ -1,0 +1,1801 @@
+{
+    "key": "group_693969515ca4d",
+    "title": "キャラクターリーダーとくせい",
+    "fields": [
+        {
+            "key": "field_6930525abfd59",
+            "label": "最大HP倍率",
+            "name": "max_ls_hp",
+            "aria-label": "",
+            "type": "text",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "maxlength": "",
+            "allow_in_bindings": 0,
+            "placeholder": "",
+            "prepend": "",
+            "append": ""
+        },
+        {
+            "key": "field_69305287bfd5a",
+            "label": "最大ATK倍率",
+            "name": "max_ls_atk",
+            "aria-label": "",
+            "type": "text",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "maxlength": "",
+            "allow_in_bindings": 0,
+            "placeholder": "",
+            "prepend": "",
+            "append": ""
+        },
+        {
+            "key": "field_692d150d17187",
+            "label": "リーダーとくせい",
+            "name": "ls_loop",
+            "aria-label": "",
+            "type": "repeater",
+            "instructions": "ゲーム内で丸数字で分けられてる場合",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "acfe_repeater_stylised_button": 1,
+            "layout": "block",
+            "pagination": 0,
+            "min": 0,
+            "max": 0,
+            "collapsed": "field_692e408c77f14",
+            "button_label": "リーダーとくせいを追加",
+            "rows_per_page": 20,
+            "sub_fields": [
+                {
+                    "key": "field_693cfae5da5e1",
+                    "label": "リーダーとくせい",
+                    "name": "",
+                    "aria-label": "",
+                    "type": "accordion",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": 0,
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "open": 0,
+                    "multi_expand": 0,
+                    "endpoint": 0,
+                    "parent_repeater": "field_692d150d17187"
+                },
+                {
+                    "key": "field_692e408c77f14",
+                    "label": "リーダー特性タイプ",
+                    "name": "ls_type",
+                    "aria-label": "",
+                    "type": "select",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": 0,
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "choices": {
+                        "fixed": "固定値",
+                        "per_unit": "キャラ数に応じた倍率",
+                        "exp_up": "プレイヤー経験値UP",
+                        "over_healing": "オーバーヒール",
+                        "over_attack": "攻撃回数に応じたバフ",
+                        "converged": "収束付与",
+                        "corruption": "腐敗付与",
+                        "random_crit": "乱打クリティカル付与",
+                        "damage_cut": "低ダメージ無効"
+                    },
+                    "default_value": "fixed",
+                    "return_format": "value",
+                    "multiple": 0,
+                    "allow_null": 0,
+                    "allow_in_bindings": 0,
+                    "ui": 0,
+                    "ajax": 0,
+                    "placeholder": "",
+                    "create_options": 0,
+                    "save_options": 0,
+                    "allow_custom": 0,
+                    "search_placeholder": "",
+                    "parent_repeater": "field_692d150d17187"
+                },
+                {
+                    "key": "field_692e362d0a783",
+                    "label": "発動条件",
+                    "name": "ls_cond_pattern_loop",
+                    "aria-label": "",
+                    "type": "repeater",
+                    "instructions": "or条件を作る",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "fixed"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "acfe_repeater_stylised_button": 1,
+                    "layout": "block",
+                    "min": 0,
+                    "max": 0,
+                    "collapsed": "",
+                    "button_label": "発動条件（or）を追加",
+                    "rows_per_page": 20,
+                    "parent_repeater": "field_692d150d17187",
+                    "sub_fields": [
+                        {
+                            "key": "field_692e362d0a784",
+                            "label": "発動条件の詳細",
+                            "name": "ls_cond_loop",
+                            "aria-label": "",
+                            "type": "repeater",
+                            "instructions": "火、水、木各三体以上のようなAND条件",
+                            "required": 0,
+                            "conditional_logic": 0,
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "acfe_repeater_stylised_button": 1,
+                            "layout": "block",
+                            "min": 0,
+                            "max": 0,
+                            "collapsed": "",
+                            "button_label": "発動条件(and)を追加",
+                            "rows_per_page": 20,
+                            "parent_repeater": "field_692e362d0a783",
+                            "sub_fields": [
+                                {
+                                    "key": "field_692e362d0a785",
+                                    "label": "発動条件タイプ",
+                                    "name": "ls_cond_type",
+                                    "aria-label": "",
+                                    "type": "select",
+                                    "instructions": "",
+                                    "required": 0,
+                                    "conditional_logic": 0,
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "choices": {
+                                        "chara_num": "キャラ編成指定",
+                                        "moji_count": "文字数",
+                                        "combo": "コンボ数",
+                                        "theme": "テーマ指定",
+                                        "moji_contain": "含まれる文字指定",
+                                        "cooperate": "同時攻撃",
+                                        "wave_count": "WAVEが進むごとに"
+                                    },
+                                    "default_value": false,
+                                    "return_format": "value",
+                                    "multiple": 0,
+                                    "allow_null": 0,
+                                    "allow_in_bindings": 0,
+                                    "ui": 0,
+                                    "ajax": 0,
+                                    "placeholder": "",
+                                    "create_options": 0,
+                                    "save_options": 0,
+                                    "allow_custom": 0,
+                                    "search_placeholder": "",
+                                    "parent_repeater": "field_692e362d0a784"
+                                },
+                                {
+                                    "key": "field_692e362d0a786",
+                                    "label": "発動条件の値",
+                                    "name": "ls_cond_val",
+                                    "aria-label": "",
+                                    "type": "text",
+                                    "instructions": "文字数、コンボ数、編成数条件は半角数字のみ\r\n複数文字書く場合は「,」で区切る",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_692e362d0a785",
+                                                "operator": "!=",
+                                                "value": "chara_num"
+                                            },
+                                            {
+                                                "field": "field_692e362d0a785",
+                                                "operator": "!=empty"
+                                            },
+                                            {
+                                                "field": "field_692e362d0a785",
+                                                "operator": "!=",
+                                                "value": "wave_count"
+                                            },
+                                            {
+                                                "field": "field_692e362d0a785",
+                                                "operator": "!=",
+                                                "value": "cooperate"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "default_value": "",
+                                    "maxlength": "",
+                                    "allow_in_bindings": 0,
+                                    "placeholder": "",
+                                    "prepend": "",
+                                    "append": "",
+                                    "parent_repeater": "field_692e362d0a784"
+                                },
+                                {
+                                    "key": "field_695a6d7b57e1e",
+                                    "label": "同時攻撃するキャラ",
+                                    "name": "cooperate_target_loop",
+                                    "aria-label": "",
+                                    "type": "repeater",
+                                    "instructions": "",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_692e362d0a785",
+                                                "operator": "==",
+                                                "value": "cooperate"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "acfe_repeater_stylised_button": 1,
+                                    "layout": "block",
+                                    "pagination": 0,
+                                    "min": 0,
+                                    "max": 0,
+                                    "collapsed": "",
+                                    "button_label": "行を追加",
+                                    "rows_per_page": 20,
+                                    "parent_repeater": "field_692e362d0a784",
+                                    "sub_fields": [
+                                        {
+                                            "key": "field_695a6dbe57e2a",
+                                            "label": "対象",
+                                            "name": "target_type",
+                                            "aria-label": "",
+                                            "type": "select",
+                                            "instructions": "",
+                                            "required": 0,
+                                            "conditional_logic": 0,
+                                            "wrapper": {
+                                                "width": "",
+                                                "class": "",
+                                                "id": ""
+                                            },
+                                            "choices": {
+                                                "all": "パーティー内全員",
+                                                "attr": "属性",
+                                                "species": "種族",
+                                                "group": "グループ",
+                                                "moji": "文字",
+                                                "other": "その他"
+                                            },
+                                            "default_value": false,
+                                            "return_format": "",
+                                            "multiple": 0,
+                                            "allow_null": 0,
+                                            "allow_in_bindings": 0,
+                                            "ui": 0,
+                                            "ajax": 0,
+                                            "placeholder": "",
+                                            "create_options": 0,
+                                            "save_options": 0,
+                                            "allow_custom": 0,
+                                            "search_placeholder": "",
+                                            "parent_repeater": "field_695a6d7b57e1e"
+                                        },
+                                        {
+                                            "key": "field_695a6e0857e2b",
+                                            "label": "属性",
+                                            "name": "target_attr",
+                                            "aria-label": "",
+                                            "type": "taxonomy",
+                                            "instructions": "",
+                                            "required": 0,
+                                            "conditional_logic": [
+                                                [
+                                                    {
+                                                        "field": "field_695a6dbe57e2a",
+                                                        "operator": "==",
+                                                        "value": "attr"
+                                                    }
+                                                ]
+                                            ],
+                                            "wrapper": {
+                                                "width": "",
+                                                "class": "",
+                                                "id": ""
+                                            },
+                                            "taxonomy": "attribute",
+                                            "add_term": 0,
+                                            "save_terms": 0,
+                                            "load_terms": 0,
+                                            "return_format": "object",
+                                            "field_type": "checkbox",
+                                            "acfe_bidirectional": {
+                                                "acfe_bidirectional_enabled": "0"
+                                            },
+                                            "allow_in_bindings": 0,
+                                            "bidirectional": 0,
+                                            "multiple": 0,
+                                            "allow_null": 0,
+                                            "bidirectional_target": [],
+                                            "parent_repeater": "field_695a6d7b57e1e"
+                                        },
+                                        {
+                                            "key": "field_695a6e9c57e2c",
+                                            "label": "種族",
+                                            "name": "target_species",
+                                            "aria-label": "",
+                                            "type": "taxonomy",
+                                            "instructions": "",
+                                            "required": 0,
+                                            "conditional_logic": [
+                                                [
+                                                    {
+                                                        "field": "field_695a6dbe57e2a",
+                                                        "operator": "==",
+                                                        "value": "species"
+                                                    }
+                                                ]
+                                            ],
+                                            "wrapper": {
+                                                "width": "",
+                                                "class": "",
+                                                "id": ""
+                                            },
+                                            "taxonomy": "species",
+                                            "add_term": 0,
+                                            "save_terms": 0,
+                                            "load_terms": 0,
+                                            "return_format": "object",
+                                            "field_type": "checkbox",
+                                            "acfe_bidirectional": {
+                                                "acfe_bidirectional_enabled": "0"
+                                            },
+                                            "allow_in_bindings": 0,
+                                            "bidirectional": 0,
+                                            "multiple": 0,
+                                            "allow_null": 0,
+                                            "bidirectional_target": [],
+                                            "parent_repeater": "field_695a6d7b57e1e"
+                                        },
+                                        {
+                                            "key": "field_695a6ebc57e2d",
+                                            "label": "グループ",
+                                            "name": "target_group",
+                                            "aria-label": "",
+                                            "type": "taxonomy",
+                                            "instructions": "",
+                                            "required": 0,
+                                            "conditional_logic": [
+                                                [
+                                                    {
+                                                        "field": "field_695a6dbe57e2a",
+                                                        "operator": "==",
+                                                        "value": "group"
+                                                    }
+                                                ]
+                                            ],
+                                            "wrapper": {
+                                                "width": "",
+                                                "class": "",
+                                                "id": ""
+                                            },
+                                            "taxonomy": "affiliation",
+                                            "add_term": 0,
+                                            "save_terms": 0,
+                                            "load_terms": 0,
+                                            "return_format": "object",
+                                            "field_type": "multi_select",
+                                            "allow_null": 0,
+                                            "acfe_bidirectional": {
+                                                "acfe_bidirectional_enabled": "0"
+                                            },
+                                            "allow_in_bindings": 0,
+                                            "bidirectional": 0,
+                                            "multiple": 0,
+                                            "bidirectional_target": [],
+                                            "parent_repeater": "field_695a6d7b57e1e"
+                                        },
+                                        {
+                                            "key": "field_695a6ede57e2e",
+                                            "label": "文字",
+                                            "name": "target_moji",
+                                            "aria-label": "",
+                                            "type": "taxonomy",
+                                            "instructions": "",
+                                            "required": 0,
+                                            "conditional_logic": [
+                                                [
+                                                    {
+                                                        "field": "field_695a6dbe57e2a",
+                                                        "operator": "==",
+                                                        "value": "moji"
+                                                    }
+                                                ]
+                                            ],
+                                            "wrapper": {
+                                                "width": "",
+                                                "class": "",
+                                                "id": ""
+                                            },
+                                            "taxonomy": "available_moji",
+                                            "add_term": 0,
+                                            "save_terms": 0,
+                                            "load_terms": 0,
+                                            "return_format": "object",
+                                            "field_type": "multi_select",
+                                            "allow_null": 0,
+                                            "acfe_bidirectional": {
+                                                "acfe_bidirectional_enabled": "0"
+                                            },
+                                            "allow_in_bindings": 0,
+                                            "bidirectional": 0,
+                                            "multiple": 0,
+                                            "bidirectional_target": [],
+                                            "parent_repeater": "field_695a6d7b57e1e"
+                                        },
+                                        {
+                                            "key": "field_695a6f0b57e2f",
+                                            "label": "その他",
+                                            "name": "target_other",
+                                            "aria-label": "",
+                                            "type": "text",
+                                            "instructions": "",
+                                            "required": 0,
+                                            "conditional_logic": [
+                                                [
+                                                    {
+                                                        "field": "field_695a6dbe57e2a",
+                                                        "operator": "==",
+                                                        "value": "other"
+                                                    }
+                                                ]
+                                            ],
+                                            "wrapper": {
+                                                "width": "",
+                                                "class": "",
+                                                "id": ""
+                                            },
+                                            "default_value": "",
+                                            "maxlength": "",
+                                            "allow_in_bindings": 0,
+                                            "placeholder": "",
+                                            "prepend": "",
+                                            "append": "",
+                                            "parent_repeater": "field_695a6d7b57e1e"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "key": "field_692e3d1661c26",
+                                    "label": "リーダー特性編成条件の詳細",
+                                    "name": "ls_party_cond_loop",
+                                    "aria-label": "",
+                                    "type": "repeater",
+                                    "instructions": "",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_692e362d0a785",
+                                                "operator": "==",
+                                                "value": "chara_num"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "acfe_repeater_stylised_button": 1,
+                                    "layout": "block",
+                                    "min": 0,
+                                    "max": 0,
+                                    "collapsed": "",
+                                    "button_label": "行を追加",
+                                    "rows_per_page": 20,
+                                    "parent_repeater": "field_692e362d0a784",
+                                    "sub_fields": [
+                                        {
+                                            "key": "field_692e398eda978",
+                                            "label": "対象選択フィールドグループ",
+                                            "name": "target_field_group",
+                                            "aria-label": "",
+                                            "type": "group",
+                                            "instructions": "",
+                                            "required": 0,
+                                            "conditional_logic": 0,
+                                            "wrapper": {
+                                                "width": "",
+                                                "class": "",
+                                                "id": ""
+                                            },
+                                            "layout": "block",
+                                            "parent_repeater": "field_692e3d1661c26",
+                                            "acfe_seamless_style": 0,
+                                            "acfe_group_modal": 0,
+                                            "acfe_group_modal_close": 0,
+                                            "acfe_group_modal_button": "",
+                                            "acfe_group_modal_size": "large",
+                                            "sub_fields": [
+                                                {
+                                                    "key": "field_692e391e46b7c",
+                                                    "label": "編成条件対象",
+                                                    "name": "target_type",
+                                                    "aria-label": "",
+                                                    "type": "select",
+                                                    "instructions": "",
+                                                    "required": 0,
+                                                    "conditional_logic": 0,
+                                                    "wrapper": {
+                                                        "width": "",
+                                                        "class": "",
+                                                        "id": ""
+                                                    },
+                                                    "choices": {
+                                                        "attr": "属性",
+                                                        "species": "種族",
+                                                        "group": "グループ",
+                                                        "other": "その他"
+                                                    },
+                                                    "default_value": false,
+                                                    "return_format": "value",
+                                                    "multiple": 0,
+                                                    "allow_null": 0,
+                                                    "allow_in_bindings": 0,
+                                                    "ui": 0,
+                                                    "ajax": 0,
+                                                    "placeholder": "",
+                                                    "create_options": 0,
+                                                    "save_options": 0,
+                                                    "allow_custom": 0,
+                                                    "search_placeholder": ""
+                                                },
+                                                {
+                                                    "key": "field_692e392a46b7d",
+                                                    "label": "対象の詳細（属性）",
+                                                    "name": "target_attr",
+                                                    "aria-label": "",
+                                                    "type": "taxonomy",
+                                                    "instructions": "",
+                                                    "required": 0,
+                                                    "conditional_logic": [
+                                                        [
+                                                            {
+                                                                "field": "field_692e391e46b7c",
+                                                                "operator": "==",
+                                                                "value": "attr"
+                                                            }
+                                                        ]
+                                                    ],
+                                                    "wrapper": {
+                                                        "width": "",
+                                                        "class": "",
+                                                        "id": ""
+                                                    },
+                                                    "taxonomy": "attribute",
+                                                    "add_term": 0,
+                                                    "save_terms": 0,
+                                                    "load_terms": 0,
+                                                    "return_format": "object",
+                                                    "field_type": "checkbox",
+                                                    "allow_in_bindings": 0,
+                                                    "bidirectional": 0,
+                                                    "multiple": 0,
+                                                    "allow_null": 0,
+                                                    "bidirectional_target": []
+                                                },
+                                                {
+                                                    "key": "field_692e393746b7e",
+                                                    "label": "対象の詳細（種族）",
+                                                    "name": "target_species",
+                                                    "aria-label": "",
+                                                    "type": "taxonomy",
+                                                    "instructions": "",
+                                                    "required": 0,
+                                                    "conditional_logic": [
+                                                        [
+                                                            {
+                                                                "field": "field_692e391e46b7c",
+                                                                "operator": "==",
+                                                                "value": "species"
+                                                            }
+                                                        ]
+                                                    ],
+                                                    "wrapper": {
+                                                        "width": "",
+                                                        "class": "",
+                                                        "id": ""
+                                                    },
+                                                    "taxonomy": "species",
+                                                    "add_term": 0,
+                                                    "save_terms": 0,
+                                                    "load_terms": 0,
+                                                    "return_format": "object",
+                                                    "field_type": "checkbox",
+                                                    "allow_in_bindings": 0,
+                                                    "bidirectional": 0,
+                                                    "multiple": 0,
+                                                    "allow_null": 0,
+                                                    "bidirectional_target": []
+                                                },
+                                                {
+                                                    "key": "field_692e393c46b7f",
+                                                    "label": "対象の詳細（グループ）",
+                                                    "name": "target_group",
+                                                    "aria-label": "",
+                                                    "type": "taxonomy",
+                                                    "instructions": "入力してください",
+                                                    "required": 0,
+                                                    "conditional_logic": [
+                                                        [
+                                                            {
+                                                                "field": "field_692e391e46b7c",
+                                                                "operator": "==",
+                                                                "value": "group"
+                                                            }
+                                                        ]
+                                                    ],
+                                                    "wrapper": {
+                                                        "width": "",
+                                                        "class": "",
+                                                        "id": ""
+                                                    },
+                                                    "taxonomy": "affiliation",
+                                                    "add_term": 0,
+                                                    "save_terms": 0,
+                                                    "load_terms": 0,
+                                                    "return_format": "object",
+                                                    "field_type": "multi_select",
+                                                    "allow_null": 0,
+                                                    "allow_in_bindings": 0,
+                                                    "bidirectional": 0,
+                                                    "multiple": 0,
+                                                    "bidirectional_target": []
+                                                },
+                                                {
+                                                    "key": "field_692e394046b80",
+                                                    "label": "対象の詳細（その他）",
+                                                    "name": "target_other",
+                                                    "aria-label": "",
+                                                    "type": "text",
+                                                    "instructions": "入力してください",
+                                                    "required": 0,
+                                                    "conditional_logic": [
+                                                        [
+                                                            {
+                                                                "field": "field_692e391e46b7c",
+                                                                "operator": "==",
+                                                                "value": "other"
+                                                            }
+                                                        ]
+                                                    ],
+                                                    "wrapper": {
+                                                        "width": "",
+                                                        "class": "",
+                                                        "id": ""
+                                                    },
+                                                    "default_value": "",
+                                                    "maxlength": "",
+                                                    "allow_in_bindings": 0,
+                                                    "placeholder": "",
+                                                    "prepend": "",
+                                                    "append": ""
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "key": "field_69397a0d36b02",
+                                            "label": "合計で○体",
+                                            "name": "total_tf",
+                                            "aria-label": "",
+                                            "type": "true_false",
+                                            "instructions": "",
+                                            "required": 0,
+                                            "conditional_logic": 0,
+                                            "wrapper": {
+                                                "width": "",
+                                                "class": "",
+                                                "id": ""
+                                            },
+                                            "message": "",
+                                            "default_value": 0,
+                                            "allow_in_bindings": 0,
+                                            "ui": 0,
+                                            "ui_on_text": "",
+                                            "ui_off_text": "",
+                                            "parent_repeater": "field_692e3d1661c26"
+                                        },
+                                        {
+                                            "key": "field_692e3d7e61c27",
+                                            "label": "編成必要数",
+                                            "name": "need_chara_num",
+                                            "aria-label": "",
+                                            "type": "text",
+                                            "instructions": "",
+                                            "required": 0,
+                                            "conditional_logic": [
+                                                [
+                                                    {
+                                                        "field": "field_692e408c77f14",
+                                                        "operator": "!=",
+                                                        "value": "per_unit"
+                                                    }
+                                                ]
+                                            ],
+                                            "wrapper": {
+                                                "width": "",
+                                                "class": "",
+                                                "id": ""
+                                            },
+                                            "default_value": "",
+                                            "maxlength": "",
+                                            "allow_in_bindings": 0,
+                                            "placeholder": "",
+                                            "prepend": "",
+                                            "append": "",
+                                            "parent_repeater": "field_692e3d1661c26"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "key": "field_69397ea941c19",
+                    "label": "上限WAVE数",
+                    "name": "limit_wave_count",
+                    "aria-label": "",
+                    "type": "text",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_692e362d0a785",
+                                "operator": "==",
+                                "value": "wave_count"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "default_value": "",
+                    "maxlength": "",
+                    "allow_in_bindings": 0,
+                    "placeholder": "",
+                    "prepend": "",
+                    "append": "",
+                    "parent_repeater": "field_692d150d17187"
+                },
+                {
+                    "key": "field_692e44b23917e",
+                    "label": "補正対象キャラ",
+                    "name": "ls_target_chara_loop",
+                    "aria-label": "",
+                    "type": "repeater",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "fixed"
+                            }
+                        ],
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "over_healing"
+                            }
+                        ],
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "over_attack"
+                            }
+                        ],
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "converged"
+                            }
+                        ],
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "corruption"
+                            }
+                        ],
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "random_crit"
+                            }
+                        ],
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "damage_cut"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "acfe_repeater_stylised_button": 1,
+                    "layout": "block",
+                    "min": 0,
+                    "max": 0,
+                    "collapsed": "",
+                    "button_label": "補正対象キャラを追加",
+                    "rows_per_page": 20,
+                    "parent_repeater": "field_692d150d17187",
+                    "sub_fields": [
+                        {
+                            "key": "field_692e3e94d3452",
+                            "label": "対象選択フィールドグループ",
+                            "name": "target_field_group",
+                            "aria-label": "",
+                            "type": "group",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": 0,
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "layout": "block",
+                            "acfe_seamless_style": 0,
+                            "acfe_group_modal": 0,
+                            "acfe_group_modal_close": 0,
+                            "acfe_group_modal_button": "",
+                            "acfe_group_modal_size": "large",
+                            "parent_repeater": "field_692e44b23917e",
+                            "sub_fields": [
+                                {
+                                    "key": "field_692e3e94d3456",
+                                    "label": "対象",
+                                    "name": "target_type",
+                                    "aria-label": "",
+                                    "type": "select",
+                                    "instructions": "",
+                                    "required": 0,
+                                    "conditional_logic": 0,
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "choices": {
+                                        "all": "パーティー内全員",
+                                        "attr": "属性",
+                                        "species": "種族",
+                                        "group": "グループ",
+                                        "other": "その他"
+                                    },
+                                    "default_value": false,
+                                    "return_format": "value",
+                                    "multiple": 0,
+                                    "allow_null": 0,
+                                    "allow_in_bindings": 0,
+                                    "ui": 0,
+                                    "ajax": 0,
+                                    "placeholder": "",
+                                    "create_options": 0,
+                                    "save_options": 0,
+                                    "allow_custom": 0,
+                                    "search_placeholder": ""
+                                },
+                                {
+                                    "key": "field_692e3e94d3457",
+                                    "label": "対象の詳細（属性）",
+                                    "name": "target_attr",
+                                    "aria-label": "",
+                                    "type": "taxonomy",
+                                    "instructions": "",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_692e3e94d3456",
+                                                "operator": "==",
+                                                "value": "attr"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "taxonomy": "attribute",
+                                    "add_term": 0,
+                                    "save_terms": 0,
+                                    "load_terms": 0,
+                                    "return_format": "object",
+                                    "field_type": "checkbox",
+                                    "acfe_bidirectional": {
+                                        "acfe_bidirectional_enabled": "0"
+                                    },
+                                    "allow_in_bindings": 0,
+                                    "bidirectional": 0,
+                                    "multiple": 0,
+                                    "allow_null": 0,
+                                    "bidirectional_target": []
+                                },
+                                {
+                                    "key": "field_692e3e94d3458",
+                                    "label": "対象の詳細（種族）",
+                                    "name": "target_species",
+                                    "aria-label": "",
+                                    "type": "taxonomy",
+                                    "instructions": "",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_692e3e94d3456",
+                                                "operator": "==",
+                                                "value": "species"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "taxonomy": "species",
+                                    "add_term": 0,
+                                    "save_terms": 0,
+                                    "load_terms": 0,
+                                    "return_format": "object",
+                                    "field_type": "checkbox",
+                                    "acfe_bidirectional": {
+                                        "acfe_bidirectional_enabled": "0"
+                                    },
+                                    "allow_in_bindings": 0,
+                                    "bidirectional": 0,
+                                    "multiple": 0,
+                                    "allow_null": 0,
+                                    "bidirectional_target": []
+                                },
+                                {
+                                    "key": "field_692e3e94d3459",
+                                    "label": "対象の詳細（グループ）",
+                                    "name": "target_group",
+                                    "aria-label": "",
+                                    "type": "taxonomy",
+                                    "instructions": "入力してください",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_692e3e94d3456",
+                                                "operator": "==",
+                                                "value": "group"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "taxonomy": "affiliation",
+                                    "add_term": 0,
+                                    "save_terms": 0,
+                                    "load_terms": 0,
+                                    "return_format": "object",
+                                    "field_type": "multi_select",
+                                    "allow_null": 0,
+                                    "allow_in_bindings": 0,
+                                    "bidirectional": 0,
+                                    "multiple": 0,
+                                    "bidirectional_target": []
+                                },
+                                {
+                                    "key": "field_692e3e94d345a",
+                                    "label": "対象の詳細（その他）",
+                                    "name": "target_other",
+                                    "aria-label": "",
+                                    "type": "text",
+                                    "instructions": "入力してください",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_692e3e94d3456",
+                                                "operator": "==",
+                                                "value": "other"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "default_value": "",
+                                    "maxlength": "",
+                                    "allow_in_bindings": 0,
+                                    "placeholder": "",
+                                    "prepend": "",
+                                    "append": ""
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "key": "field_692e3f0bd345b",
+                    "label": "補正対象ステータス",
+                    "name": "ls_status_loop",
+                    "aria-label": "",
+                    "type": "repeater",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "fixed"
+                            }
+                        ],
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "corruption"
+                            }
+                        ],
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "random_crit"
+                            }
+                        ],
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "damage_cut"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "acfe_repeater_stylised_button": 1,
+                    "layout": "block",
+                    "min": 0,
+                    "max": 0,
+                    "collapsed": "",
+                    "button_label": "対象ステータスを追加",
+                    "rows_per_page": 20,
+                    "parent_repeater": "field_692d150d17187",
+                    "sub_fields": [
+                        {
+                            "key": "field_692e3f3dd345c",
+                            "label": "補正ステータス",
+                            "name": "ls_status",
+                            "aria-label": "",
+                            "type": "select",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": 0,
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "choices": {
+                                "hp": "HP",
+                                "atk": "ATK",
+                                "crit_rate": "クリティカル率",
+                                "mitigation": "ダメージ軽減",
+                                "resistance": "状態異常耐性",
+                                "crit_damage": "クリティカルダメージ",
+                                "corruption_rate": "その他数値"
+                            },
+                            "default_value": false,
+                            "return_format": "value",
+                            "multiple": 0,
+                            "allow_null": 0,
+                            "allow_in_bindings": 0,
+                            "ui": 0,
+                            "ajax": 0,
+                            "placeholder": "",
+                            "create_options": 0,
+                            "save_options": 0,
+                            "allow_custom": 0,
+                            "search_placeholder": "",
+                            "parent_repeater": "field_692e3f0bd345b"
+                        },
+                        {
+                            "key": "field_692e3ffdd345e",
+                            "label": "耐性の対象",
+                            "name": "resist_status",
+                            "aria-label": "",
+                            "type": "select",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": [
+                                [
+                                    {
+                                        "field": "field_692e3f3dd345c",
+                                        "operator": "==",
+                                        "value": "resistance"
+                                    }
+                                ]
+                            ],
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "choices": {
+                                "poison": "毒",
+                                "sleep": "睡眠",
+                                "curse": "呪い",
+                                "confusion": "混乱",
+                                "pollution": "汚染",
+                                "burn": "炎上",
+                                "remodel": "改造",
+                                "weakness": "衰弱",
+                                "mutation": "変異",
+                                "erasure": "消去",
+                                "all": "全て"
+                            },
+                            "default_value": false,
+                            "return_format": "value",
+                            "multiple": 0,
+                            "allow_null": 0,
+                            "allow_in_bindings": 0,
+                            "ui": 0,
+                            "ajax": 0,
+                            "placeholder": "",
+                            "create_options": 0,
+                            "save_options": 0,
+                            "parent_repeater": "field_692e3f0bd345b",
+                            "allow_custom": 0,
+                            "search_placeholder": ""
+                        },
+                        {
+                            "key": "field_692e3fa6d345d",
+                            "label": "補正値",
+                            "name": "rate",
+                            "aria-label": "",
+                            "type": "text",
+                            "instructions": "%はつけず半角数字のみ",
+                            "required": 0,
+                            "conditional_logic": 0,
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "default_value": "",
+                            "maxlength": "",
+                            "allow_in_bindings": 0,
+                            "placeholder": "",
+                            "prepend": "",
+                            "append": "",
+                            "parent_repeater": "field_692e3f0bd345b"
+                        }
+                    ]
+                },
+                {
+                    "key": "field_6930502e9eecf",
+                    "label": "経験値倍率",
+                    "name": "exp_magnification",
+                    "aria-label": "",
+                    "type": "text",
+                    "instructions": "半角数字のみ",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "exp_up"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "default_value": "",
+                    "maxlength": "",
+                    "allow_in_bindings": 0,
+                    "placeholder": "",
+                    "prepend": "",
+                    "append": "",
+                    "parent_repeater": "field_692d150d17187"
+                },
+                {
+                    "key": "field_6932d699370cc",
+                    "label": "キャラ数×○○の効果",
+                    "name": "per_unit_loop",
+                    "aria-label": "",
+                    "type": "repeater",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "per_unit"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "acfe_repeater_stylised_button": 1,
+                    "layout": "block",
+                    "min": 0,
+                    "max": 0,
+                    "collapsed": "",
+                    "button_label": "行を追加",
+                    "rows_per_page": 20,
+                    "parent_repeater": "field_692d150d17187",
+                    "sub_fields": [
+                        {
+                            "key": "field_6932d6c0370cd",
+                            "label": "対象選択フィールドグループ",
+                            "name": "target_field_group",
+                            "aria-label": "",
+                            "type": "group",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": 0,
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "layout": "block",
+                            "acfe_seamless_style": 0,
+                            "acfe_group_modal": 0,
+                            "acfe_group_modal_close": 0,
+                            "acfe_group_modal_button": "",
+                            "acfe_group_modal_size": "large",
+                            "parent_repeater": "field_6932d699370cc",
+                            "sub_fields": [
+                                {
+                                    "key": "field_6932d6c1370d1",
+                                    "label": "対象",
+                                    "name": "target_type",
+                                    "aria-label": "",
+                                    "type": "select",
+                                    "instructions": "",
+                                    "required": 0,
+                                    "conditional_logic": 0,
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "choices": {
+                                        "all": "パーティー内全員",
+                                        "attr": "属性",
+                                        "species": "種族",
+                                        "group": "グループ",
+                                        "other": "その他"
+                                    },
+                                    "default_value": false,
+                                    "return_format": "value",
+                                    "multiple": 0,
+                                    "allow_null": 0,
+                                    "allow_in_bindings": 0,
+                                    "ui": 0,
+                                    "ajax": 0,
+                                    "placeholder": "",
+                                    "create_options": 0,
+                                    "save_options": 0,
+                                    "allow_custom": 0,
+                                    "search_placeholder": ""
+                                },
+                                {
+                                    "key": "field_6932d6c1370d2",
+                                    "label": "対象の詳細（属性）",
+                                    "name": "target_attr",
+                                    "aria-label": "",
+                                    "type": "taxonomy",
+                                    "instructions": "",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_6932d6c1370d1",
+                                                "operator": "==",
+                                                "value": "attr"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "taxonomy": "attribute",
+                                    "add_term": 0,
+                                    "save_terms": 0,
+                                    "load_terms": 0,
+                                    "return_format": "object",
+                                    "field_type": "multi_select",
+                                    "allow_null": 0,
+                                    "allow_in_bindings": 0,
+                                    "bidirectional": 0,
+                                    "multiple": 0,
+                                    "bidirectional_target": []
+                                },
+                                {
+                                    "key": "field_6932d6c1370d3",
+                                    "label": "対象の詳細（種族）",
+                                    "name": "target_species",
+                                    "aria-label": "",
+                                    "type": "taxonomy",
+                                    "instructions": "",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_6932d6c1370d1",
+                                                "operator": "==",
+                                                "value": "species"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "taxonomy": "species",
+                                    "add_term": 0,
+                                    "save_terms": 0,
+                                    "load_terms": 0,
+                                    "return_format": "object",
+                                    "field_type": "multi_select",
+                                    "allow_null": 0,
+                                    "allow_in_bindings": 0,
+                                    "bidirectional": 0,
+                                    "multiple": 0,
+                                    "bidirectional_target": []
+                                },
+                                {
+                                    "key": "field_6932d6c1370d4",
+                                    "label": "対象の詳細（グループ）",
+                                    "name": "target_group",
+                                    "aria-label": "",
+                                    "type": "taxonomy",
+                                    "instructions": "入力してください",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_6932d6c1370d1",
+                                                "operator": "==",
+                                                "value": "group"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "taxonomy": "affiliation",
+                                    "add_term": 0,
+                                    "save_terms": 0,
+                                    "load_terms": 0,
+                                    "return_format": "object",
+                                    "field_type": "multi_select",
+                                    "allow_null": 0,
+                                    "allow_in_bindings": 0,
+                                    "bidirectional": 0,
+                                    "multiple": 0,
+                                    "bidirectional_target": []
+                                },
+                                {
+                                    "key": "field_6932d6c1370d5",
+                                    "label": "対象の詳細（その他）",
+                                    "name": "target_other",
+                                    "aria-label": "",
+                                    "type": "text",
+                                    "instructions": "入力してください",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_6932d6c1370d1",
+                                                "operator": "==",
+                                                "value": "other"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "default_value": "",
+                                    "maxlength": "",
+                                    "allow_in_bindings": 0,
+                                    "placeholder": "",
+                                    "prepend": "",
+                                    "append": ""
+                                }
+                            ]
+                        },
+                        {
+                            "key": "field_6932d6e0370d6",
+                            "label": "補正対象ステータス",
+                            "name": "ls_status_loop",
+                            "aria-label": "",
+                            "type": "repeater",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": [
+                                [
+                                    {
+                                        "field": "field_692e408c77f14",
+                                        "operator": "==",
+                                        "value": "per_unit"
+                                    }
+                                ]
+                            ],
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "acfe_repeater_stylised_button": 1,
+                            "layout": "block",
+                            "min": 0,
+                            "max": 0,
+                            "collapsed": "",
+                            "button_label": "対象ステータスを追加",
+                            "rows_per_page": 20,
+                            "parent_repeater": "field_6932d699370cc",
+                            "sub_fields": [
+                                {
+                                    "key": "field_6932d6e0370d7",
+                                    "label": "補正ステータス",
+                                    "name": "ls_status",
+                                    "aria-label": "",
+                                    "type": "select",
+                                    "instructions": "",
+                                    "required": 0,
+                                    "conditional_logic": 0,
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "choices": {
+                                        "hp": "HP",
+                                        "atk": "ATK",
+                                        "mitigation": "ダメージ軽減",
+                                        "resistance": "状態異常耐性"
+                                    },
+                                    "default_value": false,
+                                    "return_format": "value",
+                                    "multiple": 0,
+                                    "allow_null": 0,
+                                    "allow_in_bindings": 0,
+                                    "ui": 0,
+                                    "ajax": 0,
+                                    "placeholder": "",
+                                    "create_options": 0,
+                                    "save_options": 0,
+                                    "allow_custom": 0,
+                                    "search_placeholder": "",
+                                    "parent_repeater": "field_6932d6e0370d6"
+                                },
+                                {
+                                    "key": "field_6932d6e0370d8",
+                                    "label": "耐性の対象",
+                                    "name": "resist_status",
+                                    "aria-label": "",
+                                    "type": "select",
+                                    "instructions": "",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_6932d6e0370d7",
+                                                "operator": "==",
+                                                "value": "resistance"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "choices": {
+                                        "poison": "毒",
+                                        "sleep": "睡眠",
+                                        "curse": "呪い",
+                                        "confusion": "混乱",
+                                        "pollution": "汚染",
+                                        "burn": "炎上",
+                                        "remodel": "改造",
+                                        "weakness": "衰弱",
+                                        "mutation": "変異",
+                                        "erasure": "消去",
+                                        "all": "全て"
+                                    },
+                                    "default_value": false,
+                                    "return_format": "value",
+                                    "multiple": 0,
+                                    "allow_null": 0,
+                                    "allow_in_bindings": 0,
+                                    "ui": 0,
+                                    "ajax": 0,
+                                    "placeholder": "",
+                                    "create_options": 0,
+                                    "save_options": 0,
+                                    "allow_custom": 0,
+                                    "search_placeholder": "",
+                                    "parent_repeater": "field_6932d6e0370d6"
+                                },
+                                {
+                                    "key": "field_6932d6e0370d9",
+                                    "label": "補正値",
+                                    "name": "rate",
+                                    "aria-label": "",
+                                    "type": "text",
+                                    "instructions": "%はつけず半角数字のみ",
+                                    "required": 0,
+                                    "conditional_logic": 0,
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "relevanssi_exclude": 0,
+                                    "default_value": "",
+                                    "maxlength": "",
+                                    "allow_in_bindings": 0,
+                                    "placeholder": "",
+                                    "prepend": "",
+                                    "append": "",
+                                    "parent_repeater": "field_6932d6e0370d6"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "key": "field_695625916cd65",
+                    "label": "バフ数",
+                    "name": "buff_count",
+                    "aria-label": "",
+                    "type": "text",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "over_attack"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "default_value": "",
+                    "maxlength": "",
+                    "allow_in_bindings": 0,
+                    "placeholder": "",
+                    "prepend": "",
+                    "append": "",
+                    "parent_repeater": "field_692d150d17187"
+                },
+                {
+                    "key": "field_697d82db57ffd",
+                    "label": "収束倍率(2体のとき)",
+                    "name": "converge_rate_2",
+                    "aria-label": "",
+                    "type": "text",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "converged"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "default_value": "",
+                    "maxlength": "",
+                    "allow_in_bindings": 0,
+                    "placeholder": "",
+                    "prepend": "",
+                    "append": "",
+                    "parent_repeater": "field_692d150d17187"
+                },
+                {
+                    "key": "field_697d830b57ffe",
+                    "label": "収束倍率(1体のとき)",
+                    "name": "converge_rate_1",
+                    "aria-label": "",
+                    "type": "text",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "converged"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "default_value": "",
+                    "maxlength": "",
+                    "allow_in_bindings": 0,
+                    "placeholder": "",
+                    "prepend": "",
+                    "append": "",
+                    "parent_repeater": "field_692d150d17187"
+                },
+                {
+                    "key": "field_699c42fccd008",
+                    "label": "ターン数",
+                    "name": "turn_count",
+                    "aria-label": "",
+                    "type": "text",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "corruption"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "default_value": 2,
+                    "maxlength": "",
+                    "allow_in_bindings": 0,
+                    "placeholder": "",
+                    "prepend": "",
+                    "append": "",
+                    "parent_repeater": "field_692d150d17187"
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "post_type",
+                "operator": "==",
+                "value": "character"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "description": "",
+    "show_in_rest": 0,
+    "display_title": "",
+    "allow_ai_access": false,
+    "ai_description": "",
+    "acfe_autosync": [
+        "json"
+    ],
+    "acfe_form": 0,
+    "acfe_meta": {
+        "acfcloneindex": {
+            "acfe_meta_key": "",
+            "acfe_meta_value": ""
+        }
+    },
+    "acfe_note": "",
+    "modified": 1777187990
+}
