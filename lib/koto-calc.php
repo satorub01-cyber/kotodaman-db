@@ -4,6 +4,48 @@
 // =================================================================
 
 /**
+ * リーダーとくせいの最大倍率を leader データから推定する
+ *
+ * @param array|null $leader_data _parse_leader_skill_data の出力
+ * @param int $max_party_size 最大キャラ数
+ * @return array{max_ls_hp:int,max_ls_atk:int}
+ */
+function _calculate_max_leader_skill_multipliers($leader_data, $max_party_size = 12)
+{
+    $max_hp = 0;
+    $max_atk = 0;
+
+    if (empty($leader_data) || !is_array($leader_data)) {
+        return ['max_ls_hp' => 0, 'max_ls_atk' => 0];
+    }
+
+    foreach ($leader_data as $pattern) {
+        $is_per_unit = !empty($pattern['per_unit']);
+        $multiplier = $is_per_unit ? $max_party_size : 1;
+        $main_eff = $pattern['main_eff'] ?? [];
+
+        foreach ($main_eff as $eff) {
+            $value_raws = $eff['value_raws'] ?? [];
+            foreach ($value_raws as $raw) {
+                if (empty($raw['status']) || !isset($raw['value'])) {
+                    continue;
+                }
+                $value = (float)$raw['value'] * $multiplier;
+                $status = $raw['status'];
+                if ($status === 'hp') {
+                    $max_hp += $value;
+                }
+                if ($status === 'atk') {
+                    $max_atk += $value;
+                }
+            }
+        }
+    }
+
+    return ['max_ls_hp' => (int)floor($max_hp), 'max_ls_atk' => (int)floor($max_atk)];
+}
+
+/**
  * キャラクターのスペック情報（計算用・JSON用）をすべて取得する関数
  * ロジックをここに集約します。
  *
@@ -741,6 +783,17 @@ function get_character_spec_data($post_id)
     $ls_loop = get_field('ls_loop', $post_id);
     if ($ls_loop) $data['leader'] = _parse_leader_skill_data($ls_loop);
 
+    // max_ls_hp / max_ls_atk が未入力の場合、リーダー効果から自動推定する
+    if (empty($data['max_ls_hp']) || empty($data['max_ls_atk'])) {
+        $leader_maxes = _calculate_max_leader_skill_multipliers($data['leader'], 12);
+        if (empty($data['max_ls_hp']) && !empty($leader_maxes['max_ls_hp'])) {
+            $data['max_ls_hp'] = $leader_maxes['max_ls_hp'];
+        }
+        if (empty($data['max_ls_atk']) && !empty($leader_maxes['max_ls_atk'])) {
+            $data['max_ls_atk'] = $leader_maxes['max_ls_atk'];
+        }
+    }
+
     $miracle_leader_loop = get_field('miracle_leader_loop', $post_id);
     if ($miracle_leader_loop) $data['miracle_leader'] = _parse_trait_loop_to_data($miracle_leader_loop);
 
@@ -775,6 +828,20 @@ function on_save_character_specs($post_id)
     if (wp_is_post_revision($post_id)) return;
 
     $spec_data = get_character_spec_data($post_id);
+
+    // 保存時に max_ls_hp / max_ls_atk を ACF に反映する。
+    // すでに手動入力がある場合はその値を維持し、自動推定値がある場合は更新する。
+    if (!empty($spec_data['max_ls_hp']) || !empty($spec_data['max_ls_atk'])) {
+        remove_action('acf/save_post', 'on_save_character_specs', 20);
+        if (!empty($spec_data['max_ls_hp'])) {
+            update_field('max_ls_hp', $spec_data['max_ls_hp'], $post_id);
+        }
+        if (!empty($spec_data['max_ls_atk'])) {
+            update_field('max_ls_atk', $spec_data['max_ls_atk'], $post_id);
+        }
+        add_action('acf/save_post', 'on_save_character_specs', 20);
+    }
+
     // ★追加: 属性・種族のカスタムソート用インデックス保存
     // 指定の順番定義
     $order_attr = koto_get_attr_num();
