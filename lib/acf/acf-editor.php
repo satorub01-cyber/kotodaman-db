@@ -143,7 +143,8 @@ add_filter('acf/update_value/type=relationship', 'koto_sanitize_acf_object_value
 add_filter('acf/load_value/type=post_object', 'koto_sanitize_acf_object_value', 5, 3);
 add_filter('acf/update_value/type=post_object', 'koto_sanitize_acf_object_value', 5, 3);
 
-function koto_sanitize_acf_object_value($value, $post_id, $field) {
+function koto_sanitize_acf_object_value($value, $post_id, $field)
+{
     if (empty($value)) return $value;
 
     if (is_array($value)) {
@@ -439,37 +440,40 @@ function koto_acf_editor_handle_actions()
             // フィールドにIDを確実に保存
             update_field('character_image', $attach_id, $post_id);
         } else {
-            // フォールバック画像が既にメディアにあればそれを利用
-            $fallback_attach = attachment_url_to_postid($fallback_url);
-            if (!$fallback_attach) {
-                // メディアに無ければサイドロードして登録する
-                require_once ABSPATH . 'wp-admin/includes/file.php';
-                require_once ABSPATH . 'wp-admin/includes/media.php';
-                require_once ABSPATH . 'wp-admin/includes/image.php';
+            $post_title = get_the_title($post_id);
+            if (!empty(strpos($post_title, '雛'))) {
+                // フォールバック画像が既にメディアにあればそれを利用
+                $fallback_attach = attachment_url_to_postid($fallback_url);
+                if (!$fallback_attach) {
+                    // メディアに無ければサイドロードして登録する
+                    require_once ABSPATH . 'wp-admin/includes/file.php';
+                    require_once ABSPATH . 'wp-admin/includes/media.php';
+                    require_once ABSPATH . 'wp-admin/includes/image.php';
 
-                $tmp = download_url($fallback_url);
-                if (!is_wp_error($tmp)) {
-                    $file_array = [
-                        'name'     => basename($fallback_url),
-                        'tmp_name' => $tmp,
-                    ];
-                    $sideload_id = media_handle_sideload($file_array, $post_id);
-                    if (!is_wp_error($sideload_id)) {
-                        $fallback_attach = $sideload_id;
-                    } else {
-                        @unlink($tmp);
-                        $fallback_attach = 0;
+                    $tmp = download_url($fallback_url);
+                    if (!is_wp_error($tmp)) {
+                        $file_array = [
+                            'name'     => basename($fallback_url),
+                            'tmp_name' => $tmp,
+                        ];
+                        $sideload_id = media_handle_sideload($file_array, $post_id);
+                        if (!is_wp_error($sideload_id)) {
+                            $fallback_attach = $sideload_id;
+                        } else {
+                            @unlink($tmp);
+                            $fallback_attach = 0;
+                        }
                     }
                 }
-            }
 
-            if (!empty($fallback_attach)) {
-                set_post_thumbnail($post_id, $fallback_attach);
-                update_field('character_image', $fallback_attach, $post_id);
-            } else {
-                // 最終手段: サムネイル削除し、フィールドにURLを直接保存
-                delete_post_thumbnail($post_id);
-                update_field('character_image', $fallback_url, $post_id);
+                if (!empty($fallback_attach)) {
+                    set_post_thumbnail($post_id, $fallback_attach);
+                    update_field('character_image', $fallback_attach, $post_id);
+                } else {
+                    // 最終手段: サムネイル削除し、フィールドにURLを直接保存
+                    delete_post_thumbnail($post_id);
+                    update_field('character_image', $fallback_url, $post_id);
+                }
             }
         }
     }, 20);
