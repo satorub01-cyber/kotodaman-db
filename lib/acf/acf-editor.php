@@ -418,9 +418,60 @@ function koto_acf_editor_handle_actions()
         if (isset($_POST['custom_post_status']) && in_array($_POST['custom_post_status'], ['draft', 'publish'])) {
             wp_update_post(['ID' => $post_id, 'post_status' => $_POST['custom_post_status']]);
         }
-        $image_id = get_field('character_image', $post_id);
-        if ($image_id) set_post_thumbnail($post_id, $image_id);
-        else delete_post_thumbnail($post_id);
+
+        // 指定のフォールバック画像URL
+        $fallback_url = 'https://www.kotodaman-db.com/wp-content/uploads/2026/02/%E7%84%A1%E9%A1%8C51_20260205005357-768x640.png';
+
+        $image_val = get_field('character_image', $post_id);
+        $attach_id = 0;
+
+        // 取得値がIDならそのまま、URLなら添付IDを探す
+        if (!empty($image_val)) {
+            if (is_numeric($image_val)) {
+                $attach_id = (int)$image_val;
+            } else {
+                $attach_id = attachment_url_to_postid($image_val);
+            }
+        }
+
+        if ($attach_id) {
+            set_post_thumbnail($post_id, $attach_id);
+            // フィールドにIDを確実に保存
+            update_field('character_image', $attach_id, $post_id);
+        } else {
+            // フォールバック画像が既にメディアにあればそれを利用
+            $fallback_attach = attachment_url_to_postid($fallback_url);
+            if (!$fallback_attach) {
+                // メディアに無ければサイドロードして登録する
+                require_once ABSPATH . 'wp-admin/includes/file.php';
+                require_once ABSPATH . 'wp-admin/includes/media.php';
+                require_once ABSPATH . 'wp-admin/includes/image.php';
+
+                $tmp = download_url($fallback_url);
+                if (!is_wp_error($tmp)) {
+                    $file_array = [
+                        'name'     => basename($fallback_url),
+                        'tmp_name' => $tmp,
+                    ];
+                    $sideload_id = media_handle_sideload($file_array, $post_id);
+                    if (!is_wp_error($sideload_id)) {
+                        $fallback_attach = $sideload_id;
+                    } else {
+                        @unlink($tmp);
+                        $fallback_attach = 0;
+                    }
+                }
+            }
+
+            if (!empty($fallback_attach)) {
+                set_post_thumbnail($post_id, $fallback_attach);
+                update_field('character_image', $fallback_attach, $post_id);
+            } else {
+                // 最終手段: サムネイル削除し、フィールドにURLを直接保存
+                delete_post_thumbnail($post_id);
+                update_field('character_image', $fallback_url, $post_id);
+            }
+        }
     }, 20);
 
     if (function_exists('acf_form_head')) acf_form_head();
