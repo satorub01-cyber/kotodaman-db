@@ -643,6 +643,7 @@ function koto_acf_editor_page_html()
                             </optgroup>
                         </select>
                         <button type="button" id="koto-lock-map-btn" class="button" title="現在のマップを固定" style="text-align: center;">🔒 マップ固定</button>
+                        <button type="button" id="koto-show-map-btn" class="button" title="マップ内容を表示" style="text-align: center;">マップ内容確認</button>
                     <?php endif; ?>
                 </div>
             </div>
