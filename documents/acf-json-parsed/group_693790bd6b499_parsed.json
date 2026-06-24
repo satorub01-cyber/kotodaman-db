@@ -1,0 +1,47 @@
+{
+    "title": "キャラクターことわざ系",
+    "fields": [
+        {
+            "name": "koto_shift_type",
+            "label": "ことわざシフト条件",
+            "type": "select"
+        },
+        {
+            "name": "kotowaza_loop_v2",
+            "label": "ことわざ",
+            "type": "repeater",
+            "sub_fields": [
+                {
+                    "name": "kotowaza_condition",
+                    "label": "コトわざ発動条件",
+                    "type": "repeater",
+                    "sub_fields": [
+                        {
+                            "name": "sugo_cond_loop",
+                            "label": "発動条件の詳細",
+                            "type": "repeater",
+                            "$ref": "same_as_sugo_cond_loop"
+                        },
+                        {
+                            "name": "get_palce",
+                            "label": "get_palce",
+                            "type": "text"
+                        }
+                    ]
+                },
+                {
+                    "name": "kotowaza_group_loop",
+                    "label": "ことわざ効果",
+                    "type": "repeater",
+                    "$ref": "same_as_sugowaza_group_loop"
+                }
+            ]
+        },
+        {
+            "name": "kotowaza_maltiplier_table_group",
+            "label": "倍率表グループ",
+            "type": "group",
+            "$ref": "same_as_waza_maltiplier_table_group"
+        }
+    ]
+}

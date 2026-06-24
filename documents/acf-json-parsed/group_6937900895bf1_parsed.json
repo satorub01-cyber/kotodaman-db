@@ -1,0 +1,583 @@
+{
+    "title": "キャラクターわざ系データ",
+    "fields": [
+        {
+            "name": "waza_name",
+            "label": "わざの名前",
+            "type": "text"
+        },
+        {
+            "name": "waza_group_loop",
+            "label": "わざデータ",
+            "type": "repeater",
+            "sub_fields": [
+                {
+                    "name": "waza_add_cond_loop",
+                    "label": "わざ追加発動条件",
+                    "type": "repeater",
+                    "sub_fields": [
+                        {
+                            "name": "condition_type",
+                            "label": "わざ追加発動条件",
+                            "type": "select"
+                        },
+                        {
+                            "name": "condition_value",
+                            "label": "条件の値",
+                            "type": "text"
+                        },
+                        {
+                            "name": "condition_attr",
+                            "label": "属性条件",
+                            "taxonomy": "attribute",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "condition_affiliation",
+                            "label": "グループ条件",
+                            "taxonomy": "affiliation",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "condition_species",
+                            "label": "種族条件",
+                            "taxonomy": "species",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "hp_cond_detail",
+                            "label": "HP条件について",
+                            "type": "select"
+                        }
+                    ]
+                },
+                {
+                    "name": "sugo_detail_loop",
+                    "label": "追加条件ごとのわざ",
+                    "type": "repeater",
+                    "sub_fields": [
+                        {
+                            "name": "waza_type",
+                            "label": "わざタイプ",
+                            "type": "select"
+                        },
+                        {
+                            "name": "attack_type",
+                            "label": "攻撃タイプ",
+                            "type": "select"
+                        },
+                        {
+                            "name": "advantage_target",
+                            "label": "上昇する対象",
+                            "type": "group",
+                            "$ref": "target_field_group_schema"
+                        },
+                        {
+                            "name": "advantage_rate",
+                            "label": "対象 へのキラー補正",
+                            "type": "text"
+                        },
+                        {
+                            "name": "waza_target",
+                            "label": "対象",
+                            "type": "select"
+                        },
+                        {
+                            "name": "waza_target_detail",
+                            "label": "対象の詳細",
+                            "type": "select"
+                        },
+                        {
+                            "name": "target_detail_attr",
+                            "label": "対象の詳細（属性）",
+                            "taxonomy": "attribute",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "target_detail_species",
+                            "label": "対象の詳細（種族）",
+                            "taxonomy": "species",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "target_detail_group",
+                            "label": "対象の詳細（グループ）",
+                            "taxonomy": "affiliation",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "target_detail_other",
+                            "label": "対象の詳細（その他）",
+                            "type": "text"
+                        },
+                        {
+                            "name": "attack_attr",
+                            "label": "攻撃属性",
+                            "taxonomy": "attribute",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "coop_target",
+                            "label": "連携対象グループ",
+                            "taxonomy": "affiliation",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "colorfull_attack_attr",
+                            "label": "カラフル攻撃の順番",
+                            "taxonomy": "attribute",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "omni_advantage",
+                            "label": "全属性有利",
+                            "type": "true_false"
+                        },
+                        {
+                            "name": "attack_prefix",
+                            "label": "攻撃ゲーム内表記",
+                            "type": "select"
+                        },
+                        {
+                            "name": "hit_count",
+                            "label": "攻撃回数",
+                            "type": "number"
+                        },
+                        {
+                            "name": "waza_value",
+                            "label": "数値・倍率",
+                            "type": "text"
+                        },
+                        {
+                            "name": "waza_value_last",
+                            "label": "最終段の倍率",
+                            "type": "text"
+                        },
+                        {
+                            "name": "target_status",
+                            "label": "防ぐ状態異常",
+                            "type": "select"
+                        },
+                        {
+                            "name": "battle_field_loop",
+                            "label": "フィールドの詳細",
+                            "type": "repeater",
+                            "sub_fields": [
+                                {
+                                    "name": "battle_field_target",
+                                    "label": "フィールドの対象",
+                                    "type": "select"
+                                },
+                                {
+                                    "name": "battle_field_attr",
+                                    "label": "フィールド対象属性",
+                                    "taxonomy": "attribute",
+                                    "type": "taxonomy"
+                                },
+                                {
+                                    "name": "battle_field_species",
+                                    "label": "フィールド対象種族",
+                                    "taxonomy": "species",
+                                    "type": "taxonomy"
+                                },
+                                {
+                                    "name": "battle_field_affiliation",
+                                    "label": "フィールド対象グループ",
+                                    "taxonomy": "affiliation",
+                                    "type": "taxonomy"
+                                },
+                                {
+                                    "name": "battle_field_moji",
+                                    "label": "フィールド対象文字",
+                                    "taxonomy": "available_moji",
+                                    "type": "taxonomy"
+                                },
+                                {
+                                    "name": "battle_field_value",
+                                    "label": "フィールド火力補正値",
+                                    "type": "number"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "turn_count",
+                            "label": "効果ターン数",
+                            "type": "text"
+                        },
+                        {
+                            "name": "pressure_debuff_count",
+                            "label": "重圧の防御デバフ",
+                            "type": "text"
+                        },
+                        {
+                            "name": "related_token",
+                            "label": "生成するトークン",
+                            "taxonomy": "",
+                            "type": "relationship"
+                        },
+                        {
+                            "name": "moji_exhaust",
+                            "label": "文字失効",
+                            "type": "true_false"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "waza_maltiplier_table_group",
+            "label": "倍率表グループ",
+            "type": "group",
+            "sub_fields": [
+                {
+                    "name": "use_maltiplier_table",
+                    "label": "倍率表の使用",
+                    "type": "true_false"
+                },
+                {
+                    "name": "multi_cond_type",
+                    "label": "条件タイプ",
+                    "type": "select"
+                },
+                {
+                    "name": "advantage_target",
+                    "label": "上昇する対象",
+                    "type": "group",
+                    "$ref": "target_field_group_schema"
+                },
+                {
+                    "name": "maltiplier_table",
+                    "label": "倍率表",
+                    "type": "repeater",
+                    "sub_fields": [
+                        {
+                            "name": "enemy_count",
+                            "label": "収束の条件",
+                            "type": "number"
+                        },
+                        {
+                            "name": "moji_count",
+                            "label": "文字数の条件",
+                            "type": "number"
+                        },
+                        {
+                            "name": "advantage_tf",
+                            "label": "上昇した状態",
+                            "type": "true_false"
+                        },
+                        {
+                            "name": "rate",
+                            "label": "倍率",
+                            "type": "text"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "sugowaza_condition",
+            "label": "すごわざ発動条件",
+            "type": "repeater",
+            "sub_fields": [
+                {
+                    "name": "get_palce",
+                    "label": "解放場所",
+                    "type": "radio"
+                },
+                {
+                    "name": "need_blessing_point",
+                    "label": "必要祝福ポイント",
+                    "type": "text"
+                },
+                {
+                    "name": "sugo_cond_loop",
+                    "label": "発動条件の詳細",
+                    "type": "repeater",
+                    "sub_fields": [
+                        {
+                            "name": "sugo_cond_type",
+                            "label": "発動条件タイプ",
+                            "type": "select"
+                        },
+                        {
+                            "name": "sugo_cond_val",
+                            "label": "発動条件の値",
+                            "type": "text"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "sugowaza_name",
+            "label": "すごわざの名前",
+            "type": "text"
+        },
+        {
+            "name": "sugo_shift_type",
+            "label": "すごわざシフト条件",
+            "type": "select"
+        },
+        {
+            "name": "sugowaza_group_loop",
+            "label": "すごわざデータ",
+            "type": "repeater",
+            "sub_fields": [
+                {
+                    "name": "sugo_shift_attr",
+                    "label": "シフト属性",
+                    "taxonomy": "attribute",
+                    "type": "taxonomy"
+                },
+                {
+                    "name": "sugo_shift_moji",
+                    "label": "シフト文字",
+                    "taxonomy": "available_moji",
+                    "type": "taxonomy"
+                },
+                {
+                    "name": "sugo_shift_attacked",
+                    "label": "殴られた回数",
+                    "type": "text"
+                },
+                {
+                    "name": "random_count",
+                    "label": "ランダムの番号",
+                    "type": "text"
+                },
+                {
+                    "name": "waza_add_cond_loop",
+                    "label": "わざ追加発動条件",
+                    "type": "repeater",
+                    "sub_fields": [
+                        {
+                            "name": "condition_type",
+                            "label": "わざ追加発動条件",
+                            "type": "select"
+                        },
+                        {
+                            "name": "condition_value",
+                            "label": "条件の値",
+                            "type": "text"
+                        },
+                        {
+                            "name": "condition_attr",
+                            "label": "属性条件",
+                            "taxonomy": "attribute",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "condition_affiliation",
+                            "label": "グループ条件",
+                            "taxonomy": "affiliation",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "hp_cond_detail",
+                            "label": "HP条件について",
+                            "type": "select"
+                        },
+                        {
+                            "name": "condition_species",
+                            "label": "種族条件",
+                            "taxonomy": "species",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "target_cond_detail",
+                            "label": "同時攻撃かデッキ条件か",
+                            "type": "radio"
+                        }
+                    ]
+                },
+                {
+                    "name": "sugo_detail_loop",
+                    "label": "追加条件ごとのすごわざ",
+                    "type": "repeater",
+                    "sub_fields": [
+                        {
+                            "name": "waza_type",
+                            "label": "わざタイプ",
+                            "type": "select"
+                        },
+                        {
+                            "name": "attack_type",
+                            "label": "攻撃タイプ",
+                            "type": "select"
+                        },
+                        {
+                            "name": "advantage_target",
+                            "label": "上昇する対象",
+                            "type": "group",
+                            "$ref": "target_field_group_schema"
+                        },
+                        {
+                            "name": "advantage_rate",
+                            "label": "対象 への倍率",
+                            "type": "text"
+                        },
+                        {
+                            "name": "waza_target",
+                            "label": "対象",
+                            "type": "select"
+                        },
+                        {
+                            "name": "waza_target_detail",
+                            "label": "対象の詳細",
+                            "type": "select"
+                        },
+                        {
+                            "name": "target_detail_attr",
+                            "label": "対象の詳細（属性）",
+                            "taxonomy": "attribute",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "target_detail_species",
+                            "label": "対象の詳細（種族）",
+                            "taxonomy": "species",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "target_detail_group",
+                            "label": "対象の詳細（グループ）",
+                            "taxonomy": "affiliation",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "target_detail_other",
+                            "label": "対象の詳細（その他）",
+                            "type": "text"
+                        },
+                        {
+                            "name": "attack_attr",
+                            "label": "攻撃属性",
+                            "taxonomy": "attribute",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "coop_target",
+                            "label": "連携対象グループ",
+                            "taxonomy": "affiliation",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "colorfull_attack_attr",
+                            "label": "カラフル攻撃の順番",
+                            "taxonomy": "attribute",
+                            "type": "taxonomy"
+                        },
+                        {
+                            "name": "omni_advantage",
+                            "label": "全属性有利",
+                            "type": "true_false"
+                        },
+                        {
+                            "name": "attack_prefix",
+                            "label": "攻撃ゲーム内表記",
+                            "type": "select"
+                        },
+                        {
+                            "name": "hit_count",
+                            "label": "攻撃回数",
+                            "type": "number"
+                        },
+                        {
+                            "name": "waza_value",
+                            "label": "数値・倍率",
+                            "type": "text"
+                        },
+                        {
+                            "name": "is_moji_healing",
+                            "label": "文字数に応じた回復ならチェック",
+                            "type": "true_false"
+                        },
+                        {
+                            "name": "waza_value_last",
+                            "label": "最終段の倍率",
+                            "type": "text"
+                        },
+                        {
+                            "name": "target_status",
+                            "label": "防ぐ状態異常",
+                            "type": "select"
+                        },
+                        {
+                            "name": "battle_field_loop",
+                            "label": "フィールドの詳細",
+                            "type": "repeater",
+                            "sub_fields": [
+                                {
+                                    "name": "battle_field_target",
+                                    "label": "フィールドの対象",
+                                    "type": "select"
+                                },
+                                {
+                                    "name": "battle_field_attr",
+                                    "label": "フィールド対象属性",
+                                    "taxonomy": "attribute",
+                                    "type": "taxonomy"
+                                },
+                                {
+                                    "name": "battle_field_species",
+                                    "label": "フィールド対象種族",
+                                    "taxonomy": "species",
+                                    "type": "taxonomy"
+                                },
+                                {
+                                    "name": "battle_field_affiliation",
+                                    "label": "フィールド対象グループ",
+                                    "taxonomy": "affiliation",
+                                    "type": "taxonomy"
+                                },
+                                {
+                                    "name": "battle_field_moji",
+                                    "label": "フィールド対象文字",
+                                    "taxonomy": "available_moji",
+                                    "type": "taxonomy"
+                                },
+                                {
+                                    "name": "battle_field_value_type",
+                                    "label": "補正値の種類",
+                                    "type": "select"
+                                },
+                                {
+                                    "name": "battle_field_value",
+                                    "label": "フィールド火力補正値",
+                                    "type": "number"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "turn_count",
+                            "label": "効果ターン数",
+                            "type": "text"
+                        },
+                        {
+                            "name": "pressure_debuff_count",
+                            "label": "重圧の防御デバフ",
+                            "type": "text"
+                        },
+                        {
+                            "name": "related_token",
+                            "label": "生成するトークン",
+                            "taxonomy": "",
+                            "type": "relationship"
+                        },
+                        {
+                            "name": "moji_exhaust",
+                            "label": "文字失効",
+                            "type": "true_false"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "sugowaza_maltiplier_table_group",
+            "label": "倍率表グループ",
+            "type": "group",
+            "$ref": "same_as_waza_maltiplier_table_group"
+        }
+    ]
+}

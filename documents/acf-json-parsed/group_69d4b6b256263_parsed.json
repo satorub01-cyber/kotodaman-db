@@ -1,0 +1,188 @@
+{
+    "title": "ミラクルリーダーとくせい",
+    "fields": [
+        {
+            "name": "miracle_leader_loop",
+            "label": "ミラクルリーダーとくせい",
+            "type": "repeater",
+            "sub_fields": [
+                {
+                    "name": "whose_trait",
+                    "label": "このとくせいの対象",
+                    "type": "group",
+                    "$ref": "target_field_group_schema"
+                },
+                {
+                    "name": "trait_type",
+                    "label": "とくせいタイプ",
+                    "type": "select"
+                },
+                {
+                    "name": "add_moji",
+                    "label": "追加される文字",
+                    "type": "text"
+                },
+                {
+                    "name": "per_unit_tf",
+                    "label": "味方の数依存",
+                    "type": "true_false"
+                },
+                {
+                    "name": "deck_ally_field_group",
+                    "label": "どんな味方の数依存か",
+                    "type": "group",
+                    "$ref": "target_field_group_schema"
+                },
+                {
+                    "name": "damage_correction",
+                    "label": "火力補正系",
+                    "type": "select"
+                },
+                {
+                    "name": "gimmick",
+                    "label": "ギミック対策",
+                    "taxonomy": "gimmick",
+                    "type": "taxonomy"
+                },
+                {
+                    "name": "super_gimmick_moji_index",
+                    "label": "スーパーで追加される文字の番号",
+                    "type": "text"
+                },
+                {
+                    "name": "super_gimmick_healing",
+                    "label": "スーパービリビリの回復量",
+                    "type": "number"
+                },
+                {
+                    "name": "status_up",
+                    "label": "ステータスUP",
+                    "type": "select"
+                },
+                {
+                    "name": "resistance",
+                    "label": "防ぐ状態異常",
+                    "type": "select"
+                },
+                {
+                    "name": "draw_eff",
+                    "label": "ドロー時効果",
+                    "type": "select"
+                },
+                {
+                    "name": "core_gimmick",
+                    "label": "コアギミック",
+                    "type": "select"
+                },
+                {
+                    "name": "on_play_eff",
+                    "label": "実体化時効果",
+                    "type": "select"
+                },
+                {
+                    "name": "need_combo",
+                    "label": "必要コンボ数",
+                    "type": "number"
+                },
+                {
+                    "name": "need_combo_first",
+                    "label": "必要コンボ数 1",
+                    "type": "number"
+                },
+                {
+                    "name": "need_combo_second",
+                    "label": "必要コンボ数 2",
+                    "type": "number"
+                },
+                {
+                    "name": "need_combo_third",
+                    "label": "必要コンボ数 3",
+                    "type": "number"
+                },
+                {
+                    "name": "need_combo_forth",
+                    "label": "必要コンボ数 4",
+                    "type": "number"
+                },
+                {
+                    "name": "new_traits",
+                    "label": "新とくせい",
+                    "type": "select"
+                },
+                {
+                    "name": "related_form",
+                    "label": "変身前後、モードシフト",
+                    "taxonomy": "",
+                    "type": "relationship"
+                },
+                {
+                    "name": "after_attack",
+                    "label": "ダメージ系",
+                    "type": "select"
+                },
+                {
+                    "name": "relation_ship",
+                    "label": "このキャラは？",
+                    "type": "select"
+                },
+                {
+                    "name": "other_traits",
+                    "label": "その他のとくせい",
+                    "type": "select"
+                },
+                {
+                    "name": "limit_break_rate",
+                    "label": "上限解放値",
+                    "type": "text"
+                },
+                {
+                    "name": "other_text",
+                    "label": "その他とくせい",
+                    "type": "text"
+                },
+                {
+                    "name": "target_field_group",
+                    "label": "補正、キラーなどの対象",
+                    "type": "group",
+                    "$ref": "target_field_group_schema"
+                },
+                {
+                    "name": "condition_type_loop",
+                    "label": "とくせい発動条件",
+                    "type": "repeater",
+                    "$ref": "same_as_condition_type_loop"
+                },
+                {
+                    "name": "trait_rate",
+                    "label": "補正、バフなどの値",
+                    "type": "number"
+                },
+                {
+                    "name": "draw_triat_turn",
+                    "label": "ターン数",
+                    "type": "number"
+                },
+                {
+                    "name": "rate_type",
+                    "label": "固定値か％か",
+                    "type": "select"
+                },
+                {
+                    "name": "attack_limit_count",
+                    "label": "上限回数",
+                    "type": "text"
+                },
+                {
+                    "name": "resonance_crit_rate",
+                    "label": "共鳴クリティカル率",
+                    "type": "text"
+                },
+                {
+                    "name": "resonance_crit_damage",
+                    "label": "共鳴クリティカルダメージ",
+                    "type": "text"
+                }
+            ]
+        }
+    ]
+}

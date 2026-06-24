@@ -1,0 +1,199 @@
+{
+    "title": "キャラクターリーダーとくせい",
+    "fields": [
+        {
+            "name": "max_ls_hp",
+            "label": "最大HP倍率",
+            "type": "text"
+        },
+        {
+            "name": "max_ls_atk",
+            "label": "最大ATK倍率",
+            "type": "text"
+        },
+        {
+            "name": "ls_loop",
+            "label": "リーダーとくせい",
+            "type": "repeater",
+            "sub_fields": [
+                {
+                    "name": "ls_type",
+                    "label": "リーダー特性タイプ",
+                    "type": "select"
+                },
+                {
+                    "name": "ls_cond_pattern_loop",
+                    "label": "発動条件",
+                    "type": "repeater",
+                    "sub_fields": [
+                        {
+                            "name": "ls_cond_loop",
+                            "label": "発動条件の詳細",
+                            "type": "repeater",
+                            "sub_fields": [
+                                {
+                                    "name": "ls_cond_type",
+                                    "label": "発動条件タイプ",
+                                    "type": "select"
+                                },
+                                {
+                                    "name": "ls_cond_val",
+                                    "label": "発動条件の値",
+                                    "type": "text"
+                                },
+                                {
+                                    "name": "cooperate_target_loop",
+                                    "label": "同時攻撃するキャラ",
+                                    "type": "repeater",
+                                    "sub_fields": [
+                                        {
+                                            "name": "target_type",
+                                            "label": "対象",
+                                            "type": "select"
+                                        },
+                                        {
+                                            "name": "target_attr",
+                                            "label": "属性",
+                                            "taxonomy": "attribute",
+                                            "type": "taxonomy"
+                                        },
+                                        {
+                                            "name": "target_species",
+                                            "label": "種族",
+                                            "taxonomy": "species",
+                                            "type": "taxonomy"
+                                        },
+                                        {
+                                            "name": "target_group",
+                                            "label": "グループ",
+                                            "taxonomy": "affiliation",
+                                            "type": "taxonomy"
+                                        },
+                                        {
+                                            "name": "target_moji",
+                                            "label": "文字",
+                                            "taxonomy": "available_moji",
+                                            "type": "taxonomy"
+                                        },
+                                        {
+                                            "name": "target_other",
+                                            "label": "その他",
+                                            "type": "text"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "name": "ls_party_cond_loop",
+                                    "label": "リーダー特性編成条件の詳細",
+                                    "type": "repeater",
+                                    "sub_fields": [
+                                        {
+                                            "name": "target_field_group",
+                                            "label": "対象選択フィールドグループ",
+                                            "type": "group",
+                                            "$ref": "target_field_group_schema"
+                                        },
+                                        {
+                                            "name": "total_tf",
+                                            "label": "合計で○体",
+                                            "type": "true_false"
+                                        },
+                                        {
+                                            "name": "need_chara_num",
+                                            "label": "編成必要数",
+                                            "type": "text"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "limit_wave_count",
+                    "label": "上限WAVE数",
+                    "type": "text"
+                },
+                {
+                    "name": "ls_target_chara_loop",
+                    "label": "補正対象キャラ",
+                    "type": "repeater",
+                    "sub_fields": [
+                        {
+                            "name": "target_field_group",
+                            "label": "対象選択フィールドグループ",
+                            "type": "group",
+                            "$ref": "target_field_group_schema"
+                        }
+                    ]
+                },
+                {
+                    "name": "ls_status_loop",
+                    "label": "補正対象ステータス",
+                    "type": "repeater",
+                    "sub_fields": [
+                        {
+                            "name": "ls_status",
+                            "label": "補正ステータス",
+                            "type": "select"
+                        },
+                        {
+                            "name": "resist_status",
+                            "label": "耐性の対象",
+                            "type": "select"
+                        },
+                        {
+                            "name": "rate",
+                            "label": "補正値",
+                            "type": "text"
+                        }
+                    ]
+                },
+                {
+                    "name": "exp_magnification",
+                    "label": "経験値倍率",
+                    "type": "text"
+                },
+                {
+                    "name": "per_unit_loop",
+                    "label": "キャラ数×○○の効果",
+                    "type": "repeater",
+                    "sub_fields": [
+                        {
+                            "name": "target_field_group",
+                            "label": "対象選択フィールドグループ",
+                            "type": "group",
+                            "$ref": "target_field_group_schema"
+                        },
+                        {
+                            "name": "ls_status_loop",
+                            "label": "補正対象ステータス",
+                            "type": "repeater",
+                            "$ref": "same_as_ls_status_loop"
+                        }
+                    ]
+                },
+                {
+                    "name": "buff_count",
+                    "label": "バフ数",
+                    "type": "text"
+                },
+                {
+                    "name": "converge_rate_2",
+                    "label": "収束倍率(2体のとき)",
+                    "type": "text"
+                },
+                {
+                    "name": "converge_rate_1",
+                    "label": "収束倍率(1体のとき)",
+                    "type": "text"
+                },
+                {
+                    "name": "turn_count",
+                    "label": "ターン数",
+                    "type": "text"
+                }
+            ]
+        }
+    ]
+}

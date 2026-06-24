@@ -1,0 +1,277 @@
+{
+    "title": "キャラクターEXスキル類",
+    "fields": [
+        {
+            "name": "ex_skill_label",
+            "label": "EXスキル名",
+            "type": "text"
+        },
+        {
+            "name": "ex_skill_name",
+            "label": "EXスキルの種類名",
+            "type": "text"
+        },
+        {
+            "name": "ex_skill_discription",
+            "label": "EXスキル説明文",
+            "type": "text"
+        },
+        {
+            "name": "ex_trait_loop",
+            "label": "付与するとくせい",
+            "type": "repeater",
+            "sub_fields": [
+                {
+                    "name": "whose_trait",
+                    "label": "このとくせいの対象",
+                    "type": "group",
+                    "$ref": "target_field_group_schema"
+                },
+                {
+                    "name": "trait_type",
+                    "label": "とくせいタイプ",
+                    "type": "select"
+                },
+                {
+                    "name": "per_unit_tf",
+                    "label": "味方の数依存",
+                    "type": "true_false"
+                },
+                {
+                    "name": "deck_ally_field_group",
+                    "label": "どんな味方の数依存か",
+                    "type": "group",
+                    "$ref": "target_field_group_schema"
+                },
+                {
+                    "name": "damage_correction",
+                    "label": "火力補正系",
+                    "type": "select"
+                },
+                {
+                    "name": "gimmick",
+                    "label": "ギミック対策",
+                    "taxonomy": "gimmick",
+                    "type": "taxonomy"
+                },
+                {
+                    "name": "super_gimmick_moji_index",
+                    "label": "スーパーで追加される文字の番号",
+                    "type": "text"
+                },
+                {
+                    "name": "super_gimmick_healing",
+                    "label": "スーパービリビリの回復量",
+                    "type": "number"
+                },
+                {
+                    "name": "status_up",
+                    "label": "ステータスUP",
+                    "type": "select"
+                },
+                {
+                    "name": "resistance",
+                    "label": "防ぐ状態異常",
+                    "type": "select"
+                },
+                {
+                    "name": "draw_eff",
+                    "label": "ドロー時効果",
+                    "type": "select"
+                },
+                {
+                    "name": "on_play_eff",
+                    "label": "実体化時効果",
+                    "type": "select"
+                },
+                {
+                    "name": "core_gimmick",
+                    "label": "コアギミック",
+                    "type": "select"
+                },
+                {
+                    "name": "need_combo",
+                    "label": "必要コンボ数",
+                    "type": "number"
+                },
+                {
+                    "name": "need_combo_first",
+                    "label": "必要コンボ数 1",
+                    "type": "number"
+                },
+                {
+                    "name": "need_combo_second",
+                    "label": "必要コンボ数 2",
+                    "type": "number"
+                },
+                {
+                    "name": "need_combo_third",
+                    "label": "必要コンボ数 3",
+                    "type": "number"
+                },
+                {
+                    "name": "need_combo_forth",
+                    "label": "必要コンボ数 4",
+                    "type": "number"
+                },
+                {
+                    "name": "new_traits",
+                    "label": "新とくせい",
+                    "type": "select"
+                },
+                {
+                    "name": "related_form",
+                    "label": "変身前後、モードシフト",
+                    "taxonomy": "",
+                    "type": "relationship"
+                },
+                {
+                    "name": "relation_ship",
+                    "label": "このキャラは？",
+                    "type": "select"
+                },
+                {
+                    "name": "after_attack",
+                    "label": "ダメージ系",
+                    "type": "select"
+                },
+                {
+                    "name": "other_traits",
+                    "label": "その他のとくせい",
+                    "type": "select"
+                },
+                {
+                    "name": "other_text",
+                    "label": "その他とくせい",
+                    "type": "text"
+                },
+                {
+                    "name": "limit_break_rate",
+                    "label": "上限解放値",
+                    "type": "text"
+                },
+                {
+                    "name": "condition_type_loop",
+                    "label": "とくせい発動条件",
+                    "type": "repeater",
+                    "$ref": "same_as_condition_type_loop"
+                },
+                {
+                    "name": "target_field_group",
+                    "label": "補正、キラーなどの対象",
+                    "type": "group",
+                    "$ref": "target_field_group_schema"
+                },
+                {
+                    "name": "trait_rate",
+                    "label": "補正、バフなどの値",
+                    "type": "number"
+                },
+                {
+                    "name": "draw_triat_turn",
+                    "label": "ターン数",
+                    "type": "number"
+                },
+                {
+                    "name": "rate_type",
+                    "label": "固定値か％か",
+                    "type": "select"
+                },
+                {
+                    "name": "attack_limit_count",
+                    "label": "上限回数",
+                    "type": "text"
+                },
+                {
+                    "name": "resonance_crit_rate",
+                    "label": "共鳴クリティカル率",
+                    "type": "text"
+                },
+                {
+                    "name": "resonance_crit_damage",
+                    "label": "共鳴クリティカルダメージ",
+                    "type": "text"
+                }
+            ]
+        },
+        {
+            "name": "additional_effect",
+            "label": "付属効果",
+            "type": "select"
+        },
+        {
+            "name": "effect_target",
+            "label": "効果対象",
+            "type": "select"
+        },
+        {
+            "name": "effect_value",
+            "label": "付属効果の数値",
+            "type": "text"
+        },
+        {
+            "name": "turn_count",
+            "label": "バフ/デバフのターン数",
+            "type": "text"
+        },
+        {
+            "name": "search_priority",
+            "label": "サーチ優先対象",
+            "type": "group",
+            "$ref": "target_field_group_schema"
+        },
+        {
+            "name": "charge_skill_name",
+            "label": "チャージスキル名",
+            "type": "text"
+        },
+        {
+            "name": "need_charge",
+            "label": "必要チャージ",
+            "type": "text"
+        },
+        {
+            "name": "charge_skill_loop",
+            "label": "チャージスキル内容",
+            "type": "repeater",
+            "sub_fields": [
+                {
+                    "name": "charge_type",
+                    "label": "効果タイプ",
+                    "type": "select"
+                },
+                {
+                    "name": "effect_target",
+                    "label": "効果対象",
+                    "type": "select"
+                },
+                {
+                    "name": "target_cond_group",
+                    "label": "対象の条件",
+                    "type": "group",
+                    "$ref": "target_field_group_schema"
+                },
+                {
+                    "name": "target_resistance",
+                    "label": "対象状態異常",
+                    "type": "select"
+                },
+                {
+                    "name": "charge_skill_value",
+                    "label": "数値",
+                    "type": "text"
+                },
+                {
+                    "name": "effect_turn",
+                    "label": "効果ターン数",
+                    "type": "text"
+                }
+            ]
+        },
+        {
+            "name": "koto_burst_text",
+            "label": "コトバースト内容",
+            "type": "textarea"
+        }
+    ]
+}

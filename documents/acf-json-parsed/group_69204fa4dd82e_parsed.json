@@ -1,0 +1,190 @@
+{
+    "title": "キャラクター基本データ",
+    "fields": [
+        {
+            "name": "name_ruby",
+            "label": "キャラ名（ひらがな）",
+            "type": "text"
+        },
+        {
+            "name": "magnification_estimate_tf",
+            "label": "予想倍率ならチェック",
+            "type": "true_false"
+        },
+        {
+            "name": "koto_magnification_estimate_tf",
+            "label": "ことわざが一部予想倍率ならチェック",
+            "type": "true_false"
+        },
+        {
+            "name": "available_moji_loop",
+            "label": "使用可能文字",
+            "type": "repeater",
+            "sub_fields": [
+                {
+                    "name": "available_moji",
+                    "label": "文字",
+                    "taxonomy": "available_moji",
+                    "type": "taxonomy"
+                },
+                {
+                    "name": "moji_attr",
+                    "label": "文字色",
+                    "taxonomy": "attribute",
+                    "type": "taxonomy"
+                },
+                {
+                    "name": "unlock_place",
+                    "label": "文字追加場所",
+                    "type": "select"
+                },
+                {
+                    "name": "moji_group_cond",
+                    "label": "グループ条件の有無",
+                    "type": "true_false"
+                },
+                {
+                    "name": "unlock_need_point",
+                    "label": "必要祝福ポイント",
+                    "type": "text"
+                }
+            ]
+        },
+        {
+            "name": "実装月（わかれば実装日）",
+            "label": "実装月（わかれば実装日）",
+            "type": "date_picker"
+        },
+        {
+            "name": "character_image",
+            "label": "キャラクター画像",
+            "type": "image"
+        },
+        {
+            "name": "another_character_image",
+            "label": "絵違いモードシフト画像",
+            "type": "image"
+        },
+        {
+            "name": "pre_evo_image",
+            "label": "進化前画像",
+            "type": "image"
+        },
+        {
+            "name": "pre_evo_name",
+            "label": "進化前の名前",
+            "type": "text"
+        },
+        {
+            "name": "another_image_name",
+            "label": "絵違いの名前",
+            "type": "text"
+        },
+        {
+            "name": "voice_actor",
+            "label": "声優名",
+            "type": "text"
+        },
+        {
+            "name": "status_auto_tf",
+            "label": "自動計算 or 手動",
+            "type": "true_false"
+        },
+        {
+            "name": "talent_status_auto_tf",
+            "label": "才能開花自動計算 or 手動",
+            "type": "true_false"
+        },
+        {
+            "name": "no_lv120_flag",
+            "label": "昇華の有無",
+            "type": "true_false"
+        },
+        {
+            "name": "lv_99_hp",
+            "label": "lv99HP基礎値",
+            "type": "text"
+        },
+        {
+            "name": "hp_chouka",
+            "label": "HP超化pt",
+            "type": "text"
+        },
+        {
+            "name": "lv_99_atk",
+            "label": "lv99ATK基礎値",
+            "type": "text"
+        },
+        {
+            "name": "atk_chouka",
+            "label": "ATK超化pt",
+            "type": "text"
+        },
+        {
+            "name": "lv_120_hp",
+            "label": "lv120HP基礎値",
+            "type": "text"
+        },
+        {
+            "name": "lv_120_atk",
+            "label": "lv120ATK基礎値",
+            "type": "text"
+        },
+        {
+            "name": "talent_hp",
+            "label": "才能開花HP",
+            "type": "text"
+        },
+        {
+            "name": "talent_atk",
+            "label": "才能開花ATK",
+            "type": "text"
+        },
+        {
+            "name": "attribute",
+            "label": "属性",
+            "taxonomy": "attribute",
+            "type": "taxonomy"
+        },
+        {
+            "name": "species",
+            "label": "種族",
+            "taxonomy": "species",
+            "type": "taxonomy"
+        },
+        {
+            "name": "rarity",
+            "label": "レアリティ",
+            "taxonomy": "rarity",
+            "type": "taxonomy"
+        },
+        {
+            "name": "affiliation",
+            "label": "グループ",
+            "taxonomy": "affiliation",
+            "type": "taxonomy"
+        },
+        {
+            "name": "event",
+            "label": "イベント・コラボ",
+            "taxonomy": "event",
+            "type": "taxonomy"
+        },
+        {
+            "name": "same_character",
+            "label": "変身、モードシフト、トークン",
+            "taxonomy": "",
+            "type": "relationship"
+        },
+        {
+            "name": "get_place",
+            "label": "入手方法",
+            "type": "select"
+        },
+        {
+            "name": "fuku_break",
+            "label": "言塊突破・福の有無",
+            "type": "true_false"
+        }
+    ]
+}
