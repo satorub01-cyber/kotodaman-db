@@ -7,6 +7,5 @@ search-moc.html
 /documents/official-documents-for-AI/*
 /documents/presentations/*
 /lib/missing-info.json
-/.devcontainer/*
-/devcontainer/*
+.devcontainer/*
 /local-dev/*
