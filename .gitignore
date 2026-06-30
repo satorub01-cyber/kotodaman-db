@@ -9,3 +9,5 @@ search-moc.html
 /lib/missing-info.json
 /local-dev/*
 .devcontainer/devcontainer-lock.json
+.devcontainer/xdebug.ini
+.vscode/
