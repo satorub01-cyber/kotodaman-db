@@ -128,13 +128,14 @@
 わざ,HPを回復する,"{""waza_type"" : ""healing"", ""waza_value"" : ""1""}"
 わざw,文字数に応じて効果量が上昇するHP回復,"{""waza_type"" : ""healing"", ""waza_value"" : ""5"",""is_moji_healing"" : true}"
 わざ,このターン攻撃する{$character_target}のATKを{$prefix},"{""waza_type"" : ""atk_buff"", ""waza_value"" : ""$prefix"",""waza_target"" : ""$character_target""}"
+わざ,手札の{$character_target}のATKを{$prefix},"{""waza_type"" : ""atk_buff"", ""waza_value"" : ""$prefix"",""waza_target"" : ""$character_target""}"
 わざ,このターン{$character_target}の受けるダメージを{$deff_prefix},"{""waza_type"" : ""deff_buff"", ""waza_value"" : ""$deff_prefix"",""waza_target"" : ""$character_target""}"
 わざ,{$waza_target}に被ダメージ{$prefix}状態を{$val}ターン付与,"{""waza_type"" : ""deff_debuff"", ""waza_value"" : ""$prefix"",""turn_count"" : ""$val"",""waza_target"" : ""$waza_target""}"
 わざ,このターン攻撃する{$character_target}のクリティカル発生率を{$prefix},"{""waza_type"" : ""crit_buff"", ""waza_value"" : ""$prefix"",""waza_target"" : ""$character_target""}"
-わざ,,
-わざ,,
-わざ,,
-わざ,,
+わざ,{$waza_target}に重圧{$val}を{$val2}ターン付与,"{""waza_type"" : ""preassure"", ""waza_value"" : ""$val"",""turn_count"" : ""$val2"",""waza_target"" : ""$waza_target"",""preassure_debuff_count"" : ""2,4""}"
+わざ,自身に100%狙われる効果を付与,"{""waza_type"" : ""taunt"", ""waza_value"" : ""4"",""waza_target"" : ""self""}"
+わざ,このターン盤面に出ている{$character_target}に敵から受けるダメージを1回無効化するバリアを付与,"{""waza_type"" : ""barrier"",""waza_target"" : ""$character_target""}"
+わざ,手札の{$character_target}の味方に{$resistance}を防ぐ効果を{$val}ターン付与,"{""waza_type"" : ""status_barrier"", ""waza_target"" : ""$character_target"",""turn_count"" : ""$val"",""target_status"" : ""$resistance""}"
 わざ,,
 わざ,,
 わざ条件,{$val}文字以上の場合、,"{""condition_type"" : ""moji_count"",""condition_value"" : ""$val""}"
