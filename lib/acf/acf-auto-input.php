@@ -333,7 +333,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                 }
             }
         } elseif (strpos($key, 'prefix') === 0) {
-            $value = str_replace(['増加', '強化'], ['', ''], $value);
+            $value = str_replace(['増加', '強化','上昇'], ['', '', ''], $value);
             if (function_exists('koto_get_buff_prefix_map')) {
                 $prefix_map = koto_get_buff_prefix_map();
                 if (isset($prefix_map[$value])) {

@@ -158,16 +158,21 @@
 わざ,4回、ランダムな敵に強力な{$attr}属性攻撃を与える,"{""waza_type"" : ""attack"", ""attack_type"" : [""normal""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""0.6"",""waza_value_last"" : ""1.2"",""waza_target"" : ""random_oppo"",""hit_count"" : ""4""}"
 わざ,{$val}回、ランダムな敵に自身の福に応じて威力が強化される{$attr}属性攻撃を与える,"{""waza_type"" : ""attack"", ""attack_type"" : [""fuku""], ""attack_attr"" : ""$attr"", ""waza_value"" : ""0.75"",""waza_value_last"" : ""1.1"",""waza_target"" : ""random_oppo"",""hit_count"" : ""$val""}"
 わざ,{$waza_target}に{$attr}属性の各1回攻撃,"{""waza_type"" : ""colorfull_attack"",""colorfull_attack_attr"" : ""$attr"" , ""waza_value"" : ""1"", ""waza_target"" : ""$waza_target""}"
-わざ,このターンわざ・すごわざを発動させた「{$affiliation}」のコトダマンと同じ属性で{$waza_target}に攻撃,"{""waza_type"" : ""coop_attack""}"
-わざ,このターンわざ・すごわざを発動させた「{$affiliation}」のコトダマンと同じ属性で{$waza_target}に{$at_prefix}な攻撃,
-わざ,,
-わざ,,
-わざ,,
-わざ,,
-わざ,,
-わざ,,
-わざ,,
-わざ,,
+わざ,わざ・すごわざを発動させた「{$affiliation}」のコトダマンと同じ属性で{$waza_target}に攻撃,"{""waza_type"" : ""coop_attack"", ""waza_value"" : ""3"", ""waza_target"" : ""$waza_target"",""coop_target"": $affiliation}"
+わざ,このターンわざ・すごわざを発動させた「{$affiliation}」のコトダマンと同じ属性で{$waza_target}に攻撃,"{""waza_type"" : ""coop_attack"", ""waza_value"" : ""3"", ""waza_target"" : ""$waza_target"",""coop_target"": $affiliation}"
+わざ,わざ・すごわざを発動させた「{$affiliation}」のコトダマンと同じ属性で{$waza_target}に{$at_prefix}な攻撃,"{""waza_type"" : ""coop_attack"", ""waza_value"" : ""$at_prefix"", ""waza_target"" : ""$waza_target"",""coop_target"": $affiliation}"
+わざ,このターンわざ・すごわざを発動させた「{$affiliation}」のコトダマンと同じ属性で{$waza_target}に{$at_prefix}な攻撃,"{""waza_type"" : ""coop_attack"", ""waza_value"" : ""$at_prefix"", ""waza_target"" : ""$waza_target"",""coop_target"": $affiliation}"
+わざ,わざ・すごわざ発動させた見方が追加で{$command_prefix}な攻撃,"{""waza_type"" : ""command"", ""waza_value"" : ""$command_prefix""}"
+わざ,わざ・すごわざ発動させた見方が追加で攻撃,"{""waza_type"" : ""command"", ""waza_value"" : ""1""}"
+わざ,このターンわざ・すごわざ発動させた見方が追加で{$at_prefix_comand}な攻撃,"{""waza_type"" : ""command"", ""waza_value"" : ""$at_prefix_comand""}"
+わざ,わざ・すごわざを発動させた味方がわざを追加で発動する,"{""waza_type"" : ""waza_command""}"
+わざ,HPを{$heal_prefix}回復する,"{""waza_type"" : ""healing"", ""waza_value"" : ""$heal_prefix""}"
+わざ,HPを回復する,"{""waza_type"" : ""healing"", ""waza_value"" : ""1""}"
+わざ,文字数に応じて効果量が上昇するHP回復,"{""waza_type"" : ""healing"", ""waza_value"" : ""5"",""is_moji_healing"" : true}"
+わざ,このターン攻撃する{$character_target}のATKを{$prefix},"{""waza_type"" : ""atk_buff"", ""waza_value"" : ""$prefix"",""waza_target"" : ""$character_target""}"
+わざ,このターン{$character_target}の受けるダメージを{$deff_prefix},"{""waza_type"" : ""deff_buff"", ""waza_value"" : ""$deff_prefix"",""waza_target"" : ""$character_target""}"
+わざ,{$waza_target}に被ダメージ{$prefix}状態を{$val}ターン付与,"{""waza_type"" : ""deff_debuff"", ""waza_value"" : ""$prefix"",""turn_count"" : ""$val"",""waza_target"" : ""$waza_target""}"
+わざ,このターン攻撃する{$character_target}のクリティカル発生率を{$prefix},"{""waza_type"" : ""crit_buff"", ""waza_value"" : ""$prefix"",""waza_target"" : ""$character_target""}"
 わざ,,
 わざ,,
 わざ,,
