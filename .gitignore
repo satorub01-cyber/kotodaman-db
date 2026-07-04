@@ -11,3 +11,4 @@ search-moc.html
 .devcontainer/devcontainer-lock.json
 .devcontainer/xdebug.ini
 .vscode/
+/.devcontainer/acf-pro-stubs-master
