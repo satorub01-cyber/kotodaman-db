@@ -340,6 +340,52 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                     $value = $prefix_map[$value];
                 }
             }
+        } elseif (strpos($key, 'dot_separated_val') === 0) {
+            // 「・」で区切られた文字列をそのまま配列に
+            $values = preg_split('/・/u', $value);
+            $value = array_filter(array_map('trim', $values));
+        } elseif (strpos($key, 'pipe_separated_val') === 0) {
+            // |区切りの値を配列に
+            $values = preg_split('/\|/u', $value);
+            $value = array_filter(array_map('trim', $values));
+        } elseif (strpos($key, 'heal_prefix') === 0) {
+            // 超大きく、大きく、かなりなどの治癒フレーズを処理
+            $value = str_replace(['超大きく', '大きく', 'かなり'], '', $value);
+        } elseif (strpos($key, 'command_prefix') === 0) {
+            // 少量、多量、超多量などのコマンドフレーズを処理
+            $value = str_replace(['超絶多量', '爆絶多量', '超多量', '多量', '少量'], '', $value);
+        } elseif (strpos($key, 'at_prefix_') === 0) {
+            // わざの倍率処理
+            if (function_exists('koto_get_attack_multiplier_map')) {
+                $mult_map = koto_get_attack_multiplier_map();
+                if (isset($mult_map[$value])) {
+                    $value = $mult_map[$value];
+                }
+            }
+        } elseif (strpos($key, 'at_target_up') === 0) {
+            // 上昇、大きく上昇などを処理
+            $value = str_replace(['大きく上昇', '上昇'], [], $value);
+        } elseif (strpos($key, 'waza_target') === 0) {
+            // 敵単体or敵全体、このターン攻撃する味方など
+            // 基本的には処理しない（値をそのまま保つ）
+        } elseif (strpos($key, 'waza_character_target') === 0) {
+            // 味方or味方全体(条件付き)を入れる。target_detailなどのキーを追加
+            $target_type = 'self';
+            $target_detail = '';
+            if (strpos($value, '味方全体') !== false) {
+                $target_type = 'all';
+            } elseif (strpos($value, '味方') !== false) {
+                $target_type = 'ally';
+            }
+            $value = '{"target_type" :"' . $target_type . '"' . $target_detail . '}';
+            $unquote_keys[] = $key;
+        } elseif (strpos($key, 'dot_separated_fuku_val') === 0) {
+            // 「・」で切ったうえで特殊処理（福条件付き値の並び）
+            $values = preg_split('/・/u', $value);
+            $value = array_filter(array_map('trim', $values));
+        } elseif (strpos($key, 'special_separated_moji') === 0) {
+            // available_moji_loopの行を複数作る（特殊区切り対応）
+            // ここは個別対応が必要なため、基本的には値をそのまま保つ
         }
 
         if (is_array($value)) {

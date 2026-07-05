@@ -80,6 +80,18 @@ add_filter('acf/fields/relationship/query/key=field_editor_edit_post', 'koto_acf
 add_filter('acf/fields/relationship/query/key=field_editor_source_post', 'koto_acf_relationship_query_custom', 10, 3);
 add_filter('acf/fields/relationship/query/key=field_editor_search_template', 'koto_acf_relationship_query_custom', 10, 3);
 
+
+/**
+ * ACFのrelationshipフィールドの検索条件を調整する。
+ *
+ * 下書きなども検索対象に含め、権限がない場合は自分の投稿に絞り込む。
+ * 検索語が数字なら投稿IDの完全一致検索へ切り替える。
+ *
+ * @param array $args 検索クエリ引数。
+ * @param array $field フィールド定義。
+ * @param mixed $post_id 現在の投稿ID。
+ * @return array
+ */
 function koto_acf_relationship_query_custom($args, $field, $post_id)
 {
     // 1. 下書きのキャラも検索結果に出るようにする（超重要！）
