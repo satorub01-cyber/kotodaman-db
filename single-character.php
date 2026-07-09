@@ -1234,31 +1234,7 @@ if ($has_blessing_ex_data):
                     <?php
                     $i = 1;
 
-                    // A. 文字追加の表示
-                    if ($add_moji_blessing):
-                    ?>
-                        <div class="skill-effect-line" style="margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
-                            <span class="effect-num">(<?php echo $i; ?>) </span>
-                            <?php echo $add_moji_blessing; ?>
-                        </div>
-                        <?php
-                        $i++;
-                    endif;
-
-                    // B. ★追加：すごわざ条件追加の表示
-                    if (!empty($add_sugo_blessing_list)):
-                        foreach ($add_sugo_blessing_list as $line):
-                        ?>
-                            <div class="skill-effect-line" style="margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
-                                <span class="effect-num">(<?php echo $i; ?>) </span>
-                                <?php echo $line; ?>
-                            </div>
-                            <?php
-                            $i++;
-                        endforeach;
-                    endif;
-
-                    // C. 通常の祝福とくせいループ（既存のまま）
+                    // EX祝福はEX祝福とくせいループのみを表示する
                     if ($has_blessing_ex_data):
                         foreach ($blessing_ex_loop as $row):
                             $levels_data = [];
