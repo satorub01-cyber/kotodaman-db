@@ -1218,6 +1218,180 @@ if ($has_blessing_data || $add_moji_blessing || !empty($add_sugo_blessing_list))
     </div>
 <?php endif; ?>
 <?php
+// EX祝福特性
+$blessing_ex_loop = $all_fields['blessing_ex_trait_loop'] ?? null;
+$has_blessing_ex_data = ($blessing_ex_loop && is_array($blessing_ex_loop));
+if ($has_blessing_ex_data):
+?>
+    <div class="skill-card card-blessing" style="margin-top: 30px;">
+        <div class="skill-badge-area">
+            <span class="skill-badge badge-ex-blessing">EX祝福とくせい</span>
+        </div>
+        <div class="skill-text-area">
+            <div class="skill-row">
+                <span class="label-tag tag-effect">効果</span>
+                <div class="skill-text-block">
+                    <?php
+                    $i = 1;
+
+                    // A. 文字追加の表示
+                    if ($add_moji_blessing):
+                    ?>
+                        <div class="skill-effect-line" style="margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
+                            <span class="effect-num">(<?php echo $i; ?>) </span>
+                            <?php echo $add_moji_blessing; ?>
+                        </div>
+                        <?php
+                        $i++;
+                    endif;
+
+                    // B. ★追加：すごわざ条件追加の表示
+                    if (!empty($add_sugo_blessing_list)):
+                        foreach ($add_sugo_blessing_list as $line):
+                        ?>
+                            <div class="skill-effect-line" style="margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
+                                <span class="effect-num">(<?php echo $i; ?>) </span>
+                                <?php echo $line; ?>
+                            </div>
+                            <?php
+                            $i++;
+                        endforeach;
+                    endif;
+
+                    // C. 通常の祝福とくせいループ（既存のまま）
+                    if ($has_blessing_ex_data):
+                        foreach ($blessing_ex_loop as $row):
+                            $levels_data = [];
+                            $pt_pattern = isset($row['pt_pattern']) ? $row['pt_pattern'] : 'default';
+                            $points = [];
+
+                            if ($pt_pattern === 'default') {
+                                $points = [1, 2, 3, 4, 5, 7, 9, 12, 15, 20];
+                            } elseif ($pt_pattern === 'single') {
+                                $raw_pt = isset($row['need_point']) ? $row['need_point'] : '';
+                                $points = [$raw_pt];
+                            } elseif ($pt_pattern === 'csv') {
+                                $raw_pt = isset($row['need_point']) ? $row['need_point'] : '';
+                                $points = $raw_pt !== '' ? array_map('trim', explode(',', $raw_pt)) : [];
+                            }
+
+                            $values = [];
+                            $lv_count = count($points);
+
+                            if ($pt_pattern === 'single') {
+                                $val = isset($row['blessing_value']) ? $row['blessing_value'] : '';
+                                $values[] = $val;
+                            } else {
+                                $calc_type = isset($row['blessing_level_value']) ? $row['blessing_level_value'] : 'csv';
+                                if ($calc_type === 'min_max') {
+                                    $min = isset($row['min_value']) ? (float)$row['min_value'] : 0;
+                                    $max = isset($row['max_value']) ? (float)$row['max_value'] : 0;
+                                    $gaps = $lv_count - 1;
+
+                                    if ($gaps > 0) {
+                                        $diff = $max - $min;
+                                        if ($diff % $gaps === 0) {
+                                            $step = $diff / $gaps;
+                                            for ($k = 0; $k < $lv_count; $k++) $values[] = $min + ($step * $k);
+                                        } elseif ($gaps > 0) {
+                                            $val = $min;
+                                            $values[] = $val;
+                                            $base_step = floor($diff / $gaps);
+                                            $remainder = $diff % $gaps;
+                                            for ($k = 0; $k < $gaps; $k++) {
+                                                $step = $base_step + ($k < $remainder ? 1 : 0);
+                                                $val += $step;
+                                                $values[] = $val;
+                                            }
+                                        } else {
+                                            $step_float = $diff / $gaps;
+                                            for ($k = 0; $k < $lv_count; $k++) $values[] = round($min + ($step_float * $k));
+                                        }
+                                    } else {
+                                        $values[] = $min;
+                                    }
+                                } else {
+                                    $raw_val = isset($row['blessing_value']) ? $row['blessing_value'] : '';
+                                    if ($raw_val === '200!') {
+                                        $raw_val = '200,225,250,275,300,330,360,390,420,450';
+                                    }
+                                    $values = $raw_val !== '' ? array_map('trim', explode(',', $raw_val)) : [];
+                                }
+                            }
+
+                            foreach ($points as $k => $pt) {
+                                $val = isset($values[$k]) ? $values[$k] : '';
+                                $temp_row = $row;
+                                $temp_row['trait_rate'] = $val;
+
+                                $generated_text = function_exists('get_koto_trait_text_from_row') ? get_koto_trait_text_from_row($temp_row) : '';
+                                $lv_label = ($pt_pattern === 'single') ? '' : ($k + 1);
+
+                                $levels_data[] = [
+                                    'blessing_level' => $lv_label,
+                                    'need_point' => $pt,
+                                    'generated_text' => $generated_text
+                                ];
+                            }
+
+                            if (empty($levels_data)) continue;
+
+                            $first_lv = $levels_data[0];
+                            $rest_lvs = array_slice($levels_data, 1);
+                            $has_rest = !empty($rest_lvs);
+
+                            $text_first = $first_lv['generated_text'];
+                            $pt_first   = $first_lv['need_point'];
+                            $lv_num_first = $first_lv['blessing_level'];
+
+                            if ($text_first):
+                            ?>
+                                <div class="skill-effect-line" style="margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
+                                    <div style="display:flex; align-items:flex-start;">
+                                        <span class="effect-num" style="margin-right: 5px; margin-top: 2px;">(<?php echo $i; ?>)</span>
+                                        <div class="blessing-accordion-wrapper" style="flex:1;">
+                                            <div class="blessing-acc-header <?php echo $has_rest ? 'is-toggle' : ''; ?>">
+                                                <span class="blessing-level-item">
+                                                    <?php if ($lv_num_first): ?>
+                                                        <span style="color:#e91e63; font-weight:bold; font-size:0.9em;">Lv.<?php echo $lv_num_first; ?></span>
+                                                    <?php endif; ?>
+                                                    <?php if ($pt_first): ?>
+                                                        <span style="color:#666; font-size:0.85em;">(<?php echo $pt_first; ?>pt)</span>
+                                                    <?php endif; ?>
+                                                    : <?php echo $text_first; ?>
+                                                </span>
+                                                <?php if ($has_rest): ?><span class="acc-icon">▼</span><?php endif; ?>
+                                            </div>
+                                            <?php if ($has_rest): ?>
+                                                <div class="blessing-acc-body" style="display: none;">
+                                                    <?php foreach ($rest_lvs as $lv_row): ?>
+                                                        <div class="blessing-level-item" style="margin-top: 8px; border-top: 1px dotted #f0f0f0; padding-top: 4px;">
+                                                            <?php if ($lv_row['blessing_level']): ?>
+                                                                <span style="color:#e91e63; font-weight:bold; font-size:0.9em;">Lv.<?php echo $lv_row['blessing_level']; ?></span>
+                                                            <?php endif; ?>
+                                                            <?php if ($lv_row['need_point']): ?>
+                                                                <span style="color:#666; font-size:0.85em;">(<?php echo $lv_row['need_point']; ?>pt)</span>
+                                                            <?php endif; ?>
+                                                            : <?php echo $lv_row['generated_text']; ?>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                    <?php
+                                $i++;
+                            endif;
+                        endforeach;
+                    endif;
+                    ?>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+<?php
 // ==============================================
 //  5. 倍率詳細表 (ページ最下部エリア)
 // ==============================================
@@ -1410,6 +1584,16 @@ wp_reset_postdata();
     }
     ?>
 </div>
+
+<?php
+$is_localhost_8080 = isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] === 'localhost:8080';
+if ($is_localhost_8080):
+?>
+    <div class="detail-section-part" style="margin-top: 24px;">
+        <?php echo do_shortcode('[debug_koto_json]'); ?>
+    </div>
+<?php endif; ?>
+
 </div>
 <?php get_footer(); ?>
 

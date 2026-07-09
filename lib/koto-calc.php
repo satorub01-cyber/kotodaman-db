@@ -423,7 +423,19 @@ function get_character_spec_data($post_id)
                 foreach ($details as $d) {
                     $type_raw = $d['waza_type'] ?? '';
                     $type = is_array($type_raw) ? ($type_raw['value'] ?? '') : $type_raw;
-                    $attack_type_raw = $d['attack_type'] ?? '';
+                    // 1. 判定は str_contains または厳密比較 !== を使う
+                    $attack_flag = strpos($type, 'attack') !== false ?? false;
+                    // 2. デフォルト値で初期化
+                    $attack_type_raw = '';
+                    $hit_count       = 1;
+                    $omni_advantage  = false;
+
+                    // 3. フラグが真の場合のみ、配列からデータを取得・型キャスト
+                    if ($attack_flag) {
+                        $attack_type_raw = $d['attack_type'] ?? '';
+                        $hit_count       = (int)($d['hit_count'] ?? 1);
+                        $omni_advantage  = (bool)($d['omni_advantage'] ?? false);
+                    }
 
                     // 配列化して統一的に扱う
                     $attack_types_list = [];
@@ -445,7 +457,6 @@ function get_character_spec_data($post_id)
                     } elseif ($attack_type_raw) {
                         $attack_types_list[] = $attack_type_raw;
                     }
-                    $omni_advantage = $d['omni_advantage'] ?? false;
 
                     $target = $d['waza_target'] ?? '';
                     if (strpos($target, 'limited') !== false) {
@@ -461,7 +472,6 @@ function get_character_spec_data($post_id)
                             }
                         }
                     }
-                    $hit_count = (int)($d['hit_count'] ?? 1);
 
                     // ★追加: 生のタイプもタグとして保存
                     if ($type) $target_tags[] = 'type_' . $type;
