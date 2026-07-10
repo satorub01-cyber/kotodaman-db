@@ -140,9 +140,6 @@
 わざ,{$attr}属性威力{$val}%・{$species}種族威力{$val2}%UP効果のフィールドを{$val3}ターン展開,"{""waza_type"" : ""battle_field"",""battle_field_roop"" : [{""battle_field_target"" : ""attribute"",""battle_field_attr"" : $attr,""battle_field_value_type"" : ""normal"",""battle_field_value"" : ""$val""},{""battle_field_target"" : ""species"",""battle_field_species"" : $species,""battle_field_value_type"" : ""normal"",""battle_field_value"" : ""$val2""}],""turn_count"" : ""$val3""}"
 わざ,{$attr}属性威力{$val}%UP効果のフィールドを{$val3}ターン展開,"{""waza_type"" : ""battle_field"",""battle_field_roop"" : [{""battle_field_target"" : ""attribute"",""battle_field_attr"" : $attr,""battle_field_value_type"" : ""normal"",""battle_field_value"" : ""$val""}],""turn_count"" : ""$val3""}"
 わざ,自身の1文字前のコトダマンのわざ・すごわざをマネして発動する,"{""waza_type"" : ""imparsonation""}"
-わざ,,
-わざ,,
-わざ,,
 わざ条件,{$val}文字以上の場合、,"{""condition_type"" : ""moji_count"",""condition_value"" : ""$val""}"
 わざ条件,{$val}テーマの言葉を作った場合、,"{""condition_type"" : ""theme"",""condition_value"" : ""$val""}"
 わざ条件,{$val}コンボ以上の場合、,"{""condition_type"" : ""comb"",""condition_value"" : ""$val""}"
@@ -160,9 +157,7 @@
 わざ条件,同時に{$attr}属性のコトダマンがわざ・すごわざを発動させていた場合、,"{""condition_type"" : ""attr"", ""condition_value"" : ""$attr"",""target_cond_detail"" : ""simultaneous""}"
 わざ条件,「{$dot_camma_val}」の時、,"{""sugo_shift_moji"" : ""$dot_camma_val""}"
 わざ条件,攻撃を{$val}回以上受けた場合、,"{""sugo_shift_attacked"" : ""$val""}"
-わざ条件,,
-わざ条件,,
 わざシフトタイプ,自身の文字に応じて効果が変化する,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""char_change""}"
-わざシフトタイプ,自身の属性に応じて{$attr}属性の時は【.*?】、{$attr2}属性の時は【.*?】に効果が変化する。,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""attr""}|{""sugo_shift_attr"" : ""$attr""}"
+わざシフトタイプ,自身の属性に応じて{$attr}属性の時は【.*?】、{$attr2}属性の時は【.*?】に効果が変化する。,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""attr""}|{""sugo_shift_attrs"" : ""[$attr,$attr2]""}"
 わざシフトタイプ,このコトダマンがクエスト中に敵から受けた攻撃の回数に応じて効果が変化する,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""attacked""}"
 わざシフトタイプ,次の{$val}つからランダムで1つ発動する,"{""is_normal_field"" : true, ""sugo_shift_type"" : ""random""}"

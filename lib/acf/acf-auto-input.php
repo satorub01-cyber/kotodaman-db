@@ -4,6 +4,12 @@ if (!defined('ABSPATH')) exit;
 // =================================================================
 // 1. CSV読み込み用関数と種別グループ化
 // =================================================================
+/**
+ * 対応表CSVを読み込み、ヘッダーをキーにした連想配列の行リストを返す。
+ *
+ * @param string $csv_path 読み込むCSVファイルの絶対パス。
+ * @return array<int, array<string, string>> CSVの各行データ。ファイル未存在時は空配列。
+ */
 function koto_load_csv_dictionary($csv_path)
 {
     $csv_data = [];
@@ -24,6 +30,12 @@ function koto_load_csv_dictionary($csv_path)
     return $csv_data;
 }
 
+/**
+ * CSV行配列を「種別」列ごとにグルーピングする。
+ *
+ * @param array<int, array<string, mixed>> $csv_data koto_load_csv_dictionary の戻り値。
+ * @return array<string, array<int, array<string, mixed>>> 種別名をキーにした行配列。
+ */
 function koto_group_csv_by_type($csv_data)
 {
     $grouped = [];
@@ -39,6 +51,14 @@ function koto_group_csv_by_type($csv_data)
 // =================================================================
 // 2. 正規表現パターンの生成関数とマッチング
 // =================================================================
+/**
+ * CSVテンプレート文言から、プレースホルダを含む正規表現パターンを生成する。
+ *
+ * @param string $template テンプレート文字列（{$val} 形式の変数を含む）。
+ * @param array<int, string> $seen_vars 既出変数名の追跡用配列（参照渡し）。
+ * @param string $match_mode マッチ方式（exact|prefix|suffix|partial）。
+ * @return string preg_match で利用する正規表現。
+ */
 function koto_generate_regex_pattern($template, &$seen_vars, $match_mode = 'exact')
 {
     preg_match_all('/\{\$(.*?)\}/', $template, $ph_matches);
@@ -66,12 +86,13 @@ function koto_generate_regex_pattern($template, &$seen_vars, $match_mode = 'exac
 }
 
 /**
- * CSVテンプレートマッチのオプションを正規化する。
+ * CSVテンプレートマッチ処理のオプションをデフォルト付きで正規化する。
  *
- * @param array $options {
+ * @param array<string, mixed> $options {
  *   @type null|array $no_match_return  文言に一致する行が無いときの戻り値（既定: null）
  *   @type null|array $empty_acf_return  マッチしたがACF行が空のときの acf_data（既定: [[]]）
  * }
+ * @return array<string, mixed> 正規化済みオプション。
  */
 function koto_normalize_csv_match_options($options = [])
 {
@@ -85,6 +106,9 @@ function koto_normalize_csv_match_options($options = [])
 /**
  * koto_match_csv_template の戻り値が「マッチあり」かどうか。
  * no_match_return に [] を指定した場合も区別できる。
+ *
+ * @param mixed $result koto_match_csv_template の戻り値。
+ * @return bool matched_text キーを持つ配列なら true。
  */
 function koto_is_csv_template_match($result)
 {
@@ -93,6 +117,10 @@ function koto_is_csv_template_match($result)
 
 /**
  * 生成したACF行配列を、empty_acf_return の方針に合わせて仕上げる。
+ *
+ * @param array<int, mixed> $acf_rows ACF行候補の配列。
+ * @param mixed $empty_acf_return 有効行が無かった場合の戻り値。
+ * @return mixed 有効行配列、または empty_acf_return。
  */
 function koto_finalize_match_acf_data($acf_rows, $empty_acf_return)
 {
@@ -108,6 +136,104 @@ function koto_finalize_match_acf_data($acf_rows, $empty_acf_return)
     return $non_empty_rows;
 }
 
+/**
+ * シフト属性のJSON値から attribute タクソノミーのターム配列を取得する。
+ *
+ * @param array<int, array<string, mixed>> $shift_rows シフトタイプのACF行。
+ * @return array<int, WP_Term> 属性タームの配列。
+ */
+function koto_get_shift_attr_terms($shift_rows)
+{
+    $terms = [];
+
+    foreach ($shift_rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+
+        $raw_attrs = $row['sugo_shift_attrs'] ?? $row['koto_shift_attrs'] ?? null;
+        if ($raw_attrs === null || $raw_attrs === '') {
+            continue;
+        }
+
+        if (is_array($raw_attrs)) {
+            $raw_values = $raw_attrs;
+        } else {
+            $raw_text = trim((string) $raw_attrs);
+            $raw_text = trim($raw_text, '[]');
+
+            $decoded_values = json_decode('[' . $raw_text . ']', true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded_values)) {
+                $raw_values = $decoded_values;
+            } else {
+                $raw_values = preg_split('/\s*,\s*/u', $raw_text);
+            }
+        }
+
+        foreach ((array) $raw_values as $raw_value) {
+            if ($raw_value instanceof WP_Term) {
+                $terms[$raw_value->term_id] = $raw_value;
+                continue;
+            }
+
+            if (is_array($raw_value) && isset($raw_value['term_id'])) {
+                $raw_value = $raw_value['term_id'];
+            }
+
+            if (!is_numeric($raw_value)) {
+                continue;
+            }
+
+            $term = get_term((int) $raw_value, 'attribute');
+            if ($term && !is_wp_error($term)) {
+                $terms[$term->term_id] = $term;
+            }
+        }
+    }
+
+    return array_values($terms);
+}
+
+/**
+ * シフト属性ごとに結果配列を複製し、各要素へ sugo_shift_attr を付与する。
+ *
+ * @param array<int, array<string, mixed>> $results 変換済み結果。
+ * @param array<int, WP_Term> $shift_attr_terms シフト属性のターム配列。
+ * @return array<int, array<string, mixed>> 複製済み結果。
+ */
+function koto_duplicate_results_for_shift_attrs($results, $shift_attr_terms)
+{
+    if (empty($shift_attr_terms)) {
+        return $results;
+    }
+
+    $duplicated_results = [];
+
+    foreach ($shift_attr_terms as $shift_attr_term) {
+        foreach ($results as $result) {
+            if (!is_array($result)) {
+                continue;
+            }
+
+            $result_copy = $result;
+            $result_copy['sugo_shift_attr'] = $shift_attr_term;
+            $duplicated_results[] = $result_copy;
+        }
+    }
+
+    return $duplicated_results;
+}
+
+/**
+ * 入力文言をCSVテンプレート群と照合し、最初に一致した1行をACFデータ化して返す。
+ *
+ * @param string $text 判定対象の文言。
+ * @param array<int, array<string, mixed>> $csv_rows 種別で絞ったCSV行配列。
+ * @param string $input_key 入力欄の識別キー（trait1/trait2/blessing など）。
+ * @param string $match_mode マッチ方式（exact|prefix|suffix|partial）。
+ * @param array<string, mixed> $options no_match_return / empty_acf_return を指定するオプション。
+ * @return array<string, mixed>|mixed マッチ時は acf_data と matched_text を含む配列、未マッチ時は no_match_return。
+ */
 function koto_match_csv_template($text, $csv_rows, $input_key = '', $match_mode = 'exact', $options = [])
 {
     $options = koto_normalize_csv_match_options($options);
@@ -145,6 +271,9 @@ function koto_match_csv_template($text, $csv_rows, $input_key = '', $match_mode 
 /**
  * CSVの「ACFに入力するJSON」列で | 区切りの複数JSONを分割する。
  * fgetcsv 後はオブジェクト間が }"|{ になる（CSV上は ""|""）。
+ *
+ * @param string $json_template CSV上のJSONテンプレート文字列。
+ * @return array<int, string> 分割済みJSON文字列の配列。
  */
 function koto_split_json_templates_by_pipe($json_template)
 {
@@ -174,6 +303,9 @@ function koto_split_json_templates_by_pipe($json_template)
 
 /**
  * マッチ結果の acf_data を行の配列に正規化する（単一連想配列 or 複数行）。
+ *
+ * @param mixed $acf_data koto_match_csv_template の acf_data。
+ * @return array<int, array<string, mixed>> 行配列に正規化した結果。
  */
 function koto_ensure_acf_data_list($acf_data)
 {
@@ -191,6 +323,11 @@ function koto_ensure_acf_data_list($acf_data)
 
 /**
  * テンプレート（| 区切り可）に変数を適用し、デコード済み行の配列を返す。
+ *
+ * @param string $json_template JSONテンプレート文字列（| 区切り可）。
+ * @param array<string, mixed> $matches 正規表現マッチ結果。
+ * @param string $input_key 入力欄の識別キー。
+ * @return array<int, array<string, mixed>> 1行以上のACFデータ配列。
  */
 function koto_apply_variables_to_json_rows($json_template, $matches, $input_key = '')
 {
@@ -212,6 +349,14 @@ function koto_apply_variables_to_json_rows($json_template, $matches, $input_key 
     return $rows;
 }
 
+/**
+ * JSONテンプレート内のプレースホルダを実値へ置換し、必要な型変換・ターム解決を施して配列化する。
+ *
+ * @param string $json_template CSVに定義したJSONテンプレート。
+ * @param array<string, mixed> $matches 正規表現マッチ結果（プレースホルダ値の元）。
+ * @param string $input_key 入力欄の識別キー（フィールドキー変換時に使用）。
+ * @return array<string, mixed>|null JSONデコード成功時は配列、失敗時は null。
+ */
 function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
 {
     $replacements = [];
@@ -333,7 +478,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                 }
             }
         } elseif (strpos($key, 'prefix') === 0) {
-            $value = str_replace(['増加', '強化','上昇'], ['', '', ''], $value);
+            $value = str_replace(['増加', '強化', '上昇'], ['', '', ''], $value);
             if (function_exists('koto_get_buff_prefix_map')) {
                 $prefix_map = koto_get_buff_prefix_map();
                 if (isset($prefix_map[$value])) {
@@ -511,19 +656,65 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
 // =================================================================
 // 4. 前処理と文言の分割
 // =================================================================
-function koto_preprocess_text($text)
+/**
+ * 種別に応じて、前処理で除去する文言一覧を返す。
+ *
+ * @param string $category 種別（日本語名 or waza/trait/leader/blessing）。
+ * @return array<int, string> 該当種別で無視する文言の配列。
+ */
+function koto_get_ignore_texts_by_category($category = '')
 {
-    $ignore_texts = [
-        '。サブ属性を対象とするリーダーとくせい・とくせいの効果を受けることができる(受ける効果はメイン属性と重複しない)',
-        '(福に応じて数値が変動)',
-        '※濁音、半濁音、小文字も同じ文字とする',
-        '(メイン属性のみを参照する)',
-        '※この効果のダメージは小数点切り上げとなり、HPが必ず1残る',
-        'このコトダマンを含むことばで指定コンボ達成した場合、達成段階に応じて効果が変化する。',
-        '※同じとくせいを持ったコトダマンが複数いる場合、1ターンに2体まで発動する',
-        'また、クエスト終了まで変身状態は維持される。',
-        '※この効果は重複しません。',
+    $category_map = [
+        'waza' => 'わざ',
+        'trait' => 'とくせい',
+        'leader' => 'リーダーとくせい',
+        'blessing' => '祝福',
     ];
+
+    $normalized_category = $category_map[$category] ?? $category;
+
+    $ignore_texts_by_category = [
+        'わざ' => [
+            'さらに',
+            '、または',
+            '追加で',
+            '【',
+            '】',
+            '(汚染による効果を受けない)',
+            '(味方のコトダマンのみ適用されます)',
+            '(ターン開始時に重圧付与後の経過ターン数に応じた段階の被ダメージ増加状態を付与し、味方行動終了時に被ダメージ増加状態の段階と効果値に応じたダメージを与える効果)',
+            '(一部攻撃を除く)',
+        ],
+        'とくせい' => [
+            'サブ属性を対象とするリーダーとくせい・とくせいの効果を受けることができる(受ける効果はメイン属性と重複しない)',
+            '。サブ属性を対象とするリーダーとくせい・とくせいの効果を受けることができる(受ける効果はメイン属性と重複しない)',
+            '(福に応じて数値が変動)',
+            '※濁音、半濁音、小文字も同じ文字とする',
+            '(メイン属性のみを参照する)',
+            '※この効果のダメージは小数点切り上げとなり、HPが必ず1残る',
+            'このコトダマンを含むことばで指定コンボ達成した場合、達成段階に応じて効果が変化する。',
+            '※同じとくせいを持ったコトダマンが複数いる場合、1ターンに2体まで発動する',
+            'また、クエスト終了まで変身状態は維持される。',
+            '※この効果は重複しません。',
+        ],
+        'リーダーとくせい' => [],
+        '祝福' => [],
+    ];
+
+    $category_ignore_texts = $ignore_texts_by_category[$normalized_category] ?? [];
+    return $category_ignore_texts;
+}
+
+/**
+ * CSV照合前の入力文言を正規化する（記号統一・空白除去・不要文言除去）。
+ *
+ * @param string $text 元の入力文言。
+ * @param string $category 種別。除外文言の切り替えに使用。
+ * @return string 前処理後の文言。
+ */
+function koto_preprocess_text($text, $category = '')
+{
+    $ignore_texts = koto_get_ignore_texts_by_category($category);
 
     $text = preg_replace('/\(敵の行動時、そのターンに自身が各敵にわざ・すごわざ・コトわざで与えた合計ダメージの\d+%の値で固定ダメージを与える効果\)/u', '', $text);
     // 英数字とスペースを半角に
@@ -553,6 +744,12 @@ function koto_preprocess_text($text)
     return trim($text);
 }
 
+/**
+ * 丸数字・改行・記号を区切りとして文言を分割する。
+ *
+ * @param string $text 分割対象の文言。
+ * @return array<int, string> 空要素を除いた分割後の文言配列。
+ */
 function koto_split_by_circled_numbers($text)
 {
     $parts = preg_split('/[①②③④⑤⑥⑦⑧⑨⑩\n\/／●■★]/u', $text, -1, PREG_SPLIT_NO_EMPTY);
@@ -572,6 +769,14 @@ function koto_split_by_circled_numbers($text)
 // =================================================================
 // 5. 種別ごとの再帰的呼び出し関数
 // =================================================================
+/**
+ * とくせい文言を解析し、条件部と効果部を結合したACF行配列を返す。
+ *
+ * @param string $text とくせい入力文言。
+ * @param array<string, array<int, array<string, mixed>>> $grouped_csv 種別グループ済みCSV。
+ * @param string $input_key 入力欄識別キー。
+ * @return array<int, array<string, mixed>> とくせいループに投入する行配列。
+ */
 function koto_parse_trait($text, $grouped_csv, $input_key = '')
 {
     $parts = koto_split_by_circled_numbers($text);
@@ -645,15 +850,238 @@ function koto_parse_trait($text, $grouped_csv, $input_key = '')
     return $results;
 }
 
+/**
+ * わざ文言をCSVテンプレートに照合し、ACF行配列へ変換する。
+ *
+ * @param string $text わざ入力文言。
+ * @param array<string, array<int, array<string, mixed>>> $grouped_csv 種別グループ済みCSV。
+ * @param string $input_key 入力欄識別キー。
+ * @return array<int, array<string, mixed>> わざループに投入する行配列。
+ */
+function koto_parse_waza($text, $grouped_csv, $input_key = '')
+{
+    $waza_rows = $grouped_csv['わざ'] ?? [];
+    $waza_condition_rows = $grouped_csv['わざ条件'] ?? [];
+    $waza_shift_rows = $grouped_csv['わざシフトタイプ'] ?? [];
+    $results = [];
+    $shift_type = koto_match_csv_template($text, $waza_shift_rows, $input_key);
+    $shift_type_value = '';
+    $shift_attr_terms = [];
+    if (koto_is_csv_template_match($shift_type)) {
+        $shift_type_rows = koto_ensure_acf_data_list($shift_type['acf_data']);
+        foreach ($shift_type_rows as $shift_type_row) {
+            if (!is_array($shift_type_row)) {
+                continue;
+            }
+            $shift_type_value = $shift_type_row['sugo_shift_type'] ?? $shift_type_row['koto_shift_type'] ?? '';
+            if ($shift_type_value !== '') {
+                break;
+            }
+        }
+        if ($shift_type_value === 'attr') {
+            $shift_attr_terms = koto_get_shift_attr_terms($shift_type_rows);
+        }
+    }
+    if ($input_key === 'kotowaza') {
+        $shift_type_raw = koto_is_csv_template_match($shift_type) ? koto_ensure_acf_data_list($shift_type['acf_data']) : [];
+        $shift_type_raw['koto_shift_type'] = $shift_type_raw['sugo_shift_type'] ?? '';
+        unset($shift_type_raw['sugo_shift_type']);
+        $results[] = $shift_type_raw;
+    } else {
+        $results[] = koto_is_csv_template_match($shift_type) ? koto_ensure_acf_data_list($shift_type['acf_data']) : [];
+    }
+    $parent_parts = koto_split_by_circled_numbers($text);
+    foreach ($parent_parts as $part) {
+        $remaining_text = $part;
+        $conditions = [];
+        $effects = [];
+        // わざ追加条件の処理
+        while (true) {
+            // とくせい条件は文の前半部分なので「前方一致」でマッチさせる
+            $match = koto_match_csv_template(
+                $remaining_text,
+                $waza_condition_rows,
+                $input_key,
+                'prefix'
+            );
+            if (!koto_is_csv_template_match($match)) {
+                break;
+            }
+            if ($match['acf_data'] !== null) {
+                foreach (koto_ensure_acf_data_list($match['acf_data']) as $acf_item) {
+                    if (empty($acf_item)) {
+                        continue;
+                    }
+                    if (isset($acf_item['condition_type_loop']) && is_array($acf_item['condition_type_loop'])) {
+                        foreach ($acf_item['condition_type_loop'] as $cond_item) {
+                            $conditions[] = $cond_item;
+                        }
+                    } else {
+                        $conditions[] = $acf_item;
+                    }
+                }
+            }
+            // 条件がなくても文言がマッチしていれば前方テキストを削除
+            $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
+        }
+        // わざ効果の処理
+        $child_parts = explode('+', $remaining_text);
+        foreach ($child_parts as $child_part) {
+            $match = koto_match_csv_template($child_part, $waza_rows, $input_key);
+            if (koto_is_csv_template_match($match)) {
+                $effect_rows = koto_ensure_acf_data_list($match['acf_data']);
+            } else {
+                $effect_rows = [];
+            }
+            foreach ($effect_rows as $effect_data) {
+                if (!is_array($effect_data) || empty($effect_data)) {
+                    continue;
+                }
+                $effects[] = $effect_data;
+            }
+        }
+        $results[] = [
+            'waza_add_cond_loop' => $conditions,
+            'sugo_detail_loop' => $effects,
+        ];
+        // シフト条件の位置を修正
+        array_map(function ($result) {
+            $waza_add_cond_loop = $result['waza_add_cond_loop'] ?? [];
+            if (isset($waza_add_cond_loop['sugo_shift_moji'])) {
+                $result['sugo_shift_moji'] = $waza_add_cond_loop['sugo_shift_moji'];
+                unset($result['waza_add_cond_loop']['sugo_shift_moji']);
+            } elseif (isset($waza_add_cond_loop['sugo_shift_attacked'])) {
+                $result['sugo_shift_attacked'] = $waza_add_cond_loop['sugo_shift_attacked'];
+                unset($result['waza_add_cond_loop']['sugo_shift_attacked']);
+            }
+            return $result;
+        }, $results);
+        // 倍率テーブルの追加
+        foreach ($results as $result) {
+            if (isset($result['sugo_detail_loop'])) {
+                foreach ($result['sugo_detail_loop'] as $sugo_detail) {
+                    $attack_type = $sugo_detail['attack_type'] ?? [];
+                    $moji_flag = in_array('moji', $attack_type, true);
+                    $converged_flag = in_array('converged', $attack_type, true);
+                    $moji_heal_flag = !empty($sugo_detail['is_moji_healing']);
+                    if ($moji_flag && $converged_flag) {
+                        $malti_table = koto_get_maltiplyer_table('moji_converged');
+                        break;
+                    } else if ($moji_flag && $moji_heal_flag) {
+                        $malti_table = koto_get_maltiplyer_table('moji_heal');
+                        break;
+                    } else if ($moji_flag) {
+                        $target = $sugo_detail['waza_target'] ?? '';
+                        if (strpos($target, 'single') !== false) {
+                            $malti_table = koto_get_maltiplyer_table('moji_single');
+                            break;
+                        } else {
+                            $malti_table = koto_get_maltiplyer_table('moji_all');
+                            break;
+                        }
+                    } else if ($converged_flag) {
+                        $malti_table = koto_get_maltiplyer_table('converged');
+                        break;
+                    }
+                }
+            }
+        }
+        if (!empty($malti_table)) {
+            $results[] = $malti_table;
+        }
+
+        if ($shift_type_value === 'attr') {
+            $results = koto_duplicate_results_for_shift_attrs($results, $shift_attr_terms);
+        }
+
+        return $results;
+    }
+}
+function koto_get_maltiplyer_table($type = 'default')
+{
+    $result = [
+        'use_maltiplyer_table' => true,
+        'malti_cond_type' => 'default',
+        'maltiplyer_table' => []
+    ];
+    switch ($type):
+        case 'moji_converged':
+            $result['malti_cond_type'] = 'both';
+            $result['maltiplyer_table'] = [
+                ['moji_count' => 4, 'enemy_count' => 1, 'rate' => 8.16],
+                ['moji_count' => 5, 'enemy_count' => 1, 'rate' => 9.6],
+                ['moji_count' => 6, 'enemy_count' => 1, 'rate' => 10.88],
+                ['moji_count' => 7, 'enemy_count' => 1, 'rate' => 12.0],
+                ['moji_count' => 4, 'enemy_count' => 2, 'rate' => 6.63],
+                ['moji_count' => 5, 'enemy_count' => 2, 'rate' => 7.8],
+                ['moji_count' => 6, 'enemy_count' => 2, 'rate' => 8.84],
+                ['moji_count' => 7, 'enemy_count' => 2, 'rate' => 9.75],
+                ['moji_count' => 4, 'enemy_count' => 3, 'rate' => 5.1],
+                ['moji_count' => 5, 'enemy_count' => 3, 'rate' => 6.0],
+                ['moji_count' => 6, 'enemy_count' => 3, 'rate' => 6.8],
+                ['moji_count' => 7, 'enemy_count' => 3, 'rate' => 7.5],
+            ];
+            break;
+        case 'moji_heal':
+            $result['malti_cond_type'] = 'moji';
+            $result['maltiplyer_table'] = [
+                ['moji_count' => 4, 'rate' => 0.8],
+                ['moji_count' => 5, 'rate' => 1.6],
+                ['moji_count' => 6, 'rate' => 1.8],
+                ['moji_count' => 7, 'rate' => 2.3],
+            ];
+            break;
+        case 'moji_single':
+            $result['malti_cond_type'] = 'moji';
+            $result['maltiplyer_table'] = [
+                ['moji_count' => 4, 'rate' => 6],
+                ['moji_count' => 5, 'rate' => 7.5],
+                ['moji_count' => 6, 'rate' => 9.5],
+                ['moji_count' => 7, 'rate' => 11.5],
+            ];
+            break;
+        case 'moji_all':
+            $result['malti_cond_type'] = 'moji';
+            $result['maltiplyer_table'] = [
+                ['moji_count' => 4, 'rate' => 5.1],
+                ['moji_count' => 5, 'rate' => 6.6],
+                ['moji_count' => 6, 'rate' => 7.9],
+                ['moji_count' => 7, 'rate' => 9.5],
+            ];
+            break;
+        case 'converged':
+            $result['malti_cond_type'] = 'enemy_count';
+            $result['maltiplyer_table'] = [
+                ['enemy_count' => 1, 'rate' => 9],
+                ['enemy_count' => 2, 'rate' => 7.5],
+                ['enemy_count' => 3, 'rate' => 6],
+            ];
+            break;
+        default:
+            break;
+    endswitch;
+    return $result;
+}
+/**
+ * 種別ごとに適切なパーサーへ振り分け、入力文言をACFデータへ変換する。
+ *
+ * @param string $text 入力文言。
+ * @param string $type 種別名（とくせい/わざ/すごわざ条件/祝福/リーダーとくせい）。
+ * @param array<string, array<int, array<string, mixed>>> $grouped_csv 種別グループ済みCSV。
+ * @param string $input_key 入力欄識別キー。
+ * @return array<int, array<string, mixed>>|null 種別に対応した結果配列。未対応種別は null。
+ */
 function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '')
 {
-    $text = koto_preprocess_text($text);
+    $text = koto_preprocess_text($text, $type);
 
     switch ($type) {
         case 'とくせい':
             return koto_parse_trait($text, $grouped_csv, $input_key);
 
         case 'わざ':
+            return koto_parse_waza($text, $grouped_csv, $input_key);
+
         case 'すごわざ条件':
         case '祝福':
         case 'リーダーとくせい':
@@ -669,6 +1097,13 @@ function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '')
 // =================================================================
 // 6. 種別ごとにパースしてすべてをACF化する関数
 // =================================================================
+/**
+ * 複数入力欄の文言をまとめて解析し、入力欄キーごとのACFデータを構築する。
+ *
+ * @param array<string, string> $inputs 入力欄キーと文言の連想配列。
+ * @param array<string, array<int, array<string, mixed>>> $grouped_csv 種別グループ済みCSV。
+ * @return array<string, array<int, array<string, mixed>>> 入力欄キーごとのACF行配列。
+ */
 function koto_build_acf_data_from_inputs($inputs, $grouped_csv)
 {
     $acf_data = [];
@@ -703,6 +1138,13 @@ function koto_build_acf_data_from_inputs($inputs, $grouped_csv)
 // =================================================================
 // 7. 取得したACFで記事を作る関数 / 既存キャラに追加する関数
 // =================================================================
+/**
+ * 解析済みACFデータを既存キャラクター投稿へ追記反映する。
+ *
+ * @param int $post_id 更新対象の投稿ID。
+ * @param array<string, array<int, array<string, mixed>>> $acf_data 入力欄キーごとの解析結果。
+ * @return bool 更新処理を実行できた場合 true、入力不備時 false。
+ */
 function koto_update_character_post_with_acf($post_id, $acf_data)
 {
     if (!$post_id || empty($acf_data)) return false;
@@ -802,6 +1244,13 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
     return true;
 }
 
+/**
+ * 解析済みACFデータからキャラクター投稿を新規作成し、必要な補助フィールドも設定する。
+ *
+ * @param string $character_name 作成するキャラクター名。
+ * @param array<string, array<int, array<string, mixed>>> $acf_data 反映するACFデータ。
+ * @return int|WP_Error 作成した投稿ID、またはエラー。
+ */
 function koto_create_character_post_from_acf($character_name, $acf_data)
 {
     $post_data = [
@@ -842,6 +1291,12 @@ add_action('wp_ajax_koto_parse_auto_input', 'koto_ajax_parse_auto_input');
 add_action('wp_ajax_koto_update_post_from_auto_input', 'koto_ajax_update_post_from_auto_input');
 add_action('wp_ajax_koto_create_post_from_auto_input', 'koto_ajax_create_post_from_auto_input');
 
+/**
+ * 自動入力のプレビュー解析を行うAJAXエンドポイント。
+ * POSTされた文言をCSV照合し、解析結果をJSONで返す。
+ *
+ * @return void
+ */
 function koto_ajax_parse_auto_input()
 {
     $texts = isset($_POST['texts']) ? $_POST['texts'] : [];
@@ -855,6 +1310,11 @@ function koto_ajax_parse_auto_input()
     wp_send_json_success($parsed_data);
 }
 
+/**
+ * 既存投稿へ自動入力結果を反映するAJAXエンドポイント。
+ *
+ * @return void
+ */
 function koto_ajax_update_post_from_auto_input()
 {
     $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
@@ -888,6 +1348,11 @@ function koto_ajax_update_post_from_auto_input()
     }
 }
 
+/**
+ * 自動入力結果を使って新規投稿を作成するAJAXエンドポイント。
+ *
+ * @return void
+ */
 function koto_ajax_create_post_from_auto_input()
 {
     $texts = isset($_POST['texts']) ? $_POST['texts'] : [];
