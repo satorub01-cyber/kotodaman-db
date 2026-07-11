@@ -56,6 +56,157 @@ function koto_get_species_map()
         '妖' => 'yokai',
     ];
 }
+
+function koto_get_attack_map_definitions()
+{
+    return [
+        'blast' => [
+            'name' => 'ブラスト',
+            'strong' => '1.5',
+            'very_strong' => '3.75',
+            'super_strong' => '5.1',
+            'most_strong' => '7.5',
+        ],
+        'storm' => [
+            'name' => 'ストーム',
+            'strong' => '1.8',
+            'very_strong' => '3',
+            'super_strong' => '3.6',
+            'most_strong' => '4.8',
+        ],
+        'lance' => [
+            'name' => 'ランス',
+            'strong' => '3.75',
+            'very_strong' => '4.25',
+            'super_strong' => '4.75',
+            'most_strong' => '',
+        ],
+        'claw' => [
+            'name' => 'クロー',
+            'strong' => '3.5',
+            'very_strong' => '4.75',
+            'super_strong' => '5.25',
+            'most_strong' => '',
+        ],
+        'slash' => [
+            'name' => 'スラッシュ',
+            'strong' => '3',
+            'very_strong' => '5',
+            'super_strong' => '6',
+            'most_strong' => '11',
+        ],
+        'shot' => [
+            'name' => 'ショット',
+            'strong' => '2.5',
+            'very_strong' => '6.25',
+            'super_strong' => '8',
+            'most_strong' => '14',
+        ],
+        'blow' => [
+            'name' => 'ブロー',
+            'strong' => '2',
+            'very_strong' => '8.5',
+            'super_strong' => '10',
+            'most_strong' => '16',
+        ],
+        'blade' => [
+            'name' => 'ブレイド',
+            'strong' => ['4', '0.65', '1.05'],
+            'very_strong' => ['6', '0.7', '1.9'],
+            'super_strong' => ['8', '0.75', '2.35'],
+            'most_strong' => ['10', '1.3', ''],
+        ],
+        'knuckle' => [
+            'name' => 'ナックル',
+            'strong' => ['3', '1', '1.3'],
+            'very_strong' => ['', '', ''],
+            'super_strong' => ['5', '1.2', '2.2'],
+            'most_strong' => ['', '', ''],
+        ],
+        'blaster' => [
+            'name' => 'ブラスター',
+            'strong' => ['5', '0.65', '0.9'],
+            'very_strong' => ['7', '0.75', '1.1'],
+            'super_strong' => ['9', '0.85', '1.3'],
+            'most_strong' => ['12', '1.05', ''],
+        ],
+        'rush' => [
+            'name' => 'ラッシュ',
+            'strong' => ['4', '0.6', '1.2'],
+            'very_strong' => ['', '', ''],
+            'super_strong' => ['6', '1.1', '2.5'],
+            'most_strong' => ['12', '0.9', '1.1'],
+        ],
+    ];
+}
+
+// =================================================================
+//  ★マスター設定：攻撃種別のマッピング
+// =================================================================
+/**   @param string $key
+ *    @return array
+ **/
+function koto_get_attack_map($key)
+{
+    $maps = koto_get_attack_map_definitions();
+    return isset($maps[$key]) ? $maps[$key] : [];
+}
+
+function koto_get_attack_blast_map()
+{
+    return koto_get_attack_map('blast');
+}
+
+function koto_get_attack_storm_map()
+{
+    return koto_get_attack_map('storm');
+}
+
+function koto_get_attack_lance_map()
+{
+    return koto_get_attack_map('lance');
+}
+
+function koto_get_attack_claw_map()
+{
+    return koto_get_attack_map('claw');
+}
+
+function koto_get_attack_slash_map()
+{
+    return koto_get_attack_map('slash');
+}
+
+function koto_get_attack_shot_map()
+{
+    return koto_get_attack_map('shot');
+}
+
+function koto_get_attack_blow_map()
+{
+    return koto_get_attack_map('blow');
+}
+
+function koto_get_attack_blade_map()
+{
+    return koto_get_attack_map('blade');
+}
+
+function koto_get_attack_knuckle_map()
+{
+    return koto_get_attack_map('knuckle');
+}
+
+function koto_get_attack_blaster_map()
+{
+    return koto_get_attack_map('blaster');
+}
+
+function koto_get_attack_rush_map()
+{
+    return koto_get_attack_map('rush');
+}
+
 function koto_get_event_map()
 {
     // グループとイベントの「slug => name」の変換辞書を作成
