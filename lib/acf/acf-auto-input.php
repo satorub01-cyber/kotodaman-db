@@ -561,8 +561,9 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $detail_other = '';
 
             if ($target_main === 'limited_ally' || $target_main === 'limited_hand') {
-                if (preg_match('/(.+?)属性(?:の)?味方/u', $raw_target, $m)) {
-                    $attr_names = preg_split('/[・\|]/u', trim($m[1]));
+                if (strpos($raw_target, '属性') !== false) {
+                    $raw_target = str_replace('属性', '', $raw_target);
+                    $attr_names = preg_split('/[・\|]/u', trim($raw_target));
                     foreach ((array) $attr_names as $name) {
                         $term = get_term_by('name', trim($name), 'attribute');
                         if ($term) {
@@ -572,8 +573,9 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                     if (!empty($detail_attr_ids)) {
                         $detail_type = 'attr';
                     }
-                } elseif (preg_match('/(.+?)種族(?:の)?味方/u', $raw_target, $m)) {
-                    $species_names = preg_split('/[・\|]/u', trim($m[1]));
+                } elseif (strpos($raw_target, '種族') !== false) {
+                    $raw_target = str_replace('種族', '', $raw_target);
+                    $species_names = preg_split('/[・\|]/u', trim($raw_target));
                     foreach ((array) $species_names as $name) {
                         $term = get_term_by('name', trim($name), 'species');
                         if ($term) {
@@ -583,8 +585,10 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                     if (!empty($detail_species_ids)) {
                         $detail_type = 'species';
                     }
-                } elseif (preg_match('/「(.+?)」(?:に属する)?味方/u', $raw_target, $m)) {
-                    $group_names = preg_split('/[・\|]/u', trim($m[1]));
+                } elseif (strpos($raw_target, '「') !== false && strpos($raw_target, '」') !== false) {
+                    $raw_target = str_replace('「', '', $raw_target);
+                    $raw_target = str_replace('」', '', $raw_target);
+                    $group_names = preg_split('/[・\|]/u', trim($raw_target));
                     foreach ((array) $group_names as $name) {
                         $term = get_term_by('name', trim($name), 'affiliation');
                         if ($term) {
