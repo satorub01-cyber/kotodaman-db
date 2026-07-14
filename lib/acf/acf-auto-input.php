@@ -490,7 +490,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                 }
             }
         } elseif (strpos($key, 'prefix') === 0) {
-            $value = str_replace(['増加', '強化', '上昇'], ['', '', ''], $value);
+            $value = str_replace(['増加', '強化', '上昇', '軽減'], '', $value);
             if (function_exists('koto_get_buff_prefix_map')) {
                 $prefix_map = koto_get_buff_prefix_map();
                 if (isset($prefix_map[$value])) {
@@ -542,15 +542,11 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             // わざ系は Group ではなくフラットな target 系フィールドを使う
             $raw_target = trim((string) $value);
             $target_main = 'self';
-            if (mb_strpos($raw_target, '手札') !== false) {
-                if (mb_strpos($raw_target, '味方全体') !== false || mb_strpos($raw_target, '味方全員') !== false || $raw_target === '味方') {
-                    $target_main = 'hand_ally';
-                } elseif (mb_strpos($raw_target, '味方') !== false) {
-                    $target_main = 'limited_hand';
-                }
-            } elseif (mb_strpos($raw_target, '味方全体') !== false || mb_strpos($raw_target, '味方全員') !== false || $raw_target === '味方') {
+            if (mb_strpos($raw_target, '味方全体') !== false || mb_strpos($raw_target, '味方全員') !== false || $raw_target === '味方') {
                 $target_main = 'all_ally';
-            } elseif (mb_strpos($raw_target, '味方') !== false) {
+            } elseif (strpos($raw_target,'自身') !== false) {
+                $target_main = 'self';
+            }else {
                 $target_main = 'limited_ally';
             }
 
