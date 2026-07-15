@@ -70,7 +70,13 @@ function koto_generate_regex_pattern($template, &$seen_vars, $match_mode = 'exac
             $pos = strpos($pattern, $quoted_ph);
             if ($pos !== false) {
                 if (!in_array($var_name, $seen_vars)) {
-                    $replacement = '(?P<' . $var_name . '>.+?)';
+                    if (strpos($var_name, 'val') === 0) {
+                        // 全半角の数字の連続にのみマッチさせる
+                        $replacement = '(?P<' . $var_name . '>[0-9０-９]+)';
+                    } else {
+                        // 通常は最短一致の任意の文字列にマッチさせる
+                        $replacement = '(?P<' . $var_name . '>.+?)';
+                    }
                     $seen_vars[] = $var_name;
                 } else {
                     $replacement = '(?P=' . $var_name . ')';
@@ -444,6 +450,17 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                 }
             }
             $value = $attr_ids;
+        } elseif (strpos($key, 'moji') === 0) {
+            $value = str_replace('文字', '', $value);
+            $attr_names = preg_split('/[・\|]/u', $value);
+            $attr_ids = [];
+            foreach ($attr_names as $name) {
+                $term = get_term_by('name', trim($name), 'available_moji');
+                if ($term) {
+                    $attr_ids[] = $term->term_id;
+                }
+            }
+            $value = $attr_ids;
         } elseif (strpos($key, 'character_target') === 0 || strpos($key, 'whose_trait') === 0) {
             $target_type = 'self';
             $target_detail = '';
@@ -544,9 +561,9 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $target_main = 'self';
             if (mb_strpos($raw_target, '味方全体') !== false || mb_strpos($raw_target, '味方全員') !== false || $raw_target === '味方') {
                 $target_main = 'all_ally';
-            } elseif (strpos($raw_target,'自身') !== false) {
+            } elseif (strpos($raw_target, '自身') !== false) {
                 $target_main = 'self';
-            }else {
+            } else {
                 $target_main = 'limited_ally';
             }
 
@@ -770,7 +787,7 @@ function koto_get_ignore_texts_by_category($category = '')
 
     $ignore_texts_by_category = [
         'わざ' => [
-            'さらに',
+            '',
             '、または',
             '追加で',
             '【',
@@ -791,6 +808,7 @@ function koto_get_ignore_texts_by_category($category = '')
             '※同じとくせいを持ったコトダマンが複数いる場合、1ターンに2体まで発動する',
             'また、クエスト終了まで変身状態は維持される。',
             '※この効果は重複しません。',
+            '※コンボ＋の効果は重複せず、最も高い数値が加算されます',
         ],
         'リーダーとくせい' => [],
         '祝福' => [],
@@ -1043,54 +1061,112 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
             $child_parts = [$remaining_text];
         }
         foreach ($child_parts as $child_part) {
-            $match = koto_match_csv_template($child_part, $waza_rows, $input_key);
-            if (koto_is_csv_template_match($match)) {
-                $effect_rows = koto_ensure_acf_data_list($match['acf_data']);
-            } else {
-                $effect_rows = [];
-            }
-
-            foreach ($effect_rows as $effect_data) {
-                if (!is_array($effect_data) || empty($effect_data)) {
-                    continue;
-                }
-                $effects[] = $effect_data;
-            }
-        }
-
-        $parsed_part = [
-            'waza_add_cond_loop' => $conditions,
-            'sugo_detail_loop' => $effects,
-        ];
-
-        // シフト条件の階層調整
-        $normalized_conditions = [];
-        foreach ($parsed_part['waza_add_cond_loop'] as $cond_item) {
-            if (!is_array($cond_item) || empty($cond_item)) {
+            $child_part = trim((string) $child_part);
+            if ($child_part === '') {
                 continue;
             }
 
-            if (array_key_exists('sugo_shift_moji', $cond_item)) {
-                $parsed_part['sugo_shift_moji'] = $cond_item['sugo_shift_moji'];
-                unset($cond_item['sugo_shift_moji']);
-            }
-            if (array_key_exists('sugo_shift_attacked', $cond_item)) {
-                $parsed_part['sugo_shift_attacked'] = $cond_item['sugo_shift_attacked'];
-                unset($cond_item['sugo_shift_attacked']);
+            $child_segments = preg_split('/。さらに/u', $child_part);
+            if ($child_segments === false || empty($child_segments)) {
+                $child_segments = [$child_part];
             }
 
-            if (!empty($cond_item)) {
-                $normalized_conditions[] = $cond_item;
+            $segment_conditions = $conditions;
+            foreach ($child_segments as $segment_index => $child_segment) {
+                $child_segment = trim((string) $child_segment);
+                if ($child_segment === '') {
+                    continue;
+                }
+
+                if ($segment_index > 0) {
+                    while (true) {
+                        $match = koto_match_csv_template(
+                            $child_segment,
+                            $waza_condition_rows,
+                            $input_key,
+                            'prefix'
+                        );
+                        if (!koto_is_csv_template_match($match)) {
+                            break;
+                        }
+
+                        if ($match['acf_data'] !== null) {
+                            foreach (koto_ensure_acf_data_list($match['acf_data']) as $acf_item) {
+                                if (empty($acf_item)) {
+                                    continue;
+                                }
+                                if (isset($acf_item['condition_type_loop']) && is_array($acf_item['condition_type_loop'])) {
+                                    foreach ($acf_item['condition_type_loop'] as $cond_item) {
+                                        $segment_conditions[] = $cond_item;
+                                    }
+                                } else {
+                                    $segment_conditions[] = $acf_item;
+                                }
+                            }
+                        }
+
+                        $child_segment = trim(mb_substr($child_segment, mb_strlen($match['matched_text'])));
+                    }
+                }
+
+                $effect_rows = [];
+                $effect_parts = explode('+', $child_segment);
+                if ($effect_parts === false || empty($effect_parts)) {
+                    $effect_parts = [$child_segment];
+                }
+
+                foreach ($effect_parts as $effect_part) {
+                    $match = koto_match_csv_template($effect_part, $waza_rows, $input_key);
+                    if (koto_is_csv_template_match($match)) {
+                        $effect_rows = koto_ensure_acf_data_list($match['acf_data']);
+                    } else {
+                        $effect_rows = [];
+                    }
+
+                    foreach ($effect_rows as $effect_data) {
+                        if (!is_array($effect_data) || empty($effect_data)) {
+                            continue;
+                        }
+                        $effects[] = $effect_data;
+                    }
+                }
+
+                $parsed_part = [
+                    'waza_add_cond_loop' => $segment_conditions,
+                    'sugo_detail_loop' => $effects,
+                ];
+
+                // シフト条件の階層調整
+                $normalized_conditions = [];
+                foreach ($parsed_part['waza_add_cond_loop'] as $cond_item) {
+                    if (!is_array($cond_item) || empty($cond_item)) {
+                        continue;
+                    }
+
+                    if (array_key_exists('sugo_shift_moji', $cond_item)) {
+                        $parsed_part['sugo_shift_moji'] = $cond_item['sugo_shift_moji'];
+                        unset($cond_item['sugo_shift_moji']);
+                    }
+                    if (array_key_exists('sugo_shift_attacked', $cond_item)) {
+                        $parsed_part['sugo_shift_attacked'] = $cond_item['sugo_shift_attacked'];
+                        unset($cond_item['sugo_shift_attacked']);
+                    }
+
+                    if (!empty($cond_item)) {
+                        $normalized_conditions[] = $cond_item;
+                    }
+                }
+                $parsed_part['waza_add_cond_loop'] = $normalized_conditions;
+
+                // 空データ行は追加しない
+                if (empty($parsed_part['waza_add_cond_loop']) && empty($parsed_part['sugo_detail_loop'])) {
+                    continue;
+                }
+
+                $results[] = $parsed_part;
+                $effects = [];
             }
         }
-        $parsed_part['waza_add_cond_loop'] = $normalized_conditions;
-
-        // 空データ行は追加しない
-        if (empty($parsed_part['waza_add_cond_loop']) && empty($parsed_part['sugo_detail_loop'])) {
-            continue;
-        }
-
-        $results[] = $parsed_part;
     }
 
     // 倍率テーブルの追加
