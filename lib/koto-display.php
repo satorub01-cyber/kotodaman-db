@@ -1821,6 +1821,8 @@ function koto_replace_icons($buffer)
         '植物・',
         '花火・',
         '生き物・',
+        '黄泉津大神・',
+        '主宰伸・',
     ];
 
     $ignore_patterns = [
