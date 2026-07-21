@@ -3,6 +3,7 @@
 とくせい,{$gimmick_name_guard}ブロックから受けるダメージを軽減,"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name_guard""}"
 とくせい,{$gimmick_name_breaker}ブロックへのダメージ{$gimmick_prefix},"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name_breaker"",""gimmick_prefix"" : ""$gimmick_prefix""}"
 とくせい,{$gimmick_name_guard}マスの効果を受けない,"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name_guard""}"
+とくせい,レーザーブロックからのダメージを防ぎ、レーザーを遮断する,"{""trait_type"" : ""gimmick"",""gimmick"" : ""laser""}"
 とくせい,チェンジマスの効果を受けない。さらにチェンジマスがある場合、文字変換に「{$dot_separated_moji}」が追加される,"{""trait_type"" : ""gimmick"",""gimmick"" : ""スーパーチェンジガード""}|{""available_moji"" : ""$dot_separated_moji"",""moji_attr"" : ""default"",""unlock_place"" : ""super_change""}"
 とくせい,コピーマスの効果を受けない。さらにコピーマスがある場合、文字変換に「{$dot_separated_moji}」が追加される,"{""trait_type"" : ""gimmick"",""gimmick"" : ""スーパーコピーガード""}|{""available_moji"" : ""$dot_separated_moji"",""moji_attr"" : ""default"",""unlock_place"" : ""super_copy""}"
 とくせい,弱体マスに入れた場合、弱体効果を受けず強化効果を付与,"{""trait_type"" : ""gimmick"",""gimmick"" : ""スーパー弱体ガード""}"

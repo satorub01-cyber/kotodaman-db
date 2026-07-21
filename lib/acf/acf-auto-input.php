@@ -787,7 +787,7 @@ function koto_get_ignore_texts_by_category($category = '')
 
     $ignore_texts_by_category = [
         'わざ' => [
-            '',
+            'さらに',
             '、または',
             '追加で',
             '【',
