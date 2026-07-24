@@ -410,13 +410,121 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $mojis = array_map(function ($moji) {
                 return str_replace(['「', '」'], '', $moji);
             }, $mojis);
+
+            // available_mojiのnameからslugへの対応表
+            $moji_slug_map = [
+                'あ' => 'a',
+                'ぁ' => 'xa',
+                'い' => 'i',
+                'ぃ' => 'xi',
+                'う' => 'u',
+                'ぅ' => 'xu',
+                'え' => 'e',
+                'ぇ' => 'xe',
+                'お' => 'o',
+                'ぉ' => 'xo',
+                'か' => 'ka',
+                'が' => 'ga',
+                'き' => 'ki',
+                'ぎ' => 'gi',
+                'く' => 'ku',
+                'ぐ' => 'gu',
+                'け' => 'ke',
+                'げ' => 'ge',
+                'こ' => 'ko',
+                'ご' => 'go',
+                'さ' => 'sa',
+                'ざ' => 'za',
+                'し' => 'shi',
+                'じ' => 'ji',
+                'す' => 'su',
+                'ず' => 'zu',
+                'せ' => 'se',
+                'ぜ' => 'ze',
+                'そ' => 'so',
+                'ぞ' => 'zo',
+                'た' => 'ta',
+                'だ' => 'da',
+                'ち' => 'chi',
+                'ぢ' => 'di',
+                'つ' => 'tsu',
+                'づ' => 'du',
+                'っ' => 'xtsu',
+                'て' => 'te',
+                'で' => 'de',
+                'と' => 'to',
+                'ど' => 'do',
+                'な' => 'na',
+                'に' => 'ni',
+                'ぬ' => 'nu',
+                'ね' => 'ne',
+                'の' => 'no',
+                'は' => 'ha',
+                'ば' => 'ba',
+                'ぱ' => 'pa',
+                'ひ' => 'hi',
+                'び' => 'bi',
+                'ぴ' => 'pi',
+                'ふ' => 'fu',
+                'ぶ' => 'bu',
+                'ぷ' => 'pu',
+                'へ' => 'he',
+                'べ' => 'be',
+                'ぺ' => 'pe',
+                'ほ' => 'ho',
+                'ぼ' => 'bo',
+                'ぽ' => 'po',
+                'ま' => 'ma',
+                'み' => 'mi',
+                'む' => 'mu',
+                'め' => 'me',
+                'も' => 'mo',
+                'や' => 'ya',
+                'ゃ' => 'xya',
+                'ゆ' => 'yu',
+                'ゅ' => 'xyu',
+                'よ' => 'yo',
+                'ょ' => 'xyo',
+                'ら' => 'ra',
+                'り' => 'ri',
+                'る' => 'ru',
+                'れ' => 're',
+                'ろ' => 'ro',
+                'わ' => 'wa',
+                'を' => 'wo',
+                'ん' => 'nn'
+            ];
+
+            // DBクエリのCollation問題を完全に回避するため、全タームを1回だけ取得してPHPで判定する
+            static $all_moji_terms = null;
+            if ($all_moji_terms === null) {
+                $all_moji_terms = get_terms([
+                    'taxonomy'   => 'available_moji',
+                    'hide_empty' => false,
+                ]);
+            }
+
             $term_ids = [];
             foreach ($mojis as $moji) {
-                $term = get_term_by('name', trim($moji), 'available_moji');
-                if ($term) {
-                    $term_ids[] = $term->term_id;
+                $target_name = trim($moji);
+                if (isset($moji_slug_map[$target_name])) {
+                    $target_slug = $moji_slug_map[$target_name];
+
+                    if (!is_wp_error($all_moji_terms)) {
+                        foreach ($all_moji_terms as $t) {
+                            // PHPの厳密比較 (===) でスラッグを判定
+                            if ($t->slug === $target_slug) {
+                                $term_ids[] = (int) $t->term_id;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
+
+            // 【原因特定用】実際にパースされたID配列をエラーログに書き出す
+            error_log('[dot_separated_moji Debug] Input: ' . $value . ' => Result IDs: ' . print_r($term_ids, true));
+
             $value = $term_ids;
         } elseif (strpos($key, 'affiliation') === 0) {
             $attr_names = preg_split('/[・\|]/u', $value);
@@ -1024,7 +1132,7 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
     foreach ($parent_parts as $part) {
         $remaining_text = $part;
         $conditions = [];
-        $effects = [];
+        $all_effects = [];
 
         // わざ追加条件の抽出
         while (true) {
@@ -1056,10 +1164,9 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
         }
 
         // わざ効果の抽出（全角＋にも対応）
+        // +で分割された各効果部分を処理（1つのgroup_loopで複数の効果を統合）
         $child_parts = explode('+', $remaining_text);
-        if ($child_parts === false || empty($child_parts)) {
-            $child_parts = [$remaining_text];
-        }
+
         foreach ($child_parts as $child_part) {
             $child_part = trim((string) $child_part);
             if ($child_part === '') {
@@ -1109,63 +1216,54 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
                     }
                 }
 
-                $effect_rows = [];
-                $effect_parts = explode('+', $child_segment);
-                if ($effect_parts === false || empty($effect_parts)) {
-                    $effect_parts = [$child_segment];
-                }
-
-                foreach ($effect_parts as $effect_part) {
-                    $match = koto_match_csv_template($effect_part, $waza_rows, $input_key);
-                    if (koto_is_csv_template_match($match)) {
-                        $effect_rows = koto_ensure_acf_data_list($match['acf_data']);
-                    } else {
-                        $effect_rows = [];
-                    }
-
+                $match = koto_match_csv_template($child_segment, $waza_rows, $input_key);
+                if (koto_is_csv_template_match($match)) {
+                    $effect_rows = koto_ensure_acf_data_list($match['acf_data']);
                     foreach ($effect_rows as $effect_data) {
                         if (!is_array($effect_data) || empty($effect_data)) {
                             continue;
                         }
-                        $effects[] = $effect_data;
+                        $all_effects[] = $effect_data;
                     }
                 }
+            }
+        }
 
-                $parsed_part = [
-                    'waza_add_cond_loop' => $segment_conditions,
-                    'sugo_detail_loop' => $effects,
-                ];
+        // 1つの丸数字区分 = 1つのgroup_loop行にまとめる
+        if (!empty($all_effects) || !empty($conditions)) {
+            $parsed_part = [
+                'waza_add_cond_loop' => $conditions,
+                'sugo_detail_loop' => $all_effects,
+            ];
 
-                // シフト条件の階層調整
-                $normalized_conditions = [];
-                foreach ($parsed_part['waza_add_cond_loop'] as $cond_item) {
-                    if (!is_array($cond_item) || empty($cond_item)) {
-                        continue;
-                    }
-
-                    if (array_key_exists('sugo_shift_moji', $cond_item)) {
-                        $parsed_part['sugo_shift_moji'] = $cond_item['sugo_shift_moji'];
-                        unset($cond_item['sugo_shift_moji']);
-                    }
-                    if (array_key_exists('sugo_shift_attacked', $cond_item)) {
-                        $parsed_part['sugo_shift_attacked'] = $cond_item['sugo_shift_attacked'];
-                        unset($cond_item['sugo_shift_attacked']);
-                    }
-
-                    if (!empty($cond_item)) {
-                        $normalized_conditions[] = $cond_item;
-                    }
-                }
-                $parsed_part['waza_add_cond_loop'] = $normalized_conditions;
-
-                // 空データ行は追加しない
-                if (empty($parsed_part['waza_add_cond_loop']) && empty($parsed_part['sugo_detail_loop'])) {
+            // シフト条件の階層調整
+            $normalized_conditions = [];
+            foreach ($parsed_part['waza_add_cond_loop'] as $cond_item) {
+                if (!is_array($cond_item) || empty($cond_item)) {
                     continue;
                 }
 
-                $results[] = $parsed_part;
-                $effects = [];
+                if (array_key_exists('sugo_shift_moji', $cond_item)) {
+                    $parsed_part['sugo_shift_moji'] = $cond_item['sugo_shift_moji'];
+                    unset($cond_item['sugo_shift_moji']);
+                }
+                if (array_key_exists('sugo_shift_attacked', $cond_item)) {
+                    $parsed_part['sugo_shift_attacked'] = $cond_item['sugo_shift_attacked'];
+                    unset($cond_item['sugo_shift_attacked']);
+                }
+
+                if (!empty($cond_item)) {
+                    $normalized_conditions[] = $cond_item;
+                }
             }
+            $parsed_part['waza_add_cond_loop'] = $normalized_conditions;
+
+            // 空データ行は追加しない
+            if (empty($parsed_part['waza_add_cond_loop']) && empty($parsed_part['sugo_detail_loop'])) {
+                continue;
+            }
+
+            $results[] = $parsed_part;
         }
     }
 
