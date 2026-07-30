@@ -500,6 +500,9 @@ function get_koto_trait_text_from_row($row)
                 case 'sugo_counter':
                     $effect_text = "攻撃を受けたとき{$rate}%の確率ですごわざを発動";
                     break;
+                case 'absolute_counter':
+                    $effect_text = "攻撃を受けたとき{$rate}%の確率ですごわざを、{100-$rate}%の確率でわざを発動";
+                    break;
                 case 'corruption':
                     empty($turn_text) ? '（未入力）' : $turn_text;
                     $effect_text = "わざ、すごわざ、コトわざで攻撃時、各ターゲットに腐敗（敵の行動時、このキャラがこのターン与えた合計ダメージの{$rate}%分の固定ダメージを与える効果）を{$turn_text}ターン付与する";
@@ -584,7 +587,9 @@ function get_koto_trait_text_from_row($row)
             } elseif ($sub === 'ignore_disad') {
                 $effect_text = "不利属性に対して与えるダメージ、不利属性から受けるダメージが等倍になる";
             } elseif ($sub === 'kokusen') {
-                $effect_text = "黒閃：オーバークリティカル発生時、自身に「ドロー時、２ターンの間自身ATK１段階UP」「ダメージ上限+500000」を自身に付与する";
+                $effect_text = "黒閃：オーバークリティカルが発生するたび、自身にとくせい「ドロー時、２ターンの間自身ATK１段階UP」「ダメージ上限+500000」を付与する（累積可能）";
+            } elseif($sub === 'kyouwa'){
+                $effect_text = "協和：オーバークリティカルが発生するたび、自身にとくせい「ドロー時、２ターンの間自身のクリティカル発生率１段階UP」「弱点を突いた時のダメージ10%UP」「自身の文字が「む・お・ん」のとき威力５%UP」を付与する（累積可能）";
             }
             break;
 

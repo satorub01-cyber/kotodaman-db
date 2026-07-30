@@ -46,7 +46,7 @@ get_header();
                     'post_type'      => 'character', // カスタム投稿タイプ名
                     'post__in'       => $pickup_ids, // 指定したIDのみ取得
                     'orderby'        => 'post__in',  // 指定したIDの順番通りに並べる
-                    'posts_per_page' => 6,           // 件数（配列の数と同じにしておけばOK）
+                    'posts_per_page' => 9,           // 件数（配列の数と同じにしておけばOK）
                 );
                 $pickup_query = new WP_Query($args);
                 ?>
