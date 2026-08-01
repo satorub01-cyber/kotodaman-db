@@ -733,7 +733,7 @@ if ($charge_name || $charge_loop):
                                     break;
                                 case 'other':
                                     $other_text = esc_html($val);
-                                    $effect_text = $other_text ? "{$tgt_label}に{$other_text}" : '';
+                                    $effect_text = $other_text ? "{$other_text}" : '';
                                     break;
                             }
 
@@ -741,7 +741,7 @@ if ($charge_name || $charge_loop):
                             if ($effect_text) {
                                 echo "<div class='skill-effect-line'>";
                                 echo "<span class='effect-num'>({$c_count}) </span>";
-                                echo $effect_text;
+                                echo koto_replace_icons($effect_text);
                                 echo "</div>";
                                 $c_count++;
                             }

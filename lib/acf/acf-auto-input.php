@@ -948,6 +948,7 @@ function koto_preprocess_text($text, $category = '')
         '｢' => '「',
         '｣' => '」',
         '･' => '・', // 半角中点を全角に
+        '·' => '・', // 中点を全角に
     ];
     $zenkaku_to_hankaku = [
         '％' => '%',
@@ -956,8 +957,18 @@ function koto_preprocess_text($text, $category = '')
         '＋' => '+',
         '－' => '-',
     ];
+    $typo_corrections = [
+        '味方のコトダマンのみ適用されます' => '味方のコトダマンのみ適用される',
+        '味方のコトダマンのみ適用される' => '味方のコトダマンのみ適用される',
+        'すこわざ' => 'すごわざ',
+        'わさ' => 'わざ',
+        'すごわさ' => 'すごわざ',
+        'すこわさ' => 'すごわざ',
+        '擊' => '撃',
+    ];
     $text = str_replace(array_keys($hankaku_to_zenkaku), array_values($hankaku_to_zenkaku), $text);
     $text = str_replace(array_keys($zenkaku_to_hankaku), array_values($zenkaku_to_hankaku), $text);
+    $text = str_replace(array_keys($typo_corrections), array_values($typo_corrections), $text);
 
     // 改行コードを統一
     $text = str_replace(['\n', '\r', "\n", "\r"], "\n", $text);

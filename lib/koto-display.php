@@ -472,7 +472,7 @@ function get_koto_trait_text_from_row($row)
 
         case 'core_gimmick':
             $core = $row['core_gimmick'];
-            $core_map = ['healing_core' => 'ヒール', 'attack_core' => 'アタック', 'super_attack_core' => 'スーパーアタック'];
+            $core_map = ['healing_core' => 'ヒール', 'attack_core' => 'アタック', 'super_attack_core' => 'スーパーアタック', 'attack_buff_core' => 'アタックバフ'];
             $core_name = isset($core_map[$core]) ? $core_map[$core] : $core;
             if ($core === 'super_attack_core') {
                 $effect_text = "{$core_name}ギミック ";
@@ -485,6 +485,7 @@ function get_koto_trait_text_from_row($row)
                 $need = $row['need_combo'];
                 if ($core === 'healing_core') $effect_text = "自身を含む言葉で{$need}コンボ以上するとHPを{$rate}回復";
                 if ($core === 'attack_core') $effect_text = "自身を含む言葉で{$need}コンボ以上すると敵全体に{$rate}の無属性ダメージ";
+                if ($core === 'attack_buff_core') $effect_text = "自身を含む言葉で{$need}コンボ以上すると自身のATKを{$rate}段階UP";
             }
             break;
 
@@ -501,7 +502,8 @@ function get_koto_trait_text_from_row($row)
                     $effect_text = "攻撃を受けたとき{$rate}%の確率ですごわざを発動";
                     break;
                 case 'absolute_counter':
-                    $effect_text = "攻撃を受けたとき{$rate}%の確率ですごわざを、{100-$rate}%の確率でわざを発動";
+                    $waza_rate = 100-$rate;
+                    $effect_text = "攻撃を受けたとき{$rate}%の確率ですごわざを、{$waza_rate}%の確率でわざを発動";
                     break;
                 case 'corruption':
                     empty($turn_text) ? '（未入力）' : $turn_text;

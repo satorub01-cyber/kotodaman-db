@@ -441,6 +441,7 @@ get_header();
         color: #333;
         text-align: center;
         transition: 0.2s;
+        max-width: 150px;
     }
 
     .char-card:hover {
