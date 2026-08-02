@@ -167,19 +167,19 @@ $moji_axis_display = !empty($moji_axis_labels) ? implode('・', $moji_axis_label
 
     // --- 進化前画像 ---
     $pre_img_id = $all_fields['pre_evo_image'] ?? null;
-    $pre_img_html = $pre_img_id ? wp_get_attachment_image($pre_img_id, 'medium_large') : '';
+    $pre_img_html = $pre_img_id ? wp_get_attachment_image($pre_img_id, 'large') : '';
 
     // --- 進化後（通常）画像 ---
     $main_img_id = $all_fields['character_image'] ?? null;
     // URLだけでなく、IDから画像サイズ情報を取得するように変更（CLS対策）
-    $main_img_data = $main_img_id ? wp_get_attachment_image_src($main_img_id, 'medium_large') : null;
+    $main_img_data = $main_img_id ? wp_get_attachment_image_src($main_img_id, 'large') : null;
     $main_img_url = $main_img_data ? $main_img_data[0] : '';
-    $main_width   = $main_img_data ? $main_img_data[1] : 768; // デフォルトサイズ
-    $main_height  = $main_img_data ? $main_img_data[2] : 640;
+    $main_width   = $main_img_data ? $main_img_data[1] : 1024; // デフォルトサイズ
+    $main_height  = $main_img_data ? $main_img_data[2] : 853;
 
     // --- 進化後（アナザー/モードシフト）画像 ---
     $sub_img_id = $all_fields['another_character_image'] ?? null;
-    $sub_img_url = $sub_img_id ? wp_get_attachment_image_url($sub_img_id, 'medium_large') : '';
+    $sub_img_url = $sub_img_id ? wp_get_attachment_image_url($sub_img_id, 'large') : '';
 
     // --- 切り替え用リスト作成 ---
     $variations = [];
