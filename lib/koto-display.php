@@ -502,7 +502,7 @@ function get_koto_trait_text_from_row($row)
                     $effect_text = "攻撃を受けたとき{$rate}%の確率ですごわざを発動";
                     break;
                 case 'absolute_counter':
-                    $waza_rate = 100-$rate;
+                    $waza_rate = 100 - $rate;
                     $effect_text = "攻撃を受けたとき{$rate}%の確率ですごわざを、{$waza_rate}%の確率でわざを発動";
                     break;
                 case 'corruption':
@@ -590,7 +590,7 @@ function get_koto_trait_text_from_row($row)
                 $effect_text = "不利属性に対して与えるダメージ、不利属性から受けるダメージが等倍になる";
             } elseif ($sub === 'kokusen') {
                 $effect_text = "黒閃：オーバークリティカルが発生するたび、自身にとくせい「ドロー時、２ターンの間自身ATK１段階UP」「ダメージ上限+500000」を付与する（累積可能）";
-            } elseif($sub === 'kyouwa'){
+            } elseif ($sub === 'kyouwa') {
                 $effect_text = "協和：オーバークリティカルが発生するたび、自身にとくせい「ドロー時、２ターンの間自身のクリティカル発生率１段階UP」「弱点を突いた時のダメージ10%UP」「自身の文字が「む・お・ん」のとき威力５%UP」を付与する（累積可能）";
             }
             break;
@@ -916,6 +916,7 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
             if (empty($items)) continue;
 
             $current_group_effects = [];
+            $temp_group_effects = []; //シフト用の一時的な効果リスト（統合用）
             $effect_counter = 1;
 
             // ★ グループ(タブ)ごとの火力計算配列
@@ -1321,19 +1322,28 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                 $effect_text = koto_replace_icons($effect_text);
 
                 if ($effect_text) {
+                    $key = empty($cond_text) ? 'base' : $cond_text;
                     if ($is_shift_mode) {
-                        // シフト用の配列に格納
-                        $current_group_effects[] = [
-                            'num'    => $effect_counter,
-                            'cond'   => $cond_text,
-                            'effect' => $effect_text
-                        ];
-                        $effect_counter++;
+                        // 同じ条件の効果を統合するため、一時配列に格納
+                        $temp_group_effects[$key][] = $effect_text;
                     } else {
                         // 従来用の配列に格納
-                        $key = empty($cond_text) ? 'base' : $cond_text;
                         $normal_effects[$key][] = $effect_text;
                     }
+                }
+            }
+
+            // シフトモード用の一時配列を「＋」で連結して成形
+            if ($is_shift_mode && !empty($temp_group_effects)) {
+                foreach ($temp_group_effects as $cond_key => $effects) {
+                    $c_text = ($cond_key === 'base') ? '' : $cond_key;
+                    $combined_effect = implode('＋', $effects);
+                    $current_group_effects[] = [
+                        'num'    => $effect_counter,
+                        'cond'   => $c_text,
+                        'effect' => $combined_effect
+                    ];
+                    $effect_counter++;
                 }
             }
 
