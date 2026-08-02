@@ -1253,7 +1253,8 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                             }
                             break;
                         case 'taunt':
-                            $effect_text = "{$target_name}にターゲット集中{$eff_val}を付与";
+                            $taunt_rate = $eff_val*25;
+                            $effect_text = "{$target_name}が敵の単体攻撃で{$taunt_rate}%狙われるようになる";
                             break;
                         case 'barrier':
                             $effect_text = "{$target_name}に1回ダメージを無効化するバリアを展開";
