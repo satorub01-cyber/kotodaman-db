@@ -909,6 +909,7 @@ function koto_preprocess_text($text, $category = '')
         '）' => ')',
         '＋' => '+',
         '－' => '-',
+        '｜' => '|',
     ];
     $typo_corrections = [
         '味方のコトダマンのみ適用されます' => '味方のコトダマンのみ適用される',
@@ -1030,6 +1031,15 @@ function koto_parse_trait($text, $grouped_csv, $input_key = '')
                     $effect_data['condition_type_loop'] = $conditions;
                 }
             }
+            if (!empty($effect_data['need_combos']) && is_array($effect_data['need_combos'])) {
+                $need_combos = $effect_data['need_combos'];
+                $effect_data['need_combo_first']  = $need_combos[0] ?? null;
+                $effect_data['need_combo_second'] = $need_combos[1] ?? null;
+                $effect_data['need_combo_third']  = $need_combos[2] ?? null;
+                $effect_data['need_combo_forth'] = $need_combos[3] ?? null;
+
+                unset($effect_data['need_combos']);
+            }
             $results[] = $effect_data;
         }
     }
@@ -1114,7 +1124,7 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
     if (koto_is_csv_template_match($shift_type)) {
         $shift_rows = koto_ensure_acf_data_list($shift_type['acf_data']);
         foreach ($shift_rows as $shift_row) {
-            if (!is_array($shift_row) || empty($shift_row)|| isset($shift_row['is_normal_field']) === false) {
+            if (!is_array($shift_row) || empty($shift_row) || isset($shift_row['is_normal_field']) === false) {
                 continue;
             }
 
