@@ -1052,7 +1052,7 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
     $waza_shift_rows = $grouped_csv['わざシフトタイプ'] ?? [];
     $results = [];
     $malti_table = [];
-    $temp_shift_row =[];
+    $temp_shift_row = [];
 
     // シフトタイプの判定
     $shift_type = koto_match_csv_template($text, $waza_shift_rows, $input_key, 'prefix');
@@ -1114,7 +1114,7 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
     if (koto_is_csv_template_match($shift_type)) {
         $shift_rows = koto_ensure_acf_data_list($shift_type['acf_data']);
         foreach ($shift_rows as $shift_row) {
-            if (!is_array($shift_row) || empty($shift_row)) {
+            if (!is_array($shift_row) || empty($shift_row)|| isset($shift_row['is_normal_field']) === false) {
                 continue;
             }
 
@@ -1314,6 +1314,12 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
     // 属性シフト時の複製処理
     if ($shift_type_value === 'attr') {
         $results = koto_duplicate_results_for_shift_attrs($results, $shift_attr_ids);
+        if (empty($temp_shift_row)) {
+            $temp_shift_row = [
+                'is_normal_field' => true,
+                'sugo_shift_type' => 'attr',
+            ];
+        }
     }
     if (!empty($malti_table)) {
         $results[] = $malti_table;
