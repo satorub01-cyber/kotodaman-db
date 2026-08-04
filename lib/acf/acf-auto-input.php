@@ -1052,6 +1052,7 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
     $waza_shift_rows = $grouped_csv['わざシフトタイプ'] ?? [];
     $results = [];
     $malti_table = [];
+    $temp_shift_row =[];
 
     // シフトタイプの判定
     $shift_type = koto_match_csv_template($text, $waza_shift_rows, $input_key, 'prefix');
@@ -1122,7 +1123,7 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
                 unset($shift_row['sugo_shift_type']);
             }
 
-            $results[] = $shift_row;
+            $temp_shift_row = $shift_row;
         }
     }
 
@@ -1298,9 +1299,6 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
         }
     }
 
-    if (!empty($malti_table)) {
-        $results[] = $malti_table;
-    }
 
     if ($shift_type_value === 'random') {
         foreach ($results as $result_index => &$result) {
@@ -1316,6 +1314,13 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
     // 属性シフト時の複製処理
     if ($shift_type_value === 'attr') {
         $results = koto_duplicate_results_for_shift_attrs($results, $shift_attr_ids);
+    }
+    if (!empty($malti_table)) {
+        $results[] = $malti_table;
+    }
+    if (!empty($temp_shift_row)) {
+        $temp_shift_row['is_normal_field'] = true;
+        $results[] = $temp_shift_row;
     }
 
     return $results;
@@ -1538,7 +1543,6 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
                     } else {
                         $acf_field_name = 'waza_group_loop';
                     }
-                    $acf_field_name = 'waza_group_loop';
                 } elseif ($input_key === 'auto_input_sugowaza') {
                     if (isset($item['use_maltiplier_table'])) {
                         $acf_field_name = 'sugowaza_maltiplier_table_group';

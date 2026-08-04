@@ -480,7 +480,8 @@ function get_koto_trait_text_from_row($row)
                 $c2 = $row['need_combo_second'];
                 $c3 = $row['need_combo_third'];
                 $c4 = $row['need_combo_forth'];
-                if ($c1) $effect_text .= "自身のATK<br>・{$c1}コンボ：+1<br>・{$c2}コンボ：+2<br>・{$c3}コンボ：+3<br>・{$c4}コンボ：+4<br>段階バフ";
+                // if ($c1) $effect_text .= "【{$c1}｜{$c2}｜{$c3}｜{$c4}】コンボで自身のATKを【1｜2｜3｜4】段階バフ";
+                if ($c1) $effect_text .= "自身を含むコンボ数に応じて以下のようにATKを強化<br>{$c1}コンボ：1段階UP<br>{$c2}コンボ：2段階UP<br>{$c3}コンボ：3段階UP<br>{$c4}コンボ：4段階UP";
             } else {
                 $need = $row['need_combo'];
                 if ($core === 'healing_core') $effect_text = "自身を含む言葉で{$need}コンボ以上するとHPを{$rate}回復";
@@ -1074,6 +1075,7 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                         case 'converged_attack':
                             $raw_types = isset($item['attack_type']) ? $item['attack_type'] : [];
                             $saidai_text = '';
+                            $hp_mod = '';
                             if (!is_array($raw_types)) $raw_types = [$raw_types];
                             foreach ($raw_types as $raw) {
                                 if ($raw !== 'normal' && $raw !== 'target') $saidai_text = '最大';
@@ -1221,7 +1223,8 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                                 foreach ($tokens as $t) $t_names[] = get_the_title($t->ID);
                             }
                             $t_str = implode('・', $t_names);
-                            $effect_text = "{$t_str}を生成する";
+                            $t_url = home_url('/character/' . ($tokens[0]->ID ?? ''));
+                            $effect_text = "<a href='{$t_url}'>{$t_str}</a>を生成する";
                             break;
                         case 'pressure':
                             $debuffs = isset($item['pressure_debuff_count']) ? $item['pressure_debuff_count'] : '';
