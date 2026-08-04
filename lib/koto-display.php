@@ -481,7 +481,15 @@ function get_koto_trait_text_from_row($row)
                 $c3 = $row['need_combo_third'];
                 $c4 = $row['need_combo_forth'];
                 // if ($c1) $effect_text .= "【{$c1}｜{$c2}｜{$c3}｜{$c4}】コンボで自身のATKを【1｜2｜3｜4】段階バフ";
-                if ($c1) $effect_text .= "自身を含むコンボ数に応じて以下のようにATKを強化<br>{$c1}コンボ：1段階UP<br>{$c2}コンボ：2段階UP<br>{$c3}コンボ：3段階UP<br>{$c4}コンボ：4段階UP";
+                if ($c1) {
+                    $effect_text .= "自身を含むコンボ数に応じて以下のようにATKを強化"
+                        . "<ul style=\"list-style: none;\">"
+                        . "<li>{$c1}コンボ：1段階UP</li>"
+                        . "<li>{$c2}コンボ：2段階UP</li>"
+                        . "<li>{$c3}コンボ：3段階UP</li>"
+                        . "<li>{$c4}コンボ：4段階UP</li>"
+                        . "</ul>";
+                }
             } else {
                 $need = $row['need_combo'];
                 if ($core === 'healing_core') $effect_text = "自身を含む言葉で{$need}コンボ以上するとHPを{$rate}回復";
@@ -1256,7 +1264,7 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                             }
                             break;
                         case 'taunt':
-                            $taunt_rate = $eff_val*25;
+                            $taunt_rate = $eff_val * 25;
                             $effect_text = "{$target_name}が敵の単体攻撃で{$taunt_rate}%狙われるようになる";
                             break;
                         case 'barrier':
