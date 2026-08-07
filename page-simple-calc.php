@@ -408,8 +408,8 @@ get_header();
                         <option value="1.5" data-crit="false">言気ハツラツ</option>
                         <option value="2.25" data-crit="hatsuratsu">言気ハツラツかつクリティカル</option>
                         <option value="3.0" data-crit="hatsuratsu">言気ハツラツかつオーバークリティカル</option>
-                        <option value="3.0" data-crit="false">塊心の一撃</option>
-                        <option value="6.0" data-crit="kaishin">超塊心の一撃</option>
+                        <option value="4.5" data-crit="false">塊心の一撃</option>
+                        <option value="9.0" data-crit="kaishin">超塊心の一撃</option>
                     </select>
                 </div>
                 <div style="margin-top:20px;">
