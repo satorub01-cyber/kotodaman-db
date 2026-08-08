@@ -439,10 +439,12 @@ function koto_generate_search_json_all()
     $character_ids = get_posts($args);
     $flattened_data = [];
 
-    foreach ($character_ids as $post_id) {
-        $flat_char = koto_get_flat_char_data($post_id);
-        if ($flat_char) {
-            $flattened_data[] = $flat_char;
+    foreach (array_chunk($character_ids, 300) as $character_chunk) {
+        foreach ($character_chunk as $post_id) {
+            $flat_char = koto_get_flat_char_data($post_id);
+            if ($flat_char) {
+                $flattened_data[] = $flat_char;
+            }
         }
     }
 
@@ -569,6 +571,66 @@ function koto_add_json_reform_page()
     );
 }
 
+function koto_format_json_preview_snippet($json_snippet)
+{
+    $formatted = '';
+    $indent = 0;
+    $in_string = false;
+    $escape_next = false;
+    $length = strlen($json_snippet);
+
+    for ($i = 0; $i < $length; $i++) {
+        $char = $json_snippet[$i];
+
+        if ($in_string) {
+            $formatted .= $char;
+            if ($escape_next) {
+                $escape_next = false;
+            } elseif ($char === '\\') {
+                $escape_next = true;
+            } elseif ($char === '"') {
+                $in_string = false;
+            }
+            continue;
+        }
+
+        if ($char === '"') {
+            $in_string = true;
+            $formatted .= $char;
+            continue;
+        }
+
+        if ($char === '{' || $char === '[') {
+            $formatted .= $char . "\n" . str_repeat('  ', ++$indent);
+            continue;
+        }
+
+        if ($char === '}' || $char === ']') {
+            $formatted .= "\n" . str_repeat('  ', max(0, $indent - 1)) . $char;
+            $indent = max(0, $indent - 1);
+            continue;
+        }
+
+        if ($char === ',') {
+            $formatted .= $char . "\n" . str_repeat('  ', $indent);
+            continue;
+        }
+
+        if ($char === ':') {
+            $formatted .= ': ';
+            continue;
+        }
+
+        if ($char === "\n" || $char === "\r" || $char === "\t" || $char === ' ') {
+            continue;
+        }
+
+        $formatted .= $char;
+    }
+
+    return trim($formatted);
+}
+
 function koto_render_json_reform_page()
 {
     $message = '';
@@ -583,26 +645,52 @@ function koto_render_json_reform_page()
         $message = '<div class="updated"><p>全キャラクターの検索用JSONおよび未入力情報JSONを手動で再生成しました。</p></div>';
     }
 
-    // 常に現在のファイルの中身を読み込んで整形
+    // 巨大JSONは全文をdecodeせず、サイズに応じて安全にプレビューする
     $current_json_preview = '';
     $char_count = 0;
+    $current_json_preview_is_partial = false;
     if (file_exists($json_file_path)) {
-        $raw_data = json_decode(file_get_contents($json_file_path), true);
-        if (is_array($raw_data)) {
-            $char_count = count($raw_data);
-            $current_json_preview = json_encode($raw_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        $json_file_size = filesize($json_file_path);
+        if ($json_file_size !== false && $json_file_size <= 1048576) {
+            $raw_data = json_decode(file_get_contents($json_file_path), true);
+            if (is_array($raw_data)) {
+                $char_count = count($raw_data);
+                $current_json_preview = json_encode($raw_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            }
+        } else {
+            $current_json_preview = file_get_contents($json_file_path, false, null, 0, 50000);
+            if ($current_json_preview !== false) {
+                $current_json_preview = koto_format_json_preview_snippet($current_json_preview);
+                $char_count = -1;
+                $current_json_preview_is_partial = true;
+            } else {
+                $current_json_preview = '';
+            }
         }
     }
 
-    // 未入力用JSONの中身を読み込んで整形
+    // 未入力用JSONも同様に安全にプレビューする
     $missing_json_file_path = get_stylesheet_directory() . '/lib/missing-info.json';
     $missing_json_preview = '';
     $missing_char_count = 0;
+    $missing_json_preview_is_partial = false;
     if (file_exists($missing_json_file_path)) {
-        $missing_raw_data = json_decode(file_get_contents($missing_json_file_path), true);
-        if (is_array($missing_raw_data)) {
-            $missing_char_count = count($missing_raw_data);
-            $missing_json_preview = json_encode($missing_raw_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        $missing_json_file_size = filesize($missing_json_file_path);
+        if ($missing_json_file_size !== false && $missing_json_file_size <= 1048576) {
+            $missing_raw_data = json_decode(file_get_contents($missing_json_file_path), true);
+            if (is_array($missing_raw_data)) {
+                $missing_char_count = count($missing_raw_data);
+                $missing_json_preview = json_encode($missing_raw_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            }
+        } else {
+            $missing_json_preview = file_get_contents($missing_json_file_path, false, null, 0, 50000);
+            if ($missing_json_preview !== false) {
+                $missing_json_preview = koto_format_json_preview_snippet($missing_json_preview);
+                $missing_char_count = -1;
+                $missing_json_preview_is_partial = true;
+            } else {
+                $missing_json_preview = '';
+            }
         }
     }
 
@@ -610,15 +698,21 @@ function koto_render_json_reform_page()
     echo '<h1>検索用JSONファイル 管理画面</h1>';
     echo $message;
     echo '<p>キャラクター記事を保存・公開すると、対象の1キャラ分だけが自動的に以下のファイルへ高速上書きされます。</p>';
+    if ($char_count === -1) {
+        echo '<p>検索用JSONが大きいため、プレビューは先頭のみ表示しています。</p>';
+    }
+    if ($missing_char_count === -1) {
+        echo '<p>未入力情報JSONが大きいため、プレビューは先頭のみ表示しています。</p>';
+    }
 
     echo '<form method="post" action="">';
     wp_nonce_field('koto_generate_json_action', 'koto_generate_json_nonce');
     echo '<p>';
     echo '<input type="submit" name="generate_koto_json" class="button button-primary" value="全件を手動で再生成する (リセット用)">';
-    if (!empty($current_json_preview)) {
+    if (!empty($current_json_preview) && !$current_json_preview_is_partial) {
         echo ' <button type="button" id="download-koto-json" class="button">検索用JSONをダウンロード</button>';
     }
-    if (!empty($missing_json_preview)) {
+    if (!empty($missing_json_preview) && !$missing_json_preview_is_partial) {
         echo ' <button type="button" id="download-missing-json" class="button">未入力JSONをダウンロード</button>';
     }
     echo '</p>';
