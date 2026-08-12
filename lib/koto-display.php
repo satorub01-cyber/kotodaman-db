@@ -1288,7 +1288,7 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                                             $val_type = "クリティカル率";
                                             break;
                                         default:
-                                            $val_type = "火力";
+                                            $val_type = "キラー補正";
                                             break;
                                     }
                                     $suffix = '';
