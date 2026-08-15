@@ -566,7 +566,7 @@ function koto_acf_editor_page_html()
         'group_693c070768756' => 'EXスキル',
         'group_6a4f2651659aa' => 'EX祝福',
     ];
-    $template_post_ids = [2947 => '', 2023 => '', 2637 => '', 2638 => ''];
+    $template_post_ids = [2947 => '', 2023 => '', 2637 => '', 2638 => '',3845 => '',4603 => ''];
 
     if (function_exists('acf_get_field_group')) {
         foreach ($field_group_keys as $key => $name) {
