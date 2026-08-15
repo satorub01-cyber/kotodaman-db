@@ -93,30 +93,130 @@ function koto_get_missing_char_data($post_id)
 // =========================================================
 // 全件を再生成する処理
 // =========================================================
-function koto_generate_missing_info_json_all()
+function koto_generate_missing_info_json_all($rebuild_spec_data = false)
 {
-    $args = [
-        'post_type'      => 'character',
-        'posts_per_page' => -1,
-        'post_status'    => 'publish',
-        'fields'         => 'ids',
-    ];
-    $character_ids = get_posts($args);
-    $missing_data = [];
+    $start_time = microtime(true);
+    $batch_size = 100;
+    $json_file_path = get_stylesheet_directory() . '/lib/missing-info.json';
+    $tmp_file_path = $json_file_path . '.tmp';
+    $using_temp_file = true;
 
-    foreach ($character_ids as $post_id) {
-        $missing_char = koto_get_missing_char_data($post_id);
-        if ($missing_char) {
-            $missing_data[] = $missing_char;
+    $tmp_handle = @fopen($tmp_file_path, 'wb');
+    if (!$tmp_handle) {
+        $tmp_handle = @fopen($json_file_path, 'wb');
+        $using_temp_file = false;
+
+        if (!$tmp_handle) {
+            $last_error = error_get_last();
+            return [
+                'success' => false,
+                'error' => '未入力JSONを書き込めませんでした: ' . ($last_error['message'] ?? 'unknown error'),
+            ];
         }
     }
 
-    $json_file_path = get_stylesheet_directory() . '/lib/missing-info.json';
-    $json_output = json_encode($missing_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $processed_count = 0;
+    $written_count = 0;
+    $has_prev_item = false;
 
-    if ($json_output !== false) {
-        file_put_contents($json_file_path, $json_output);
+    fwrite($tmp_handle, '[');
+
+    $paged = 1;
+    while (true) {
+        $query = new WP_Query([
+            'post_type' => 'character',
+            'post_status' => 'publish',
+            'posts_per_page' => $batch_size,
+            'paged' => $paged,
+            'fields' => 'ids',
+            'orderby' => 'ID',
+            'order' => 'ASC',
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+            'cache_results' => false,
+            'lazy_load_term_meta' => false,
+            'no_found_rows' => true,
+            'suppress_filters' => true,
+        ]);
+
+        if (empty($query->posts)) {
+            wp_reset_postdata();
+            break;
+        }
+
+        foreach ($query->posts as $post_id) {
+            $processed_count++;
+
+            if ($rebuild_spec_data && function_exists('on_save_character_specs')) {
+                on_save_character_specs($post_id);
+                clean_post_cache($post_id);
+            }
+
+            $missing_char = koto_get_missing_char_data($post_id);
+            if (!$missing_char) {
+                continue;
+            }
+
+            $json_row = json_encode($missing_char, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($json_row === false) {
+                continue;
+            }
+
+            if ($has_prev_item) {
+                fwrite($tmp_handle, ',');
+            }
+            fwrite($tmp_handle, $json_row);
+            $has_prev_item = true;
+            $written_count++;
+        }
+
+        wp_reset_postdata();
+        $paged++;
+
+        unset($query);
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
+        }
     }
+
+    fwrite($tmp_handle, ']');
+    fclose($tmp_handle);
+
+    if ($using_temp_file) {
+        if (function_exists('koto_json_reform_replace_file_atomically')) {
+            if (!koto_json_reform_replace_file_atomically($tmp_file_path, $json_file_path)) {
+                $last_error = error_get_last();
+                @unlink($tmp_file_path);
+                return [
+                    'success' => false,
+                    'error' => '未入力JSONの保存に失敗しました: ' . ($last_error['message'] ?? 'rename/copy failed'),
+                ];
+            }
+        } else {
+            if (!@rename($tmp_file_path, $json_file_path)) {
+                if (!@copy($tmp_file_path, $json_file_path)) {
+                    $last_error = error_get_last();
+                    @unlink($tmp_file_path);
+                    return [
+                        'success' => false,
+                        'error' => '未入力JSONの保存に失敗しました: ' . ($last_error['message'] ?? 'rename/copy failed'),
+                    ];
+                }
+                @unlink($tmp_file_path);
+            }
+        }
+    }
+
+    $result = [
+        'success' => true,
+        'processed' => $processed_count,
+        'written' => $written_count,
+        'elapsed_sec' => microtime(true) - $start_time,
+        'peak_memory' => memory_get_peak_usage(true),
+    ];
+    update_option('koto_missing_info_json_last_regen_stats', $result, false);
+
+    return $result;
 }
 
 // =========================================================

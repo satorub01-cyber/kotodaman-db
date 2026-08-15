@@ -242,6 +242,82 @@ function koto_collect_trait_search_pairs($trait_contents, $label_map)
     return koto_unique_bilingual_pairs($pairs);
 }
 
+function koto_json_reform_format_bytes($bytes)
+{
+    $bytes = (float) $bytes;
+    if ($bytes >= 1073741824) {
+        return number_format($bytes / 1073741824, 2) . ' GB';
+    }
+    if ($bytes >= 1048576) {
+        return number_format($bytes / 1048576, 2) . ' MB';
+    }
+    if ($bytes >= 1024) {
+        return number_format($bytes / 1024, 2) . ' KB';
+    }
+
+    return number_format($bytes, 0) . ' B';
+}
+
+function koto_json_reform_replace_file_atomically($tmp_file_path, $target_file_path)
+{
+    if (@rename($tmp_file_path, $target_file_path)) {
+        return true;
+    }
+
+    if (@copy($tmp_file_path, $target_file_path)) {
+        @unlink($tmp_file_path);
+        return true;
+    }
+
+    return false;
+}
+
+function koto_json_reform_file_meta($path)
+{
+    if (!file_exists($path)) {
+        return [
+            'exists' => false,
+            'size' => 0,
+            'modified' => 0,
+        ];
+    }
+
+    return [
+        'exists' => true,
+        'size' => (int) @filesize($path),
+        'modified' => (int) @filemtime($path),
+    ];
+}
+
+function koto_json_reform_normalize_regen_result($result, $fallback_label)
+{
+    if (is_array($result)) {
+        return $result;
+    }
+
+    if ($result === false) {
+        return [
+            'success' => false,
+            'error' => $fallback_label . 'の再生成に失敗しました。',
+            'processed' => 0,
+            'written' => 0,
+            'elapsed_sec' => 0,
+            'peak_memory' => memory_get_peak_usage(true),
+            'legacy_return' => true,
+        ];
+    }
+
+    // 旧実装（戻り値なし/null）との互換: 処理自体は完了している前提で成功扱いにする
+    return [
+        'success' => true,
+        'processed' => 0,
+        'written' => 0,
+        'elapsed_sec' => 0,
+        'peak_memory' => memory_get_peak_usage(true),
+        'legacy_return' => true,
+    ];
+}
+
 
 // =========================================================
 // 1. 1キャラ分のデータを抽出する共通関数（★キー名の短縮などはここを編集）
@@ -301,12 +377,36 @@ function koto_get_flat_char_data($post_id)
     $sub_attributes = array_map(function ($item) use ($attr_num) {
         return $attr_num[$item] ?? 0;
     }, $spec['sub_attributes'] ?? []);
+    $attribute_slug = $spec['attribute'] ?? '';
+    $species_slug = $spec['species'] ?? '';
+
+    $live_attr_terms = get_the_terms($post_id, 'attribute');
+    if ($live_attr_terms && !is_wp_error($live_attr_terms) && !empty($live_attr_terms[0]->slug)) {
+        $attribute_slug = $live_attr_terms[0]->slug;
+    }
+
+    $live_species_terms = get_the_terms($post_id, 'species');
+    if ($live_species_terms && !is_wp_error($live_species_terms) && !empty($live_species_terms[0]->slug)) {
+        $species_slug = $live_species_terms[0]->slug;
+    }
+
+    $group_source = $spec['groups'] ?? [];
+    $live_group_terms = get_the_terms($post_id, 'affiliation');
+    if ($live_group_terms && !is_wp_error($live_group_terms)) {
+        $group_source = array_map(function ($term) {
+            return [
+                'slug' => $term->slug,
+                'name' => $term->name,
+            ];
+        }, $live_group_terms);
+    }
+
     $group_pairs = array_map(function ($item) {
         return [
             'en' => $item['slug'] ?? '',
             'jp' => $item['name'] ?? '',
         ];
-    }, $spec['groups'] ?? []);
+    }, $group_source);
     $groups = koto_unique_bilingual_pairs($group_pairs);
     $unlock_map = [
         'default' => 'def',
@@ -376,9 +476,9 @@ function koto_get_flat_char_data($post_id)
         'ano_name'      => $spec['another_image_name'],
         'name_ruby'    => $spec['name_ruby'],
         'chars'        => $charas,
-        'attr'        => $attr_num[$spec['attribute']],
+        'attr'        => $attr_num[$attribute_slug] ?? 0,
         'sub_attrs'     => $sub_attributes,
-        'spe'          => $species_num[$spec['species']],
+        'spe'          => $species_num[$species_slug] ?? 0,
         'group_en'     => $groups['en'],
         'group_jp'     => $groups['jp'],
         'events'       => is_array($events) ? $events : [],
@@ -428,30 +528,118 @@ function koto_get_flat_char_data($post_id)
 // =========================================================
 // 2. 全件を再生成する処理（手動ボタン用）
 // =========================================================
-function koto_generate_search_json_all()
+function koto_generate_search_json_all($rebuild_spec_data = false)
 {
-    $args = [
-        'post_type'      => 'character',
-        'posts_per_page' => -1,
-        'post_status'    => 'publish',
-        'fields'         => 'ids',
-    ];
-    $character_ids = get_posts($args);
-    $flattened_data = [];
+    $start_time = microtime(true);
+    $batch_size = 100;
+    $json_file_path = get_stylesheet_directory() . '/lib/character-search/all_characters_search.json';
+    $tmp_file_path = $json_file_path . '.tmp';
+    $write_path = $tmp_file_path;
+    $using_temp_file = true;
 
-    foreach ($character_ids as $post_id) {
-        $flat_char = koto_get_flat_char_data($post_id);
-        if ($flat_char) {
-            $flattened_data[] = $flat_char;
+    $tmp_handle = @fopen($tmp_file_path, 'wb');
+    if (!$tmp_handle) {
+        $tmp_handle = @fopen($json_file_path, 'wb');
+        $write_path = $json_file_path;
+        $using_temp_file = false;
+
+        if (!$tmp_handle) {
+            $last_error = error_get_last();
+            return [
+                'success' => false,
+                'error' => '検索用JSONを書き込めませんでした: ' . ($last_error['message'] ?? 'unknown error'),
+            ];
         }
     }
 
-    $json_file_path = get_stylesheet_directory() . '/lib/character-search/all_characters_search.json';
-    $json_output = json_encode($flattened_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $processed_count = 0;
+    $written_count = 0;
+    $has_prev_item = false;
 
-    if ($json_output) {
-        file_put_contents($json_file_path, $json_output);
+    fwrite($tmp_handle, '[');
+
+    $paged = 1;
+    while (true) {
+        $query = new WP_Query([
+            'post_type' => 'character',
+            'post_status' => 'publish',
+            'posts_per_page' => $batch_size,
+            'paged' => $paged,
+            'fields' => 'ids',
+            'orderby' => 'ID',
+            'order' => 'ASC',
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+            'cache_results' => false,
+            'lazy_load_term_meta' => false,
+            'no_found_rows' => true,
+            'suppress_filters' => true,
+        ]);
+
+        if (empty($query->posts)) {
+            wp_reset_postdata();
+            break;
+        }
+
+        foreach ($query->posts as $post_id) {
+            $processed_count++;
+
+            if ($rebuild_spec_data && function_exists('on_save_character_specs')) {
+                on_save_character_specs($post_id);
+                clean_post_cache($post_id);
+            }
+
+            $flat_char = koto_get_flat_char_data($post_id);
+            if (!$flat_char) {
+                continue;
+            }
+
+            $json_row = json_encode($flat_char, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($json_row === false) {
+                continue;
+            }
+
+            if ($has_prev_item) {
+                fwrite($tmp_handle, ',');
+            }
+            fwrite($tmp_handle, $json_row);
+            $has_prev_item = true;
+            $written_count++;
+        }
+
+        wp_reset_postdata();
+        $paged++;
+
+        unset($query);
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
+        }
     }
+
+    fwrite($tmp_handle, ']');
+    fclose($tmp_handle);
+
+    if ($using_temp_file && !koto_json_reform_replace_file_atomically($tmp_file_path, $json_file_path)) {
+        $last_error = error_get_last();
+        @unlink($tmp_file_path);
+        return [
+            'success' => false,
+            'error' => '検索用JSONの保存に失敗しました: ' . ($last_error['message'] ?? 'rename/copy failed'),
+        ];
+    }
+
+    $elapsed_sec = microtime(true) - $start_time;
+    $peak_memory = memory_get_peak_usage(true);
+    $result = [
+        'success' => true,
+        'processed' => $processed_count,
+        'written' => $written_count,
+        'elapsed_sec' => $elapsed_sec,
+        'peak_memory' => $peak_memory,
+    ];
+    update_option('koto_search_json_last_regen_stats', $result, false);
+
+    return $result;
 }
 
 // =========================================================
@@ -573,105 +761,109 @@ function koto_render_json_reform_page()
 {
     $message = '';
     $json_file_path = get_stylesheet_directory() . '/lib/character-search/all_characters_search.json';
+    $missing_json_file_path = get_stylesheet_directory() . '/lib/missing-info.json';
+    $lock_key = 'koto_json_regeneration_lock';
 
     // 手動生成ボタンが押された時の処理
     if (isset($_POST['generate_koto_json']) && check_admin_referer('koto_generate_json_action', 'koto_generate_json_nonce')) {
-        koto_generate_search_json_all();
-        if (function_exists('koto_generate_missing_info_json_all')) {
-            koto_generate_missing_info_json_all();
+        if (get_transient($lock_key)) {
+            $message = '<div class="notice notice-warning"><p>再生成処理がすでに実行中です。完了後に再度お試しください。</p></div>';
+        } else {
+            set_transient($lock_key, 1, 15 * MINUTE_IN_SECONDS);
+
+            try {
+                // 手動全件再生成はJSON再構築に専念し、spec全件再計算は別バッチ導線に分離する。
+                $search_result = koto_generate_search_json_all(false);
+                $missing_result = [
+                    'success' => true,
+                    'processed' => 0,
+                    'written' => 0,
+                    'elapsed_sec' => 0,
+                    'peak_memory' => memory_get_peak_usage(true),
+                ];
+                if (function_exists('koto_generate_missing_info_json_all')) {
+                    $missing_result = koto_generate_missing_info_json_all(false);
+                }
+            } finally {
+                delete_transient($lock_key);
+            }
+
+            $search_result = koto_json_reform_normalize_regen_result($search_result, '検索用JSON');
+            $missing_result = koto_json_reform_normalize_regen_result($missing_result, '未入力JSON');
+
+            if (!empty($search_result['success']) && !empty($missing_result['success'])) {
+                $total_elapsed = (float) ($search_result['elapsed_sec'] ?? 0) + (float) ($missing_result['elapsed_sec'] ?? 0);
+                $peak = max((int) ($search_result['peak_memory'] ?? 0), (int) ($missing_result['peak_memory'] ?? 0));
+                $legacy_note = '';
+                if (!empty($search_result['legacy_return']) || !empty($missing_result['legacy_return'])) {
+                    $legacy_note = ' （一部処理は旧戻り値互換モードで集計）';
+                }
+
+                $message = '<div class="updated"><p>'
+                    . '全キャラクターの検索用JSONおよび未入力情報JSONを再生成しました。'
+                    . ' 検索JSON: ' . intval($search_result['written'] ?? 0) . '件 / 未入力JSON: ' . intval($missing_result['written'] ?? 0) . '件'
+                    . ' / 実行時間: ' . esc_html(number_format($total_elapsed, 2)) . '秒'
+                    . ' / ピークメモリ: ' . esc_html(koto_json_reform_format_bytes($peak))
+                    . $legacy_note
+                    . '</p></div>';
+            } else {
+                $search_error = $search_result['error'] ?? '';
+                $missing_error = $missing_result['error'] ?? '';
+                $error_message = trim($search_error . ' ' . $missing_error);
+                if ($error_message === '') {
+                    $error_message = '再生成に失敗しました。';
+                }
+                $message = '<div class="notice notice-error"><p>' . esc_html($error_message) . '</p></div>';
+            }
         }
-        $message = '<div class="updated"><p>全キャラクターの検索用JSONおよび未入力情報JSONを手動で再生成しました。</p></div>';
     }
 
-    // 常に現在のファイルの中身を読み込んで整形
-    $current_json_preview = '';
-    $char_count = 0;
-    if (file_exists($json_file_path)) {
-        $raw_data = json_decode(file_get_contents($json_file_path), true);
-        if (is_array($raw_data)) {
-            $char_count = count($raw_data);
-            $current_json_preview = json_encode($raw_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
-        }
-    }
-
-    // 未入力用JSONの中身を読み込んで整形
-    $missing_json_file_path = get_stylesheet_directory() . '/lib/missing-info.json';
-    $missing_json_preview = '';
-    $missing_char_count = 0;
-    if (file_exists($missing_json_file_path)) {
-        $missing_raw_data = json_decode(file_get_contents($missing_json_file_path), true);
-        if (is_array($missing_raw_data)) {
-            $missing_char_count = count($missing_raw_data);
-            $missing_json_preview = json_encode($missing_raw_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
-        }
-    }
+    $search_stats = get_option('koto_search_json_last_regen_stats', []);
+    $missing_stats = get_option('koto_missing_info_json_last_regen_stats', []);
+    $search_meta = koto_json_reform_file_meta($json_file_path);
+    $missing_meta = koto_json_reform_file_meta($missing_json_file_path);
 
     echo '<div class="wrap">';
     echo '<h1>検索用JSONファイル 管理画面</h1>';
     echo $message;
-    echo '<p>キャラクター記事を保存・公開すると、対象の1キャラ分だけが自動的に以下のファイルへ高速上書きされます。</p>';
+    echo '<p>キャラクター記事を保存・公開すると、対象の1キャラ分だけが自動的に更新されます。</p>';
+    echo '<p>この画面では巨大JSONのプレビューを表示しません（メモリ節約のため）。</p>';
+    echo '<p>タクソノミーslug変更は、投稿の更新有無に関係なくこの全件再生成で反映されます。</p>';
+    echo '<p>spec（_spec_json）を全件再計算したい場合は、<a href="' . esc_url(add_query_arg(['run_update_index' => '1'], home_url('/'))) . '">こちらのバッチ更新導線</a>を使ってください（JSON再生成とは分離）。</p>';
 
     echo '<form method="post" action="">';
     wp_nonce_field('koto_generate_json_action', 'koto_generate_json_nonce');
     echo '<p>';
     echo '<input type="submit" name="generate_koto_json" class="button button-primary" value="全件を手動で再生成する (リセット用)">';
-    if (!empty($current_json_preview)) {
-        echo ' <button type="button" id="download-koto-json" class="button">検索用JSONをダウンロード</button>';
-    }
-    if (!empty($missing_json_preview)) {
-        echo ' <button type="button" id="download-missing-json" class="button">未入力JSONをダウンロード</button>';
-    }
     echo '</p>';
     echo '</form>';
 
-    echo '<h2>検索用JSONファイル内容 (' . intval($char_count) . 'キャラ収録)</h2>';
-    if (!empty($current_json_preview)) {
-        echo '<textarea id="koto-json-preview-area" style="width: 100%; height: 400px; font-family: monospace; background: #fff; padding: 10px; border: 1px solid #ccc; white-space: pre;" readonly>' . esc_textarea($current_json_preview) . '</textarea>';
-        echo '<script>
-            document.getElementById("download-koto-json").addEventListener("click", function() {
-                var content = document.getElementById("koto-json-preview-area").value;
-                if (!content) {
-                    alert("ダウンロードするデータがありません。");
-                    return;
-                }
-                var blob = new Blob([content], { type: "application/json" });
-                var url = window.URL.createObjectURL(blob);
-                var a = document.createElement("a");
-                a.href = url;
-                a.download = "all_characters_search.json";
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-            });
-        </script>';
+    echo '<h2>検索用JSONファイル</h2>';
+    if ($search_meta['exists']) {
+        echo '<ul>';
+        echo '<li>保存先: ' . esc_html($json_file_path) . '</li>';
+        echo '<li>ファイルサイズ: ' . esc_html(koto_json_reform_format_bytes($search_meta['size'])) . '</li>';
+        echo '<li>最終更新: ' . esc_html(wp_date('Y-m-d H:i:s', $search_meta['modified'])) . '</li>';
+        if (!empty($search_stats['written'])) {
+            echo '<li>最終全件再生成時の収録数: ' . intval($search_stats['written']) . '件</li>';
+        }
+        echo '</ul>';
     } else {
-        echo '<p style="color: red;">まだJSONファイルが存在しないか、データが空です。「全件を手動で再生成する」ボタンを押してください。</p>';
+        echo '<p style="color: red;">検索用JSONファイルが未生成です。「全件を手動で再生成する」ボタンを押してください。</p>';
     }
 
-    echo '<h2 style="margin-top: 30px;">未入力キャラJSONファイル内容 (' . intval($missing_char_count) . 'キャラ収録)</h2>';
-    if (!empty($missing_json_preview)) {
-        echo '<textarea id="koto-missing-json-preview-area" style="width: 100%; height: 300px; font-family: monospace; background: #fff; padding: 10px; border: 1px solid #ccc; white-space: pre;" readonly>' . esc_textarea($missing_json_preview) . '</textarea>';
-        echo '<script>
-            document.getElementById("download-missing-json").addEventListener("click", function() {
-                var content = document.getElementById("koto-missing-json-preview-area").value;
-                if (!content) {
-                    alert("ダウンロードするデータがありません。");
-                    return;
-                }
-                var blob = new Blob([content], { type: "application/json" });
-                var url = window.URL.createObjectURL(blob);
-                var a = document.createElement("a");
-                a.href = url;
-                a.download = "missing-info.json";
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-            });
-        </script>';
+    echo '<h2 style="margin-top: 30px;">未入力キャラJSONファイル</h2>';
+    if ($missing_meta['exists']) {
+        echo '<ul>';
+        echo '<li>保存先: ' . esc_html($missing_json_file_path) . '</li>';
+        echo '<li>ファイルサイズ: ' . esc_html(koto_json_reform_format_bytes($missing_meta['size'])) . '</li>';
+        echo '<li>最終更新: ' . esc_html(wp_date('Y-m-d H:i:s', $missing_meta['modified'])) . '</li>';
+        if (isset($missing_stats['written'])) {
+            echo '<li>最終全件再生成時の収録数: ' . intval($missing_stats['written']) . '件</li>';
+        }
+        echo '</ul>';
     } else {
-        echo '<p style="color: green;">現在、未入力のキャラクターはいません（またはファイルが未生成です）。</p>';
+        echo '<p style="color: green;">未入力JSONファイルが未生成です。</p>';
     }
     echo '</div>';
 }

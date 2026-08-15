@@ -621,8 +621,8 @@ function force_update_all_characters_index()
         require_once $calc_file;
     }
 
-    // 4. 全キャラクター取得を 100 件ずつのバッチ処理で実行
-    $posts_per_page = 100;
+    // 4. 全キャラクター取得を小さめバッチで実行（ACF使用時のメモリ急増を抑える）
+    $posts_per_page = 20;
     $paged = isset($_GET['batch_page']) ? max(1, intval($_GET['batch_page'])) : 1;
     $count = 0;
 
@@ -670,7 +670,7 @@ function force_update_all_characters_index()
     if ($query->max_num_pages > $paged) {
         $next_page = $paged + 1;
         $next_url = add_query_arg(['run_update_index' => '1', 'batch_page' => $next_page]);
-        echo '<a href="' . esc_url($next_url) . '" style="display:inline-block; margin-top:10px; padding:10px 20px; background:#00a0d2; color:#fff; text-decoration:none;">次の100体を更新</a>';
+        echo '<a href="' . esc_url($next_url) . '" style="display:inline-block; margin-top:10px; padding:10px 20px; background:#00a0d2; color:#fff; text-decoration:none;">次の20体を更新</a>';
     } else {
         echo '<a href="' . remove_query_arg(['run_update_index', 'batch_page']) . '" style="display:inline-block; margin-top:10px; padding:10px 20px; background:#00a0d2; color:#fff; text-decoration:none;">元の画面に戻る</a>';
     }
