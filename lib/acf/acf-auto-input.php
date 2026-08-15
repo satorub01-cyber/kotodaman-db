@@ -810,6 +810,10 @@ function koto_get_ignore_texts_by_category($category = '')
             '※この効果は重複しません。',
             '※コンボ＋の効果は重複せず、最も高い数値が加算されます',
         ],
+        'すごわざ発動条件' => [
+            '「',
+            '」',
+        ],
         'リーダーとくせい' => [],
         '祝福' => [],
     ];
@@ -1343,7 +1347,7 @@ function koto_build_acf_data_from_inputs($inputs, $grouped_csv)
         } elseif (strpos($key, 'waza') !== false && strpos($key, 'sugowaza_condition') === false) {
             $type = 'わざ';
         } elseif (strpos($key, 'sugowaza_condition') !== false) {
-            $type = 'すごわざ条件';
+            $type = 'すごわざ発動条件';
         } elseif (strpos($key, 'blessing') !== false) {
             $type = '祝福';
         } elseif (strpos($key, 'leader') !== false) {
@@ -1441,6 +1445,8 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
                     $acf_field_name = 'sugowaza_group_loop';
                 } elseif ($input_key === 'auto_input_blessing') {
                     $acf_field_name = 'blessing_trait_loop';
+                } elseif( $input_key === 'auto_input_sugowaza_condition'){
+                    $acf_field_name = 'sugowaza_condition';
                 }
             }
 
@@ -1605,33 +1611,3 @@ function koto_ajax_create_post_from_auto_input()
         wp_send_json_error(['message' => '記事の作成に失敗しました']);
     }
 }
-
-/*
-## 自動入力について
-### 自動入力アルゴリズム
-1. CSVファイルを「種別」列に応じて分けて
-2. 種別ごとにCSVからACFをとってくる関数
-3. ゲーム内文言をCSVに合わせて分割、削除する文言を削除
-4. 種別ごとの文言に合わせて２の関数を再起的に呼び出す関数
-5. 種別ごとに３の関数を呼び出してすべてをACF化する関数（行内容と入力欄を見てどの繰り返しフィールドか判断）
-6. 4で作った各種関数で取得したACFで記事を作る関数と、既存キャラに追加する関数
-
-### 種別ごとの再起呼び出し方法
-#### とくせい
-1. 丸数字で分割
-2. とくせい条件の文言がなくなるまでとくせい条件を呼び出す
-3. とくせいの文言からとくせい条件を呼び出す
-
-#### わざ
-#### すごわざ条件
-
-### 種別
-- とくせい
-- とくせいの条件
-- わざ
-- わざ追加条件
-- すごわざ条件
-- 祝福
-- リーダーとくせい
-- リーダーとくせい条件
-*/
