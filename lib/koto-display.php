@@ -1946,3 +1946,69 @@ function global_replace_buffer_end()
         ob_end_flush();
     }
 }
+
+// ページ送りにおいてキャラを実装日順に並べるためのカスタムフィルター
+// 前後の記事取得時にカスタムフィールドのテーブルを結合
+add_filter('get_previous_post_join', 'koto_adjacent_post_join');
+add_filter('get_next_post_join',     'koto_adjacent_post_join');
+function koto_adjacent_post_join($join)
+{
+    global $wpdb;
+    if (is_singular('character')) {
+        $join .= " INNER JOIN $wpdb->postmeta AS pm ON p.ID = pm.post_id AND pm.meta_key = '実装月（わかれば実装日）'";
+    }
+    return $join;
+}
+
+// 取得条件を実装日（と同日時の場合の投稿ID）の比較に変更
+add_filter('get_previous_post_where', 'koto_adjacent_post_where_previous');
+add_filter('get_next_post_where',     'koto_adjacent_post_where_next');
+
+function koto_adjacent_post_where_previous($where)
+{
+    return build_koto_adjacent_post_where(true);
+}
+
+function koto_adjacent_post_where_next($where)
+{
+    return build_koto_adjacent_post_where(false);
+}
+
+function build_koto_adjacent_post_where($is_previous)
+{
+    global $wpdb, $post;
+
+    if (! is_singular('character')) {
+        return "";
+    }
+
+    $current_date = get_post_meta($post->ID, '実装月（わかれば実装日）', true);
+    if (! $current_date) {
+        return "";
+    }
+
+    $op    = $is_previous ? '<' : '>';
+    $order = $is_previous ? '<' : '>';
+
+    return $wpdb->prepare(
+        "WHERE p.post_type = 'character' AND p.post_status = 'publish' 
+        AND (pm.meta_value $op %s OR (pm.meta_value = %s AND p.ID $order %d))",
+        $current_date,
+        $current_date,
+        $post->ID
+    );
+}
+
+// 並び順を実装日順（同日なら投稿ID順）に変更
+add_filter('get_previous_post_sort', 'koto_adjacent_post_sort_previous');
+add_filter('get_next_post_sort',     'koto_adjacent_post_sort_next');
+
+function koto_adjacent_post_sort_previous($sort)
+{
+    return is_singular('character') ? "ORDER BY pm.meta_value DESC, p.ID DESC LIMIT 1" : $sort;
+}
+
+function koto_adjacent_post_sort_next($sort)
+{
+    return is_singular('character') ? "ORDER BY pm.meta_value ASC, p.ID ASC LIMIT 1" : $sort;
+}

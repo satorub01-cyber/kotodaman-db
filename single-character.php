@@ -1321,7 +1321,7 @@ if ($has_blessing_ex_data):
                             $lv_num_first = $first_lv['blessing_level'];
 
                             if ($text_first):
-                            ?>
+                    ?>
                                 <div class="skill-effect-line" style="margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
                                     <div style="display:flex; align-items:flex-start;">
                                         <span class="effect-num" style="margin-right: 5px; margin-top: 2px;">(<?php echo $i; ?>)</span>
@@ -1434,78 +1434,258 @@ if (function_exists('display_koto_damage_calculator')) {
     display_koto_damage_calculator();
 }
 ?>
+<?php
+// ==============================================
+//  同キャラクター表示エリア
+// ==============================================
+$current_id = get_the_ID();
+// $same_char_cache_key = 'koto_same_chars_' . $current_id;
+// $same_char_ids = get_transient($same_char_cache_key);
+$same_char_ids = false; // キャッシュを無効化して常に最新の情報を取得するように変更
+if (false === $same_char_ids) {
+    $same_char_ids = [];
 
+    // get_post_metaではなくget_fieldを使用して確実な文字列として取得
+    $name_ruby_raw = get_field('name_ruby', $current_id);
+    $name_ruby = is_array($name_ruby_raw) ? implode('＆', $name_ruby_raw) : (string)$name_ruby_raw;
+
+    if (!empty(trim($name_ruby))) {
+        // 全角・半角の「&」を統一して配列に分割し、空要素を除去
+        $name_ruby_normalized = str_replace('&', '＆', $name_ruby);
+        $parts = array_values(array_filter(array_map('trim', explode('＆', $name_ruby_normalized))));
+
+        if (!empty($parts)) {
+            // 1. 部分一致(LIKE)で広めに取得
+            $meta_query = ['relation' => 'OR'];
+            foreach ($parts as $part) {
+                if (empty($part)) continue;
+                $meta_query[] = [
+                    'key'     => 'name_ruby',
+                    'value'   => $part,
+                    'compare' => 'LIKE',
+                ];
+            }
+
+            if (count($meta_query) > 1) {
+                // meta_keyをrelease_dateにしてソートすると、release_dateがない記事が除外されてしまうため、一旦すべて取得
+                $candidate_ids = get_posts([
+                    'post_type'      => 'character',
+                    'posts_per_page' => -1,
+                    'post__not_in'   => [$current_id],
+                    'fields'         => 'ids',
+                    'meta_query'     => $meta_query,
+                ]);
+
+                // 2. PHP側で「完全一致」か「＆区切りの完全一致」かを厳密に判定しつつ、実装日とIDを保持
+                $matched_chars = [];
+                if (!empty($candidate_ids)) {
+                    foreach ($candidate_ids as $cid) {
+                        $c_ruby_raw = get_field('name_ruby', $cid);
+                        $c_ruby = is_array($c_ruby_raw) ? implode('＆', $c_ruby_raw) : (string)$c_ruby_raw;
+
+                        $c_ruby_normalized = str_replace('&', '＆', $c_ruby);
+                        $c_parts = array_values(array_filter(array_map('trim', explode('＆', $c_ruby_normalized))));
+
+                        // パーツ同士で1つでも完全一致するものがあれば「同キャラ」
+                        $intersect = array_intersect($parts, $c_parts);
+                        if (!empty($intersect)) {
+                            // ソート用に実装日を取得
+                            $release_date = get_post_meta($cid, 'release_date', true);
+                            $matched_chars[] = [
+                                'id'   => $cid,
+                                'date' => $release_date ?: '9999-12-31', // 取得できない場合は末尾へ
+                            ];
+                        }
+                    }
+                }
+
+                // 3. 実装日の古い順（ASC）にソート
+                if (!empty($matched_chars)) {
+                    usort($matched_chars, function ($a, $b) {
+                        if ($a['date'] === $b['date']) {
+                            return $a['id'] <=> $b['id']; // 日付が同じならID順
+                        }
+                        return $a['date'] <=> $b['date'];
+                    });
+
+                    // 最大9体を抽出
+                    foreach (array_slice($matched_chars, 0, 9) as $char) {
+                        $same_char_ids[] = $char['id'];
+                    }
+                }
+            }
+        }
+    }
+    // 取得したIDリストを1日間（86400秒）キャッシュ
+    // set_transient($same_char_cache_key, $same_char_ids, DAY_IN_SECONDS);
+}
+
+// --- HTML出力 ---
+if (!empty($same_char_ids)):
+?>
+    <div class="detail-section-part" style="margin-top: 40px;">
+        <h4 class="sub-section-title">同キャラクター</h4>
+        <div class="common-char-grid">
+            <?php foreach ($same_char_ids as $pid): ?>
+                <a href="<?php echo esc_url(get_permalink($pid)); ?>" class="char-grid-card">
+                    <div class="grid-icon-box">
+                        <?php
+                        $thumb_id = get_field('character_image', $pid);
+                        if ($thumb_id) {
+                            echo wp_get_attachment_image($thumb_id, 'thumbnail', false, [
+                                'class'   => 'grid-char-img',
+                                'loading' => 'lazy',
+                                'width'   => 150,
+                                'height'  => 150,
+                            ]);
+                        } else {
+                            echo '<div class="grid-no-img">No Img</div>';
+                        }
+                        ?>
+                    </div>
+                    <div class="grid-char-name"><?php echo esc_html(get_the_title($pid)); ?></div>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+<?php
+endif;
+?>
 <?php
 // ==============================================
 //  4. 関連キャラクター表示エリア
 // ==============================================
 $current_id = get_the_ID();
-$tax_query_args = ['relation' => 'OR'];
-$has_terms = false;
+$target_count = 12; // 表示したい最大件数
+$cache_key = 'koto_related_chars_' . $current_id;
 
-$terms_event = get_the_terms($current_id, 'event');
-if ($terms_event && !is_wp_error($terms_event)) {
-    $event_ids = wp_list_pluck($terms_event, 'term_id');
-    $tax_query_args[] = [
-        'taxonomy' => 'event',
-        'field'    => 'term_id',
-        'terms'    => $event_ids,
-    ];
-    $has_terms = true;
+// キャッシュからIDリストを取得
+$related_post_ids = get_transient($cache_key);
+
+// キャッシュが存在しない場合のみ、関連度計算とクエリを実行
+if (false === $related_post_ids) {
+    $related_post_ids = [];
+    $exclude_ids = [$current_id];
+
+    // --- ステップ1: eventタクソノミーの系統樹を深い順に作成 ---
+    $terms_event = get_the_terms($current_id, 'event');
+    $ordered_event_ids = [];
+
+    if ($terms_event && !is_wp_error($terms_event)) {
+        $deepest_term = null;
+        $max_depth = -1;
+
+        // 現在のキャラが持つeventの中で最も深い階層のタームを探す
+        foreach ($terms_event as $t) {
+            $ancestors = get_ancestors($t->term_id, 'event');
+            $depth = count($ancestors);
+            if ($depth > $max_depth) {
+                $max_depth = $depth;
+                $deepest_term = $t;
+            }
+        }
+
+        // 深い順（最下層 → 親 → 祖父 ...）に配列化
+        if ($deepest_term) {
+            $ordered_event_ids[] = $deepest_term->term_id;
+            $ancestors = get_ancestors($deepest_term->term_id, 'event');
+            foreach ($ancestors as $anc_id) {
+                $ordered_event_ids[] = $anc_id;
+            }
+        }
+    }
+
+    // --- ステップ2: eventの深い層から順に取得 ---
+    foreach ($ordered_event_ids as $term_id) {
+        $limit = $target_count - count($related_post_ids);
+        if ($limit <= 0) break; // 12件に達したら強制終了
+
+        $posts = get_posts([
+            'post_type'        => 'character',
+            'posts_per_page'   => $limit,
+            'post__not_in'     => $exclude_ids,
+            'fields'           => 'ids',  // IDのみ取得で超軽量化
+            'orderby'          => 'date', // ランダムを使わず新着順にしてDB負荷を削減
+            'order'            => 'DESC',
+            'tax_query'        => [
+                [
+                    'taxonomy'         => 'event',
+                    'field'            => 'term_id',
+                    'terms'            => $term_id,
+                    'include_children' => false, // 親ターム検索時に子タームのキャラを混ぜない
+                ]
+            ],
+        ]);
+
+        if (!empty($posts)) {
+            $related_post_ids = array_merge($related_post_ids, $posts);
+            $exclude_ids = array_merge($exclude_ids, $posts); // 重複取得防止
+        }
+    }
+
+    // --- ステップ3: 12件に満たない場合は、affiliation（所属）で補填 ---
+    if (count($related_post_ids) < $target_count) {
+        $terms_group = get_the_terms($current_id, 'affiliation');
+        if ($terms_group && !is_wp_error($terms_group)) {
+            $group_ids = wp_list_pluck($terms_group, 'term_id');
+            $limit = $target_count - count($related_post_ids);
+
+            $posts = get_posts([
+                'post_type'      => 'character',
+                'posts_per_page' => $limit,
+                'post__not_in'   => $exclude_ids,
+                'fields'         => 'ids',
+                'orderby'        => 'date',
+                'order'          => 'DESC',
+                'tax_query'      => [
+                    [
+                        'taxonomy' => 'affiliation',
+                        'field'    => 'term_id',
+                        'terms'    => $group_ids,
+                    ]
+                ],
+            ]);
+
+            if (!empty($posts)) {
+                $related_post_ids = array_merge($related_post_ids, $posts);
+            }
+        }
+    }
+
+    // --- 取得したIDリストを1日間（86400秒）キャッシュ ---
+    set_transient($cache_key, $related_post_ids, DAY_IN_SECONDS);
 }
 
-$terms_group = get_the_terms($current_id, 'affiliation');
-if ($terms_group && !is_wp_error($terms_group)) {
-    $group_ids = wp_list_pluck($terms_group, 'term_id');
-    $tax_query_args[] = [
-        'taxonomy' => 'affiliation',
-        'field'    => 'term_id',
-        'terms'    => $group_ids,
-    ];
-    $has_terms = true;
-}
-
-if ($has_terms) {
-    $related_args = [
-        'post_type'      => 'character',
-        'posts_per_page' => 14,
-        'post__not_in'   => [$current_id],
-        'orderby'        => 'rand',
-        'tax_query'      => $tax_query_args,
-    ];
-    $related_query = new WP_Query($related_args);
-
-    if ($related_query->have_posts()):
+// --- HTML出力 ---
+if (!empty($related_post_ids)):
 ?>
-        <div class="detail-section-part" style="margin-top: 40px;">
-            <h4 class="sub-section-title">関連キャラクター</h4>
-            <div class="common-char-grid">
-                <?php while ($related_query->have_posts()): $related_query->the_post(); ?>
-                    <a href="<?php the_permalink(); ?>" class="char-grid-card">
-                        <div class="grid-icon-box">
-                            <?php
-                            $thumb_id = get_field('character_image');
-                            if ($thumb_id) {
-                                echo wp_get_attachment_image($thumb_id, 'thumbnail', false, [
-                                    'class'   => 'grid-char-img',
-                                    'loading' => 'lazy', // LCPを邪魔しないよう遅延読み込み
-                                    'width'   => 150,    // サイズを明記して計算負荷を減らす
-                                    'height'  => 150,
-                                ]);
-                            } else {
-                                echo '<div class="grid-no-img">No Img</div>';
-                            }
-                            ?>
-                        </div>
-                        <div class="grid-char-name"><?php the_title(); ?></div>
-                    </a>
-                <?php endwhile; ?>
-            </div>
+    <div class="detail-section-part" style="margin-top: 40px;">
+        <h4 class="sub-section-title">関連キャラクター</h4>
+        <div class="common-char-grid">
+            <?php foreach ($related_post_ids as $pid): ?>
+                <a href="<?php echo esc_url(get_permalink($pid)); ?>" class="char-grid-card">
+                    <div class="grid-icon-box">
+                        <?php
+                        $thumb_id = get_field('character_image', $pid);
+                        if ($thumb_id) {
+                            echo wp_get_attachment_image($thumb_id, 'thumbnail', false, [
+                                'class'   => 'grid-char-img',
+                                'loading' => 'lazy',
+                                'width'   => 150,
+                                'height'  => 150,
+                            ]);
+                        } else {
+                            echo '<div class="grid-no-img">No Img</div>';
+                        }
+                        ?>
+                    </div>
+                    <div class="grid-char-name"><?php echo esc_html(get_the_title($pid)); ?></div>
+                </a>
+            <?php endforeach; ?>
         </div>
+    </div>
 <?php
-    endif;
-    wp_reset_postdata();
-}
+endif;
 ?>
 
 <?php
@@ -1514,7 +1694,7 @@ if ($has_terms) {
 // ==============================================
 $new_args = [
     'post_type'      => 'character',
-    'posts_per_page' => 10,
+    'posts_per_page' => 9,
     'orderby'        => 'date',
     'order'          => 'DESC',
     'post__not_in'   => [$current_id],
