@@ -1430,7 +1430,7 @@ function koto_parse_sugowaza_condition($text, $grouped_csv, $input_key = '')
                 break;
             }
         }
-        $results[]['sugo_cond_loop'] = $child_rows; 
+        $results[]['sugo_cond_loop'] = $child_rows;
     }
     return $results;
 }
@@ -1548,6 +1548,27 @@ function koto_build_acf_data_from_inputs($inputs, $grouped_csv)
 
     foreach ($inputs as $key => $text) {
         if (empty($text)) continue;
+        // =========================================================
+        // わざ名・すごわざ名はパース処理を通さず、そのまま通常フィールドとして登録
+        // =========================================================
+        if ($key === 'auto_input_waza_name') {
+            $acf_data[$key] = [
+                [
+                    'is_normal_field' => true,
+                    'waza_name' => $text // ※実際のACFの「わざ名」フィールド名に合わせてください
+                ]
+            ];
+            continue;
+        }
+        if ($key === 'auto_input_sugowaza_name') {
+            $acf_data[$key] = [
+                [
+                    'is_normal_field' => true,
+                    'sugowaza_name' => $text // ※実際のACFの「すごわざ名」フィールド名に合わせてください
+                ]
+            ];
+            continue;
+        }
 
         $type = '';
         if (strpos($key, 'trait') !== false) {
