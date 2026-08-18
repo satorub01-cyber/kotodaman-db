@@ -1146,6 +1146,49 @@
                     "parent_repeater": "field_692d15ae17188"
                 },
                 {
+                    "key": "field_6945610cc31d0",
+                    "label": "ダメージ系",
+                    "name": "after_attack",
+                    "aria-label": "",
+                    "type": "select",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_6932ed164e618",
+                                "operator": "==",
+                                "value": "after_attack"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "choices": {
+                        "reflection": "反射",
+                        "counter": "わざ反撃",
+                        "sugo_counter": "すごわざ反撃",
+                        "absolute_counter": "確定反撃",
+                        "corruption": "腐敗"
+                    },
+                    "default_value": false,
+                    "return_format": "value",
+                    "multiple": 0,
+                    "allow_null": 0,
+                    "allow_in_bindings": 0,
+                    "ui": 0,
+                    "ajax": 0,
+                    "placeholder": "",
+                    "create_options": 0,
+                    "save_options": 0,
+                    "allow_custom": 0,
+                    "search_placeholder": "",
+                    "parent_repeater": "field_692d15ae17188"
+                },
+                {
                     "key": "field_6934360a85727",
                     "label": "変身前後、モードシフト",
                     "name": "related_form",
@@ -1184,48 +1227,6 @@
                     "elements": "",
                     "bidirectional": 0,
                     "bidirectional_target": [],
-                    "parent_repeater": "field_692d15ae17188"
-                },
-                {
-                    "key": "field_6945610cc31d0",
-                    "label": "ダメージ系",
-                    "name": "after_attack",
-                    "aria-label": "",
-                    "type": "select",
-                    "instructions": "",
-                    "required": 0,
-                    "conditional_logic": [
-                        [
-                            {
-                                "field": "field_6932ed164e618",
-                                "operator": "==",
-                                "value": "after_attack"
-                            }
-                        ]
-                    ],
-                    "wrapper": {
-                        "width": "",
-                        "class": "",
-                        "id": ""
-                    },
-                    "choices": {
-                        "reflection": "反射",
-                        "counter": "わざ反撃",
-                        "sugo_counter": "すごわざ反撃",
-                        "corruption": "腐敗"
-                    },
-                    "default_value": false,
-                    "return_format": "value",
-                    "multiple": 0,
-                    "allow_null": 0,
-                    "allow_in_bindings": 0,
-                    "ui": 0,
-                    "ajax": 0,
-                    "placeholder": "",
-                    "create_options": 0,
-                    "save_options": 0,
-                    "allow_custom": 0,
-                    "search_placeholder": "",
                     "parent_repeater": "field_692d15ae17188"
                 },
                 {
@@ -1339,6 +1340,7 @@
                         "exp_up": "経験値up",
                         "pressure_break": "重圧の上限解放",
                         "kokusen": "黒閃",
+                        "kyouwa": "協和",
                         "other": "その他"
                     },
                     "default_value": false,
@@ -3566,6 +3568,7 @@
                         "reflection": "反射",
                         "counter": "わざ反撃",
                         "sugo_counter": "すごわざ反撃",
+                        "absolute_counter": "確定反撃",
                         "corruption": "腐敗"
                     },
                     "default_value": false,
@@ -3652,6 +3655,7 @@
                         "exp_up": "経験値up",
                         "pressure_break": "重圧の上限解放",
                         "kokusen": "黒閃",
+                        "kyouwa": "協和",
                         "other": "その他"
                     },
                     "default_value": false,
@@ -4646,16 +4650,16 @@
     "display_title": "",
     "allow_ai_access": false,
     "ai_description": "",
-    "acfe_autosync": [
-        "json"
-    ],
-    "acfe_form": 0,
-    "acfe_meta": {
-        "acfcloneindex": {
-            "acfe_meta_key": "",
-            "acfe_meta_value": ""
-        }
+    "acfe": {
+        "autosync": [
+            "json"
+        ],
+        "meta": [
+            {
+                "key": "",
+                "value": ""
+            }
+        ]
     },
-    "acfe_note": "",
-    "modified": 1779781370
+    "modified": 1785407366
 }

@@ -37,7 +37,7 @@ $x_account_id = 'kotodamanDB';
                         </thead>
                         <tbody>
                             <?php
-                            $json_path = get_stylesheet_directory() . '/lib/missing-info.json';
+                            $json_path = function_exists('koto_json_generation_output_file_path') ? koto_json_generation_output_file_path('missing-info.json') : get_stylesheet_directory() . '/lib/missing-info.json';
                             $missing_data = [];
                             if (file_exists($json_path)) {
                                 $json_content = file_get_contents($json_path);

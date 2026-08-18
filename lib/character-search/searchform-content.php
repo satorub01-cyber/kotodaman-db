@@ -135,7 +135,7 @@
                     <details class="tree-accordion">
                         <summary class="tree-summary">ギミック耐性を選択</summary>
                         <div class="tree-content">
-                            <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('gimmick', 'tx_gimmick', ['open_all' => true, 'and_or' => 'AND', 'parent_sync' => false]); ?>
+                            <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('gimmick', 'tx_gimmick', ['open_all' => true, 'and_or' => 'OR', 'parent_sync' => false]); ?>
                         </div>
                     </details>
 
@@ -343,6 +343,7 @@
                                 <div class="tag-children">
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_after_attack_counter"> わざ反撃</label>
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_after_attack_sugo_counter"> すごわざ反撃</label>
+                                    <label><input type="checkbox" name="tx_trait_tags[]" value="trait_after_attack_absolute_counter"> 確定反撃</label>
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_after_attack_corruption"> 腐敗</label>
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_after_attack_reflection"> ダメージ反射</label>
                                 </div>
@@ -370,6 +371,8 @@
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_other_over_healing"> オーバーヒール</label>
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_other_exp_up"> 経験値UP</label>
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_other_pressure_break"> 重圧の上限解放</label>
+                                    <label><input type="checkbox" name="tx_trait_tags[]" value="trait_other_kokusen"> 黒閃</label>
+                                    <label><input type="checkbox" name="tx_trait_tags[]" value="trait_other_kyouwa"> 協和</label>
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_other_other"> その他の固有とくせい</label>
                                 </div>
                             </details>

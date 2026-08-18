@@ -472,7 +472,7 @@ function get_koto_trait_text_from_row($row)
 
         case 'core_gimmick':
             $core = $row['core_gimmick'];
-            $core_map = ['healing_core' => 'ヒール', 'attack_core' => 'アタック', 'super_attack_core' => 'スーパーアタック'];
+            $core_map = ['healing_core' => 'ヒール', 'attack_core' => 'アタック', 'super_attack_core' => 'スーパーアタック', 'attack_buff_core' => 'アタックバフ'];
             $core_name = isset($core_map[$core]) ? $core_map[$core] : $core;
             if ($core === 'super_attack_core') {
                 $effect_text = "{$core_name}ギミック ";
@@ -480,11 +480,21 @@ function get_koto_trait_text_from_row($row)
                 $c2 = $row['need_combo_second'];
                 $c3 = $row['need_combo_third'];
                 $c4 = $row['need_combo_forth'];
-                if ($c1) $effect_text .= "自身のATK<br>・{$c1}コンボ：+1<br>・{$c2}コンボ：+2<br>・{$c3}コンボ：+3<br>・{$c4}コンボ：+4<br>段階バフ";
+                // if ($c1) $effect_text .= "【{$c1}｜{$c2}｜{$c3}｜{$c4}】コンボで自身のATKを【1｜2｜3｜4】段階バフ";
+                if ($c1) {
+                    $effect_text .= "自身を含むコンボ数に応じて以下のようにATKを強化"
+                        . "<ul style=\"list-style: none;\">"
+                        . "<li>{$c1}コンボ：1段階UP</li>"
+                        . "<li>{$c2}コンボ：2段階UP</li>"
+                        . "<li>{$c3}コンボ：3段階UP</li>"
+                        . "<li>{$c4}コンボ：4段階UP</li>"
+                        . "</ul>";
+                }
             } else {
                 $need = $row['need_combo'];
                 if ($core === 'healing_core') $effect_text = "自身を含む言葉で{$need}コンボ以上するとHPを{$rate}回復";
                 if ($core === 'attack_core') $effect_text = "自身を含む言葉で{$need}コンボ以上すると敵全体に{$rate}の無属性ダメージ";
+                if ($core === 'attack_buff_core') $effect_text = "自身を含む言葉で{$need}コンボ以上すると自身のATKを{$rate}段階UP";
             }
             break;
 
@@ -499,6 +509,10 @@ function get_koto_trait_text_from_row($row)
                     break;
                 case 'sugo_counter':
                     $effect_text = "攻撃を受けたとき{$rate}%の確率ですごわざを発動";
+                    break;
+                case 'absolute_counter':
+                    $waza_rate = 100 - $rate;
+                    $effect_text = "攻撃を受けたとき{$rate}%の確率ですごわざを、{$waza_rate}%の確率でわざを発動";
                     break;
                 case 'corruption':
                     empty($turn_text) ? '（未入力）' : $turn_text;
@@ -584,7 +598,9 @@ function get_koto_trait_text_from_row($row)
             } elseif ($sub === 'ignore_disad') {
                 $effect_text = "不利属性に対して与えるダメージ、不利属性から受けるダメージが等倍になる";
             } elseif ($sub === 'kokusen') {
-                $effect_text = "黒閃：オーバークリティカル発生時、自身に「ドロー時、２ターンの間自身ATK１段階UP」「ダメージ上限+500000」を自身に付与する";
+                $effect_text = "黒閃：オーバークリティカルが発生するたび、自身にとくせい「ドロー時、２ターンの間自身ATK１段階UP」「ダメージ上限+500000」を付与する（累積可能）";
+            } elseif ($sub === 'kyouwa') {
+                $effect_text = "協和：オーバークリティカルが発生するたび、自身にとくせい「ドロー時、２ターンの間自身のクリティカル発生率１段階UP」「弱点を突いた時のダメージ10%UP」「自身の文字が「む・お・ん」のとき威力５%UP」を付与する（累積可能）";
             }
             break;
 
@@ -909,6 +925,7 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
             if (empty($items)) continue;
 
             $current_group_effects = [];
+            $temp_group_effects = []; //シフト用の一時的な効果リスト（統合用）
             $effect_counter = 1;
 
             // ★ グループ(タブ)ごとの火力計算配列
@@ -1066,6 +1083,7 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                         case 'converged_attack':
                             $raw_types = isset($item['attack_type']) ? $item['attack_type'] : [];
                             $saidai_text = '';
+                            $hp_mod = '';
                             if (!is_array($raw_types)) $raw_types = [$raw_types];
                             foreach ($raw_types as $raw) {
                                 if ($raw !== 'normal' && $raw !== 'target') $saidai_text = '最大';
@@ -1213,7 +1231,8 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                                 foreach ($tokens as $t) $t_names[] = get_the_title($t->ID);
                             }
                             $t_str = implode('・', $t_names);
-                            $effect_text = "{$t_str}を生成する";
+                            $t_url = home_url('/character/' . ($tokens[0]->ID ?? ''));
+                            $effect_text = "<a href='{$t_url}'>{$t_str}</a>を生成する";
                             break;
                         case 'pressure':
                             $debuffs = isset($item['pressure_debuff_count']) ? $item['pressure_debuff_count'] : '';
@@ -1245,7 +1264,8 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                             }
                             break;
                         case 'taunt':
-                            $effect_text = "{$target_name}にターゲット集中{$eff_val}を付与";
+                            $taunt_rate = $eff_val * 25;
+                            $effect_text = "{$target_name}が敵の単体攻撃で{$taunt_rate}%狙われるようになる";
                             break;
                         case 'barrier':
                             $effect_text = "{$target_name}に1回ダメージを無効化するバリアを展開";
@@ -1268,7 +1288,7 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                                             $val_type = "クリティカル率";
                                             break;
                                         default:
-                                            $val_type = "火力";
+                                            $val_type = "キラー補正";
                                             break;
                                     }
                                     $suffix = '';
@@ -1314,19 +1334,28 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                 $effect_text = koto_replace_icons($effect_text);
 
                 if ($effect_text) {
+                    $key = empty($cond_text) ? 'base' : $cond_text;
                     if ($is_shift_mode) {
-                        // シフト用の配列に格納
-                        $current_group_effects[] = [
-                            'num'    => $effect_counter,
-                            'cond'   => $cond_text,
-                            'effect' => $effect_text
-                        ];
-                        $effect_counter++;
+                        // 同じ条件の効果を統合するため、一時配列に格納
+                        $temp_group_effects[$key][] = $effect_text;
                     } else {
                         // 従来用の配列に格納
-                        $key = empty($cond_text) ? 'base' : $cond_text;
                         $normal_effects[$key][] = $effect_text;
                     }
+                }
+            }
+
+            // シフトモード用の一時配列を「＋」で連結して成形
+            if ($is_shift_mode && !empty($temp_group_effects)) {
+                foreach ($temp_group_effects as $cond_key => $effects) {
+                    $c_text = ($cond_key === 'base') ? '' : $cond_key;
+                    $combined_effect = implode('＋', $effects);
+                    $current_group_effects[] = [
+                        'num'    => $effect_counter,
+                        'cond'   => $c_text,
+                        'effect' => $combined_effect
+                    ];
+                    $effect_counter++;
                 }
             }
 
@@ -1821,6 +1850,8 @@ function koto_replace_icons($buffer)
         '植物・',
         '花火・',
         '生き物・',
+        '黄泉津大神・',
+        '主宰神・',
     ];
 
     $ignore_patterns = [
@@ -1914,4 +1945,70 @@ function global_replace_buffer_end()
     if (ob_get_length()) {
         ob_end_flush();
     }
+}
+
+// ページ送りにおいてキャラを実装日順に並べるためのカスタムフィルター
+// 前後の記事取得時にカスタムフィールドのテーブルを結合
+add_filter('get_previous_post_join', 'koto_adjacent_post_join');
+add_filter('get_next_post_join',     'koto_adjacent_post_join');
+function koto_adjacent_post_join($join)
+{
+    global $wpdb;
+    if (is_singular('character')) {
+        $join .= " INNER JOIN $wpdb->postmeta AS pm ON p.ID = pm.post_id AND pm.meta_key = '実装月（わかれば実装日）'";
+    }
+    return $join;
+}
+
+// 取得条件を実装日（と同日時の場合の投稿ID）の比較に変更
+add_filter('get_previous_post_where', 'koto_adjacent_post_where_previous');
+add_filter('get_next_post_where',     'koto_adjacent_post_where_next');
+
+function koto_adjacent_post_where_previous($where)
+{
+    return build_koto_adjacent_post_where(true);
+}
+
+function koto_adjacent_post_where_next($where)
+{
+    return build_koto_adjacent_post_where(false);
+}
+
+function build_koto_adjacent_post_where($is_previous)
+{
+    global $wpdb, $post;
+
+    if (! is_singular('character')) {
+        return "";
+    }
+
+    $current_date = get_post_meta($post->ID, '実装月（わかれば実装日）', true);
+    if (! $current_date) {
+        return "";
+    }
+
+    $op    = $is_previous ? '<' : '>';
+    $order = $is_previous ? '<' : '>';
+
+    return $wpdb->prepare(
+        "WHERE p.post_type = 'character' AND p.post_status = 'publish' 
+        AND (pm.meta_value $op %s OR (pm.meta_value = %s AND p.ID $order %d))",
+        $current_date,
+        $current_date,
+        $post->ID
+    );
+}
+
+// 並び順を実装日順（同日なら投稿ID順）に変更
+add_filter('get_previous_post_sort', 'koto_adjacent_post_sort_previous');
+add_filter('get_next_post_sort',     'koto_adjacent_post_sort_next');
+
+function koto_adjacent_post_sort_previous($sort)
+{
+    return is_singular('character') ? "ORDER BY pm.meta_value DESC, p.ID DESC LIMIT 1" : $sort;
+}
+
+function koto_adjacent_post_sort_next($sort)
+{
+    return is_singular('character') ? "ORDER BY pm.meta_value ASC, p.ID ASC LIMIT 1" : $sort;
 }

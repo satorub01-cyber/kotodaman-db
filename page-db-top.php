@@ -46,7 +46,7 @@ get_header();
                     'post_type'      => 'character', // カスタム投稿タイプ名
                     'post__in'       => $pickup_ids, // 指定したIDのみ取得
                     'orderby'        => 'post__in',  // 指定したIDの順番通りに並べる
-                    'posts_per_page' => 6,           // 件数（配列の数と同じにしておけばOK）
+                    'posts_per_page' => 9,           // 件数（配列の数と同じにしておけばOK）
                 );
                 $pickup_query = new WP_Query($args);
                 ?>
@@ -171,7 +171,7 @@ get_header();
                     // 最新の投稿を6件取得する設定
                     $args = array(
                         'post_type'      => 'character', // ※カスタム投稿タイプを使っている場合は 'character' 等に変更
-                        'posts_per_page' => 12,      // 取得件数
+                        'posts_per_page' => 15,      // 取得件数
                         'orderby'        => 'date', // 日付順
                         'order'          => 'DESC', // 新しい順
                     );
@@ -375,7 +375,7 @@ get_header();
     .tax-btn.dream {
         border-bottom: 4px solid rgb(232 225 106);
     }
-    
+
     .tax-btn.miracle {
         border-bottom: 4px solid rgb(106, 232, 226);
     }
@@ -421,9 +421,17 @@ get_header();
     /* 新着キャラのグリッド表示 */
     .new-char-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-        /* スマホでも見やすいサイズ */
+        /* スマホ用に3列を指定 */
+        grid-template-columns: repeat(3, 1fr);
         gap: 15px;
+    }
+
+    /* 画面幅768px以上のPC用レイアウト */
+    @media screen and (min-width: 768px) {
+        .new-char-grid {
+            /* PC用に5列を指定 */
+            grid-template-columns: repeat(5, 1fr);
+        }
     }
 
     /* キャラカード */
@@ -433,6 +441,7 @@ get_header();
         color: #333;
         text-align: center;
         transition: 0.2s;
+        max-width: 150px;
     }
 
     .char-card:hover {

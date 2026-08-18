@@ -61,34 +61,39 @@ function koto_group_csv_by_type($csv_data)
  */
 function koto_generate_regex_pattern($template, &$seen_vars, $match_mode = 'exact')
 {
-    preg_match_all('/\{\$(.*?)\}/', $template, $ph_matches);
-    $pattern = preg_quote($template, '/');
+    $parts = preg_split('/(\{\$[a-zA-Z0-9_]+\})/', $template, -1, PREG_SPLIT_DELIM_CAPTURE);
+    $pattern = '';
 
-    if (!empty($ph_matches[1])) {
-        foreach ($ph_matches[1] as $idx => $var_name) {
-            $quoted_ph = preg_quote($ph_matches[0][$idx], '/');
-            $pos = strpos($pattern, $quoted_ph);
-            if ($pos !== false) {
-                if (!in_array($var_name, $seen_vars)) {
+    if (is_array($parts)) {
+        foreach ($parts as $part) {
+            if (preg_match('/^\{\$([a-zA-Z0-9_]+)\}$/', $part, $m)) {
+                $var_name = $m[1];
+                if (!in_array($var_name, $seen_vars, true)) {
                     if (strpos($var_name, 'val') === 0) {
-                        // 全半角の数字の連続にのみマッチさせる
-                        $replacement = '(?P<' . $var_name . '>[0-9０-９]+)';
+                        $pattern .= '(?P<' . $var_name . '>[0-9０-９]+)';
                     } else {
-                        // 通常は最短一致の任意の文字列にマッチさせる
-                        $replacement = '(?P<' . $var_name . '>.+?)';
+                        $pattern .= '(?P<' . $var_name . '>.+?)';
                     }
                     $seen_vars[] = $var_name;
                 } else {
-                    $replacement = '(?P=' . $var_name . ')';
+                    $pattern .= '(?P=' . $var_name . ')';
                 }
-                $pattern = substr_replace($pattern, $replacement, $pos, strlen($quoted_ph));
+            } else {
+                // プレースホルダ以外のテキストをエスケープ
+                $escaped = preg_quote($part, '/');
+                // CSV内に意図して記述された正規表現構文（.*? や .*）を復元
+                $escaped = str_replace('\.\*\?', '.*?', $escaped);
+                $escaped = str_replace('\.\*', '.*', $escaped);
+
+                $pattern .= $escaped;
             }
         }
     }
+
     if ($match_mode === 'exact') return '/^' . $pattern . '$/u';
     if ($match_mode === 'prefix') return '/^' . $pattern . '/u';
     if ($match_mode === 'suffix') return '/' . $pattern . '$/u';
-    return '/' . $pattern . '/u'; // partial
+    return '/' . $pattern . '/u';
 }
 
 /**
@@ -143,86 +148,33 @@ function koto_finalize_match_acf_data($acf_rows, $empty_acf_return)
 }
 
 /**
- * シフト属性のJSON値から attribute タクソノミーのターム配列を取得する。
- *
- * @param array<int, array<string, mixed>> $shift_rows シフトタイプのACF行。
- * @return array<int, WP_Term> 属性タームの配列。
- */
-function koto_get_shift_attr_terms($shift_rows)
-{
-    $terms = [];
-
-    foreach ($shift_rows as $row) {
-        if (!is_array($row)) {
-            continue;
-        }
-
-        $raw_attrs = $row['sugo_shift_attrs'] ?? $row['koto_shift_attrs'] ?? null;
-        if ($raw_attrs === null || $raw_attrs === '') {
-            continue;
-        }
-
-        if (is_array($raw_attrs)) {
-            $raw_values = $raw_attrs;
-        } else {
-            $raw_text = trim((string) $raw_attrs);
-            $raw_text = trim($raw_text, '[]');
-
-            $decoded_values = json_decode('[' . $raw_text . ']', true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded_values)) {
-                $raw_values = $decoded_values;
-            } else {
-                $raw_values = preg_split('/\s*,\s*/u', $raw_text);
-            }
-        }
-
-        foreach ((array) $raw_values as $raw_value) {
-            if ($raw_value instanceof WP_Term) {
-                $terms[$raw_value->term_id] = $raw_value;
-                continue;
-            }
-
-            if (is_array($raw_value) && isset($raw_value['term_id'])) {
-                $raw_value = $raw_value['term_id'];
-            }
-
-            if (!is_numeric($raw_value)) {
-                continue;
-            }
-
-            $term = get_term((int) $raw_value, 'attribute');
-            if ($term && !is_wp_error($term)) {
-                $terms[$term->term_id] = $term;
-            }
-        }
-    }
-
-    return array_values($terms);
-}
-
-/**
  * シフト属性ごとに結果配列を複製し、各要素へ sugo_shift_attr を付与する。
  *
  * @param array<int, array<string, mixed>> $results 変換済み結果。
- * @param array<int, WP_Term> $shift_attr_terms シフト属性のターム配列。
+ * @param array<int, int|string> $shift_attr_ids シフト属性のタームID配列。
  * @return array<int, array<string, mixed>> 複製済み結果。
  */
-function koto_duplicate_results_for_shift_attrs($results, $shift_attr_terms)
+function koto_duplicate_results_for_shift_attrs($results, $shift_attr_ids)
 {
-    if (empty($shift_attr_terms)) {
+    if (empty($shift_attr_ids)) {
         return $results;
     }
 
     $duplicated_results = [];
 
-    foreach ($shift_attr_terms as $shift_attr_term) {
+    foreach ($shift_attr_ids as $shift_attr_id) {
+        $shift_attr_id = (int) $shift_attr_id;
+        if ($shift_attr_id <= 0) {
+            continue;
+        }
+
         foreach ($results as $result) {
-            if (!is_array($result)) {
+            if (!is_array($result) || !isset($result['sugo_detail_loop']) || !is_array($result['sugo_detail_loop'])) {
                 continue;
             }
 
             $result_copy = $result;
-            $result_copy['sugo_shift_attr'] = $shift_attr_term;
+            $result_copy['sugo_shift_attr'] = $shift_attr_id;
 
             if (!empty($result_copy['sugo_detail_loop']) && is_array($result_copy['sugo_detail_loop'])) {
                 foreach ($result_copy['sugo_detail_loop'] as $detail_index => $sugo_detail) {
@@ -230,7 +182,7 @@ function koto_duplicate_results_for_shift_attrs($results, $shift_attr_terms)
                         continue;
                     }
 
-                    $result_copy['sugo_detail_loop'][$detail_index]['attack_attr'] = $shift_attr_term;
+                    $result_copy['sugo_detail_loop'][$detail_index]['attack_attr'] = $shift_attr_id;
                 }
             }
 
@@ -410,13 +362,121 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $mojis = array_map(function ($moji) {
                 return str_replace(['「', '」'], '', $moji);
             }, $mojis);
+
+            // available_mojiのnameからslugへの対応表
+            $moji_slug_map = [
+                'あ' => 'a',
+                'ぁ' => 'xa',
+                'い' => 'i',
+                'ぃ' => 'xi',
+                'う' => 'u',
+                'ぅ' => 'xu',
+                'え' => 'e',
+                'ぇ' => 'xe',
+                'お' => 'o',
+                'ぉ' => 'xo',
+                'か' => 'ka',
+                'が' => 'ga',
+                'き' => 'ki',
+                'ぎ' => 'gi',
+                'く' => 'ku',
+                'ぐ' => 'gu',
+                'け' => 'ke',
+                'げ' => 'ge',
+                'こ' => 'ko',
+                'ご' => 'go',
+                'さ' => 'sa',
+                'ざ' => 'za',
+                'し' => 'shi',
+                'じ' => 'ji',
+                'す' => 'su',
+                'ず' => 'zu',
+                'せ' => 'se',
+                'ぜ' => 'ze',
+                'そ' => 'so',
+                'ぞ' => 'zo',
+                'た' => 'ta',
+                'だ' => 'da',
+                'ち' => 'chi',
+                'ぢ' => 'di',
+                'つ' => 'tsu',
+                'づ' => 'du',
+                'っ' => 'xtsu',
+                'て' => 'te',
+                'で' => 'de',
+                'と' => 'to',
+                'ど' => 'do',
+                'な' => 'na',
+                'に' => 'ni',
+                'ぬ' => 'nu',
+                'ね' => 'ne',
+                'の' => 'no',
+                'は' => 'ha',
+                'ば' => 'ba',
+                'ぱ' => 'pa',
+                'ひ' => 'hi',
+                'び' => 'bi',
+                'ぴ' => 'pi',
+                'ふ' => 'fu',
+                'ぶ' => 'bu',
+                'ぷ' => 'pu',
+                'へ' => 'he',
+                'べ' => 'be',
+                'ぺ' => 'pe',
+                'ほ' => 'ho',
+                'ぼ' => 'bo',
+                'ぽ' => 'po',
+                'ま' => 'ma',
+                'み' => 'mi',
+                'む' => 'mu',
+                'め' => 'me',
+                'も' => 'mo',
+                'や' => 'ya',
+                'ゃ' => 'xya',
+                'ゆ' => 'yu',
+                'ゅ' => 'xyu',
+                'よ' => 'yo',
+                'ょ' => 'xyo',
+                'ら' => 'ra',
+                'り' => 'ri',
+                'る' => 'ru',
+                'れ' => 're',
+                'ろ' => 'ro',
+                'わ' => 'wa',
+                'を' => 'wo',
+                'ん' => 'nn'
+            ];
+
+            // DBクエリのCollation問題を完全に回避するため、全タームを1回だけ取得してPHPで判定する
+            static $all_moji_terms = null;
+            if ($all_moji_terms === null) {
+                $all_moji_terms = get_terms([
+                    'taxonomy'   => 'available_moji',
+                    'hide_empty' => false,
+                ]);
+            }
+
             $term_ids = [];
             foreach ($mojis as $moji) {
-                $term = get_term_by('name', trim($moji), 'available_moji');
-                if ($term) {
-                    $term_ids[] = $term->term_id;
+                $target_name = trim($moji);
+                if (isset($moji_slug_map[$target_name])) {
+                    $target_slug = $moji_slug_map[$target_name];
+
+                    if (!is_wp_error($all_moji_terms)) {
+                        foreach ($all_moji_terms as $t) {
+                            // PHPの厳密比較 (===) でスラッグを判定
+                            if ($t->slug === $target_slug) {
+                                $term_ids[] = (int) $t->term_id;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
+
+            // 【原因特定用】実際にパースされたID配列をエラーログに書き出す
+            error_log('[dot_separated_moji Debug] Input: ' . $value . ' => Result IDs: ' . print_r($term_ids, true));
+
             $value = $term_ids;
         } elseif (strpos($key, 'affiliation') === 0) {
             $attr_names = preg_split('/[・\|]/u', $value);
@@ -428,7 +488,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                 }
             }
             $value = $attr_ids;
-        } elseif ($key === 'attr') {
+        } elseif (strpos($key, 'attr') === 0) {
             $value = str_replace('属性', '', $value);
             $attr_names = preg_split('/[・\|]/u', $value);
             $attr_ids = [];
@@ -789,15 +849,16 @@ function koto_get_ignore_texts_by_category($category = '')
 
     $ignore_texts_by_category = [
         'わざ' => [
-            '',
+            'さらに',
             '、または',
             '追加で',
-            '【',
-            '】',
+            // '【',
+            // '】',
             '(汚染による効果を受けない)',
             '(味方のコトダマンのみ適用されます)',
             '(ターン開始時に重圧付与後の経過ターン数に応じた段階の被ダメージ増加状態を付与し、味方行動終了時に被ダメージ増加状態の段階と効果値に応じたダメージを与える効果)',
             '(一部攻撃を除く)',
+            '。',
         ],
         'とくせい' => [
             'サブ属性を対象とするリーダーとくせい・とくせいの効果を受けることができる(受ける効果はメイン属性と重複しない)',
@@ -847,6 +908,7 @@ function koto_preprocess_text($text, $category = '')
         '｢' => '「',
         '｣' => '」',
         '･' => '・', // 半角中点を全角に
+        '·' => '・', // 中点を全角に
     ];
     $zenkaku_to_hankaku = [
         '％' => '%',
@@ -854,9 +916,20 @@ function koto_preprocess_text($text, $category = '')
         '）' => ')',
         '＋' => '+',
         '－' => '-',
+        '｜' => '|',
+    ];
+    $typo_corrections = [
+        '味方のコトダマンのみ適用されます' => '味方のコトダマンのみ適用される',
+        '味方のコトダマンのみ適用される' => '味方のコトダマンのみ適用される',
+        'すこわざ' => 'すごわざ',
+        'わさ' => 'わざ',
+        'すごわさ' => 'すごわざ',
+        'すこわさ' => 'すごわざ',
+        '擊' => '撃',
     ];
     $text = str_replace(array_keys($hankaku_to_zenkaku), array_values($hankaku_to_zenkaku), $text);
     $text = str_replace(array_keys($zenkaku_to_hankaku), array_values($zenkaku_to_hankaku), $text);
+    $text = str_replace(array_keys($typo_corrections), array_values($typo_corrections), $text);
 
     // 改行コードを統一
     $text = str_replace(['\n', '\r', "\n", "\r"], "\n", $text);
@@ -965,6 +1038,15 @@ function koto_parse_trait($text, $grouped_csv, $input_key = '')
                     $effect_data['condition_type_loop'] = $conditions;
                 }
             }
+            if (!empty($effect_data['need_combos']) && is_array($effect_data['need_combos'])) {
+                $need_combos = $effect_data['need_combos'];
+                $effect_data['need_combo_first']  = $need_combos[0] ?? null;
+                $effect_data['need_combo_second'] = $need_combos[1] ?? null;
+                $effect_data['need_combo_third']  = $need_combos[2] ?? null;
+                $effect_data['need_combo_forth'] = $need_combos[3] ?? null;
+
+                unset($effect_data['need_combos']);
+            }
             $results[] = $effect_data;
         }
     }
@@ -987,13 +1069,15 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
     $waza_shift_rows = $grouped_csv['わざシフトタイプ'] ?? [];
     $results = [];
     $malti_table = [];
+    $temp_shift_row = [];
 
     // シフトタイプの判定
-    $shift_type = koto_match_csv_template($text, $waza_shift_rows, $input_key);
+    $shift_type = koto_match_csv_template($text, $waza_shift_rows, $input_key, 'prefix');
     $shift_type_value = '';
-    $shift_attr_terms = [];
+    $shift_attr_ids = [];
 
     if (koto_is_csv_template_match($shift_type)) {
+        $text = trim(mb_substr($text, mb_strlen($shift_type['matched_text'])));
         $shift_type_rows = koto_ensure_acf_data_list($shift_type['acf_data']);
         foreach ($shift_type_rows as $shift_type_row) {
             if (!is_array($shift_type_row)) {
@@ -1005,7 +1089,41 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
             }
         }
         if ($shift_type_value === 'attr') {
-            $shift_attr_terms = koto_get_shift_attr_terms($shift_type_rows);
+            foreach ($shift_type_rows as $shift_type_row) {
+                if (!is_array($shift_type_row)) {
+                    continue;
+                }
+
+                $raw_attrs = $shift_type_row['sugo_shift_attrs'] ?? $shift_type_row['koto_shift_attrs'] ?? null;
+                if ($raw_attrs === null || $raw_attrs === '') {
+                    continue;
+                }
+
+                if (is_array($raw_attrs)) {
+                    $raw_values = $raw_attrs;
+                } else {
+                    $raw_values = [];
+                    // 文字列の場合、全角スペースや括弧などのノイズを完全に無視して数字（ID）のみを抽出する
+                    if (preg_match_all('/\d+/', (string) $raw_attrs, $matches)) {
+                        $raw_values = $matches[0];
+                    }
+                }
+
+                foreach ((array) $raw_values as $raw_value) {
+                    // オブジェクト由来の連想配列が混入していた場合のケア
+                    if (is_array($raw_value) && isset($raw_value['term_id'])) {
+                        $raw_value = $raw_value['term_id'];
+                    }
+
+                    // 確実に整数型にキャストする
+                    $term_id = (int) $raw_value;
+
+                    // IDが0以下（変換失敗・空文字など）の場合は除外して安全な値のみ格納
+                    if ($term_id > 0) {
+                        $shift_attr_ids[] = $term_id;
+                    }
+                }
+            }
         }
     }
 
@@ -1013,7 +1131,7 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
     if (koto_is_csv_template_match($shift_type)) {
         $shift_rows = koto_ensure_acf_data_list($shift_type['acf_data']);
         foreach ($shift_rows as $shift_row) {
-            if (!is_array($shift_row) || empty($shift_row)) {
+            if (!is_array($shift_row) || empty($shift_row) || isset($shift_row['is_normal_field']) === false) {
                 continue;
             }
 
@@ -1022,7 +1140,7 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
                 unset($shift_row['sugo_shift_type']);
             }
 
-            $results[] = $shift_row;
+            $temp_shift_row = $shift_row;
         }
     }
 
@@ -1031,7 +1149,7 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
     foreach ($parent_parts as $part) {
         $remaining_text = $part;
         $conditions = [];
-        $effects = [];
+        $all_effects = [];
 
         // わざ追加条件の抽出
         while (true) {
@@ -1063,10 +1181,9 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
         }
 
         // わざ効果の抽出（全角＋にも対応）
+        // +で分割された各効果部分を処理（1つのgroup_loopで複数の効果を統合）
         $child_parts = explode('+', $remaining_text);
-        if ($child_parts === false || empty($child_parts)) {
-            $child_parts = [$remaining_text];
-        }
+
         foreach ($child_parts as $child_part) {
             $child_part = trim((string) $child_part);
             if ($child_part === '') {
@@ -1116,63 +1233,54 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
                     }
                 }
 
-                $effect_rows = [];
-                $effect_parts = explode('+', $child_segment);
-                if ($effect_parts === false || empty($effect_parts)) {
-                    $effect_parts = [$child_segment];
-                }
-
-                foreach ($effect_parts as $effect_part) {
-                    $match = koto_match_csv_template($effect_part, $waza_rows, $input_key);
-                    if (koto_is_csv_template_match($match)) {
-                        $effect_rows = koto_ensure_acf_data_list($match['acf_data']);
-                    } else {
-                        $effect_rows = [];
-                    }
-
+                $match = koto_match_csv_template($child_segment, $waza_rows, $input_key);
+                if (koto_is_csv_template_match($match)) {
+                    $effect_rows = koto_ensure_acf_data_list($match['acf_data']);
                     foreach ($effect_rows as $effect_data) {
                         if (!is_array($effect_data) || empty($effect_data)) {
                             continue;
                         }
-                        $effects[] = $effect_data;
+                        $all_effects[] = $effect_data;
                     }
                 }
+            }
+        }
 
-                $parsed_part = [
-                    'waza_add_cond_loop' => $segment_conditions,
-                    'sugo_detail_loop' => $effects,
-                ];
+        // 1つの丸数字区分 = 1つのgroup_loop行にまとめる
+        if (!empty($all_effects) || !empty($conditions)) {
+            $parsed_part = [
+                'waza_add_cond_loop' => $conditions,
+                'sugo_detail_loop' => $all_effects,
+            ];
 
-                // シフト条件の階層調整
-                $normalized_conditions = [];
-                foreach ($parsed_part['waza_add_cond_loop'] as $cond_item) {
-                    if (!is_array($cond_item) || empty($cond_item)) {
-                        continue;
-                    }
-
-                    if (array_key_exists('sugo_shift_moji', $cond_item)) {
-                        $parsed_part['sugo_shift_moji'] = $cond_item['sugo_shift_moji'];
-                        unset($cond_item['sugo_shift_moji']);
-                    }
-                    if (array_key_exists('sugo_shift_attacked', $cond_item)) {
-                        $parsed_part['sugo_shift_attacked'] = $cond_item['sugo_shift_attacked'];
-                        unset($cond_item['sugo_shift_attacked']);
-                    }
-
-                    if (!empty($cond_item)) {
-                        $normalized_conditions[] = $cond_item;
-                    }
-                }
-                $parsed_part['waza_add_cond_loop'] = $normalized_conditions;
-
-                // 空データ行は追加しない
-                if (empty($parsed_part['waza_add_cond_loop']) && empty($parsed_part['sugo_detail_loop'])) {
+            // シフト条件の階層調整
+            $normalized_conditions = [];
+            foreach ($parsed_part['waza_add_cond_loop'] as $cond_item) {
+                if (!is_array($cond_item) || empty($cond_item)) {
                     continue;
                 }
 
-                $results[] = $parsed_part;
-                $effects = [];
+                if (array_key_exists('sugo_shift_moji', $cond_item)) {
+                    $parsed_part['sugo_shift_moji'] = $cond_item['sugo_shift_moji'];
+                    unset($cond_item['sugo_shift_moji']);
+                }
+                if (array_key_exists('sugo_shift_attacked', $cond_item)) {
+                    $parsed_part['sugo_shift_attacked'] = $cond_item['sugo_shift_attacked'];
+                    unset($cond_item['sugo_shift_attacked']);
+                }
+
+                if (!empty($cond_item)) {
+                    $normalized_conditions[] = $cond_item;
+                }
             }
+            $parsed_part['waza_add_cond_loop'] = $normalized_conditions;
+
+            // 空データ行は追加しない
+            if (empty($parsed_part['waza_add_cond_loop']) && empty($parsed_part['sugo_detail_loop'])) {
+                continue;
+            }
+
+            $results[] = $parsed_part;
         }
     }
 
@@ -1208,9 +1316,6 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
         }
     }
 
-    if (!empty($malti_table)) {
-        $results[] = $malti_table;
-    }
 
     if ($shift_type_value === 'random') {
         foreach ($results as $result_index => &$result) {
@@ -1225,7 +1330,20 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
 
     // 属性シフト時の複製処理
     if ($shift_type_value === 'attr') {
-        $results = koto_duplicate_results_for_shift_attrs($results, $shift_attr_terms);
+        $results = koto_duplicate_results_for_shift_attrs($results, $shift_attr_ids);
+        if (empty($temp_shift_row)) {
+            $temp_shift_row = [
+                'is_normal_field' => true,
+                'sugo_shift_type' => 'attr',
+            ];
+        }
+    }
+    if (!empty($malti_table)) {
+        $results[] = $malti_table;
+    }
+    if (!empty($temp_shift_row)) {
+        $temp_shift_row['is_normal_field'] = true;
+        $results[] = $temp_shift_row;
     }
 
     return $results;
@@ -1319,14 +1437,14 @@ function koto_parse_sugowaza_condition($text, $grouped_csv, $input_key = '')
 function koto_get_maltiplyer_table($type = 'default')
 {
     $result = [
-        'use_maltiplyer_table' => true,
-        'malti_cond_type' => 'default',
-        'maltiplyer_table' => []
+        'use_maltiplier_table' => true,
+        'multi_cond_type' => 'default',
+        'maltiplier_table' => []
     ];
     switch ($type):
         case 'moji_converged':
-            $result['malti_cond_type'] = 'both';
-            $result['maltiplyer_table'] = [
+            $result['multi_cond_type'] = 'both';
+            $result['maltiplier_table'] = [
                 ['moji_count' => 4, 'enemy_count' => 1, 'rate' => 8.16],
                 ['moji_count' => 5, 'enemy_count' => 1, 'rate' => 9.6],
                 ['moji_count' => 6, 'enemy_count' => 1, 'rate' => 10.88],
@@ -1342,8 +1460,8 @@ function koto_get_maltiplyer_table($type = 'default')
             ];
             break;
         case 'moji_heal':
-            $result['malti_cond_type'] = 'moji';
-            $result['maltiplyer_table'] = [
+            $result['multi_cond_type'] = 'moji';
+            $result['maltiplier_table'] = [
                 ['moji_count' => 4, 'rate' => 0.8],
                 ['moji_count' => 5, 'rate' => 1.6],
                 ['moji_count' => 6, 'rate' => 1.8],
@@ -1351,8 +1469,8 @@ function koto_get_maltiplyer_table($type = 'default')
             ];
             break;
         case 'moji_single':
-            $result['malti_cond_type'] = 'moji';
-            $result['maltiplyer_table'] = [
+            $result['multi_cond_type'] = 'moji';
+            $result['maltiplier_table'] = [
                 ['moji_count' => 4, 'rate' => 6],
                 ['moji_count' => 5, 'rate' => 7.5],
                 ['moji_count' => 6, 'rate' => 9.5],
@@ -1360,8 +1478,8 @@ function koto_get_maltiplyer_table($type = 'default')
             ];
             break;
         case 'moji_all':
-            $result['malti_cond_type'] = 'moji';
-            $result['maltiplyer_table'] = [
+            $result['multi_cond_type'] = 'moji';
+            $result['maltiplier_table'] = [
                 ['moji_count' => 4, 'rate' => 5.1],
                 ['moji_count' => 5, 'rate' => 6.6],
                 ['moji_count' => 6, 'rate' => 7.9],
@@ -1369,8 +1487,8 @@ function koto_get_maltiplyer_table($type = 'default')
             ];
             break;
         case 'converged':
-            $result['malti_cond_type'] = 'enemy_count';
-            $result['maltiplyer_table'] = [
+            $result['multi_cond_type'] = 'enemy_count';
+            $result['maltiplier_table'] = [
                 ['enemy_count' => 1, 'rate' => 9],
                 ['enemy_count' => 2, 'rate' => 7.5],
                 ['enemy_count' => 3, 'rate' => 6],
@@ -1530,9 +1648,23 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
                 } elseif ($input_key === 'auto_input_trait2') {
                     $acf_field_name = 'second_trait_loop';
                 } elseif ($input_key === 'auto_input_waza') {
-                    $acf_field_name = 'waza_group_loop';
+                    if (isset($item['use_maltiplier_table'])) {
+                        $acf_field_name = 'waza_maltiplier_table_group';
+                    } else {
+                        $acf_field_name = 'waza_group_loop';
+                    }
                 } elseif ($input_key === 'auto_input_sugowaza') {
-                    $acf_field_name = 'sugowaza_group_loop';
+                    if (isset($item['use_maltiplier_table'])) {
+                        $acf_field_name = 'sugowaza_maltiplier_table_group';
+                    } else {
+                        $acf_field_name = 'sugowaza_group_loop';
+                    }
+                } elseif ($input_key === 'auto_input_kotowaza') {
+                    if (isset($item['use_maltiplier_table'])) {
+                        $acf_field_name = 'kotowaza_maltiplier_table_group';
+                    } else {
+                        $acf_field_name = 'kotowaza_group_loop';
+                    }
                 } elseif ($input_key === 'auto_input_blessing') {
                     $acf_field_name = 'blessing_trait_loop';
                 } elseif ($input_key === 'auto_input_sugowaza_condition') {
@@ -1554,7 +1686,10 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
         foreach ($new_rows as $row) {
             $existing_data[] = $row;
         }
-
+        if (!strpos($acf_field_name, 'loop') !== false) {
+            // グループフィールドの場合は配列でから外す
+            $existing_data = $existing_data[0] ?? [];
+        }
         update_field($acf_field_name, $existing_data, $post_id);
     }
 

@@ -7,7 +7,7 @@
     "object_type": [
         "character"
     ],
-    "advanced_configuration": 0,
+    "advanced_configuration": 1,
     "import_source": "",
     "import_date": "",
     "labels": {
@@ -56,7 +56,7 @@
     "rest_controller_class": "WP_REST_Terms_Controller",
     "show_tagcloud": 1,
     "show_in_quick_edit": 1,
-    "show_admin_column": 0,
+    "show_admin_column": 1,
     "rewrite": {
         "permalink_rewrite": "taxonomy_key",
         "with_front": "1",
@@ -73,5 +73,5 @@
     "meta_box_sanitize_cb": "",
     "allow_ai_access": false,
     "ai_description": "",
-    "modified": 1778500050
+    "modified": 1783338930
 }

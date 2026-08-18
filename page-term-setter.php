@@ -179,7 +179,7 @@ get_header();
 // nonce生成
 $nonce = wp_create_nonce('term_setter_nonce');
 $ajax_url = admin_url('admin-ajax.php');
-$json_url = get_stylesheet_directory_uri() . '/lib/character-search/all_characters_search.json';
+$json_url = function_exists('koto_json_generation_output_file_url') ? koto_json_generation_output_file_url('all_characters_search.json') : get_stylesheet_directory_uri() . '/lib/character-search/all_characters_search.json';
 
 // CSS読み込み
 $css_version = file_exists(get_stylesheet_directory() . '/lib/term-setter/term-setter.css') 

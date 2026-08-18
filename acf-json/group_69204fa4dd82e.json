@@ -902,6 +902,35 @@
             "bidirectional_target": []
         },
         {
+            "key": "field_6a4b980bd2f99",
+            "label": "適正クエスト",
+            "name": "quest",
+            "aria-label": "",
+            "type": "taxonomy",
+            "instructions": "該当するものがなければ追加してください\r\n＊＊要確認＊＊",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "taxonomy": "suitable_quest",
+            "add_term": 1,
+            "save_terms": 1,
+            "load_terms": 1,
+            "return_format": "object",
+            "field_type": "multi_select",
+            "allow_null": 0,
+            "acfe_bidirectional": {
+                "acfe_bidirectional_enabled": "0"
+            },
+            "allow_in_bindings": 0,
+            "bidirectional": 0,
+            "multiple": 0,
+            "bidirectional_target": []
+        },
+        {
             "key": "field_693ad390702b0",
             "label": "変身、モードシフト、トークン",
             "name": "same_character",
@@ -993,9 +1022,8 @@
                 "class": "",
                 "id": ""
             },
-            "relevanssi_exclude": 0,
             "message": "",
-            "default_value": 0,
+            "default_value": 1,
             "allow_in_bindings": 0,
             "ui": 0,
             "ui_on_text": "",
@@ -1052,5 +1080,5 @@
             }
         ]
     },
-    "modified": 1781875113
+    "modified": 1786448546
 }
