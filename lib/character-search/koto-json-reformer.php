@@ -757,66 +757,6 @@ function koto_add_json_reform_page()
     );
 }
 
-function koto_format_json_preview_snippet($json_snippet)
-{
-    $formatted = '';
-    $indent = 0;
-    $in_string = false;
-    $escape_next = false;
-    $length = strlen($json_snippet);
-
-    for ($i = 0; $i < $length; $i++) {
-        $char = $json_snippet[$i];
-
-        if ($in_string) {
-            $formatted .= $char;
-            if ($escape_next) {
-                $escape_next = false;
-            } elseif ($char === '\\') {
-                $escape_next = true;
-            } elseif ($char === '"') {
-                $in_string = false;
-            }
-            continue;
-        }
-
-        if ($char === '"') {
-            $in_string = true;
-            $formatted .= $char;
-            continue;
-        }
-
-        if ($char === '{' || $char === '[') {
-            $formatted .= $char . "\n" . str_repeat('  ', ++$indent);
-            continue;
-        }
-
-        if ($char === '}' || $char === ']') {
-            $formatted .= "\n" . str_repeat('  ', max(0, $indent - 1)) . $char;
-            $indent = max(0, $indent - 1);
-            continue;
-        }
-
-        if ($char === ',') {
-            $formatted .= $char . "\n" . str_repeat('  ', $indent);
-            continue;
-        }
-
-        if ($char === ':') {
-            $formatted .= ': ';
-            continue;
-        }
-
-        if ($char === "\n" || $char === "\r" || $char === "\t" || $char === ' ') {
-            continue;
-        }
-
-        $formatted .= $char;
-    }
-
-    return trim($formatted);
-}
-
 function koto_render_json_reform_page()
 {
     $message = '';
