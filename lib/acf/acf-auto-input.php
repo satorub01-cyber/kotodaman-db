@@ -694,6 +694,8 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             // 「・」で切ったうえで特殊処理（福条件付き値の並び）
             $values = preg_split('/・/u', $value);
             $value = array_filter(array_map('trim', $values));
+        } elseif (strpos($key, 'characters') === 0) {
+            $value = implode(',', mb_str_split($value));
         }
 
         if (is_array($value)) {
@@ -870,6 +872,11 @@ function koto_get_ignore_texts_by_category($category = '')
             'また、クエスト終了まで変身状態は維持される。',
             '※この効果は重複しません。',
             '※コンボ＋の効果は重複せず、最も高い数値が加算されます',
+        ],
+        'すごわざ発動条件' => [
+            '「',
+            '」',
+            '以上',
         ],
         'リーダーとくせい' => [],
         '祝福' => [],
@@ -1287,22 +1294,22 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
                 $moji_heal_flag = !empty($sugo_detail['is_moji_healing']);
 
                 if ($moji_flag && $converged_flag) {
-                    $malti_table = koto_get_maltiplier_table('moji_converged');
+                    $malti_table = koto_get_maltiplyer_table('moji_converged');
                     break 2;
                 } else if ($moji_flag && $moji_heal_flag) {
-                    $malti_table = koto_get_maltiplier_table('moji_heal');
+                    $malti_table = koto_get_maltiplyer_table('moji_heal');
                     break 2;
                 } else if ($moji_flag) {
                     $target = $sugo_detail['waza_target'] ?? '';
                     if (strpos($target, 'single') !== false) {
-                        $malti_table = koto_get_maltiplier_table('moji_single');
+                        $malti_table = koto_get_maltiplyer_table('moji_single');
                         break 2;
                     } else {
-                        $malti_table = koto_get_maltiplier_table('moji_all');
+                        $malti_table = koto_get_maltiplyer_table('moji_all');
                         break 2;
                     }
                 } else if ($converged_flag) {
-                    $malti_table = koto_get_maltiplier_table('converged');
+                    $malti_table = koto_get_maltiplyer_table('converged');
                     break 2;
                 }
             }
@@ -1341,7 +1348,93 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
 
     return $results;
 }
-function koto_get_maltiplier_table($type = 'default')
+/**
+ * すごわざ発動条件の文言を解析し、ACF行配列を返す。
+ *
+ * @param string $text 入力文言。
+ * @param array<string, array<int, array<string, mixed>>> $grouped_csv 種別グループ済みCSV。
+ * @param string $input_key 入力欄識別キー。
+ * @return array<int, array<string, mixed>> すごわざ条件フィールドへ投入する行配列。
+ */
+function koto_parse_sugowaza_condition($text, $grouped_csv, $input_key = '')
+{
+    $condition_rows = $grouped_csv['すごわざ発動条件'] ?? [];
+    $results = [];
+
+    // 条件文字の置換と分割
+    $parts = koto_split_by_circled_numbers($text);
+    $ommited_cond_types = ['m', 'c', 't', 's', 'e', 'i'];
+    $full_cond_types = ['文字', 'コンボ', 'のことば', 'からはじまる', 'でおわる', 'を含む'];
+    $parts = str_replace($ommited_cond_types, $full_cond_types, $parts);
+
+    $match_options = [
+        'no_match_return' => null,
+        'empty_acf_return' => [[]],
+    ];
+
+    foreach ($parts as $part) {
+        $remaining_text = trim((string)$part);
+        $child_rows = [];
+
+        while ($remaining_text !== '') {
+            // 無限ループ防止用の文字数記録
+            $previous_length = mb_strlen($remaining_text, 'UTF-8');
+
+            $match = koto_match_csv_template(
+                $remaining_text,
+                $condition_rows,
+                $input_key,
+                'prefix',
+                $match_options
+            );
+
+            // マッチしなくなったらループを抜けて次のpartへ
+            if (!koto_is_csv_template_match($match)) {
+                break;
+            }
+
+            if ($match['acf_data'] !== null) {
+                $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
+
+                foreach ($acf_rows as $row) {
+                    if (!is_array($row) || empty($row)) {
+                        continue;
+                    }
+
+                    // 階層構造（condition_type_loop）をフラット化して抽出
+                    if (isset($row['condition_type_loop']) && is_array($row['condition_type_loop'])) {
+                        foreach ($row['condition_type_loop'] as $cond_item) {
+                            if (is_array($cond_item) && !empty($cond_item)) {
+                                $child_rows[] = $cond_item;
+                            }
+                        }
+                    } else {
+                        $child_rows[] = $row;
+                    }
+                }
+            }
+
+            $matched_text = $match['matched_text'] ?? '';
+            $matched_len = mb_strlen($matched_text, 'UTF-8');
+
+            // 無限ループ防止: マッチ文字列長が0の場合
+            if ($matched_len === 0) {
+                break;
+            }
+
+            // 処理済みテキストを削る
+            $remaining_text = trim(mb_substr($remaining_text, $matched_len, null, 'UTF-8'));
+
+            // 無限ループ防止: テキストが減っていない場合
+            if (mb_strlen($remaining_text, 'UTF-8') >= $previous_length) {
+                break;
+            }
+        }
+        $results[]['sugo_cond_loop'] = $child_rows; 
+    }
+    return $results;
+}
+function koto_get_maltiplyer_table($type = 'default')
 {
     $result = [
         'use_maltiplier_table' => true,
@@ -1426,7 +1519,8 @@ function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '')
         case 'わざ':
             return koto_parse_waza($text, $grouped_csv, $input_key);
 
-        case 'すごわざ条件':
+        case 'すごわざ発動条件':
+            return koto_parse_sugowaza_condition($text, $grouped_csv, $input_key);
         case '祝福':
         case 'リーダーとくせい':
             // $trait_rows = $grouped_csv[$type] ?? [];
@@ -1461,7 +1555,7 @@ function koto_build_acf_data_from_inputs($inputs, $grouped_csv)
         } elseif (strpos($key, 'waza') !== false && strpos($key, 'sugowaza_condition') === false) {
             $type = 'わざ';
         } elseif (strpos($key, 'sugowaza_condition') !== false) {
-            $type = 'すごわざ条件';
+            $type = 'すごわざ発動条件';
         } elseif (strpos($key, 'blessing') !== false) {
             $type = '祝福';
         } elseif (strpos($key, 'leader') !== false) {
@@ -1573,6 +1667,8 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
                     }
                 } elseif ($input_key === 'auto_input_blessing') {
                     $acf_field_name = 'blessing_trait_loop';
+                } elseif ($input_key === 'auto_input_sugowaza_condition') {
+                    $acf_field_name = 'sugowaza_condition';
                 }
             }
 
@@ -1740,33 +1836,3 @@ function koto_ajax_create_post_from_auto_input()
         wp_send_json_error(['message' => '記事の作成に失敗しました']);
     }
 }
-
-/*
-## 自動入力について
-### 自動入力アルゴリズム
-1. CSVファイルを「種別」列に応じて分けて
-2. 種別ごとにCSVからACFをとってくる関数
-3. ゲーム内文言をCSVに合わせて分割、削除する文言を削除
-4. 種別ごとの文言に合わせて２の関数を再起的に呼び出す関数
-5. 種別ごとに３の関数を呼び出してすべてをACF化する関数（行内容と入力欄を見てどの繰り返しフィールドか判断）
-6. 4で作った各種関数で取得したACFで記事を作る関数と、既存キャラに追加する関数
-
-### 種別ごとの再起呼び出し方法
-#### とくせい
-1. 丸数字で分割
-2. とくせい条件の文言がなくなるまでとくせい条件を呼び出す
-3. とくせいの文言からとくせい条件を呼び出す
-
-#### わざ
-#### すごわざ条件
-
-### 種別
-- とくせい
-- とくせいの条件
-- わざ
-- わざ追加条件
-- すごわざ条件
-- 祝福
-- リーダーとくせい
-- リーダーとくせい条件
-*/
