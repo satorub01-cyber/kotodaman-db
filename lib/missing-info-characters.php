@@ -104,12 +104,10 @@ function koto_generate_missing_info_json_all()
     $character_ids = get_posts($args);
     $missing_data = [];
 
-    foreach (array_chunk($character_ids, 300) as $character_chunk) {
-        foreach ($character_chunk as $post_id) {
-            $missing_char = koto_get_missing_char_data($post_id);
-            if ($missing_char) {
-                $missing_data[] = $missing_char;
-            }
+    foreach ($character_ids as $post_id) {
+        $missing_char = koto_get_missing_char_data($post_id);
+        if ($missing_char) {
+            $missing_data[] = $missing_char;
         }
     }
 
@@ -179,3 +177,7 @@ function koto_delete_missing_info_json_single($post_id)
 
     file_put_contents($json_file_path, json_encode(array_values($new_data), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 }
+
+// =========================================================
+// 自動更新のフック設定 (koto-json-reformer内で全て回す際に統合するためフックのみ登録)
+// =========================================================
