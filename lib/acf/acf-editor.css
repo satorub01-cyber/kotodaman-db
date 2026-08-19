@@ -260,6 +260,7 @@
     border: 1px solid #ccd0d4;
     border-radius: 4px;
 }
+
 .acf-auto-input-header {
     font-size: 25px;
     align-self: center;
@@ -268,10 +269,43 @@
     cursor: pointer;
     user-select: none;
 }
+
 .acf-auto-input-content {
     display: none;
     flex-direction: column;
     gap: 10px;
     padding: 10px;
     font-size: 14px;
+}
+
+/* コトわざ自動入力欄のスタイル */
+.kotowaza-toggle-row {
+    margin-top: 10px;
+}
+
+#kotowaza_auto_input_area {
+    display: none;
+    flex-direction: column;
+    gap: 15px;
+    margin-left: 20px;
+    padding-left: 15px;
+    border-left: 3px solid #0071A1;
+}
+
+.kotowaza-input-set strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #2271b1;
+}
+
+.kotowaza-input-set .acf-auto-input-text {
+    width: 100%;
+}
+
+/* コトわざ展開ボタンのサイズ調整 */
+.btn-kotowaza-toggle {
+    font-size: 15px !important;
+    padding: 5px 30px !important;
+    height: auto !important;
+    min-height: 36px;
 }

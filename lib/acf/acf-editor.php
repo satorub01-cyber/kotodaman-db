@@ -566,7 +566,7 @@ function koto_acf_editor_page_html()
         'group_693c070768756' => 'EXスキル',
         'group_6a4f2651659aa' => 'EX祝福',
     ];
-    $template_post_ids = [2947 => '', 2023 => '', 2637 => '', 2638 => '',3845 => '',4603 => ''];
+    $template_post_ids = [2947 => '', 2023 => '', 2637 => '', 2638 => '', 3845 => '', 4603 => ''];
 
     if (function_exists('acf_get_field_group')) {
         foreach ($field_group_keys as $key => $name) {
@@ -821,7 +821,7 @@ function koto_acf_editor_page_html()
             </form>
         </div>
         <?php
-            $sugowaza_condition_gaide = "実装済み(以上と「」は省略可能) \n 例：4m、ただs4m、いうi4m、いきものt \n 文字:m、コンボ:c、テーマ:t、頭文字:s、語尾:e、含む:i";
+        $sugowaza_condition_gaide = "実装済み(以上と「」は省略可能) \n 例：4m、ただs4m、いうi4m、いきものt \n 文字:m、コンボ:c、テーマ:t、頭文字:s、語尾:e、含む:i";
         ?>
         <div class="acf-auto-input-container">
             <div class="acf-auto-input-header">自動入力を使用する</div>
@@ -835,6 +835,24 @@ function koto_acf_editor_page_html()
                 <div class="acf-auto-input-row"><label for="auto_input_trait1" class="acf-auto-input-label">とくせい１内容：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_trait1" placeholder="実装済み" rows="2" style="width: 100%;"></textarea></div>
                 <div class="acf-auto-input-row"><label for="auto_input_trait2" class="acf-auto-input-label">とくせい２内容：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_trait2" placeholder="実装済み" rows="2" style="width: 100%;"></textarea></div>
                 <div class="acf-auto-input-row"><label for="auto_input_blessing" class="acf-auto-input-label">祝福内容：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_blessing" placeholder="未実装" rows="2" style="width: 100%;"></textarea></div>
+                <div class="acf-auto-input-row kotowaza-toggle-row">
+                    <button type="button" class="button button-secondary button-large btn-kotowaza-toggle" id="btn_toggle_kotowaza">コトわざ自動入力欄を展開</button>
+                </div>
+                <div id="kotowaza_auto_input_area">
+                    <?php for ($i = 0; $i <= 4; $i++): ?>
+                        <div class="kotowaza-input-set">
+                            <strong><?php echo $i; ?>凸</strong>
+                            <div class="acf-auto-input-row">
+                                <label for="auto_input_kotowaza_cond_<?php echo $i; ?>" class="acf-auto-input-label">条件：</label>
+                                <textarea class="acf-auto-input-text auto-resize" id="auto_input_kotowaza_cond_<?php echo $i; ?>" rows="1"></textarea>
+                            </div>
+                            <div class="acf-auto-input-row">
+                                <label for="auto_input_kotowaza_effect_<?php echo $i; ?>" class="acf-auto-input-label">効果：</label>
+                                <textarea class="acf-auto-input-text auto-resize" id="auto_input_kotowaza_effect_<?php echo $i; ?>" rows="2"></textarea>
+                            </div>
+                        </div>
+                    <?php endfor; ?>
+                </div>
                 <button type="button" class="button button-secondary" id="btn_auto_input_fill">これらの内容を自動入力</button>
                 <button type="button" class="button button-secondary" id="btn_auto_input_make">これらの内容を自動入力して記事を作成</button>
             </div>
