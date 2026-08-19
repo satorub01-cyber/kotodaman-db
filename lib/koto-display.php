@@ -1673,7 +1673,7 @@ function get_koto_leader_skill_html($post_id = null, $is_back_count = false)
         } elseif ($ls_type === 'over_attack') {
             $buff_count = $pattern['buff_count'];
             $adjusted_target_text = str_replace('は', '', $target_text);
-            $effect_parts[] = "攻撃が10回を超えた次のターン開始時、手札の{$adjusted_target_text}のATKを、2ターンの間{$buff_count}段階バフ";
+            $effect_parts[] = "{$adjusted_target_text}の攻撃回数を記録する。１０回を超えると記録回数を１０回消費して以下の効果を発動する <br> 次のターン開始時、２ターンの間手札の{$adjusted_target_text}のATKを{$buff_count}段階バフ <br> この効果は１ターンに一度しか発動しない";
             $target_text = '';
         } elseif ($ls_type === 'random_crit') {
             if (!empty($pattern['ls_status_loop'])) {
@@ -1694,6 +1694,26 @@ function get_koto_leader_skill_html($post_id = null, $is_back_count = false)
             }
             $adjusted_target_text = str_replace('は', '', $target_text);
             $effect_parts[] = "{$adjusted_target_text}の受ける{$s_rate}以下のダメージを無効化";
+            $target_text = '';
+        } elseif ($ls_type === 'combo_buff') {
+            if (!empty($pattern['ls_status_loop'])) {
+                foreach ($pattern['ls_status_loop'] as $status) {
+                    $s_type = $status['ls_status'];
+                    $s_rate = isset($status['rate']) && $status['rate'] !== '' ? $status['rate'] : '（未入力）';
+                }
+            }
+            $adjusted_target_text = str_replace('は', '', $target_text);
+            $effect_parts[] = "コンボ数に応じて手札の{$adjusted_target_text}に次のターン開始時ATKバフを付与 <br> ８コンボ以上で２バフ、４コンボごとにバフ数が１ずつ増加する";
+            $target_text = '';
+        } elseif ($ls_type === 'reflection') {
+            if (!empty($pattern['ls_status_loop'])) {
+                foreach ($pattern['ls_status_loop'] as $status) {
+                    $s_type = $status['ls_status'];
+                    $s_rate = isset($status['rate']) && $status['rate'] !== '' ? $status['rate'] : '（未入力）';
+                }
+            }
+            $adjusted_target_text = str_replace('は', '', $target_text);
+            $effect_parts[] = "敵ターン終了時、敵全体に{$adjusted_target_text}が受けた合計ダメージの{$s_rate}倍の無属性ダメージを与える";
             $target_text = '';
         } elseif ($ls_type === 'per_unit') {
             if (!empty($pattern['per_unit_loop'])) {
@@ -1768,13 +1788,13 @@ function get_koto_leader_skill_html($post_id = null, $is_back_count = false)
             }
         }
         if (empty($effect_text)) $effect_text = implode('、', $effect_parts);
-        $ls_text[] = '<span class ="effect-num">（' . $count . '）</span>' . $condition_text . $target_text . $effect_text;
+        $ls_text[] = '<div class="leader-effect-line"><span class ="effect-num">（' . $count . '）</span>' . $condition_text . $target_text . $effect_text . '</div>';
         $count++;
     }
     if ($is_back_count) {
-        return ['content' => koto_replace_icons(implode('<br>', $ls_text)), 'count' => $count];
+        return ['content' => koto_replace_icons(implode('', $ls_text)), 'count' => $count];
     }
-    return koto_replace_icons(implode('<br>', $ls_text));
+    return koto_replace_icons(implode('', $ls_text));
 }
 
 /**
