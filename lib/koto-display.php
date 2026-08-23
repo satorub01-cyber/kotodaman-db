@@ -1645,6 +1645,9 @@ function get_koto_leader_skill_html($post_id = null, $is_back_count = false)
         $ls_type = $pattern['ls_type'];
         $effect_text = '';
         $turn_count = $pattern['turn_count'] ? "{$pattern['turn_count']}ターン" : '';
+        // 変数の初期化
+        $s_rate = '（未入力）';
+        $s_type = '';
 
         if ($ls_type === 'exp_up') {
             $mag = $pattern['exp_magnification'];
