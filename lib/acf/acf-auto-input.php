@@ -1707,8 +1707,9 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
         foreach ($new_rows as $row) {
             $existing_data[] = $row;
         }
-        if (!strpos($acf_field_name, 'loop') !== false) {
-            // グループフィールドの場合は配列でから外す
+        // フィールド名にloopが含まれない、かつ「すごわざ発動条件」ではない場合にグループフィールドとして扱う
+        if (strpos($acf_field_name, 'loop') === false && $acf_field_name !== 'sugowaza_condition') {
+            // グループフィールドの場合は配列から外す
             $existing_data = $existing_data[0] ?? [];
         }
         update_field($acf_field_name, $existing_data, $post_id);
