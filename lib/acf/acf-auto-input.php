@@ -494,22 +494,32 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $attr_ids = [];
             foreach ($attr_names as $name) {
                 $term = get_term_by('name', trim($name), 'attribute');
-                if ($term) {
-                    $attr_ids[] = $term->term_id;
+                if ($term && !is_wp_error($term)) {
+                    $attr_ids[] = (int) $term->term_id;
                 }
             }
-            $value = $attr_ids;
+            // 単一選択か複数選択かに関わらず、確実なIDの配列としてセットする
+            if (strpos($key, 'single') !== false) {
+                $value = !empty($attr_ids) ? [(int) $attr_ids[0]] : [];
+            } else {
+                $value = $attr_ids;
+            }
         } elseif (strpos($key, 'species') === 0) {
             $value = str_replace('種族', '', $value);
             $attr_names = preg_split('/[・\|]/u', $value);
             $attr_ids = [];
             foreach ($attr_names as $name) {
                 $term = get_term_by('name', trim($name), 'species');
-                if ($term) {
-                    $attr_ids[] = $term->term_id;
+                if ($term && !is_wp_error($term)) {
+                    $attr_ids[] = (int) $term->term_id;
                 }
             }
-            $value = $attr_ids;
+            // 単一選択か複数選択かに関わらず、確実なIDの配列としてセットする
+            if (strpos($key, 'single') !== false) {
+                $value = !empty($attr_ids) ? [(int) $attr_ids[0]] : [];
+            } else {
+                $value = $attr_ids;
+            }
         } elseif (strpos($key, 'moji') === 0) {
             $value = str_replace('文字', '', $value);
             $attr_names = preg_split('/[・\|]/u', $value);
