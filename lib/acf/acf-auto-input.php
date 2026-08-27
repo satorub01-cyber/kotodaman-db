@@ -500,22 +500,32 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $attr_ids = [];
             foreach ($attr_names as $name) {
                 $term = get_term_by('name', trim($name), 'attribute');
-                if ($term) {
-                    $attr_ids[] = $term->term_id;
+                if ($term && !is_wp_error($term)) {
+                    $attr_ids[] = (int) $term->term_id;
                 }
             }
-            $value = $attr_ids;
+            // 単一選択か複数選択かに関わらず、確実なIDの配列としてセットする
+            if (strpos($key, 'single') !== false) {
+                $value = !empty($attr_ids) ? [(int) $attr_ids[0]] : [];
+            } else {
+                $value = $attr_ids;
+            }
         } elseif (strpos($key, 'species') === 0) {
             $value = str_replace('種族', '', $value);
             $attr_names = preg_split('/[・\|]/u', $value);
             $attr_ids = [];
             foreach ($attr_names as $name) {
                 $term = get_term_by('name', trim($name), 'species');
-                if ($term) {
-                    $attr_ids[] = $term->term_id;
+                if ($term && !is_wp_error($term)) {
+                    $attr_ids[] = (int) $term->term_id;
                 }
             }
-            $value = $attr_ids;
+            // 単一選択か複数選択かに関わらず、確実なIDの配列としてセットする
+            if (strpos($key, 'single') !== false) {
+                $value = !empty($attr_ids) ? [(int) $attr_ids[0]] : [];
+            } else {
+                $value = $attr_ids;
+            }
         } elseif (strpos($key, 'moji') === 0) {
             $value = str_replace('文字', '', $value);
             $attr_names = preg_split('/[・\|]/u', $value);
@@ -868,7 +878,6 @@ function koto_get_ignore_texts_by_category($category = '')
         ],
         'とくせい' => [
             'サブ属性を対象とするリーダーとくせい・とくせいの効果を受けることができる(受ける効果はメイン属性と重複しない)',
-            '。サブ属性を対象とするリーダーとくせい・とくせいの効果を受けることができる(受ける効果はメイン属性と重複しない)',
             '(福に応じて数値が変動)',
             '※濁音、半濁音、小文字も同じ文字とする',
             '(メイン属性のみを参照する)',
@@ -1802,8 +1811,9 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
         foreach ($new_rows as $row) {
             $existing_data[] = $row;
         }
-        if (!strpos($acf_field_name, 'loop') !== false) {
-            // グループフィールドの場合は配列でから外す
+        // フィールド名にloopが含まれない、かつ「すごわざ発動条件」ではない場合にグループフィールドとして扱う
+        if (strpos($acf_field_name, 'loop') === false && $acf_field_name !== 'sugowaza_condition') {
+            // グループフィールドの場合は配列から外す
             $existing_data = $existing_data[0] ?? [];
         }
         update_field($acf_field_name, $existing_data, $post_id);

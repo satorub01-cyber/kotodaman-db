@@ -1554,3 +1554,9 @@ body.admin-bar .character-tab-section {
 .separator-line.is-space-only {
     border-top-color: transparent;
 }
+
+.leader-effect-line {
+    padding-left: 2.5em;  /* ブロック全体を右にずらす */
+    text-indent: -2.5em;  /* 1行目だけを左に戻す */
+    margin-bottom: 0.5em; /* 行間の調整（必要に応じて） */
+}

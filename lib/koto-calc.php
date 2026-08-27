@@ -1745,16 +1745,26 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
  */
 function split_str_comma($val)
 {
-    // 1. 全角を半角に統一
+    // 引数がすでに配列の場合の処理
+    if (is_array($val)) {
+        $vals = array_map('trim', $val);
+        $vals = array_filter($vals, 'strlen');
+        $vals = array_map(function ($item) {
+            return is_numeric($item) ? (int)$item : $item;
+        }, $vals);
+        return array_values($vals);
+    }
+
+    // 引数が文字列の場合の処理
+    $val = (string)$val;
     $val = str_replace('、', ',', $val);
-    // 2. カンマで分割して各要素を掃除（カンマがなくても要素1つの配列になる）
     $val_array = array_map('trim', explode(',', $val));
-    // 3. 空文字の除去（入力が空だった場合に [] になるようにする）
     $vals = array_filter($val_array, 'strlen');
     $vals = array_map(function ($item) {
         return is_numeric($item) ? (int)$item : $item;
     }, $vals);
-    return $vals;
+
+    return array_values($vals);
 }
 // =================================================================
 //  【内部ヘルパー】とくせい条件/わざ追加条件解析

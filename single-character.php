@@ -803,7 +803,8 @@ if ($ls_html): ?>
                         $index = $ls_count;
                         foreach ($miracle_lines as $line):
                         ?>
-                            <span class="effect-num"><br>（<?php echo $index++; ?>）</span><?php echo $line; ?>
+                            <!-- 変更箇所：<br>を消し、<div>で囲む -->
+                            <div class="skill-effect-line"><span class="effect-num">（<?php echo $index++; ?>）</span><?php echo $line; ?></div>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
