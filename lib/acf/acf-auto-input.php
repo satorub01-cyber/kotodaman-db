@@ -176,13 +176,19 @@ function koto_duplicate_results_for_shift_attrs($results, $shift_attr_ids)
             $result_copy = $result;
             $result_copy['sugo_shift_attr'] = $shift_attr_id;
 
-            if (!empty($result_copy['sugo_detail_loop']) && is_array($result_copy['sugo_detail_loop'])) {
-                foreach ($result_copy['sugo_detail_loop'] as $detail_index => $sugo_detail) {
-                    if (!is_array($sugo_detail) || !array_key_exists('attack_attr', $sugo_detail)) {
-                        continue;
-                    }
+            foreach ($result_copy['sugo_detail_loop'] as $detail_index => $sugo_detail) {
+                if (!is_array($sugo_detail)) {
+                    continue;
+                }
 
+                $waza_type = isset($sugo_detail['waza_type']) ? $sugo_detail['waza_type'] : null;
+
+                // waza_typeの値に応じて更新するキーを分岐
+                if ($waza_type === 'attack' || $waza_type === 'command') {
                     $result_copy['sugo_detail_loop'][$detail_index]['attack_attr'] = $shift_attr_id;
+                } else {
+                    $result_copy['sugo_detail_loop'][$detail_index]['waza_target_detail'] = 'attr';
+                    $result_copy['sugo_detail_loop'][$detail_index]['target_detail_attr'] = $shift_attr_id;
                 }
             }
 
@@ -1499,6 +1505,93 @@ function koto_get_maltiplyer_table($type = 'default')
     endswitch;
     return $result;
 }
+
+/**
+ * コトわざの入力データ（配列）を解析し、ACF行配列を返す。
+ * koto_parse_waza および koto_parse_sugowaza_condition を内部で呼び出して処理を行います。
+ *
+ * @param array $texts コトわざ入力データ（0〜4凸のcondition, effectを含む連想配列の配列）。
+ * @param array<string, array<int, array<string, mixed>>> $grouped_csv 種別グループ済みCSV。
+ * @param string $input_key 入力欄識別キー。
+ * @return array<int, array<string, mixed>> コトわざフィールドへ投入する行配列。
+ */
+function koto_parse_kotowaza($texts, $grouped_csv, $input_key = '')
+{
+    $results = [];
+    $malti_table = [];
+    $temp_shift_row = [];
+
+    // JSから配列として渡ってこない場合は空配列を返す
+    if (!is_array($texts)) {
+        return [];
+    }
+
+    foreach ($texts as $index => $data) {
+        $condition_text = $data['condition'] ?? '';
+        $effect_text = $data['effect'] ?? '';
+
+        // 条件・効果ともに空の凸数（未入力の行）はスキップ
+        if (empty($condition_text) && empty($effect_text)) {
+            $results[] = [
+                'kotowaza_condition'  => [],
+                'kotowaza_group_loop' => [],
+            ];
+            continue;
+        }
+
+        $parsed_condition = [];
+        $parsed_effect = [];
+
+        // 1. 条件のパース
+        if (!empty($condition_text)) {
+            // 文字列として前処理を実施
+            $preprocessed_cond = koto_preprocess_text($condition_text, 'すごわざ発動条件');
+            // 'kotowaza' をキーとして渡し、内部で処理させる
+            $parsed_condition = koto_parse_sugowaza_condition($preprocessed_cond, $grouped_csv, 'kotowaza');
+        }
+
+        // 2. 効果のパース
+        if (!empty($effect_text)) {
+            // 文字列として前処理を実施
+            $preprocessed_effect = koto_preprocess_text($effect_text, 'わざ');
+            // 'kotowaza' をキーとして渡し、内部で処理させる
+            $waza_result = koto_parse_waza($preprocessed_effect, $grouped_csv, 'kotowaza');
+
+            if (!empty($waza_result)) {
+                foreach ($waza_result as $wr) {
+                    if (isset($wr['use_maltiplier_table'])) {
+                        // 倍率テーブル
+                        $malti_table = $wr;
+                    } elseif (isset($wr['is_normal_field'])) {
+                        // シフトタイプなどの通常フィールド
+                        $temp_shift_row = $wr;
+                    } else {
+                        // わざ効果ループを抽出
+                        $parsed_effect[] = $wr;
+                    }
+                }
+            }
+        }
+
+        // 3. 要求された形式で配列にまとめる
+        $results[] = [
+            'kotowaza_condition'  => $parsed_condition,
+            'kotowaza_group_loop' => $parsed_effect,
+        ];
+    }
+
+    // シフトタイプおよび乗算テーブルを配列の末尾に追加
+    // (koto_update_character_post_with_acf 側で自動的に適切に処理されます)
+    if (!empty($malti_table)) {
+        $results[] = $malti_table;
+    }
+    if (!empty($temp_shift_row)) {
+        $results[] = $temp_shift_row;
+    }
+
+    return $results;
+}
+
 /**
  * 種別ごとに適切なパーサーへ振り分け、入力文言をACFデータへ変換する。
  *
@@ -1510,8 +1603,9 @@ function koto_get_maltiplyer_table($type = 'default')
  */
 function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '')
 {
-    $text = koto_preprocess_text($text, $type);
-
+    if (!is_array($text)) {
+        $text = koto_preprocess_text($text, $type);
+    }
     switch ($type) {
         case 'とくせい':
             return koto_parse_trait($text, $grouped_csv, $input_key);
@@ -1521,11 +1615,10 @@ function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '')
 
         case 'すごわざ発動条件':
             return koto_parse_sugowaza_condition($text, $grouped_csv, $input_key);
+        case 'コトわざ':
+            return koto_parse_kotowaza($text, $grouped_csv, $input_key);
         case '祝福':
         case 'リーダーとくせい':
-            // $trait_rows = $grouped_csv[$type] ?? [];
-            // $match = koto_match_csv_template($text, $trait_rows, $input_key);
-            //  return $match ? $match['acf_data'] : null;
             return null;
         default:
             return null;
@@ -1573,6 +1666,8 @@ function koto_build_acf_data_from_inputs($inputs, $grouped_csv)
         $type = '';
         if (strpos($key, 'trait') !== false) {
             $type = 'とくせい';
+        } elseif (strpos($key, 'kotowaza') !== false) { // 'waza' よりも先に判定する
+            $type = 'コトわざ';
         } elseif (strpos($key, 'waza') !== false && strpos($key, 'sugowaza_condition') === false) {
             $type = 'わざ';
         } elseif (strpos($key, 'sugowaza_condition') !== false) {
@@ -1684,7 +1779,7 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
                     if (isset($item['use_maltiplier_table'])) {
                         $acf_field_name = 'kotowaza_maltiplier_table_group';
                     } else {
-                        $acf_field_name = 'kotowaza_group_loop';
+                        $acf_field_name = 'kotowaza_loop_v2';
                     }
                 } elseif ($input_key === 'auto_input_blessing') {
                     $acf_field_name = 'blessing_trait_loop';
