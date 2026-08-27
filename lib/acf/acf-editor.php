@@ -821,17 +821,18 @@ function koto_acf_editor_page_html()
             </form>
         </div>
         <?php
-        $sugowaza_condition_gaide = "実装済み(以上と「」は省略可能) \n 例：4m、ただs4m、いうi4m、いきものt \n 文字:m、コンボ:c、テーマ:t、頭文字:s、語尾:e、含む:i";
+        $sugowaza_condition_guide = "実装済み(以上と「」は省略可能) \n 例：4m、ただs4m、いうi4m、いきものt \n 文字:m、コンボ:c、テーマ:t、頭文字:s、語尾:e、含む:i";
         ?>
         <div class="acf-auto-input-container">
             <div class="acf-auto-input-header">自動入力を使用する</div>
             <div class="acf-auto-input-content">
+                <!-- auto-input-追加必須: 新しい自動入力欄のHTMLをここへ追加 -->
                 <div class="acf-auto-input-row"><label for="auto_input_character_name" class="acf-auto-input-label">キャラ名：</label><input type="text" class="acf-auto-input-text" id="auto_input_character_name" placeholder="実装済み"></div>
                 <div class="acf-auto-input-row"><label for="auto_input_waza_name" class="acf-auto-input-label">わざ名：</label><input type="text" class="acf-auto-input-text" id="auto_input_waza_name" placeholder="実装済み"></div>
                 <div class="acf-auto-input-row"><label for="auto_input_waza" class="acf-auto-input-label">わざ内容：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_waza" placeholder="実装済み" rows="2" style="width: 100%;"></textarea></div>
                 <div class="acf-auto-input-row"><label for="auto_input_sugowaza_name" class="acf-auto-input-label">すごわざ名：</label><input type="text" class="acf-auto-input-text" id="auto_input_sugowaza_name" placeholder="実装済み"></div>
                 <div class="acf-auto-input-row"><label for="auto_input_sugowaza" class="acf-auto-input-label">すごわざ内容：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_sugowaza" placeholder="実装済み" rows="2" style="width: 100%;"></textarea></div>
-                <div class="acf-auto-input-row"><label for="auto_input_sugowaza_condition" class="acf-auto-input-label">すごわざ条件：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_sugowaza_condition" placeholder="<?php echo esc_attr($sugowaza_condition_gaide); ?>" rows="3" style="width: 100%;"></textarea></div>
+                <div class="acf-auto-input-row"><label for="auto_input_sugowaza_condition" class="acf-auto-input-label">すごわざ条件：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_sugowaza_condition" placeholder="<?php echo esc_attr($sugowaza_condition_guide); ?>" rows="3" style="width: 100%;"></textarea></div>
                 <div class="acf-auto-input-row"><label for="auto_input_trait1" class="acf-auto-input-label">とくせい１内容：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_trait1" placeholder="実装済み" rows="2" style="width: 100%;"></textarea></div>
                 <div class="acf-auto-input-row"><label for="auto_input_trait2" class="acf-auto-input-label">とくせい２内容：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_trait2" placeholder="実装済み" rows="2" style="width: 100%;"></textarea></div>
                 <div class="acf-auto-input-row"><label for="auto_input_blessing" class="acf-auto-input-label">祝福内容：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_blessing" placeholder="未実装" rows="2" style="width: 100%;"></textarea></div>
