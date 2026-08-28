@@ -497,7 +497,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $value = $attr_ids;
         } elseif (strpos($key, 'attr') === 0) {
             $value = str_replace('属性', '', $value);
-            $attr_names = preg_split('/[・\|]/u', $value);
+            $attr_names = preg_split('/[・|と]/u', $value);
             $attr_ids = [];
             foreach ($attr_names as $name) {
                 $term = get_term_by('name', trim($name), 'attribute');
@@ -513,7 +513,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             }
         } elseif (strpos($key, 'species') === 0) {
             $value = str_replace('種族', '', $value);
-            $attr_names = preg_split('/[・\|]/u', $value);
+            $attr_names = preg_split('/[・|と]/u', $value);
             $attr_ids = [];
             foreach ($attr_names as $name) {
                 $term = get_term_by('name', trim($name), 'species');
@@ -529,7 +529,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             }
         } elseif (strpos($key, 'moji') === 0) {
             $value = str_replace('文字', '', $value);
-            $attr_names = preg_split('/[・\|]/u', $value);
+            $attr_names = preg_split('/[・\|]/u', $value); //文字なので「と」では分けない
             $attr_ids = [];
             foreach ($attr_names as $name) {
                 $term = get_term_by('name', trim($name), 'available_moji');
