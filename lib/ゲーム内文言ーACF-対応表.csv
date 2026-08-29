@@ -260,6 +260,16 @@
 リーダー効果,{$resistance}耐性{$val}%,"{""ls_status"" : ""$resistance"",""rate"" : ""$val"",""resist_status"" : ""$resistance""}"
 リーダー効果,の{$resistance}耐性{$val}%,"{""ls_status"" : ""$resistance"",""rate"" : ""$val"",""resist_status"" : ""$resistance""}"
 リーダー効果,の{$resistance}耐性が{$val}%,"{""ls_status"" : ""$resistance"",""rate"" : ""$val"",""resist_status"" : ""$resistance""}"
+リーダー効果,の攻撃が10回を超えた次のターン開始時に、手札の{$name}のATKを{$prefix}を{$val}ターン付与,"{""ls_status"" : ""atk_buff"",""rate"" : ""$prefix"",""turn_count"" : ""$val"",""ls_status_target"" : ""$name""}"
+リーダー効果,,
+リーダー効果,,
+リーダー効果,,
+リーダー効果,,
+リーダー効果,,
+リーダー効果,,
+リーダー効果,,
+リーダー効果,,
+リーダー効果,,
 リーダー対象,{$attr}属性,"{""target_type"" : ""attr"",""target_attr"" : ""$attr""}"
 リーダー対象,{$species}種族,"{""target_type"" : ""species"",""target_species"" : ""$species""}"
 リーダー対象,「{$affiliation}」,"{""target_type"" : ""affiliation"",""target_group"" : ""$affiliation""}"
@@ -287,7 +297,30 @@
 リーダー条件,「{$dot_separeted_val}」を含む文字を作成したとき、,"{""ls_cond_type"" : ""moji_contain"",""ls_cond_val"" : ""$dot_separeted_val""}"
 リーダー条件,「{$dot_separeted_val}」を含むもじを作成したとき、,"{""ls_cond_type"" : ""moji_contain"",""ls_cond_val"" : ""$dot_separeted_val""}"
 リーダー条件,{$attr}属性が同時に文字を作ったとき、,"{""ls_cond_type"" : ""cooperate"",""cooperate_target_loop"" : [{""target_type"" : ""attr"",""target_attr"" : ""$attr""}]}"
-リーダー条件,,
+リーダー条件,デッキ内に{$attr}属性が{$val}体以上いる場合、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""attr"",""target_attr"" : ""$attr""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,デッキ内に{$attr}属性が{$val}体いる場合、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""attr"",""target_attr"" : ""$attr""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,デッキ内に{$attr}属性が{$val}体以上、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""attr"",""target_attr"" : ""$attr""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,デッキ内に{$attr}属性が{$val}体、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""attr"",""target_attr"" : ""$attr""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,{$attr}属性が{$val}体以上いる場合、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""attr"",""target_attr"" : ""$attr""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,{$attr}属性が{$val}体いる場合、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""attr"",""target_attr"" : ""$attr""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,{$attr}属性が{$val}体以上、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""attr"",""target_attr"" : ""$attr""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,{$attr}属性が{$val}体、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""attr"",""target_attr"" : ""$attr""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,デッキ内に{$species}種族が{$val}体以上いる場合、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""species"",""target_species"" : ""$species""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,デッキ内に{$species}種族が{$val}体いる場合、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""species"",""target_species"" : ""$species""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,デッキ内に{$species}種族が{$val}体以上、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""species"",""target_species"" : ""$species""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,デッキ内に{$species}種族が{$val}体、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""species"",""target_species"" : ""$species""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,{$species}種族が{$val}体以上いる場合、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""species"",""target_species"" : ""$species""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,{$species}種族が{$val}体いる場合、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""species"",""target_species"" : ""$species""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,{$species}種族が{$val}体以上、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""species"",""target_species"" : ""$species""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,{$species}種族が{$val}体、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""species"",""target_species"" : ""$species""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,デッキ内に「{$affiliation}」が{$val}体以上いる場合、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""group"",""target_group"" : ""$affiliation""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,デッキ内に「{$affiliation}」が{$val}体いる場合、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""group"",""target_group"" : ""$affiliation""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,デッキ内に「{$affiliation}」が{$val}体以上、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""group"",""target_group"" : ""$affiliation""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,デッキ内に「{$affiliation}」が{$val}体、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""group"",""target_group"" : ""$affiliation""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,「{$affiliation}」が{$val}体以上いる場合、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""group"",""target_group"" : ""$affiliation""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,「{$affiliation}」が{$val}体いる場合、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""group"",""target_group"" : ""$affiliation""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,「{$affiliation}」が{$val}体以上、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""group"",""target_group"" : ""$affiliation""}, ""need_chara_num"" : ""$val""}]}"
+リーダー条件,「{$affiliation}」が{$val}体、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""group"",""target_group"" : ""$affiliation""}, ""need_chara_num"" : ""$val""}]}"
 リーダー条件,,
 リーダー条件,,
 リーダー条件,,
