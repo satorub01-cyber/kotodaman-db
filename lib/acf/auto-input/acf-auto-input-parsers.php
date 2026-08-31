@@ -624,6 +624,275 @@ function koto_parse_kotowaza($texts, $grouped_csv, $input_key = '')
     return $results;
 }
 
+/**
+ * リーダーとくせいの入力文言を解析し、ACF行配列（ls_loopの要素）を返す。
+ *
+ * @param string $text 入力文言。
+ * @param array<string, array<int, array<string, mixed>>> $grouped_csv 種別グループ済みCSV。
+ * @param string $input_key 入力欄識別キー。
+ * @return array<int, array<string, mixed>> リーダーとくせいフィールド（ls_loop）へ投入する行配列。
+ */
+function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
+{
+    $condition_rows = $grouped_csv['リーダー条件'] ?? [];
+    $target_rows    = $grouped_csv['リーダー対象'] ?? [];
+    $effect_rows    = $grouped_csv['リーダー効果'] ?? [];
+    $per_unit_rows  = $grouped_csv['リーダーキャラ数'] ?? [];
+    $results = [];
+
+    // 丸数字や改行等で文言を大枠に分割
+    $parts = koto_split_by_circled_numbers($text);
+
+    foreach ($parts as $part) {
+        $remaining_text = trim((string)$part);
+        if ($remaining_text === '') {
+            continue;
+        }
+
+        // ls_loop 1行分のダミー構造（max_ls_hp等は除外）
+        $leader_dummy = [
+            'ls_type'              => "",
+            'ls_cond_pattern_loop' => [],
+            'limit_wave_count'     => "",
+            'ls_target_chara_loop' => [],
+            'ls_status_loop'       => [],
+            'exp_magnification'    => "",
+            'per_unit_loop'        => [],
+            'buff_count'           => "",
+            'converge_rate_2'      => "",
+            'converge_rate_1'      => "",
+            'turn_count'           => "",
+        ];
+
+        // ----------------------------------------------------
+        // パターンA: 「×」が含まれる場合（キャラ数倍率処理）
+        // ----------------------------------------------------
+        if (mb_strpos($remaining_text, '×') !== false) {
+            $per_units = [];
+            $limit_wave = "";
+
+            while (mb_strlen($remaining_text) > 0) {
+                $prev_len = mb_strlen($remaining_text);
+                // 文頭に残った「・」や空白を削る
+                $remaining_text = preg_replace('/^[・\s]+/u', '', $remaining_text);
+
+                $match = koto_match_csv_template($remaining_text, $per_unit_rows, $input_key, 'prefix');
+                if (koto_is_csv_template_match($match)) {
+                    $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
+                    foreach ($acf_rows as $row) {
+                        if (isset($row['limit_wave_count'])) {
+                            $limit_wave = $row['limit_wave_count'];
+                        }
+                        if (isset($row['per_unit_loop'])) {
+                            $per_units = array_merge($per_units, $row['per_unit_loop']);
+                        } else {
+                            $per_units[] = $row;
+                        }
+                    }
+                    $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
+                } else {
+                    break;
+                }
+                // 無限ループ防止
+                if (mb_strlen($remaining_text) >= $prev_len) break;
+            }
+
+            $row_data = $leader_dummy;
+            $row_data['ls_type'] = 'per_unit';
+            if ($limit_wave !== "") {
+                $row_data['limit_wave_count'] = $limit_wave;
+            }
+            if (!empty($per_units)) {
+                $row_data['per_unit_loop'] = $per_units;
+            }
+
+            $cleaned_row = koto_remove_empty_keys_recursive($row_data);
+            if (!empty($cleaned_row)) {
+                $results[] = $cleaned_row;
+            }
+            continue;
+        }
+
+        // ----------------------------------------------------
+        // パターンB: 通常の固定値等の処理（条件 → 対象 → 効果）
+        // ----------------------------------------------------
+        $conditions = [];
+        $targets = [];
+        $limit_wave = "";
+
+        // 1. 条件の抽出ループ
+        while (mb_strlen($remaining_text) > 0) {
+            $prev_len = mb_strlen($remaining_text);
+            // 【修正】先頭に残った「、」や「,」も削る
+            $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
+
+            $match = koto_match_csv_template($remaining_text, $condition_rows, $input_key, 'prefix');
+            if (koto_is_csv_template_match($match)) {
+                $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
+                foreach ($acf_rows as $row) {
+                    if (isset($row['limit_wave_count'])) {
+                        $limit_wave = $row['limit_wave_count'];
+                    }
+                    if (isset($row['ls_cond_pattern_loop'])) {
+                        $conditions = array_merge($conditions, $row['ls_cond_pattern_loop']);
+                    } elseif (isset($row['ls_cond_loop'])) {
+                        $conditions = array_merge($conditions, $row['ls_cond_loop']);
+                    } else {
+                        $cond_item = $row;
+                        unset($cond_item['limit_wave_count']);
+
+                        if (!empty($cond_item)) {
+                            // 【修正】同一の ls_cond_type がすでにある場合はマージする（編成条件を1つのANDにまとめる）
+                            $merged = false;
+                            if (isset($cond_item['ls_cond_type'])) {
+                                foreach ($conditions as &$existing_cond) {
+                                    if (isset($existing_cond['ls_cond_type']) && $existing_cond['ls_cond_type'] === $cond_item['ls_cond_type']) {
+                                        foreach ($cond_item as $k => $v) {
+                                            if ($k === 'ls_cond_type' || $k === 'ls_cond_val') continue;
+                                            // リピーター配列(ls_party_cond_loop等)ならマージする
+                                            if (is_array($v) && isset($existing_cond[$k]) && is_array($existing_cond[$k])) {
+                                                $existing_cond[$k] = array_merge($existing_cond[$k], $v);
+                                            } else {
+                                                $existing_cond[$k] = $v;
+                                            }
+                                        }
+                                        $merged = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!$merged) {
+                                $conditions[] = $cond_item;
+                            }
+                        }
+                    }
+                }
+                $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
+            } else {
+                break;
+            }
+            if (mb_strlen($remaining_text) >= $prev_len) break;
+        }
+
+        // 2. 対象の抽出ループ
+        while (mb_strlen($remaining_text) > 0) {
+            $prev_len = mb_strlen($remaining_text);
+            // 【修正】先頭の「、」や「,」を削る
+            $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
+
+            $match = koto_match_csv_template($remaining_text, $target_rows, $input_key, 'prefix');
+            if (koto_is_csv_template_match($match)) {
+                $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
+                foreach ($acf_rows as $row) {
+                    if (isset($row['ls_target_chara_loop'])) {
+                        $targets = array_merge($targets, $row['ls_target_chara_loop']);
+                    } elseif (isset($row['target_field_group'])) {
+                        $targets[] = $row;
+                    } else {
+                        $targets[] = ['target_field_group' => $row];
+                    }
+                }
+                $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
+            } else {
+                break;
+            }
+            if (mb_strlen($remaining_text) >= $prev_len) break;
+        }
+
+        // 3. 効果の抽出ループ（ls_type ごとに仕分ける）
+        $effects_by_type = [];
+        while (mb_strlen($remaining_text) > 0) {
+            $prev_len = mb_strlen($remaining_text);
+            // 【修正】先頭の「、」や「,」を削る
+            $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
+
+            $match = koto_match_csv_template($remaining_text, $effect_rows, $input_key, 'prefix');
+            if (koto_is_csv_template_match($match)) {
+                $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
+                foreach ($acf_rows as $row) {
+                    $type = !empty($row['ls_type']) ? $row['ls_type'] : 'fixed';
+                    unset($row['ls_type']);
+
+                    if (isset($row['ls_status']) || isset($row['resist_status']) || isset($row['rate'])) {
+                        $status_item = [];
+                        if (isset($row['ls_status'])) {
+                            $status_item['ls_status'] = $row['ls_status'];
+                            unset($row['ls_status']);
+                        }
+                        if (isset($row['resist_status'])) {
+                            $status_item['resist_status'] = $row['resist_status'];
+                            unset($row['resist_status']);
+                        }
+                        if (isset($row['rate'])) {
+                            $status_item['rate'] = $row['rate'];
+                            unset($row['rate']);
+                        }
+
+                        if (!isset($row['ls_status_loop'])) {
+                            $row['ls_status_loop'] = [];
+                        }
+                        $row['ls_status_loop'][] = $status_item;
+                    }
+
+                    if (!isset($effects_by_type[$type])) {
+                        $effects_by_type[$type] = [];
+                    }
+                    $effects_by_type[$type][] = $row;
+                }
+                $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
+            } else {
+                break;
+            }
+            if (mb_strlen($remaining_text) >= $prev_len) break;
+        }
+
+        // 効果が1つもヒットしなかったが条件・対象が存在する場合の救済処理
+        if (empty($effects_by_type) && (!empty($conditions) || !empty($targets))) {
+            $effects_by_type['fixed'] = [];
+        }
+
+        // 4. 仕分けた ls_type ごとに行データを構築・マージ
+        foreach ($effects_by_type as $type => $effects) {
+            $row_data = $leader_dummy;
+            $row_data['ls_type'] = $type;
+
+            if ($limit_wave !== "") {
+                $row_data['limit_wave_count'] = $limit_wave;
+            }
+            if (!empty($conditions)) {
+                $row_data['ls_cond_pattern_loop'] = [
+                    [
+                        'ls_cond_loop' => $conditions
+                    ]
+                ];
+            }
+            if (!empty($targets)) {
+                $row_data['ls_target_chara_loop'] = $targets;
+            }
+
+            // 同一 type 内の複数の効果（HPとATKなど）をマージしていく
+            foreach ($effects as $effect) {
+                foreach ($effect as $k => $v) {
+                    if (is_array($v) && isset($row_data[$k]) && is_array($row_data[$k])) {
+                        $row_data[$k] = array_merge($row_data[$k], $v);
+                    } else {
+                        $row_data[$k] = $v;
+                    }
+                }
+            }
+
+            $cleaned_row = koto_remove_empty_keys_recursive($row_data);
+            if (!empty($cleaned_row)) {
+                $results[] = $cleaned_row;
+            }
+        }
+    }
+    $ls_loop_map = koto_leader_get_field_map()['ls_loop']['_sub'];
+    $results = koto_leader_convert_keys($results, $ls_loop_map);
+
+    return $results;
+}
+
 // auto-input-追加必須: 新しい koto_parse_* 関数はこのファイルへ追加し、下の振り分けへ接続
 /**
  * 種別ごとに適切なパーサーへ振り分け、入力文言をACFデータへ変換する。
@@ -637,6 +906,7 @@ function koto_parse_kotowaza($texts, $grouped_csv, $input_key = '')
 function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '')
 {
     if (!is_array($text)) {
+
         $text = koto_preprocess_text($text, $type);
     }
     switch ($type) {
@@ -652,7 +922,7 @@ function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '')
             return koto_parse_kotowaza($text, $grouped_csv, $input_key);
         case '祝福':
         case 'リーダーとくせい':
-            return null;
+            return koto_parse_leader_trait($text, $grouped_csv, $input_key);
         default:
             return null;
     }

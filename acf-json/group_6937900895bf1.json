@@ -216,12 +216,11 @@
                                 "class": "",
                                 "id": ""
                             },
-                            "relevanssi_exclude": 0,
                             "taxonomy": "attribute",
                             "add_term": 0,
                             "save_terms": 0,
                             "load_terms": 0,
-                            "return_format": "",
+                            "return_format": "object",
                             "field_type": "checkbox",
                             "acfe_bidirectional": {
                                 "acfe_bidirectional_enabled": "0"
@@ -255,12 +254,11 @@
                                 "class": "",
                                 "id": ""
                             },
-                            "relevanssi_exclude": 0,
                             "taxonomy": "affiliation",
                             "add_term": 0,
                             "save_terms": 0,
                             "load_terms": 0,
-                            "return_format": "",
+                            "return_format": "object",
                             "field_type": "multi_select",
                             "allow_null": 0,
                             "acfe_bidirectional": {
@@ -294,7 +292,6 @@
                                 "class": "",
                                 "id": ""
                             },
-                            "relevanssi_exclude": 0,
                             "taxonomy": "species",
                             "add_term": 0,
                             "save_terms": 0,
@@ -2984,7 +2981,6 @@
                                 "class": "",
                                 "id": ""
                             },
-                            "relevanssi_exclude": 0,
                             "taxonomy": "species",
                             "add_term": 0,
                             "save_terms": 0,
@@ -5081,16 +5077,16 @@
     "display_title": "",
     "allow_ai_access": false,
     "ai_description": "",
-    "acfe_autosync": [
-        "json"
-    ],
-    "acfe_form": 0,
-    "acfe_meta": {
-        "acfcloneindex": {
-            "acfe_meta_key": "",
-            "acfe_meta_value": ""
-        }
+    "acfe": {
+        "autosync": [
+            "json"
+        ],
+        "meta": [
+            {
+                "key": "",
+                "value": ""
+            }
+        ]
     },
-    "acfe_note": "",
-    "modified": 1778761836
+    "modified": 1787734373
 }

@@ -72,7 +72,7 @@ function koto_generate_regex_pattern($template, &$seen_vars, $match_mode = 'exac
                     if (strpos($var_name, 'val') === 0) {
                         $pattern .= '(?P<' . $var_name . '>[0-9０-９]+)';
                     } else {
-                        $pattern .= '(?P<' . $var_name . '>.+?)';
+                        $pattern .= '(?P<' . $var_name . '>[^、。\n]+?)';
                     }
                     $seen_vars[] = $var_name;
                 } else {
@@ -198,6 +198,210 @@ function koto_duplicate_results_for_shift_attrs($results, $shift_attr_ids)
 
     return $duplicated_results;
 }
+/**
+ * リーダーACFのJSON構造に基づく、nameキーからフィールドキーへの変換マッピング定義を取得します。
+ *
+ * @return array フィールド名とフィールドキーのマッピング配列（階層構造を含む）
+ */
+function koto_leader_get_field_map()
+{
+    return [
+        'max_ls_hp'  => 'field_6930525abfd59',
+        'max_ls_atk' => 'field_69305287bfd5a',
+        'ls_loop'    => [
+            '_key'  => 'field_692d150d17187',
+            '_type' => 'repeater',
+            '_sub'  => [
+                'ls_type'              => 'field_692e408c77f14',
+                'ls_cond_pattern_loop' => [
+                    '_key'  => 'field_692e362d0a783',
+                    '_type' => 'repeater',
+                    '_sub'  => [
+                        'ls_cond_loop' => [
+                            '_key'  => 'field_692e362d0a784',
+                            '_type' => 'repeater',
+                            '_sub'  => [
+                                'ls_cond_type'          => 'field_692e362d0a785',
+                                'ls_cond_val'           => 'field_692e362d0a786',
+                                'cooperate_target_loop' => [
+                                    '_key'  => 'field_695a6d7b57e1e',
+                                    '_type' => 'repeater',
+                                    '_sub'  => [
+                                        'target_type'    => 'field_695a6dbe57e2a',
+                                        'target_attr'    => 'field_695a6e0857e2b',
+                                        'target_species' => 'field_695a6e9c57e2c',
+                                        'target_group'   => 'field_695a6ebc57e2d',
+                                        'target_moji'    => 'field_695a6ede57e2e',
+                                        'target_other'   => 'field_695a6f0b57e2f',
+                                    ]
+                                ],
+                                'ls_party_cond_loop'    => [
+                                    '_key'  => 'field_692e3d1661c26',
+                                    '_type' => 'repeater',
+                                    '_sub'  => [
+                                        'target_field_group' => [
+                                            '_key'  => 'field_692e398eda978',
+                                            '_type' => 'group',
+                                            '_sub'  => [
+                                                'target_type'    => 'field_692e391e46b7c',
+                                                'target_attr'    => 'field_692e392a46b7d',
+                                                'target_species' => 'field_692e393746b7e',
+                                                'target_group'   => 'field_692e393c46b7f',
+                                                'target_other'   => 'field_692e394046b80',
+                                            ]
+                                        ],
+                                        'total_tf'           => 'field_69397a0d36b02',
+                                        'need_chara_num'     => 'field_692e3d7e61c27',
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'limit_wave_count'     => 'field_69397ea941c19',
+                'ls_target_chara_loop' => [
+                    '_key'  => 'field_692e44b23917e',
+                    '_type' => 'repeater',
+                    '_sub'  => [
+                        'target_field_group' => [
+                            '_key'  => 'field_692e3e94d3452',
+                            '_type' => 'group',
+                            '_sub'  => [
+                                'target_type'    => 'field_692e3e94d3456',
+                                'target_attr'    => 'field_692e3e94d3457',
+                                'target_species' => 'field_692e3e94d3458',
+                                'target_group'   => 'field_692e3e94d3459',
+                                'target_other'   => 'field_692e3e94d345a',
+                            ]
+                        ]
+                    ]
+                ],
+                'ls_status_loop'       => [
+                    '_key'  => 'field_692e3f0bd345b',
+                    '_type' => 'repeater',
+                    '_sub'  => [
+                        'ls_status'     => 'field_692e3f3dd345c',
+                        'resist_status' => 'field_692e3ffdd345e',
+                        'rate'          => 'field_692e3fa6d345d',
+                    ]
+                ],
+                'exp_magnification'    => 'field_6930502e9eecf',
+                'per_unit_loop'        => [
+                    '_key'  => 'field_6932d699370cc',
+                    '_type' => 'repeater',
+                    '_sub'  => [
+                        'target_field_group' => [
+                            '_key'  => 'field_6932d6c0370cd',
+                            '_type' => 'group',
+                            '_sub'  => [
+                                'target_type'    => 'field_6932d6c1370d1',
+                                'target_attr'    => 'field_6932d6c1370d2',
+                                'target_species' => 'field_6932d6c1370d3',
+                                'target_group'   => 'field_6932d6c1370d4',
+                                'target_other'   => 'field_6932d6c1370d5',
+                            ]
+                        ],
+                        'ls_status_loop'     => [
+                            '_key'  => 'field_6932d6e0370d6',
+                            '_type' => 'repeater',
+                            '_sub'  => [
+                                'ls_status'     => 'field_6932d6e0370d7',
+                                'resist_status' => 'field_6932d6e0370d8',
+                                'rate'          => 'field_6932d6e0370d9',
+                            ]
+                        ]
+                    ]
+                ],
+                'buff_count'           => 'field_695625916cd65',
+                'converge_rate_2'      => 'field_697d82db57ffd',
+                'converge_rate_1'      => 'field_697d830b57ffe',
+                'turn_count'           => 'field_699c42fccd008',
+            ]
+        ]
+    ];
+}
+
+/**
+ * nameベースのリーダー多次元連想配列を、ACF保存用（update_fieldなど）のフィールドキーベースの配列に変換します。
+ *
+ * @param array      $data 変換対象となる、nameキーで構成されたデータの配列
+ * @param array|null $map  再帰処理用のマッピング配列（初回呼び出し時はnull）
+ * @return array キーがフィールドキーに変換された配列
+ */
+function koto_leader_convert_keys($data, $map = null)
+{
+    if (! is_array($data)) return $data;
+    if ($map === null) $map = koto_leader_get_field_map();
+
+    $converted = [];
+    foreach ($data as $key => $value) {
+        // ▼ 追加: 連番インデックス（Repeaterの各行）はキーを維持し、中身だけを変換対象にする
+        if (is_int($key)) {
+            $converted[$key] = koto_leader_convert_keys($value, $map);
+            continue;
+        }
+
+        if (! isset($map[$key])) {
+            continue;
+        }
+
+        $mapping = $map[$key];
+
+        if (is_array($mapping) && isset($mapping['_key'])) {
+            $field_key = $mapping['_key'];
+            $type      = $mapping['_type'];
+            $sub_map   = $mapping['_sub'];
+
+            // Repeaterの場合、インデックスごとに再帰処理
+            if ($type === 'repeater' && is_array($value)) {
+                $converted[$field_key] = [];
+                foreach ($value as $index => $row) {
+                    if (is_array($row)) {
+                        $converted[$field_key][$index] = koto_leader_convert_keys($row, $sub_map);
+                    }
+                }
+                // Groupの場合、その階層を対象に再帰処理
+            } elseif ($type === 'group' && is_array($value)) {
+                $converted[$field_key] = koto_leader_convert_keys($value, $sub_map);
+            } else {
+                $converted[$field_key] = $value;
+            }
+        } else {
+            // 最下層のテキストやセレクト等のフィールド
+            $field_key = $mapping;
+            $converted[$field_key] = $value;
+        }
+    }
+
+    return $converted;
+}
+
+
+/**
+ * 配列から再帰的に空の文字列や空の配列を削除します。
+ * （false や 0 などの有意な値は残します）
+ *
+ * @param array $array 処理対象の配列
+ * @return array 空の要素が削除された配列
+ */
+function koto_remove_empty_keys_recursive($array)
+{
+    foreach ($array as $key => &$value) {
+        if (is_array($value)) {
+            $value = koto_remove_empty_keys_recursive($value);
+            if (empty($value)) {
+                unset($array[$key]);
+            }
+        } else {
+            // 空文字やnullは削除、0 や false は残す
+            if ($value === "" || $value === null) {
+                unset($array[$key]);
+            }
+        }
+    }
+    return $array;
+}
+
 
 /**
  * 入力文言をCSVテンプレート群と照合し、最初に一致した1行をACFデータ化して返す。
@@ -602,6 +806,9 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
         } elseif (strpos($key, 'heal_prefix') === 0) {
             // 超大きく、大きく、かなりなどの治癒フレーズを処理
             $value = str_replace(['超大きく', '大きく', 'かなり'], ['1.5', '1.2', '0.8'], $value);
+        } elseif (strpos($key, 'mitigation_prefix') === 0) {
+            // 超大きく、大きく、かなりなどのダメージフレーズを処理
+            $value = str_replace(['大きく軽減', '軽減'], ['50', '25'], $value);
         } elseif (strpos($key, 'command_prefix') === 0) {
             // 少量、多量、超多量などのコマンドフレーズを処理
             $value = str_replace(['爆絶多量', '超絶多量', '超多量', '多量', '少量'], ['5.25', '4.5', '4.5', '2.3', '1.0'], $value);
@@ -894,7 +1101,18 @@ function koto_get_ignore_texts_by_category($category = '')
             '」',
             '以上',
         ],
-        'リーダーとくせい' => [],
+        'リーダーとくせい' => [
+            '(メイン属性のみを参照する)',
+            'UP',
+            '各',
+            '※赤文字の箇所は自身の福に応じて変動する',
+            '【余剰分の攻撃回数は発 動後も引き継がれる】',
+            '次のターン開始時に、手札の',
+            '敵ターン終了時に',
+            '(同じ効果のわざ·すこわざ· コトわざの場合、威力の上昇効果が高い方が優先される)',
+            '「',
+            '」',
+        ],
         '祝福' => [],
     ];
 
@@ -913,7 +1131,7 @@ function koto_preprocess_text($text, $category = '')
 {
     $ignore_texts = koto_get_ignore_texts_by_category($category);
 
-    $text = preg_replace('/\(敵の行動時、そのターンに自身が各敵にわざ・すごわざ・コトわざで与えた合計ダメージの\d+%の値で固定ダメージを与える効果\)/u', '', $text);
+    $text = preg_replace('/\(敵の行動時、そのターンに.+?が各敵にわざ・すごわざ・コトわざで与えた合計ダメージの[\d.]+%の値で固定ダメージを与える効果\)/u', '', $text);
     // 英数字とスペースを半角に
     $text = mb_convert_kana($text, 'as', 'UTF-8');
 
@@ -976,4 +1194,3 @@ function koto_split_by_circled_numbers($text)
     }
     return $result;
 }
-

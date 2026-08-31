@@ -109,7 +109,9 @@
                         "converged": "収束付与",
                         "corruption": "腐敗付与",
                         "random_crit": "乱打クリティカル付与",
-                        "damage_cut": "低ダメージ無効"
+                        "damage_cut": "低ダメージ無効",
+                        "combo_buff": "コンボ数に応じたATKバフ",
+                        "reflection": "反射"
                     },
                     "default_value": "fixed",
                     "return_format": "value",
@@ -876,6 +878,20 @@
                                 "operator": "==",
                                 "value": "damage_cut"
                             }
+                        ],
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "combo_buff"
+                            }
+                        ],
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "reflection"
+                            }
                         ]
                     ],
                     "wrapper": {
@@ -890,7 +906,6 @@
                     "collapsed": "",
                     "button_label": "補正対象キャラを追加",
                     "rows_per_page": 20,
-                    "parent_repeater": "field_692d150d17187",
                     "sub_fields": [
                         {
                             "key": "field_692e3e94d3452",
@@ -1087,7 +1102,8 @@
                                 }
                             ]
                         }
-                    ]
+                    ],
+                    "parent_repeater": "field_692d150d17187"
                 },
                 {
                     "key": "field_692e3f0bd345b",
@@ -1125,6 +1141,13 @@
                                 "operator": "==",
                                 "value": "damage_cut"
                             }
+                        ],
+                        [
+                            {
+                                "field": "field_692e408c77f14",
+                                "operator": "==",
+                                "value": "reflection"
+                            }
                         ]
                     ],
                     "wrapper": {
@@ -1139,7 +1162,6 @@
                     "collapsed": "",
                     "button_label": "対象ステータスを追加",
                     "rows_per_page": 20,
-                    "parent_repeater": "field_692d150d17187",
                     "sub_fields": [
                         {
                             "key": "field_692e3f3dd345c",
@@ -1249,7 +1271,8 @@
                             "append": "",
                             "parent_repeater": "field_692e3f0bd345b"
                         }
-                    ]
+                    ],
+                    "parent_repeater": "field_692d150d17187"
                 },
                 {
                     "key": "field_6930502e9eecf",
@@ -1786,16 +1809,16 @@
     "display_title": "",
     "allow_ai_access": false,
     "ai_description": "",
-    "acfe_autosync": [
-        "json"
-    ],
-    "acfe_form": 0,
-    "acfe_meta": {
-        "acfcloneindex": {
-            "acfe_meta_key": "",
-            "acfe_meta_value": ""
-        }
+    "acfe": {
+        "autosync": [
+            "json"
+        ],
+        "meta": [
+            {
+                "key": "",
+                "value": ""
+            }
+        ]
     },
-    "acfe_note": "",
-    "modified": 1777187990
+    "modified": 1787471486
 }
