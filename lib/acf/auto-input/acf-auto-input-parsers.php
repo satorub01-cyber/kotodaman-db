@@ -604,7 +604,9 @@ function koto_parse_kotowaza($texts, $grouped_csv, $input_key = '')
                 }
             }
         }
-
+        if(empty($parsed_condition) && empty($parsed_effect)) {
+            continue;
+        }
         // 3. 要求された形式で配列にまとめる
         $results[] = [
             'kotowaza_condition'  => $parsed_condition,
@@ -620,6 +622,7 @@ function koto_parse_kotowaza($texts, $grouped_csv, $input_key = '')
     if (!empty($temp_shift_row)) {
         $results[] = $temp_shift_row;
     }
+
 
     return $results;
 }
