@@ -96,6 +96,12 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
                     $acf_field_name = 'blessing_trait_loop';
                 } elseif ($input_key === 'auto_input_sugowaza_condition') {
                     $acf_field_name = 'sugowaza_condition';
+                } elseif ($input_key === 'auto_input_leader') {
+                    if (isset($item['trait_type'])) {
+                        $acf_field_name = 'miracle_leader_loop';
+                    } else {
+                        $acf_field_name = 'ls_loop';
+                    }
                 }
             }
 
