@@ -438,6 +438,7 @@ function koto_match_csv_template($text, $csv_rows, $input_key = '', $match_mode 
             return [
                 'acf_data' => koto_finalize_match_acf_data($acf_rows, $options['empty_acf_return']),
                 'matched_text' => $matches[0],
+                'matches' => $matches, // 抽出した変数の配列をそのまま返す
             ];
         }
     }

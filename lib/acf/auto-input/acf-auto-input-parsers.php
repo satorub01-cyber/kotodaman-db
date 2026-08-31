@@ -768,6 +768,13 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
                     }
                 }
                 $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
+
+                // leader_text (または typoの laeder_text) があれば、対象・効果処理にかけるため残りの文の先頭に戻す
+                if (!empty($match['matches']['leader_text'])) {
+                    $remaining_text = $match['matches']['leader_text'] . '、' . $remaining_text;
+                } elseif (!empty($match['matches']['laeder_text'])) {
+                    $remaining_text = $match['matches']['laeder_text'] . '、' . $remaining_text;
+                }
             } else {
                 break;
             }
