@@ -71,8 +71,11 @@ function koto_generate_regex_pattern($template, &$seen_vars, $match_mode = 'exac
                 if (!in_array($var_name, $seen_vars, true)) {
                     if (strpos($var_name, 'val') === 0) {
                         $pattern .= '(?P<' . $var_name . '>[0-9０-９]+)';
+                    } elseif (strpos($var_name, 'leader_text') !== false || strpos($var_name, 'laeder_text') !== false) {
+                        $pattern .= '(?P<' . $var_name . '>.+?)'; // リーダー文言はすべて許容
                     } else {
-                        $pattern .= '(?P<' . $var_name . '>[^、。\n]+?)';
+                        // 【修正】×や%を跨いで強引にマッチングするのを防ぐ
+                        $pattern .= '(?P<' . $var_name . '>[^、。\n×xX%％]+?)';
                     }
                     $seen_vars[] = $var_name;
                 } else {

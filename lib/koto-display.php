@@ -1571,6 +1571,7 @@ function get_koto_leader_skill_html($post_id = null, $is_back_count = false)
 
         // 2. 条件文
         $or_parts = [];
+        $wave_parts = '';
         if (!empty($pattern['ls_cond_pattern_loop'])) {
             foreach ($pattern['ls_cond_pattern_loop'] as $cond_pat) {
                 $and_parts = [];
@@ -1620,7 +1621,7 @@ function get_koto_leader_skill_html($post_id = null, $is_back_count = false)
                             case 'wave_count':
                                 $and_parts[] = "WAVEが進むごとに";
                                 $limit_wave = isset($pattern['limit_wave_count']) ? $pattern['limit_wave_count'] : '';
-                                if ($limit_wave) $and_parts[] = "({$limit_wave}WAVEまで)";
+                                if ($limit_wave) $wave_parts = "({$limit_wave}WAVEまで)";
                                 break;
                             case 'cooperate':
                                 $cooperater = [];
@@ -1791,7 +1792,7 @@ function get_koto_leader_skill_html($post_id = null, $is_back_count = false)
             }
         }
         if (empty($effect_text)) $effect_text = implode('、', $effect_parts);
-        $ls_text[] = '<div class="leader-effect-line"><span class ="effect-num">（' . $count . '）</span>' . $condition_text . $target_text . $effect_text . '</div>';
+        $ls_text[] = '<div class="leader-effect-line"><span class ="effect-num">（' . $count . '）</span>' . $condition_text . $target_text . $effect_text . $wave_parts . '</div>';
         $count++;
     }
     if ($is_back_count) {

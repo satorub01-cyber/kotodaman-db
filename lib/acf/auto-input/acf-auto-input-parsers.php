@@ -668,13 +668,97 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
         // パターンA: 「×」が含まれる場合（キャラ数倍率処理）
         // ----------------------------------------------------
         if (mb_strpos($remaining_text, '×') !== false) {
+            $conditions = [];
+            $targets = [];
             $per_units = [];
             $limit_wave = "";
 
+            // 1. 条件の抽出ループ（パターンBと共通化し leader_text の復活も対応）
             while (mb_strlen($remaining_text) > 0) {
                 $prev_len = mb_strlen($remaining_text);
-                // 文頭に残った「・」や空白を削る
-                $remaining_text = preg_replace('/^[・\s]+/u', '', $remaining_text);
+                $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
+
+                $match = koto_match_csv_template($remaining_text, $condition_rows, $input_key, 'prefix');
+                if (koto_is_csv_template_match($match)) {
+                    $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
+                    foreach ($acf_rows as $row) {
+                        if (isset($row['limit_wave_count'])) {
+                            $limit_wave = $row['limit_wave_count'];
+                        }
+                        if (isset($row['ls_cond_pattern_loop'])) {
+                            $conditions = array_merge($conditions, $row['ls_cond_pattern_loop']);
+                        } elseif (isset($row['ls_cond_loop'])) {
+                            $conditions = array_merge($conditions, $row['ls_cond_loop']);
+                        } else {
+                            $cond_item = $row;
+                            unset($cond_item['limit_wave_count']);
+
+                            if (!empty($cond_item)) {
+                                $merged = false;
+                                if (isset($cond_item['ls_cond_type'])) {
+                                    foreach ($conditions as &$existing_cond) {
+                                        if (isset($existing_cond['ls_cond_type']) && $existing_cond['ls_cond_type'] === $cond_item['ls_cond_type']) {
+                                            foreach ($cond_item as $k => $v) {
+                                                if ($k === 'ls_cond_type' || $k === 'ls_cond_val') continue;
+                                                if (is_array($v) && isset($existing_cond[$k]) && is_array($existing_cond[$k])) {
+                                                    $existing_cond[$k] = array_merge($existing_cond[$k], $v);
+                                                } else {
+                                                    $existing_cond[$k] = $v;
+                                                }
+                                            }
+                                            $merged = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (!$merged) {
+                                    $conditions[] = $cond_item;
+                                }
+                            }
+                        }
+                    }
+                    $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
+
+                    // leader_text の復活処理
+                    if (!empty($match['matches']['leader_text'])) {
+                        $remaining_text = $match['matches']['leader_text'] . '、' . $remaining_text;
+                    } elseif (!empty($match['matches']['laeder_text'])) {
+                        $remaining_text = $match['matches']['laeder_text'] . '、' . $remaining_text;
+                    }
+                } else {
+                    break;
+                }
+                if (mb_strlen($remaining_text) >= $prev_len) break;
+            }
+
+            // 2. 対象の抽出ループ（文頭の「デッキ内全員の」等を消費するためパターンBと共通化）
+            while (mb_strlen($remaining_text) > 0) {
+                $prev_len = mb_strlen($remaining_text);
+                $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
+
+                $match = koto_match_csv_template($remaining_text, $target_rows, $input_key, 'prefix');
+                if (koto_is_csv_template_match($match)) {
+                    $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
+                    foreach ($acf_rows as $row) {
+                        if (isset($row['ls_target_chara_loop'])) {
+                            $targets = array_merge($targets, $row['ls_target_chara_loop']);
+                        } elseif (isset($row['target_field_group'])) {
+                            $targets[] = $row;
+                        } else {
+                            $targets[] = ['target_field_group' => $row];
+                        }
+                    }
+                    $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
+                } else {
+                    break;
+                }
+                if (mb_strlen($remaining_text) >= $prev_len) break;
+            }
+
+            // 3. キャラ数倍率(per_unit)の抽出ループ
+            while (mb_strlen($remaining_text) > 0) {
+                $prev_len = mb_strlen($remaining_text);
+                $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
 
                 $match = koto_match_csv_template($remaining_text, $per_unit_rows, $input_key, 'prefix');
                 if (koto_is_csv_template_match($match)) {
@@ -682,25 +766,83 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
                     foreach ($acf_rows as $row) {
                         if (isset($row['limit_wave_count'])) {
                             $limit_wave = $row['limit_wave_count'];
+                            unset($row['limit_wave_count']);
                         }
+
+                        $pu_item = [];
                         if (isset($row['per_unit_loop'])) {
                             $per_units = array_merge($per_units, $row['per_unit_loop']);
                         } else {
-                            $per_units[] = $row;
+                            // CSVがネスト済みの場合とフラットな場合の両方に対応
+                            if (isset($row['target_field_group'])) {
+                                $pu_item['target_field_group'] = $row['target_field_group'];
+                            } else {
+                                $target_group = [];
+                                foreach (['target_type', 'target_attr', 'target_species', 'target_group', 'target_other'] as $tk) {
+                                    if (isset($row[$tk])) {
+                                        $target_group[$tk] = $row[$tk];
+                                    }
+                                }
+                                if (!empty($target_group)) {
+                                    $pu_item['target_field_group'] = $target_group;
+                                }
+                            }
+
+                            if (isset($row['ls_status_loop'])) {
+                                $pu_item['ls_status_loop'] = $row['ls_status_loop'];
+                            } else {
+                                $status_item = [];
+                                foreach (['ls_status', 'resist_status', 'rate'] as $sk) {
+                                    if (isset($row[$sk])) {
+                                        $status_item[$sk] = $row[$sk];
+                                    }
+                                }
+                                if (!empty($status_item)) {
+                                    $pu_item['ls_status_loop'] = [$status_item];
+                                }
+                            }
+
+                            // 同一の target_field_group（例：冥属性）ならステータスをマージする
+                            $merged = false;
+                            if (isset($pu_item['target_field_group'])) {
+                                foreach ($per_units as &$existing_pu) {
+                                    if (isset($existing_pu['target_field_group']) && $existing_pu['target_field_group'] === $pu_item['target_field_group']) {
+                                        if (isset($pu_item['ls_status_loop'])) {
+                                            if (!isset($existing_pu['ls_status_loop'])) $existing_pu['ls_status_loop'] = [];
+                                            $existing_pu['ls_status_loop'] = array_merge($existing_pu['ls_status_loop'], $pu_item['ls_status_loop']);
+                                        }
+                                        $merged = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!$merged && !empty($pu_item)) {
+                                $per_units[] = $pu_item;
+                            }
                         }
                     }
                     $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
                 } else {
                     break;
                 }
-                // 無限ループ防止
                 if (mb_strlen($remaining_text) >= $prev_len) break;
             }
 
+            // 行データの構築
             $row_data = $leader_dummy;
             $row_data['ls_type'] = 'per_unit';
             if ($limit_wave !== "") {
                 $row_data['limit_wave_count'] = $limit_wave;
+            }
+            if (!empty($conditions)) {
+                $row_data['ls_cond_pattern_loop'] = [
+                    [
+                        'ls_cond_loop' => $conditions
+                    ]
+                ];
+            }
+            if (!empty($targets)) {
+                $row_data['ls_target_chara_loop'] = $targets;
             }
             if (!empty($per_units)) {
                 $row_data['per_unit_loop'] = $per_units;
