@@ -204,11 +204,11 @@ function koto_normalize_trait_search_slug($trait)
             $sub_type = $has_crit_resonance ? 'resonance_crit' : 'resonance_atk';
         }
 
-        if($sub_type === "single_shot"){
-            if(!empty($trait["value"])){
+        if ($sub_type === "single_shot") {
+            if (!empty($trait["value"])) {
                 $slugs[] = $canonical_type . '_single_shot_killer';
             }
-            if(!empty($trait["limit_break"])){
+            if (!empty($trait["limit_break"])) {
                 $slugs[] = $canonical_type . '_single_shot_limit_break';
             }
         }
@@ -539,13 +539,17 @@ function koto_get_flat_char_data($post_id)
 // =========================================================
 function koto_generate_search_json_all($rebuild_spec_data = false)
 {
+    // メモリ上限の引き上げとキャッシュ追加の停止
+    @ini_set('memory_limit', '512M');
+    wp_suspend_cache_addition(true);
+
     $start_time = microtime(true);
-    $batch_size = 100;
     $json_file_path = get_stylesheet_directory() . '/lib/character-search/all_characters_search.json';
     $tmp_file_path = $json_file_path . '.tmp';
     $write_path = $tmp_file_path;
     $using_temp_file = true;
 
+    // 一時ファイルのオープン
     $tmp_handle = @fopen($tmp_file_path, 'wb');
     if (!$tmp_handle) {
         $tmp_handle = @fopen($json_file_path, 'wb');
@@ -554,6 +558,7 @@ function koto_generate_search_json_all($rebuild_spec_data = false)
 
         if (!$tmp_handle) {
             $last_error = error_get_last();
+            wp_suspend_cache_addition(false);
             return [
                 'success' => false,
                 'error' => '検索用JSONを書き込めませんでした: ' . ($last_error['message'] ?? 'unknown error'),
@@ -567,67 +572,54 @@ function koto_generate_search_json_all($rebuild_spec_data = false)
 
     fwrite($tmp_handle, '[');
 
-    $paged = 1;
-    while (true) {
-        $query = new WP_Query([
-            'post_type' => 'character',
-            'post_status' => 'publish',
-            'posts_per_page' => $batch_size,
-            'paged' => $paged,
-            'fields' => 'ids',
-            'orderby' => 'ID',
-            'order' => 'ASC',
-            'update_post_meta_cache' => false,
-            'update_post_term_cache' => false,
-            'cache_results' => false,
-            'lazy_load_term_meta' => false,
-            'no_found_rows' => true,
-            'suppress_filters' => true,
-        ]);
+    // SQLによる対象キャラクターIDの一括取得
+    global $wpdb;
+    $query = "
+        SELECT ID 
+        FROM {$wpdb->posts} 
+        WHERE post_type = 'character' 
+        AND post_status = 'publish' 
+        ORDER BY ID ASC
+    ";
+    $post_ids = $wpdb->get_col($query);
 
-        if (empty($query->posts)) {
-            wp_reset_postdata();
-            break;
+    // 取得したID配列をループ処理
+    foreach ($post_ids as $post_id) {
+        $processed_count++;
+
+        if ($rebuild_spec_data && function_exists('on_save_character_specs')) {
+            on_save_character_specs($post_id);
         }
 
-        foreach ($query->posts as $post_id) {
-            $processed_count++;
+        $flat_char = koto_get_flat_char_data($post_id);
 
-            if ($rebuild_spec_data && function_exists('on_save_character_specs')) {
-                on_save_character_specs($post_id);
-                clean_post_cache($post_id);
-            }
+        // WP関数で生成されたキャッシュの破棄
+        clean_post_cache($post_id);
 
-            $flat_char = koto_get_flat_char_data($post_id);
-            if (!$flat_char) {
-                continue;
-            }
-
-            $json_row = json_encode($flat_char, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            if ($json_row === false) {
-                continue;
-            }
-
-            if ($has_prev_item) {
-                fwrite($tmp_handle, ',');
-            }
-            fwrite($tmp_handle, $json_row);
-            $has_prev_item = true;
-            $written_count++;
+        if (!$flat_char) {
+            continue;
         }
 
-        wp_reset_postdata();
-        $paged++;
-
-        unset($query);
-        if (function_exists('gc_collect_cycles')) {
-            gc_collect_cycles();
+        $json_row = json_encode($flat_char, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($json_row === false) {
+            continue;
         }
+
+        if ($has_prev_item) {
+            fwrite($tmp_handle, ',');
+        }
+        fwrite($tmp_handle, $json_row);
+        $has_prev_item = true;
+        $written_count++;
     }
 
     fwrite($tmp_handle, ']');
     fclose($tmp_handle);
 
+    // キャッシュ追加停止の解除
+    wp_suspend_cache_addition(false);
+
+    // ファイルのリネーム処理
     if ($using_temp_file && !koto_json_reform_replace_file_atomically($tmp_file_path, $json_file_path)) {
         $last_error = error_get_last();
         @unlink($tmp_file_path);
