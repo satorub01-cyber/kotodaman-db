@@ -2772,6 +2772,7 @@
                                 "species": "種族指定",
                                 "hpcond": "HP条件",
                                 "group": "グループ条件",
+                                "character": "キャラ条件",
                                 "other": "その他"
                             },
                             "default_value": false,
@@ -2998,6 +2999,50 @@
                             "parent_repeater": "field_69744ae60f7bd"
                         },
                         {
+                            "key": "field_6a96d05df8d45",
+                            "label": "キャラクター条件",
+                            "name": "condition_character",
+                            "aria-label": "",
+                            "type": "relationship",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": [
+                                [
+                                    {
+                                        "field": "field_69744ae60f7c2",
+                                        "operator": "==",
+                                        "value": "character"
+                                    }
+                                ]
+                            ],
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "post_type": [
+                                "character"
+                            ],
+                            "post_status": "",
+                            "taxonomy": "",
+                            "filters": [
+                                "search",
+                                "post_type",
+                                "taxonomy"
+                            ],
+                            "return_format": "id",
+                            "acfe_bidirectional": {
+                                "acfe_bidirectional_enabled": "0"
+                            },
+                            "min": "",
+                            "max": "",
+                            "allow_in_bindings": 0,
+                            "elements": "",
+                            "bidirectional": 0,
+                            "bidirectional_target": [],
+                            "parent_repeater": "field_69744ae60f7bd"
+                        },
+                        {
                             "key": "field_69d9d87ff4e75",
                             "label": "同時攻撃かデッキ条件か",
                             "name": "target_cond_detail",
@@ -3025,6 +3070,13 @@
                                         "field": "field_69744ae60f7c2",
                                         "operator": "==",
                                         "value": "group"
+                                    }
+                                ],
+                                [
+                                    {
+                                        "field": "field_69744ae60f7c2",
+                                        "operator": "==",
+                                        "value": "character"
                                     }
                                 ]
                             ],
@@ -5088,5 +5140,5 @@
             }
         ]
     },
-    "modified": 1787734373
+    "modified": 1788268746
 }

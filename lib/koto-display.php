@@ -903,6 +903,7 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                         'attr' => $c_row['condition_attr'] ?? null,
                         'aff'  => $c_row['condition_affiliation'] ?? null,
                         'species' => $c_row['condition_species'] ?? null,
+                        'character' => $c_row['condition_character'] ?? null,
                         'hp'   => $c_row['hp_cond_detail'] ?? 'more',
                         'target_cond_detail' => $c_row['target_cond_detail'] ?? null
                     ];
@@ -1007,6 +1008,20 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                                     $part_text = $is_melody ? "デッキ内に「全の戦律」または「斬・砲・突・重・超・打の戦律」のコトダマンが{$cv}体以上いる時" : "デッキ内に「{$grp_name}」のコトダマンが{$cv}体以上いる時";
                                 } else {
                                     $part_text = $is_melody ? "同時に「全の戦律」または「斬・砲・突・重・超・打の戦律」のコトダマンがわざ・すごわざを発動した時" : "同時に「{$grp_name}」のコトダマンがわざ・すごわざを発動した時";
+                                }
+                                break;
+                            case 'character':
+                                $char_name = $cv;
+                                if (!empty($p_cond['character'])) {
+                                    $id = $p_cond['character'][0];
+                                    $cond_char_name = get_the_title($id);
+                                    $cond_chara_url = home_url('/character/' . $id);
+                                    $char_name = '<a href="' . esc_url($cond_chara_url) . '">' . esc_html($cond_char_name) . '</a>';
+                                }
+                                if ($p_cond['target_cond_detail'] === 'deck') {
+                                    $part_text = "デッキ内に{$char_name}がいる時";
+                                } else {
+                                    $part_text = "同時に{$char_name}がわざ・すごわざを発動した時";
                                 }
                                 break;
                             case 'attacked':

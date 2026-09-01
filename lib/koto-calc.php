@@ -1781,6 +1781,7 @@ function _parse_trait_condition($cond_data)
         $type = $c['condition_type'] ?? '';
         $val  = $c['condition_value'] ?? '';
         $target_cond_detail = $c['target_cond_detail'] ?? '';
+        $character_cond = $c['condition_character'][0] ?? '';
         $target_conds = ['type' => '', 'attr' => [], 'species' => [], 'group' => [], 'other' => ''];
         $vals = split_str_comma($val);
         $target_cond = ['attr', 'species', 'group', 'other'];
@@ -1799,7 +1800,8 @@ function _parse_trait_condition($cond_data)
             'val'  => array_values($vals),
             'target_cond_detail' => $target_cond_detail,
             'hp_detail' => $c['hp_cond_detail'] ?? '',
-            'cond_target' => $target_conds
+            'cond_target' => $target_conds,
+            'character_cond' => $character_cond
         ];
     }
 
@@ -1866,7 +1868,8 @@ function _parse_skill_groups_to_data($groups, $shift_type = 'none')
         'type' => '',
         'val' => [],
         'hp_detail' => '',
-        'cond_target' => parse_target_group([])
+        'cond_target' => parse_target_group([]),
+        'character_cond' => '',
     ]];
 
     $bt_field_eff = [[
