@@ -73,6 +73,29 @@ function koto_acf_editor_menu()
         wp_enqueue_script('acf-auto-input-script', $theme_uri . '/lib/acf/acf-auto-input.js', ['jquery'], time(), true);
     });
 }
+
+// DBエディタのブラウザタブに編集中のキャラ名を表示
+add_filter('admin_title', 'koto_acf_editor_dynamic_admin_title', 10, 2);
+function koto_acf_editor_dynamic_admin_title($admin_title, $title)
+{
+    if (isset($_GET['page']) && $_GET['page'] === 'koto-acf-editor') {
+        $edit_post_id = 0;
+
+        if (!empty($_GET['field_editor_edit_post']) && is_array($_GET['field_editor_edit_post'])) {
+            $edit_post_id = intval($_GET['field_editor_edit_post'][0]);
+        } elseif (!empty($_GET['edit_post_id'])) {
+            $edit_post_id = intval($_GET['edit_post_id']);
+        }
+
+        if ($edit_post_id) {
+            $post_title = get_the_title($edit_post_id);
+            if ($post_title) {
+                return $post_title . ' | ' . $admin_title;
+            }
+        }
+    }
+    return $admin_title;
+}
 // =================================================================
 // ACF関係フィールドの検索クエリをカスタマイズ（下書き対応＆権限絞り込み）
 // =================================================================
