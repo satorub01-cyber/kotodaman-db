@@ -1356,3 +1356,19 @@ add_filter('manage_users_columns', function ($columns) {
     $columns['user_id'] = 'ID';
     return $columns;
 });
+
+/**
+ * キャラクター名を短縮するヘルパー関数
+ */
+if (!function_exists('koto_get_short_character_name')) {
+    function koto_get_short_character_name($full_name)
+    {
+        // JSの \u30A0-\u30FF を PHPの \x{30A0}-\x{30FF} に変換
+        $pattern = '/^(?:(?![^・]*[\(（])(?!(?:[\x{30A0}-\x{30FF}]+)・)(?:[^・]+)・(.+)|(.+))$/u';
+        if (preg_match($pattern, $full_name, $matches)) {
+            // $matches[1] (・の後ろ) があればそれを、無ければ $matches[2] (全体) を返す
+            return !empty($matches[1]) ? $matches[1] : (!empty($matches[2]) ? $matches[2] : $full_name);
+        }
+        return $full_name;
+    }
+}

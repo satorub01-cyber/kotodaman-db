@@ -90,7 +90,9 @@ function koto_acf_editor_dynamic_admin_title($admin_title, $title)
         if ($edit_post_id) {
             $post_title = get_the_title($edit_post_id);
             if ($post_title) {
-                return $post_title . ' | ' . $admin_title;
+                // 先ほど作成した関数で短縮名を取得
+                $short_title = koto_get_short_character_name($post_title);
+                return $short_title . ' | ' . $admin_title;
             }
         }
     }
