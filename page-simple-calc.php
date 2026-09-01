@@ -381,7 +381,11 @@ get_header();
                 </div>
                 <div>
                     <input type="number" id="killer_percent_4" step="1" value="4">
-                    <div class="small-note">メモリー補正(コラボなどは+5)</div>
+                    <div class="small-note">メモリー補正</div>
+                </div>
+                <div>
+                    <?php echo render_ios_toggle('collabo_memory_killer_toggle', 'OFF', 'OFF', 'ON'); ?>
+                    <div class="small-note">キラー補正を+5%(コラボキャラのメモリー)</div>
                 </div>
             </div>
             <div style="margin-top:8px;">
@@ -500,8 +504,11 @@ get_header();
         const kMain = parseFloat(document.getElementById('killer_percent_main').value) || 0;
         const k17 = isHealing ? 0 : (parseFloat(document.getElementById('killer_percent_17').value) || 0);
         const k4 = isHealing ? 0 : (parseFloat(document.getElementById('killer_percent_4').value) || 0);
+        const collaboMemoryKillerToggle = document.querySelector('input[name="collabo_memory_killer_toggle"][type="checkbox"]');
+        const isCollaboMemoryKiller = collaboMemoryKillerToggle && collaboMemoryKillerToggle.checked;
+        const collaboKillerBonus = isCollaboMemoryKiller ? 5 : 0;
         const fieldP = parseFloat(document.getElementById('field_percent').value) || 0;
-        const totalPercent = kMain + k17 + k4 + fieldP;
+        const totalPercent = kMain + k17 + k4 + fieldP + collaboKillerBonus;
         const correctionMult = 1 + (totalPercent / 100);
         const criticalUpPercent = parseFloat(document.getElementById('critical_up_percent').value) || 0;
         const otherMultSelect = document.getElementById('other_mult_extra');
