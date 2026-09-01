@@ -346,25 +346,36 @@ function redirect_taxonomy_archive_to_search()
 
         if ($term && isset($term->taxonomy, $term->slug)) {
             $tax_name  = $term->taxonomy;
-            if($tax_name === 'affiliation'){
+            if ($tax_name === 'affiliation') {
                 $tax_name = 'tx_group';
-            } elseif($tax_name === 'attribute'){
+            } elseif ($tax_name === 'attribute') {
                 $tax_name = 'tx_attr';
-            } elseif($tax_name === 'species'){
+            } elseif ($tax_name === 'species') {
                 $tax_name = 'tx_species';
-            } elseif($tax_name === 'event'){
+            } elseif ($tax_name === 'event') {
                 $tax_name = 'tx_event';
-            } elseif($tax_name === 'gimmick'){
+            } elseif ($tax_name === 'gimmick') {
                 $tax_name = 'tx_gimmick';
-            } elseif($tax_name === 'rarity'){
+            } elseif ($tax_name === 'rarity') {
                 $tax_name = 'tx_rarity';
             }
-            $term_slug = $term->slug;
+            $term_slug = urlencode($term->slug);
 
-            $redirect_url = home_url('/?post_type=character&' . $tax_name . '%5B%5D=' . $term_slug);
+            $redirect_url = home_url('/?post_type=character&s=&' . $tax_name . '%5B%5D=' . $term_slug);
+            $redirect_url = $redirect_url; // URLエンコードして日本語スラッグを正しく表示
 
             wp_redirect($redirect_url, 301);
             exit;
         }
     }
+}
+// ② WordPressによる勝手なURL書き換え（[0]への変換など）を防止する処理
+add_filter('redirect_canonical', 'disable_canonical_redirect_for_koto_search', 10, 2);
+function disable_canonical_redirect_for_koto_search($redirect_url, $requested_url)
+{
+    // リクエストURLに '%5B%5D=' ( []= ) が含まれている場合、WordPressの自動リダイレクトを無効化する
+    if (strpos($requested_url, '%5B%5D=') !== false || strpos($requested_url, '[]=') !== false) {
+        return false;
+    }
+    return $redirect_url;
 }
