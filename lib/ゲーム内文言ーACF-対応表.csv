@@ -1,5 +1,6 @@
 ﻿種別,文言,ACFに入力するJSON
 とくせい,福{$val}で{$gimmick_name}が解放,"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name"",""condition_type_loop"" : [{""condition_type"" : ""fuku_count"",""condition_value"" : ""$val""}]}"
+とくせい,満福で{$gimmick_name}が解放,"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name"",""condition_type_loop"" : [{""condition_type"" : ""fuku_count"",""condition_value"" : ""99""}]}"
 とくせい,{$gimmick_name_guard}ブロックから受けるダメージを軽減,"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name_guard""}"
 とくせい,{$gimmick_name_breaker}ブロックへのダメージ{$gimmick_prefix},"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name_breaker"",""gimmick_prefix"" : ""$gimmick_prefix""}"
 とくせい,{$gimmick_name_guard}マスの効果を受けない,"{""trait_type"" : ""gimmick"",""gimmick"" : ""$gimmick_name_guard""}"
