@@ -204,6 +204,15 @@ function koto_normalize_trait_search_slug($trait)
             $sub_type = $has_crit_resonance ? 'resonance_crit' : 'resonance_atk';
         }
 
+        if($sub_type === "single_shot"){
+            if(!empty($trait["value"])){
+                $slugs[] = $canonical_type . '_single_shot_killer';
+            }
+            if(!empty($trait["limit_break"])){
+                $slugs[] = $canonical_type . '_single_shot_limit_break';
+            }
+        }
+
         if ($sub_type !== '') {
             $slugs[] = $canonical_type . '_' . $sub_type;
         }

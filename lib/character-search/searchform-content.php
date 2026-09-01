@@ -263,6 +263,8 @@
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_damage_correction_killer"> キラー</label>
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_damage_correction_break_limit"> 自身の上限解放</label>
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_damage_correction_single_shot"> 単体単発補正</label>
+                                    <label><input type="checkbox" name="tx_trait_tags[]" value="trait_damage_correction_single_shot_limit_break"> 単体単発上限解放</label>
+                                    <label><input type="checkbox" name="tx_trait_tags[]" value="trait_damage_correction_single_shot_killer"> 単体単発キラー補正</label>
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_damage_correction_week_killer"> 弱点キラー</label>
                                 </div>
                             </details>

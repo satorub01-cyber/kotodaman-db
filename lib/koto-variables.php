@@ -273,6 +273,8 @@ function koto_get_trait_search_label_map()
         'damage_correction_break_limit' => '自身の上限解放',
         'damage_correction_single_shot' => '単体単発補正',
         'damage_correction_week_killer' => '弱点キラー',
+        'damage_correction_single_shot_limit_break' => '単体単発上限解放',
+        'damage_correction_single_shot_killer' => '単体単発キラー補正',
 
         // ----- ステータス・クリティカル補正 -----
         'status_up' => 'ステータス・クリティカル補正',

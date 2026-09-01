@@ -728,21 +728,88 @@ add_shortcode('debug_koto_json', function ($atts) {
         <?php if (!$json): ?>
             <p style="color:red; font-weight:bold;">ID: <?php echo esc_html($target_id); ?> のJSONデータが見つかりません。<br>記事を保存し直すか、一括更新を実行してください。</p>
         <?php else: ?>
-            <?php
-            $data = json_decode($json, true);
-            // 見やすく整形 (JSON形式)
-            $pretty_json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-            ?>
-            <textarea id="json-textarea-<?php echo esc_attr($html_id_suffix); ?>" style="width:100%; height:500px; font-family:monospace; font-size:12px; line-height:1.5; white-space:pre; background:#fff; border:1px solid #ddd; padding:10px;" readonly><?php echo esc_textarea($pretty_json); ?></textarea>
+            <!-- タブ切り替え -->
+            <div style="display:flex; gap:10px; margin-bottom:10px; border-bottom:2px solid #ddd;">
+                <button type="button" class="debug-tab-btn" data-tab="spec" data-suffix="<?php echo esc_attr($html_id_suffix); ?>" style="padding:8px 15px; cursor:pointer; background:#2271b1; color:#fff; border:none; border-radius:3px 3px 0 0; font-weight:bold;">_spec_json</button>
+                <button type="button" class="debug-tab-btn" data-tab="search" data-suffix="<?php echo esc_attr($html_id_suffix); ?>" style="padding:8px 15px; cursor:pointer; background:#ccc; color:#333; border:none; border-radius:3px 3px 0 0; font-weight:bold;">検索用JSON</button>
+            </div>
+
+            <!-- _spec_json タブ -->
+            <div id="debug-tab-spec-<?php echo esc_attr($html_id_suffix); ?>" class="debug-tab-content" style="display:block;">
+                <?php
+                $data = json_decode($json, true);
+                // 見やすく整形 (JSON形式)
+                $pretty_json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+                ?>
+                <textarea id="json-textarea-<?php echo esc_attr($html_id_suffix); ?>" style="width:100%; height:500px; font-family:monospace; font-size:12px; line-height:1.5; white-space:pre; background:#fff; border:1px solid #ddd; padding:10px;" readonly><?php echo esc_textarea($pretty_json); ?></textarea>
+                <button type="button" id="copy-json-btn-<?php echo esc_attr($html_id_suffix); ?>" style="margin-top:10px; padding:5px 15px; cursor:pointer; background:#fff; border:1px solid #2271b1; color:#2271b1; border-radius:3px;">📋 JSONをコピー</button>
+            </div>
+
+            <!-- 検索用JSON タブ -->
+            <div id="debug-tab-search-<?php echo esc_attr($html_id_suffix); ?>" class="debug-tab-content" style="display:none;">
+                <?php
+                // 検索用JSONデータを取得
+                if (function_exists('koto_get_flat_char_data')) {
+                    $search_data = koto_get_flat_char_data($target_id);
+                    if ($search_data) {
+                        $pretty_search_json = json_encode($search_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+                    } else {
+                        $pretty_search_json = json_encode(['error' => '検索用JSONデータが取得できません'], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+                    }
+                } else {
+                    $pretty_search_json = json_encode(['error' => 'koto_get_flat_char_data()関数が見つかりません'], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+                }
+                ?>
+                <textarea id="search-json-textarea-<?php echo esc_attr($html_id_suffix); ?>" style="width:100%; height:500px; font-family:monospace; font-size:12px; line-height:1.5; white-space:pre; background:#fff; border:1px solid #ddd; padding:10px;" readonly><?php echo esc_textarea($pretty_search_json); ?></textarea>
+                <button type="button" id="copy-search-json-btn-<?php echo esc_attr($html_id_suffix); ?>" style="margin-top:10px; padding:5px 15px; cursor:pointer; background:#fff; border:1px solid #2271b1; color:#2271b1; border-radius:3px;">📋 JSONをコピー</button>
+            </div>
 
             <script>
+                // タブ切り替え処理
+                document.querySelectorAll('.debug-tab-btn[data-suffix="<?php echo esc_js($html_id_suffix); ?>"]').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var tab = this.getAttribute('data-tab');
+                        var suffix = this.getAttribute('data-suffix');
+
+                        // すべてのタブをリセット
+                        document.querySelectorAll('.debug-tab-btn[data-suffix="' + suffix + '"]').forEach(function(b) {
+                            b.style.background = '#ccc';
+                            b.style.color = '#333';
+                        });
+                        document.querySelectorAll('.debug-tab-content').forEach(function(content) {
+                            if (content.id.includes(suffix)) {
+                                content.style.display = 'none';
+                            }
+                        });
+
+                        // クリックされたタブをアクティブに
+                        this.style.background = '#2271b1';
+                        this.style.color = '#fff';
+                        document.getElementById('debug-tab-' + tab + '-' + suffix).style.display = 'block';
+                    });
+                });
+
+                // _spec_json コピーボタン
                 document.getElementById('copy-json-btn-<?php echo esc_js($html_id_suffix); ?>').addEventListener('click', function() {
                     var copyText = document.getElementById("json-textarea-<?php echo esc_js($html_id_suffix); ?>");
                     copyText.select();
                     copyText.setSelectionRange(0, 99999); // スマホ対応
 
                     navigator.clipboard.writeText(copyText.value).then(function() {
-                        alert("JSONデータをクリップボードにコピーしました！");
+                        alert("_spec_json データをクリップボードにコピーしました！");
+                    }).catch(function(err) {
+                        console.error('コピーに失敗しました', err);
+                    });
+                });
+
+                // 検索用JSON コピーボタン
+                document.getElementById('copy-search-json-btn-<?php echo esc_js($html_id_suffix); ?>').addEventListener('click', function() {
+                    var copyText = document.getElementById("search-json-textarea-<?php echo esc_js($html_id_suffix); ?>");
+                    copyText.select();
+                    copyText.setSelectionRange(0, 99999); // スマホ対応
+
+                    navigator.clipboard.writeText(copyText.value).then(function() {
+                        alert("検索用JSONデータをクリップボードにコピーしました！");
                     }).catch(function(err) {
                         console.error('コピーに失敗しました', err);
                     });
