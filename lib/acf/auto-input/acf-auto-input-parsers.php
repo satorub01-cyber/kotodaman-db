@@ -564,10 +564,6 @@ function koto_parse_kotowaza($texts, $grouped_csv, $input_key = '')
 
         // 条件・効果ともに空の凸数（未入力の行）はスキップ
         if (empty($condition_text) && empty($effect_text)) {
-            $results[] = [
-                'kotowaza_condition'  => [],
-                'kotowaza_group_loop' => [],
-            ];
             continue;
         }
 
@@ -603,9 +599,6 @@ function koto_parse_kotowaza($texts, $grouped_csv, $input_key = '')
                     }
                 }
             }
-        }
-        if(empty($parsed_condition) && empty($parsed_effect)) {
-            continue;
         }
         // 3. 要求された形式で配列にまとめる
         $results[] = [
