@@ -317,7 +317,7 @@ function add_kotodaman_search_dashboard_widget()
 {
     wp_add_dashboard_widget(
         'kotodaman_official_search_widget',
-        'コトダマン公式検索 (portal除外)',
+        'コトダマン公式サイト内検索',
         'render_kotodaman_search_widget'
     );
 }
