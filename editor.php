@@ -308,3 +308,54 @@ function replace_select_with_custom_ui()
 <?php
 }
 ?>
+
+<?php
+// 管理画面のダッシュボードにウィジェットを登録
+add_action('wp_dashboard_setup', 'add_kotodaman_search_dashboard_widget');
+
+function add_kotodaman_search_dashboard_widget()
+{
+    wp_add_dashboard_widget(
+        'kotodaman_official_search_widget',
+        'コトダマン公式検索 (portal除外)',
+        'render_kotodaman_search_widget'
+    );
+}
+
+// ウィジェットのHTMLと検索クエリを構築するJSを出力
+function render_kotodaman_search_widget()
+{
+?>
+    <div class="kotodaman-search-container">
+        <form id="kotodaman-search-form" action="https://www.google.com/search" method="get" target="_blank">
+            <input type="text" id="kotodaman-search-input" placeholder="キーワードを入力...">
+            <input type="hidden" name="q" id="kotodaman-search-query">
+            <button type="submit" class="button button-primary">検索</button>
+        </form>
+    </div>
+    <script>
+        // 送信時にhiddenフィールドへ指定の演算子を付与した文字列をセット
+        document.getElementById('kotodaman-search-form').addEventListener('submit', function() {
+            const inputVal = document.getElementById('kotodaman-search-input').value;
+            const queryInput = document.getElementById('kotodaman-search-query');
+            queryInput.value = inputVal + ' site:kotodaman.jp -site:portal.kotodaman.jp';
+        });
+    </script>
+    <style>
+        .kotodaman-search-container {
+            padding: 10px 0;
+        }
+
+        #kotodaman-search-form {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #kotodaman-search-input {
+            flex-grow: 1;
+            max-width: 100%;
+        }
+    </style>
+<?php
+}

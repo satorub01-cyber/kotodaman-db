@@ -4,6 +4,22 @@ if (!defined('ABSPATH')) exit;
 //子テーマ用のビジュアルエディタースタイルを適用
 add_editor_style();
 
+// =================================================================
+// ファイル読み込み（全て最上部に集約）
+// =================================================================
+require_once get_stylesheet_directory() . '/lib/koto-variables.php';
+require_once get_stylesheet_directory() . '/lib/character-search/koto-search.php';
+require_once get_stylesheet_directory() . '/lib/koto-modal-displayer.php';
+require_once get_stylesheet_directory() . '/lib/koto-display.php';
+require_once get_stylesheet_directory() . '/lib/koto-calc.php';
+require_once get_stylesheet_directory() . '/lib/character-search/chara-list-functions.php';
+require_once get_stylesheet_directory() . '/editor.php';
+require_once get_stylesheet_directory() . '/lib/acf/acf-editor.php';
+require_once get_stylesheet_directory() . '/lib/character-search/koto-json-reformer.php';
+require_once get_stylesheet_directory() . '/lib/missing-info-characters.php';
+require_once get_stylesheet_directory() . '/lib/term-setter/term-setter-ajax.php';
+require_once get_stylesheet_directory() . '/lib/media-functions.php';
+
 //以下に子テーマ用の関数を書く
 // ▼▼▼ コトダマンDB用 カスタム関数 ▼▼▼
 
@@ -13,7 +29,6 @@ add_editor_style();
  * @param string $class_name imgタグにつけるクラス名
  * @return string imgタグまたはターム名
  */
-require_once get_stylesheet_directory() . '/lib/koto-variables.php';
 function get_term_icon_html($term, $class_name = 'term-icon')
 {
     if (!$term || !is_object($term)) return '未設定';
@@ -180,14 +195,6 @@ function auto_set_slug_to_id_multi($post_id, $post)
 }
 // 引数を2つ受け取ることを指定（10は優先順位、2は引数の数）
 add_action('save_post', 'auto_set_slug_to_id_multi', 10, 2);
-
-// =================================================================
-// 1. 検索ロジックファイルの読み込み (正しいファイル名に修正)
-// =================================================================
-// ※必ずサーバー上のファイル名を koto-search.php に直してから実行してください
-require_once get_stylesheet_directory() . '/lib/character-search/koto-search.php';
-require_once get_stylesheet_directory() . '/lib/koto-modal-displayer.php';
-
 
 // =================================================================
 // 2. CSSファイルの条件分岐読み込み (詳細用 / 検索用)
@@ -527,16 +534,6 @@ function add_extended_caps_to_contributor()
 }
 add_action('init', 'add_extended_caps_to_contributor');
 
-// =================================================================
-//  外部ファイルの読み込み
-// =================================================================
-// 表示関連の関数
-require_once get_stylesheet_directory() . '/lib/koto-display.php';
-
-// 計算・データ保存関連の関数
-require_once get_stylesheet_directory() . '/lib/koto-calc.php';
-
-require_once get_stylesheet_directory() . '/lib/character-search/chara-list-functions.php';
 /**
  * 1. event と affiliation の権限設定を強制的に上書き（特注の鍵穴にする）
  */
@@ -596,8 +593,6 @@ function grant_custom_caps_to_roles()
     }
 }
 add_action('admin_init', 'grant_custom_caps_to_roles');
-
-require_once get_stylesheet_directory() . '/editor.php';
 
 // =================================================================
 //  【管理用】全キャラクターデータ一括更新機能（デバッグ版）
@@ -1123,10 +1118,6 @@ add_action('wp_footer', function () {
     </script>
 <?php
 });
-// ACFフロントエディター（管理画面版）の読み込み
-require_once get_stylesheet_directory() . '/lib/acf/acf-editor.php';
-require_once get_stylesheet_directory() . '/lib/character-search/koto-json-reformer.php';
-require_once get_stylesheet_directory() . '/lib/missing-info-characters.php';
 
 $current_domain = $_SERVER['HTTP_HOST'] ?? '';
 if (str_ends_with($current_domain, 'kotodaman-db.com')) {
@@ -1179,9 +1170,6 @@ function enqueue_character_search_assets()
     wp_enqueue_script('character-search-script', get_stylesheet_directory_uri() . '/lib/character-search/searchform.js', array(), false, true);
 }
 add_action('wp_enqueue_scripts', 'enqueue_character_search_assets');
-
-// ターム一括付与Ajax処理
-require_once get_stylesheet_directory() . '/lib/term-setter/term-setter-ajax.php';
 
 // ショートコード [test_acf_mapping] を定義する関数
 function test_acf_mapping_shortcode()
