@@ -309,3 +309,26 @@
     height: auto !important;
     min-height: 36px;
 }
+
+/* admin-style.css など */
+.xdebug-toggle-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 99999;
+}
+
+.xdebug-toggle-btn {
+    font-size: 12px;
+    cursor: pointer;
+    background-color: #f0f0f1;
+    border: 1px solid #8c8f94;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.xdebug-toggle-btn.is-active {
+    background-color: #d63638;
+    color: #ffffff;
+    border-color: #d63638;
+}

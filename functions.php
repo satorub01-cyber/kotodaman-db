@@ -1365,3 +1365,17 @@ if (!function_exists('koto_get_short_character_name')) {
         return $full_name;
     }
 }
+
+// functions.php または対象のスクリプト読み込み処理
+add_action('admin_enqueue_scripts', function ($hook) {
+    // スクリプトの登録・読み込み（既存のハンドル名に合わせてください）
+    wp_enqueue_script('custom-ajax-script', get_template_directory_uri() . '/js/custom-ajax.js', ['jquery'], null, true);
+
+    // ローカル環境かどうかの判定
+    $is_local = (wp_get_environment_type() === 'local') || (isset($_SERVER['HTTP_HOST']) && str_contains($_SERVER['HTTP_HOST'], 'local'));
+
+    wp_localize_script('custom-ajax-script', 'AppDebugConfig', [
+        'isLocal' => $is_local,
+        'ajaxUrl' => admin_url('admin-ajax.php'),
+    ]);
+});
