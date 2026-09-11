@@ -925,7 +925,12 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $values = preg_split('/・/u', $value);
             $value = array_filter(array_map('trim', $values));
         } elseif (strpos($key, 'characters') === 0) {
-            $value = implode(',', mb_str_split($value));
+            if (preg_match('/[、,，]/u', $value)) {
+                $value = preg_replace('/[、，]/u', ',', $value);
+            } else {
+                // 区切り文字がない場合のみ1文字ずつ分割
+                $value = implode(',', mb_str_split($value));
+            }
         }
 
         if (is_array($value)) {

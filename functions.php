@@ -22,6 +22,11 @@ require_once get_stylesheet_directory() . '/lib/media-functions.php';
 
 //以下に子テーマ用の関数を書く
 // ▼▼▼ コトダマンDB用 カスタム関数 ▼▼▼
+// 画面に直接エラーを出力させる設定
+// ini_set('display_errors', '1');
+// ini_set('display_startup_errors', '1');
+// // error_reporting(E_ALL);
+
 
 /**
  * ターム（属性・種族）に設定されたアイコン画像を取得する関数

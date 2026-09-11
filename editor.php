@@ -307,9 +307,6 @@ function replace_select_with_custom_ui()
     </style>
 <?php
 }
-?>
-
-<?php
 // 管理画面のダッシュボードにウィジェットを登録
 add_action('wp_dashboard_setup', 'add_kotodaman_search_dashboard_widget');
 
