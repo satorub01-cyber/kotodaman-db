@@ -960,6 +960,55 @@ function koto_acf_editor_page_html()
                         $fields = acf_get_fields($source_group);
 
                         if ($fields) :
+                            // ========================================================
+                            // 非リピーターフィールド（タクソノミー、関係など）のコピーボタン
+                            // ========================================================
+                            $copy_target_fields = [
+                                'event','実装月（わかれば実装日）',
+                            ];
+                            foreach ($fields as $field) :
+                                if ($field['type'] === 'repeater') continue;
+                                if (!in_array($field['name'], $copy_target_fields)) continue; // 対象フィールドのみ表示
+                                $raw_val = get_field($field['key'], $source_post_id, false);
+                                if (empty($raw_val)) continue; // 値がなければスキップ
+                                
+                                $formatted_val = get_field($field['key'], $source_post_id, true);
+                                $preview = koto_acf_render_preview_html($formatted_val);
+                        ?>
+                                <div class="acf-single-copy-box" style="background:#f9f9f9; border:1px solid #ddd;">
+                                    <div class="copy-box-info">
+                                        <h4><?php echo esc_html($field['label']); ?> <span class="field-type-badge"><?php echo esc_html($field['type']); ?></span></h4>
+                                        <div class="copy-preview"><?php echo $preview; ?></div>
+                                    </div>
+
+                                    <div class="copy-box-action">
+                                        <?php if ($edit_post_id) :
+                                            $confirm_msg = "「{$field['label']}」をコピーして上書きします。\nよろしいですか？";
+                                        ?>
+                                            <form method="POST" action="" style="display:flex; gap:10px; align-items:center;">
+                                                <input type="hidden" name="acf_action" value="import_single_field">
+                                                <input type="hidden" name="target_post_id" value="<?php echo esc_attr($edit_post_id); ?>">
+                                                <input type="hidden" name="source_post_id" value="<?php echo esc_attr($source_post_id); ?>">
+                                                <input type="hidden" name="source_field_key" value="<?php echo esc_attr($field['key']); ?>">
+                                                <input type="hidden" name="field_label" value="<?php echo esc_attr($field['label']); ?>">
+                                                <input type="hidden" name="target_field_key" value="<?php echo esc_attr($field['key']); ?>">
+
+                                                <button type="submit" class="button button-secondary" onclick="return confirm('<?php echo esc_js($confirm_msg); ?>');">
+                                                    コピーして上書き
+                                                </button>
+                                            </form>
+                                        <?php else : ?>
+                                            <span style="color:#888; font-size:12px;">※左で編集先を選ぶとコピー可能</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+
+                        <?php
+                            endforeach;
+
+                            // ========================================================
+                            // リピーターフィールドのコピーボタン
+                            // ========================================================
                             foreach ($fields as $field) :
                                 if ($field['type'] !== 'repeater') continue;
                                 $raw_val = get_field($field['key'], $source_post_id, false);

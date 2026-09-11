@@ -14,7 +14,7 @@ get_header();
     <section class="db-section main-links">
         <h2>データベース・ツール</h2>
         <div class="link-grid">
-            <a href="<?php echo esc_url(home_url('/character/')); ?>" class="grid-item">
+            <a href="<?php echo esc_url(home_url('/?post_type=character')); ?>" class="grid-item">
                 <span class="icon">📊</span>
                 <span class="text">全キャラ一覧<br></span>
             </a>

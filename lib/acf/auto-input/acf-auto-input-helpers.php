@@ -185,11 +185,13 @@ function koto_duplicate_results_for_shift_attrs($results, $shift_attr_ids)
                 }
 
                 $waza_type = isset($sugo_detail['waza_type']) ? $sugo_detail['waza_type'] : null;
+                $waza_target = $result_copy['sugo_detail_loop'][$detail_index]['waza_target_detail'] ?? null;
+                $waza_target_attr = $result_copy['sugo_detail_loop'][$detail_index]['target_detail_attr'] ?? null;
 
                 // waza_typeの値に応じて更新するキーを分岐
                 if ($waza_type === 'attack' || $waza_type === 'command') {
                     $result_copy['sugo_detail_loop'][$detail_index]['attack_attr'] = $shift_attr_id;
-                } else {
+                } elseif (empty($waza_target) && empty($waza_target_attr)) {
                     $result_copy['sugo_detail_loop'][$detail_index]['waza_target_detail'] = 'attr';
                     $result_copy['sugo_detail_loop'][$detail_index]['target_detail_attr'] = $shift_attr_id;
                 }
