@@ -364,7 +364,7 @@ get_header();
                 <label class='buff_input'>バフ数</label>
                 <input type="number" id="buff_count" step="1" value="0" placeholder="0">
                 <label class='buff_input'>デバフ数</label>
-                <input type="number" id="debuff_count" step="1" value="0" placeholder="0">
+                <input type="number" id="debuff_count" class="heal_exclude" step="1" value="0" placeholder="0">
             </div>
         </div>
 
@@ -376,15 +376,15 @@ get_header();
                     <div class="small-note">各種補正</div>
                 </div>
                 <div>
-                    <input type="number" id="killer_percent_17" step="1" value="17">
+                    <input type="number" id="killer_percent_17" class="heal_exclude" step="1" value="17">
                     <div class="small-note">満福ロード(相手が妖の時のみ16)</div>
                 </div>
                 <div>
-                    <input type="number" id="killer_percent_4" step="1" value="4">
+                    <input type="number" id="killer_percent_4" class="heal_exclude" step="1" value="4">
                     <div class="small-note">メモリー補正</div>
                 </div>
                 <div>
-                    <?php echo render_ios_toggle('collabo_memory_killer_toggle', 'OFF', 'OFF', 'ON'); ?>
+                    <?php echo render_ios_toggle('collabo_memory_killer_toggle', 'OFF', 'OFF', 'ON', 40, true, 'heal_exclude'); ?>
                     <div class="small-note">キラー補正を+5%(コラボキャラのメモリー)</div>
                 </div>
             </div>
@@ -398,7 +398,7 @@ get_header();
             <label>その他補正 (属性・倍率)</label>
             <div class="input-row">
                 <div>
-                    <select id="elem_mult">
+                    <select id="elem_mult" class="heal_exclude">
                         <option value="2.0">有利(2倍)</option>
                         <option value="1.0">等倍</option>
                         <option value="0.5">不利(1/2倍)</option>
@@ -493,6 +493,10 @@ get_header();
     function getParams() {
         const healingToggle = document.querySelector('input[name="healing_toggle"][type="checkbox"]');
         const isHealing = healingToggle && healingToggle.checked;
+        const isHealingExcluded = id => {
+            const element = document.getElementById(id) || document.querySelector(`input[name="${id}"][type="checkbox"]`);
+            return isHealing && element && element.classList.contains('heal_exclude');
+        };
         const leaderCount = parseInt(document.getElementById('leader_count_selector').value);
         let leaderBuffs = [];
         for (let i = 1; i <= leaderCount; i++) {
@@ -502,11 +506,11 @@ get_header();
 
         // キラー + フィールド (全て加算)
         const kMain = parseFloat(document.getElementById('killer_percent_main').value) || 0;
-        const k17 = isHealing ? 0 : (parseFloat(document.getElementById('killer_percent_17').value) || 0);
-        const k4 = isHealing ? 0 : (parseFloat(document.getElementById('killer_percent_4').value) || 0);
+        const k17 = isHealingExcluded('killer_percent_17') ? 0 : (parseFloat(document.getElementById('killer_percent_17').value) || 0);
+        const k4 = isHealingExcluded('killer_percent_4') ? 0 : (parseFloat(document.getElementById('killer_percent_4').value) || 0);
         const collaboMemoryKillerToggle = document.querySelector('input[name="collabo_memory_killer_toggle"][type="checkbox"]');
         const isCollaboMemoryKiller = collaboMemoryKillerToggle && collaboMemoryKillerToggle.checked;
-        const collaboKillerBonus = isCollaboMemoryKiller ? 5 : 0;
+        const collaboKillerBonus = isHealingExcluded('collabo_memory_killer_toggle') ? 0 : (isCollaboMemoryKiller ? 5 : 0);
         const fieldP = parseFloat(document.getElementById('field_percent').value) || 0;
         const totalPercent = kMain + k17 + k4 + fieldP + collaboKillerBonus;
         const correctionMult = 1 + (totalPercent / 100);
@@ -522,8 +526,8 @@ get_header();
             leaders: leaderBuffs,
             comboCount: parseFloat(document.getElementById('combo_count').value) || 1.0,
             buffCount: parseInt(document.getElementById('buff_count').value) || 0,
-            debuffCount: isHealing ? 0 : (parseInt(document.getElementById('debuff_count').value) || 0),
-            elemMult: isHealing ? 1.0 : (parseFloat(document.getElementById('elem_mult').value) || 1.0),
+            debuffCount: isHealingExcluded('debuff_count') ? 0 : (parseInt(document.getElementById('debuff_count').value) || 0),
+            elemMult: isHealingExcluded('elem_mult') ? 1.0 : (parseFloat(document.getElementById('elem_mult').value) || 1.0),
             correctionMult: correctionMult,
             extraMult: parseFloat(document.getElementById('other_mult_extra').value) || 1.0,
             criticalUpPercent: criticalUpPercent / 100,
@@ -582,25 +586,20 @@ get_header();
         const healingToggle = document.querySelector('input[name="healing_toggle"][type="checkbox"]');
         const isHealing = healingToggle && healingToggle.checked;
 
-        // 親要素ごと薄くする項目
-        const parentTargetIds = ['killer_percent_17', 'killer_percent_4', 'elem_mult'];
-        parentTargetIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el && el.parentElement) {
-                el.parentElement.style.opacity = isHealing ? '0.4' : '1';
-                el.style.backgroundColor = isHealing ? '#f0f0f0' : '';
+        document.querySelectorAll('.heal_exclude').forEach(element => {
+            const toggleWrapper = element.closest('.ios-toggle-wrapper');
+            if (toggleWrapper) {
+                toggleWrapper.style.opacity = isHealing ? '0.4' : '1';
+            } else if (element.parentElement && element.parentElement.children.length === 1) {
+                element.parentElement.style.opacity = isHealing ? '0.4' : '1';
+            } else {
+                element.style.opacity = isHealing ? '0.4' : '1';
+                if (element.previousElementSibling) {
+                    element.previousElementSibling.style.opacity = isHealing ? '0.4' : '1';
+                }
             }
+            element.style.backgroundColor = isHealing ? '#f0f0f0' : '';
         });
-
-        // デバフ数（直前のラベルと合わせて薄くする）
-        const debuffEl = document.getElementById('debuff_count');
-        if (debuffEl) {
-            debuffEl.style.opacity = isHealing ? '0.4' : '1';
-            debuffEl.style.backgroundColor = isHealing ? '#f0f0f0' : '';
-            if (debuffEl.previousElementSibling) {
-                debuffEl.previousElementSibling.style.opacity = isHealing ? '0.4' : '1';
-            }
-        }
     }
 
     function loadHistory() {

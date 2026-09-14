@@ -2,7 +2,7 @@
 // =========================================================
 // iPhone風トグルスイッチを出力する共通関数（CSS＆JS内包版）
 // =========================================================
-function render_ios_toggle($name, $current_val = 'OR', $label_off = 'OR', $label_on = 'AND', $width = 40, $has_frame = true)
+function render_ios_toggle($name, $current_val = 'OR', $label_off = 'OR', $label_on = 'AND', $width = 40, $has_frame = true, $checkbox_class = '')
 {
     static $assets_outputted = false;
 
@@ -183,7 +183,7 @@ function render_ios_toggle($name, $current_val = 'OR', $label_off = 'OR', $label
         <span class="ios-toggle-label-text <?php echo $active_off; ?>"><?php echo esc_html($label_off); ?></span>
         <label class="ios-toggle-switch-dynamic">
             <input type="hidden" name="<?php echo esc_attr($name); ?>" value="OR">
-            <input type="checkbox" class="ios-toggle-checkbox" name="<?php echo esc_attr($name); ?>" value="AND" <?php checked($is_on, true); ?>>
+            <input type="checkbox" class="ios-toggle-checkbox <?php echo esc_attr($checkbox_class); ?>" name="<?php echo esc_attr($name); ?>" value="AND" <?php checked($is_on, true); ?>>
             <span class="ios-toggle-slider-dynamic"></span>
         </label>
         <span class="ios-toggle-label-text <?php echo $active_on; ?>"><?php echo esc_html($label_on); ?></span>
