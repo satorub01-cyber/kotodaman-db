@@ -395,7 +395,7 @@ $moji_axis_display = !empty($moji_axis_labels) ? implode('・', $moji_axis_label
         <dt>入手方法、実装イベントなど</dt>
         <dd>
             <?php
-            $events = get_the_terms(get_the_ID(), 'event');
+            $events = get_field('event', $post_id);
             if ($events && !is_wp_error($events)):
                 $event_links = [];
                 foreach ($events as $ev) {
@@ -412,7 +412,7 @@ $moji_axis_display = !empty($moji_axis_labels) ? implode('・', $moji_axis_label
         <dt>適正クエスト</dt>
         <dd>
             <?php
-            $quests = get_the_terms(get_the_ID(), 'suitable_quest');
+            $quests = get_field('quest', $post_id);
             if ($quests && !is_wp_error($quests)):
                 $quest_links = [];
                 foreach ($quests as $quest) {
@@ -1509,8 +1509,9 @@ if (false === $same_char_ids) {
                         return $a['date'] <=> $b['date'];
                     });
 
-                    // 最大9体を抽出
-                    foreach (array_slice($matched_chars, 0, 9) as $char) {
+
+                    // 最大15体を抽出
+                    foreach (array_slice($matched_chars, 0, 15) as $char) {
                         $same_char_ids[] = $char['id'];
                     }
                 }
@@ -1551,8 +1552,7 @@ if (!empty($same_char_ids)):
     </div>
 <?php
 endif;
-?>
-<?php
+
 // ==============================================
 //  4. 関連キャラクター表示エリア
 // ==============================================
@@ -1695,7 +1695,7 @@ endif;
 // ==============================================
 $new_args = [
     'post_type'      => 'character',
-    'posts_per_page' => 9,
+    'posts_per_page' => 6,
     'orderby'        => 'date',
     'order'          => 'DESC',
     'post__not_in'   => [$current_id],
