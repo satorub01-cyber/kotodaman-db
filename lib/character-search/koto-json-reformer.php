@@ -445,9 +445,9 @@ function koto_get_flat_char_data($post_id)
         $rarity_slugs[] = $spec['rarity_detail'];
     }
 
-    // 4. イベントのスラッグ配列
-    $events = wp_get_post_terms($post_id, 'event', ['fields' => 'slugs']);
-    $suitable_quests = wp_get_post_terms($post_id, 'suitable_quest', ['fields' => 'slugs']);
+    // 4. イベント・適正クエストは、保存済みspec_jsonの値を参照する
+    $events = $spec['event'] ?? [];
+    $suitable_quests = $spec['suitable_quest'] ?? [];
 
     // 6. スキルタグ文字列 (カンマ区切りなどを配列にするか、文字列のままか。検索を簡単にするため文字列のままにして `includes` で判定するのも手です)
     $waza_tags = get_post_meta($post_id, '_waza_tags_str', true) ?: '';

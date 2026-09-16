@@ -622,7 +622,7 @@ function force_update_all_characters_index()
     }
 
     // 4. 全キャラクター取得を小さめバッチで実行（ACF使用時のメモリ急増を抑える）
-    $posts_per_page = 20;
+    $posts_per_page = 100; // 1回のバッチで処理するキャラクター数
     $paged = isset($_GET['batch_page']) ? max(1, intval($_GET['batch_page'])) : 1;
     $count = 0;
 

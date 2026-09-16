@@ -175,6 +175,8 @@ function get_character_spec_data($post_id)
         'rarity_detail' => $rarity_detail,
         'max_lavel'     => (int)$max_lv,
         'release_date'  => '', // ★追加: 実装日用キー
+        'event'         => [],
+        'suitable_quest' => [],
         'attribute'     => '',
         'sub_attributes' => [],
         'species'       => '',
@@ -259,6 +261,29 @@ function get_character_spec_data($post_id)
             'slug' => $g->slug,
             'name' => $g->name
         ];
+    }
+
+    // ACFのタクソノミーフィールドはTermオブジェクトで返るため、slug配列として保存する
+    foreach (['event' => 'event', 'suitable_quest' => 'quest'] as $data_key => $field_name) {
+        $field_terms = get_field($field_name, $post_id);
+        if (!is_array($field_terms)) {
+            $field_terms = $field_terms ? [$field_terms] : [];
+        }
+
+        foreach ($field_terms as $term) {
+            if (is_object($term) && !is_wp_error($term) && !empty($term->slug)) {
+                $data[$data_key][] = $term->slug;
+            } elseif (is_array($term) && !empty($term['slug'])) {
+                $data[$data_key][] = $term['slug'];
+            } elseif (is_numeric($term)) {
+                $term_object = get_term($term, $data_key === 'event' ? 'event' : 'suitable_quest');
+                if ($term_object && !is_wp_error($term_object) && !empty($term_object->slug)) {
+                    $data[$data_key][] = $term_object->slug;
+                }
+            }
+        }
+
+        $data[$data_key] = array_values(array_unique($data[$data_key]));
     }
 
     // ★サブ属性の判定ロジック（保存フックから移動）
