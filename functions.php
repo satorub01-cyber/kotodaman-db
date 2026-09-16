@@ -670,9 +670,9 @@ function force_update_all_characters_index()
     if ($query->max_num_pages > $paged) {
         $next_page = $paged + 1;
         $next_url = add_query_arg(['run_update_index' => '1', 'batch_page' => $next_page]);
-        echo '<a href="' . esc_url($next_url) . '" style="display:inline-block; margin-top:10px; padding:10px 20px; background:#00a0d2; color:#fff; text-decoration:none;">次の20体を更新</a>';
+        echo '<a href="' . esc_url($next_url) . '" style="display:inline-block; margin-top:10px; padding:10px 20px; background:#00a0d2; color:#fff; text-decoration:none;">次の' . $posts_per_page . '体を更新</a>';
     } else {
-        echo '<a href="' . remove_query_arg(['run_update_index', 'batch_page']) . '" style="display:inline-block; margin-top:10px; padding:10px 20px; background:#00a0d2; color:#fff; text-decoration:none;">元の画面に戻る</a>';
+        echo '<a href="' . home_url('/wp-admin/edit.php?post_type=character&page=koto-json-reform') . '" style="display:inline-block; margin-top:10px; padding:10px 20px; background:#00a0d2; color:#fff; text-decoration:none;">元の画面に戻る</a>';
     }
 
     echo '</div>';
