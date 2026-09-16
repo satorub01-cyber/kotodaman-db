@@ -1131,36 +1131,6 @@ body.admin-bar .character-tab-section {
     /* 少し大きく */
     color: #333;
     /* 文字色 */
-    vertical-align: middle;
-    /* 上下位置調整 */
-}
-
-/* スマホなど画面が狭い時に、名前が長すぎたら改行 */
-@media (max-width: 480px) {
-    .skill-badge-area {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-    }
-
-    .skill-proper-name {
-        margin-left: 8px;
-        font-size: 1em;
-    }
-}
-
-/* スキル名（バッジの横のテキスト） */
-.skill-proper-name {
-    margin-left: 10px;
-    /* バッジとの間隔 */
-    font-weight: bold;
-    /* 太字 */
-    font-size: 1.1em;
-    /* 少し大きく */
-    color: #333;
-    /* 文字色 */
-    vertical-align: middle;
-    /* 上下位置調整 */
 }
 
 /* スマホなど画面が狭い時に、名前が長すぎたら改行 */

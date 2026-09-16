@@ -338,42 +338,65 @@ function render_simple_checkbox_list($taxonomy, $name_attr, $icon_only = false)
     echo '</div>';
 }
 
-add_action('template_redirect', 'redirect_taxonomy_archive_to_search');
-function redirect_taxonomy_archive_to_search()
+function koto_build_character_search_url($params)
 {
+    $query = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+    $query = preg_replace('/%5B\d+%5D(?==|&|$)/', '%5B%5D', $query);
+
+    return home_url('/') . ($query !== '' ? '?' . $query : '');
+}
+
+add_action('template_redirect', 'koto_unified_search_redirect');
+function koto_unified_search_redirect()
+{
+    $url_params = null;
+
     if (is_tax() || is_category() || is_tag()) {
         $term = get_queried_object();
 
-        if ($term && isset($term->taxonomy, $term->slug)) {
-            $tax_name  = $term->taxonomy;
-            if ($tax_name === 'affiliation') {
-                $tax_name = 'tx_group';
-            } elseif ($tax_name === 'attribute') {
-                $tax_name = 'tx_attr';
-            } elseif ($tax_name === 'species') {
-                $tax_name = 'tx_species';
-            } elseif ($tax_name === 'event') {
-                $tax_name = 'tx_event';
-            } elseif ($tax_name === 'gimmick') {
-                $tax_name = 'tx_gimmick';
-            } elseif ($tax_name === 'rarity') {
-                $tax_name = 'tx_rarity';
-            }
-            $term_slug = urlencode($term->slug);
+        $taxonomy_map = [
+            'affiliation'    => 'tx_group',
+            'attribute'      => 'tx_attr',
+            'species'        => 'tx_species',
+            'event'          => 'tx_event',
+            'gimmick'        => 'tx_gimmick',
+            'rarity'         => 'tx_rarity',
+            'available_moji' => 'search_char',
+            'suitable_quest' => 'tx_quest',
+        ];
 
-            $redirect_url = home_url('/?post_type=character&' . $tax_name . '%5B%5D=' . $term_slug);
-            $redirect_url = $redirect_url; // URLエンコードして日本語スラッグを正しく表示
-
-            wp_redirect($redirect_url, 301);
-            exit;
+        if (!$term || !isset($term->taxonomy, $term->slug) || !isset($taxonomy_map[$term->taxonomy])) {
+            return;
         }
+
+        $url_params = $_GET;
+
+        // available_mojiの場合はタームのnameを文字列として指定、それ以外はslugを配列で指定
+        if ($term->taxonomy === 'available_moji') {
+            $url_params[$taxonomy_map[$term->taxonomy]] = $term->name;
+        } else {
+            $url_params[$taxonomy_map[$term->taxonomy]] = [$term->slug];
+        }
+    } elseif (is_post_type_archive('character') && !is_search()) {
+        $url_params = $_GET;
+    } else {
+        return;
     }
+
+    $url_params['post_type'] = 'character';
+    if (!array_key_exists('s', $url_params)) {
+        $url_params['s'] = '';
+    }
+
+    $redirect_url = koto_build_character_search_url($url_params);
+    wp_safe_redirect($redirect_url, 302);
+    exit;
 }
-// ② WordPressによる勝手なURL書き換え（[0]への変換など）を防止する処理
+
+// WordPressによる勝手なURL書き換えを防止する処理
 add_filter('redirect_canonical', 'disable_canonical_redirect_for_koto_search', 10, 2);
 function disable_canonical_redirect_for_koto_search($redirect_url, $requested_url)
 {
-    // リクエストURLに '%5B%5D=' ( []= ) が含まれている場合、WordPressの自動リダイレクトを無効化する
     if (strpos($requested_url, '%5B%5D=') !== false || strpos($requested_url, '[]=') !== false) {
         return false;
     }

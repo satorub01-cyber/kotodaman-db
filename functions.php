@@ -975,38 +975,6 @@ function koto_custom_search_template($template)
     return $template;
 }
 
-// =================================================================
-// キャラクターアーカイブ (/character/) を検索結果へリダイレクト
-// =================================================================
-add_action('template_redirect', function () {
-    // キャラクターのアーカイブページを検索結果へ変換
-    if (is_post_type_archive('character') && !is_search()) {
-
-        // 現在のURLパラメータを連想配列として取得
-        $url_params = $_GET;
-
-        // s パラメータがある場合は削除し、検索対象をcharacterに固定
-        if (isset($url_params['s'])) {
-            unset($url_params['s']);
-        } else {
-            // s がない場合は空文字を付けて検索ページとして扱う
-            $url_params['s'] = '';
-        }
-        $url_params['post_type'] = 'character';
-
-        // 現在のベースURLを取得
-        $base_url = home_url('/');
-
-        // パラメータをURLクエリ文字列に再構築して合体させる
-        // 例: ?post_type=character&tx_attr%5B0%5D=light&s=
-        $redirect_url = add_query_arg($url_params, $base_url);
-
-        // リダイレクトを実行
-        wp_safe_redirect($redirect_url);
-        exit;
-    }
-});
-
 add_action('admin_init', function () {
     if (isset($_GET['force_calc_id'])) {
         $post_id = intval($_GET['force_calc_id']);
