@@ -979,16 +979,20 @@ function koto_custom_search_template($template)
 // キャラクターアーカイブ (/character/) を検索結果へリダイレクト
 // =================================================================
 add_action('template_redirect', function () {
-    // キャラクターのアーカイブページ、かつ検索ページ（sパラメータが存在する状態）でない場合
+    // キャラクターのアーカイブページを検索結果へ変換
     if (is_post_type_archive('character') && !is_search()) {
 
         // 現在のURLパラメータを連想配列として取得
         $url_params = $_GET;
 
-        // s パラメータが含まれていない、またはnullの場合に空文字で追加
-        if (!isset($url_params['s'])) {
+        // s パラメータがある場合は削除し、検索対象をcharacterに固定
+        if (isset($url_params['s'])) {
+            unset($url_params['s']);
+        } else {
+            // s がない場合は空文字を付けて検索ページとして扱う
             $url_params['s'] = '';
         }
+        $url_params['post_type'] = 'character';
 
         // 現在のベースURLを取得
         $base_url = home_url('/');

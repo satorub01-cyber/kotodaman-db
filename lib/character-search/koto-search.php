@@ -361,7 +361,7 @@ function redirect_taxonomy_archive_to_search()
             }
             $term_slug = urlencode($term->slug);
 
-            $redirect_url = home_url('/?post_type=character&s=&' . $tax_name . '%5B%5D=' . $term_slug);
+            $redirect_url = home_url('/?post_type=character&' . $tax_name . '%5B%5D=' . $term_slug);
             $redirect_url = $redirect_url; // URLエンコードして日本語スラッグを正しく表示
 
             wp_redirect($redirect_url, 301);
