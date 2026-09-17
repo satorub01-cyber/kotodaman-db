@@ -226,11 +226,9 @@
 
 /* 条件・効果の行 */
 .skill-row {
-    display: flex;
-    /* 横並び */
+    display: block;
+    /* 区分バッジを本文の上に配置 */
     margin-bottom: 8px;
-    align-items: baseline;
-    /* 文字のベースラインを揃える */
 }
 
 .skill-row:last-child {
@@ -239,17 +237,17 @@
 
 /* 「条件」「効果」の小さなラベル */
 .label-tag {
-    flex-shrink: 0;
-    /* 縮まないようにする */
-    width: 40px;
+    display: inline-block;
+    width: fit-content;
+    min-width: 40px;
     font-size: 10px;
     text-align: center;
-    padding: 2px 0;
     border-radius: 3px;
-    margin-right: 10px;
+    margin: 0 0 5px;
     color: #fff;
     font-weight: bold;
     white-space: normal;
+    padding: 3px;
 }
 
 .tag-cond {
@@ -285,8 +283,7 @@
 
 /* 効果リストのレイアウト */
 .skill-text-block {
-    flex: 1;
-    /* 残りの幅を全部使う */
+    width: 100%;
 }
 
 .skill-effect-line {
@@ -1122,6 +1119,17 @@ body.admin-bar .character-tab-section {
 }
 
 /* スキル名（バッジの横のテキスト） */
+.skill-badge-area {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.skill-badge-area .skill-badge {
+    margin-bottom: 8px;
+    align-self: center;
+    padding-top: 5px;
+}
+
 .skill-proper-name {
     margin-left: 10px;
     /* バッジとの間隔 */
@@ -1131,6 +1139,7 @@ body.admin-bar .character-tab-section {
     /* 少し大きく */
     color: #333;
     /* 文字色 */
+    margin-bottom: 5px;
 }
 
 /* スマホなど画面が狭い時に、名前が長すぎたら改行 */
