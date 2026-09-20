@@ -241,13 +241,17 @@ function get_koto_trait_text_from_row($row)
                         // 「HP〇〇%以上/以下」
                         if ($c_val) {
                             $hp_detail = isset($cond_item['hp_cond_detail']) ? $cond_item['hp_cond_detail'] : 'more';
-                            $hp_label = '以上';
-                            if ($hp_detail === 'less') {
-                                $hp_label = '以下';
-                            } elseif ($hp_detail === 'just') {
-                                $hp_label = '';
+                            if ((float)$c_val >= 100 && $hp_detail !== 'less') {
+                                $cond_parts[] = 'HPMAX';
+                            } else {
+                                $hp_label = '以上';
+                                if ($hp_detail === 'less') {
+                                    $hp_label = '以下';
+                                } elseif ($hp_detail === 'just') {
+                                    $hp_label = '';
+                                }
+                                $cond_parts[] = "HP{$c_val}%{$hp_label}";
                             }
-                            $cond_parts[] = "HP{$c_val}%{$hp_label}";
                         }
                         break;
 
@@ -315,7 +319,7 @@ function get_koto_trait_text_from_row($row)
 
                     case 'fuku_count':
                         // 「福〇〇以上」
-                        $cond_parts[] = "福{$c_val}以上";
+                         $cond_parts[] = $c_val>=99 ? "満福" : "福{$c_val}以上";
                         break;
 
                     case 'other':
@@ -340,13 +344,13 @@ function get_koto_trait_text_from_row($row)
         $last_char = mb_substr($joined, -1);
 
         // 「の」が必要な文字リスト
-        $nouns = ['上', '下', '伐', 'み', 'き', '%', '回', '体', '性', '字', '」'];
+        $nouns = ['上', '下', '伐', 'み', 'き', '%', '回', '体', '性', '字', '」','福','X'];
 
         if (in_array($last_char, $nouns)) {
-            $cond_text = $joined . 'のとき';
+            $cond_text = $joined . 'の時';
         } else {
             // 動詞系（受けた、いる、作った 等）
-            $cond_text = $joined . 'とき';
+            $cond_text = $joined . '時';
         }
     }
     // 2. メイン効果
@@ -959,8 +963,12 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                                 $part_text = "「{$cv}」テーマのことばを作った時";
                                 break;
                             case 'hpcond':
-                                $hp_label = ($p_cond['hp'] === 'less') ? '以下' : '以上';
-                                $part_text = "HP{$cv}%{$hp_label}の時";
+                                if ((float)$cv >= 100 && $p_cond['hp'] !== 'less') {
+                                    $part_text = 'HPMAXの時';
+                                } else {
+                                    $hp_label = ($p_cond['hp'] === 'less') ? '以下' : '以上';
+                                    $part_text = "HP{$cv}%{$hp_label}の時";
+                                }
                                 break;
                             case 'attr':
                                 $attr_name = $cv;
