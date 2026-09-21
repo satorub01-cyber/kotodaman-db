@@ -951,6 +951,8 @@ function koto_acf_editor_page_html()
                             // ========================================================
                             $copy_target_fields = [
                                 'event','実装月（わかれば実装日）',
+                                'waza_maltiplier_table_group',
+                                'sugowaza_maltiplier_table_group',
                             ];
                             foreach ($fields as $field) :
                                 if ($field['type'] === 'repeater') continue;
@@ -964,7 +966,14 @@ function koto_acf_editor_page_html()
                                 <div class="acf-single-copy-box" style="background:#f9f9f9; border:1px solid #ddd;">
                                     <div class="copy-box-info">
                                         <h4><?php echo esc_html($field['label']); ?> <span class="field-type-badge"><?php echo esc_html($field['type']); ?></span></h4>
-                                        <div class="copy-preview"><?php echo $preview; ?></div>
+                                        <?php if ($field['type'] === 'group') : ?>
+                                            <details class="copy-preview-details">
+                                                <summary style="cursor:pointer; color:#007cba;">詳細を展開して確認</summary>
+                                                <div class="copy-preview" style="margin-top:8px;"><?php echo $preview; ?></div>
+                                            </details>
+                                        <?php else : ?>
+                                            <div class="copy-preview"><?php echo $preview; ?></div>
+                                        <?php endif; ?>
                                     </div>
 
                                     <div class="copy-box-action">
