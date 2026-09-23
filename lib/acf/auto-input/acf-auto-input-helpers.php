@@ -508,6 +508,62 @@ function koto_ensure_acf_data_list($acf_data)
 }
 
 /**
+ * JSONテンプレート内のプレースホルダ起点の乗除算式を数値へ変換する。
+ * 許可する演算子は * と / のみで、式は左から順に評価する。
+ *
+ * @param string $json_template JSONテンプレート。
+ * @param array<string, mixed> $matches プレースホルダの値。
+ * @return string 計算できた式を数値へ置換したJSONテンプレート。
+ */
+function koto_resolve_numeric_expressions($json_template, $matches)
+{
+    $expression_pattern = '/"(\$[a-zA-Z0-9_]+(?:\s*[\*\/]\s*(?:\$[a-zA-Z0-9_]+|-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)))+)"/';
+
+    return preg_replace_callback($expression_pattern, function ($expression_match) use ($matches) {
+        $expression = $expression_match[1];
+        preg_match_all('/\$([a-zA-Z0-9_]+)|(-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+))|([\*\/])/', $expression, $tokens, PREG_SET_ORDER);
+
+        if (empty($tokens) || !isset($tokens[0][1]) || $tokens[0][1] === '') {
+            return $expression_match[0];
+        }
+
+        $first_name = $tokens[0][1];
+        if (!array_key_exists($first_name, $matches) || !is_numeric($matches[$first_name])) {
+            return $expression_match[0];
+        }
+
+        $result = (float) $matches[$first_name];
+        for ($index = 1; $index < count($tokens); $index += 2) {
+            if (!isset($tokens[$index][3], $tokens[$index + 1])) {
+                return $expression_match[0];
+            }
+
+            $operator = $tokens[$index][3];
+            $operand_tokens = $tokens[$index + 1];
+            if ($operand_tokens[1] !== '') {
+                $operand_name = $operand_tokens[1];
+                $operand = $matches[$operand_name] ?? null;
+            } else {
+                $operand = $operand_tokens[2];
+            }
+
+            if (!is_numeric($operand) || ($operator === '/' && (float) $operand == 0.0)) {
+                return $expression_match[0];
+            }
+
+            $result = $operator === '*'
+                ? $result * (float) $operand
+                : $result / (float) $operand;
+        }
+
+        if (is_finite($result) && floor($result) == $result) {
+            return (string) (int) $result;
+        }
+        return (string) $result;
+    }, $json_template);
+}
+
+/**
  * テンプレート（| 区切り可）に変数を適用し、デコード済み行の配列を返す。
  *
  * @param string $json_template JSONテンプレート文字列（| 区切り可）。
@@ -545,6 +601,7 @@ function koto_apply_variables_to_json_rows($json_template, $matches, $input_key 
  */
 function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
 {
+    $json_template = koto_resolve_numeric_expressions($json_template, $matches);
     $replacements = [];
     $unquote_keys = [];
     $flat_waza_target_fields = [];
