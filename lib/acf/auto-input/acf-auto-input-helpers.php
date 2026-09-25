@@ -906,7 +906,12 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             // わざ系は Group ではなくフラットな target 系フィールドを使う
             $raw_target = trim((string) $value);
             $target_main = 'self';
-            if (mb_strpos($raw_target, '味方全体') !== false || mb_strpos($raw_target, '味方全員') !== false || $raw_target === '味方') {
+            if (mb_strpos($raw_target, '手札の味方') === 0) {
+                $target_main = 'hand_ally';
+            } elseif (mb_strpos($raw_target, '手札の') === 0) {
+                $target_main = 'limited_hand';
+                $raw_target = mb_substr($raw_target, mb_strlen('手札の'));
+            } elseif (mb_strpos($raw_target, '味方全体') !== false || mb_strpos($raw_target, '味方全員') !== false || $raw_target === '味方') {
                 $target_main = 'all_ally';
             } elseif (strpos($raw_target, '自身') !== false) {
                 $target_main = 'self';
@@ -1197,7 +1202,6 @@ function koto_preprocess_text($text, $category = '')
 {
     $ignore_texts = koto_get_ignore_texts_by_category($category);
 
-    $text = preg_replace('/\(敵の行動時、そのターンに.+?が各敵にわざ・すごわざ・コトわざで与えた合計ダメージの[\d.]+%の値で固定ダメージを与える効果\)/u', '', $text);
     // 英数字とスペースを半角に
     $text = mb_convert_kana($text, 'as', 'UTF-8');
 
@@ -1236,6 +1240,7 @@ function koto_preprocess_text($text, $category = '')
     $text = str_replace(' ', '', $text);
     $text = trim(str_replace($ignore_texts, '', $text));
 
+    $text = preg_replace('/\(敵の行動時、そのターンに.+?が各敵にわざ・すごわざ・コトわざで与えた合計ダメージの[\d.]+%の値で固定ダメージを与える効果\)/u', '', $text);
     return trim($text);
 }
 
