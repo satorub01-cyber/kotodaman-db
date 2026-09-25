@@ -868,7 +868,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $value = array_filter(array_map('trim', $values));
         } elseif (strpos($key, 'heal_prefix') === 0) {
             // 超大きく、大きく、かなりなどの治癒フレーズを処理
-            $value = str_replace(['超大きく', '大きく', 'かなり'], ['1.5', '1.2', '0.8'], $value);
+            $value = str_replace(['超大きく', '大きく', 'かなり'], ['2', '1.2', '0.8'], $value);
         } elseif (strpos($key, 'mitigation_prefix') === 0) {
             // 超大きく、大きく、かなりなどのダメージフレーズを処理
             $value = str_replace(['大きく軽減', '軽減'], ['50', '25'], $value);
