@@ -1,0 +1,131 @@
+/* =================================================================
+ * 管理画面調整用 スタイルシート
+ * ================================================================= */
+
+/* --- 複製ボタンのデザイン --- */
+.my-acf-duplicate-bottom {
+    display: block;
+    width: 100%;
+    margin-top: 15px !important;
+    margin-bottom: 5px !important;
+    background-color: #2271b1 !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 4px !important;
+    padding: 10px 0 !important;
+    font-weight: bold;
+    font-size: 13px !important;
+    text-decoration: none;
+    cursor: pointer;
+    text-align: center;
+    box-shadow: 0 2px 0 #135e96;
+    clear: both;
+}
+.my-acf-duplicate-bottom:hover {
+    background-color: #135e96 !important;
+    color: #fff !important;
+}
+.my-acf-duplicate-bottom:active {
+    transform: translateY(1px);
+    box-shadow: none;
+}
+.my-acf-duplicate-bottom:before {
+    content: "\f105";
+    font-family: dashicons;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+/* --- スマホ調整 --- */
+@media screen and (max-width: 782px) {
+    /* 1. 横揺れ（スクロール）の完全防止 */
+    html, body, #wpwrap, #wpcontent, #wpbody {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+    }
+
+    /* 2. ACFテーブル構造の強制リセット */
+    .acf-table, .acf-tbody, .acf-tr, .acf-th, .acf-td {
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* 3. 行（Row）をFlexboxで整形 */
+    .acf-repeater .acf-row {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+    }
+
+    /* 4. 左側のハンドル（行番号・削除ボタン） */
+    .acf-repeater .acf-row-handle {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        flex: 0 0 20px !important;
+        width: 20px !important;
+        max-width: 20px !important;
+        min-width: 20px !important;
+        background: #f9f9f9 !important;
+        border-right: 1px solid #ccd0d4 !important;
+        padding-top: 10px !important;
+        box-sizing: border-box !important;
+        font-size: 12px !important;
+    }
+
+    /* 削除ボタンなどがはみ出さないように */
+    .acf-row-handle .acf-icon {
+        position: static !important;
+        margin: 0 auto 10px auto !important;
+        float: none !important;
+    }
+
+    /* 入れ子（ネスト）対策：深くなっても左余白を作らせない */
+    .acf-field .acf-input {
+        padding: 0 !important;
+    }
+    .acf-field-repeater .acf-input .acf-repeater {
+        margin-left: 0 !important;
+        border-left: none !important;
+    }
+
+    /* 長い英数字やURLによる強制改行 */
+    .acf-label label, .acf-input, p, span, div {
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+
+    /* 5. 右側の入力エリア */
+    .acf-repeater .acf-fields {
+        flex: 1 1 auto !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        padding: 4px 2px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* 6. 個別の入力項目（フィールド）の余白も詰める */
+    .acf-fields > .acf-field {
+        padding: 2px 1px !important;
+        margin: 0 !important;
+        border-top: 1px solid #eee;
+    }
+    .acf-fields > .acf-field:first-child {
+        border-top: none;
+    }
+
+    /* 入力欄自体の文字サイズ確保 */
+    input, textarea, select, .acf-input {
+        font-size: 16px !important;
+        max-width: 100% !important;
+    }
+
+    /* 管理バー固定 */
+    #wpadminbar { position: fixed; top: 0; width: 100%; z-index: 99999; }
+    html { margin-top: 46px !important; }
+}

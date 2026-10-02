@@ -402,3 +402,59 @@ function disable_canonical_redirect_for_koto_search($redirect_url, $requested_ur
     }
     return $redirect_url;
 }
+
+/**
+ * 検索結果からパスワード保護ページを除外する
+ *
+ * @param string $where SQL WHERE句
+ * @param WP_Query $query クエリオブジェクト
+ * @return string 変更されたWHERE句
+ */
+function exclude_password_protected_from_search($where, $query)
+{
+    global $wpdb;
+
+    if (!is_admin() && $query->is_search() && $query->is_main_query()) {
+        $where .= " AND {$wpdb->posts}.post_password = '' ";
+    }
+
+    return $where;
+}
+add_filter('posts_where', 'exclude_password_protected_from_search', 10, 2);
+
+/**
+ * キャラクター検索時のテンプレート振り分け設定
+ *
+ * @param string $template 読み込まれるテンプレートファイルパス
+ * @return string 決定されたテンプレートファイルパス
+ */
+function koto_custom_search_template($template)
+{
+    if (is_search()) {
+        $post_type = get_query_var('post_type');
+        if (empty($post_type) && isset($_GET['post_type'])) {
+            $post_type = $_GET['post_type'];
+        }
+
+        if ($post_type === 'character') {
+            $new_template = locate_template(['/lib/character-search/search-character.php']);
+            if ($new_template) return $new_template;
+        }
+    }
+    return $template;
+}
+add_filter('template_include', 'koto_custom_search_template');
+
+/**
+ * キャラクター検索フォームのCSSとJSを読み込む
+ *
+ * @return void
+ */
+function enqueue_character_search_assets()
+{
+    $theme_uri = get_stylesheet_directory_uri();
+    wp_enqueue_style('character-search-style', $theme_uri . '/lib/character-search/searchform.css');
+    wp_enqueue_script('character-search-script', $theme_uri . '/lib/character-search/searchform.js', array(), false, true);
+}
+add_action('wp_enqueue_scripts', 'enqueue_character_search_assets');
+
