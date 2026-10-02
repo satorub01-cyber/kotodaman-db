@@ -928,6 +928,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             if ($target_main === 'limited_ally' || $target_main === 'limited_hand') {
                 if (strpos($raw_target, '属性') !== false) {
                     $raw_target = str_replace('属性', '', $raw_target);
+                    $raw_target = str_replace('の味方', '', $raw_target);
                     $attr_names = preg_split('/[・\|]/u', trim($raw_target));
                     foreach ((array) $attr_names as $name) {
                         $term = get_term_by('name', trim($name), 'attribute');
@@ -940,6 +941,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                     }
                 } elseif (strpos($raw_target, '種族') !== false) {
                     $raw_target = str_replace('種族', '', $raw_target);
+                    $raw_target = str_replace('の味方', '', $raw_target);
                     $species_names = preg_split('/[・\|]/u', trim($raw_target));
                     foreach ((array) $species_names as $name) {
                         $term = get_term_by('name', trim($name), 'species');
@@ -953,6 +955,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                 } elseif (strpos($raw_target, '「') !== false && strpos($raw_target, '」') !== false) {
                     $raw_target = str_replace('「', '', $raw_target);
                     $raw_target = str_replace('」', '', $raw_target);
+                    $raw_target = str_replace('の味方', '', $raw_target);
                     $group_names = preg_split('/[・\|]/u', trim($raw_target));
                     foreach ((array) $group_names as $name) {
                         $term = get_term_by('name', trim($name), 'affiliation');
