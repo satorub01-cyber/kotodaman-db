@@ -851,6 +851,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                 }
             }
         } elseif (strpos($key, 'prefix') === 0) {
+            $value = str_replace('する','', $value);
             $value = str_replace(['増加', '強化', '上昇', '軽減'], '', $value);
             if (function_exists('koto_get_buff_prefix_map')) {
                 $prefix_map = koto_get_buff_prefix_map();
@@ -1242,7 +1243,11 @@ function koto_preprocess_text($text, $category = '')
     // 改行コードを統一
     $text = str_replace(['\n', '\r', "\n", "\r"], "\n", $text);
     $text = str_replace(' ', '', $text);
+
+    // 「、さらに」はdetail_loop行分割の役割を持つため消去せず保護する
+    $text = str_replace('、さらに', '___TEMP_COMMA_SARANI___', $text);
     $text = trim(str_replace($ignore_texts, '', $text));
+    $text = str_replace('___TEMP_COMMA_SARANI___', '、さらに', $text);
 
     $text = preg_replace('/\(敵の行動時、そのターンに.+?が各敵にわざ・すごわざ・コトわざで与えた合計ダメージの[\d.]+%の値で固定ダメージを与える効果\)/u', '', $text);
     return trim($text);

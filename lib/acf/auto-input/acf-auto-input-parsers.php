@@ -218,9 +218,9 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
             $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
         }
 
-        // わざ効果の抽出（全角＋にも対応）
-        // +で分割された各効果部分を処理（1つのgroup_loopで複数の効果を統合）
-        $child_parts = explode('+', $remaining_text);
+        // わざ効果の抽出（全角＋にも対応、「、さらに」も＋と同様に行分割として扱う）
+        // + や「、さらに」で分割された各効果部分を処理（1つのgroup_loopで複数の効果を統合）
+        $child_parts = preg_split('/(?:\+|、さらに)/u', $remaining_text);
 
         foreach ($child_parts as $child_part) {
             $child_part = trim((string) $child_part);
@@ -228,58 +228,14 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
                 continue;
             }
 
-            $child_segments = preg_split('/。さらに/u', $child_part);
-            if ($child_segments === false || empty($child_segments)) {
-                $child_segments = [$child_part];
-            }
-
-            $segment_conditions = $conditions;
-            foreach ($child_segments as $segment_index => $child_segment) {
-                $child_segment = trim((string) $child_segment);
-                if ($child_segment === '') {
-                    continue;
-                }
-
-                if ($segment_index > 0) {
-                    while (true) {
-                        $match = koto_match_csv_template(
-                            $child_segment,
-                            $waza_condition_rows,
-                            $input_key,
-                            'prefix'
-                        );
-                        if (!koto_is_csv_template_match($match)) {
-                            break;
-                        }
-
-                        if ($match['acf_data'] !== null) {
-                            foreach (koto_ensure_acf_data_list($match['acf_data']) as $acf_item) {
-                                if (empty($acf_item)) {
-                                    continue;
-                                }
-                                if (isset($acf_item['condition_type_loop']) && is_array($acf_item['condition_type_loop'])) {
-                                    foreach ($acf_item['condition_type_loop'] as $cond_item) {
-                                        $segment_conditions[] = $cond_item;
-                                    }
-                                } else {
-                                    $segment_conditions[] = $acf_item;
-                                }
-                            }
-                        }
-
-                        $child_segment = trim(mb_substr($child_segment, mb_strlen($match['matched_text'])));
+            $match = koto_match_csv_template($child_part, $waza_rows, $input_key);
+            if (koto_is_csv_template_match($match)) {
+                $effect_rows = koto_ensure_acf_data_list($match['acf_data']);
+                foreach ($effect_rows as $effect_data) {
+                    if (!is_array($effect_data) || empty($effect_data)) {
+                        continue;
                     }
-                }
-
-                $match = koto_match_csv_template($child_segment, $waza_rows, $input_key);
-                if (koto_is_csv_template_match($match)) {
-                    $effect_rows = koto_ensure_acf_data_list($match['acf_data']);
-                    foreach ($effect_rows as $effect_data) {
-                        if (!is_array($effect_data) || empty($effect_data)) {
-                            continue;
-                        }
-                        $all_effects[] = $effect_data;
-                    }
+                    $all_effects[] = $effect_data;
                 }
             }
         }
