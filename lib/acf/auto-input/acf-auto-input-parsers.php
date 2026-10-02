@@ -854,181 +854,199 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
         // ----------------------------------------------------
         // パターンB: 通常の固定値等の処理（条件 → 対象 → 効果）
         // ----------------------------------------------------
-        $conditions = [];
-        $targets = [];
-        $limit_wave = "";
-
-        // 1. 条件の抽出ループ
         while (mb_strlen($remaining_text) > 0) {
-            $prev_len = mb_strlen($remaining_text);
-            // 【修正】先頭に残った「、」や「,」も削る
+            $prev_pattern_b_len = mb_strlen($remaining_text);
             $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
+            if ($remaining_text === '') {
+                break;
+            }
 
-            $match = koto_match_csv_template($remaining_text, $condition_rows, $input_key, 'prefix');
-            if (koto_is_csv_template_match($match)) {
-                $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
-                foreach ($acf_rows as $row) {
-                    if (isset($row['limit_wave_count'])) {
-                        $limit_wave = $row['limit_wave_count'];
-                    }
-                    if (isset($row['ls_cond_pattern_loop'])) {
-                        $conditions = array_merge($conditions, $row['ls_cond_pattern_loop']);
-                    } elseif (isset($row['ls_cond_loop'])) {
-                        $conditions = array_merge($conditions, $row['ls_cond_loop']);
-                    } else {
-                        $cond_item = $row;
-                        unset($cond_item['limit_wave_count']);
+            $conditions = [];
+            $targets = [];
+            $limit_wave = "";
 
-                        if (!empty($cond_item)) {
-                            // 【修正】同一の ls_cond_type がすでにある場合はマージする（編成条件を1つのANDにまとめる）
-                            $merged = false;
-                            if (isset($cond_item['ls_cond_type'])) {
-                                foreach ($conditions as &$existing_cond) {
-                                    if (isset($existing_cond['ls_cond_type']) && $existing_cond['ls_cond_type'] === $cond_item['ls_cond_type']) {
-                                        foreach ($cond_item as $k => $v) {
-                                            if ($k === 'ls_cond_type' || $k === 'ls_cond_val') continue;
-                                            // リピーター配列(ls_party_cond_loop等)ならマージする
-                                            if (is_array($v) && isset($existing_cond[$k]) && is_array($existing_cond[$k])) {
-                                                $existing_cond[$k] = array_merge($existing_cond[$k], $v);
-                                            } else {
-                                                $existing_cond[$k] = $v;
+            // 1. 条件の抽出ループ
+            while (mb_strlen($remaining_text) > 0) {
+                $prev_len = mb_strlen($remaining_text);
+                // 【修正】先頭に残った「、」や「,」も削る
+                $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
+
+                $match = koto_match_csv_template($remaining_text, $condition_rows, $input_key, 'prefix');
+                if (koto_is_csv_template_match($match)) {
+                    $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
+                    foreach ($acf_rows as $row) {
+                        if (isset($row['limit_wave_count'])) {
+                            $limit_wave = $row['limit_wave_count'];
+                        }
+                        if (isset($row['ls_cond_pattern_loop'])) {
+                            $conditions = array_merge($conditions, $row['ls_cond_pattern_loop']);
+                        } elseif (isset($row['ls_cond_loop'])) {
+                            $conditions = array_merge($conditions, $row['ls_cond_loop']);
+                        } else {
+                            $cond_item = $row;
+                            unset($cond_item['limit_wave_count']);
+
+                            if (!empty($cond_item)) {
+                                // 【修正】同一の ls_cond_type がすでにある場合はマージする（編成条件を1つのANDにまとめる）
+                                $merged = false;
+                                if (isset($cond_item['ls_cond_type'])) {
+                                    foreach ($conditions as &$existing_cond) {
+                                        if (isset($existing_cond['ls_cond_type']) && $existing_cond['ls_cond_type'] === $cond_item['ls_cond_type']) {
+                                            foreach ($cond_item as $k => $v) {
+                                                if ($k === 'ls_cond_type' || $k === 'ls_cond_val') continue;
+                                                // リピーター配列(ls_party_cond_loop等)ならマージする
+                                                if (is_array($v) && isset($existing_cond[$k]) && is_array($existing_cond[$k])) {
+                                                    $existing_cond[$k] = array_merge($existing_cond[$k], $v);
+                                                } else {
+                                                    $existing_cond[$k] = $v;
+                                                }
                                             }
+                                            $merged = true;
+                                            break;
                                         }
-                                        $merged = true;
-                                        break;
                                     }
                                 }
+                                if (!$merged) {
+                                    $conditions[] = $cond_item;
+                                }
                             }
-                            if (!$merged) {
-                                $conditions[] = $cond_item;
+                        }
+                    }
+                    $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
+
+                    // leader_text (または typoの laeder_text) があれば、対象・効果処理にかけるため残りの文の先頭に戻す
+                    if (!empty($match['matches']['leader_text'])) {
+                        $remaining_text = $match['matches']['leader_text'] . '、' . $remaining_text;
+                    } elseif (!empty($match['matches']['laeder_text'])) {
+                        $remaining_text = $match['matches']['laeder_text'] . '、' . $remaining_text;
+                    }
+                } else {
+                    break;
+                }
+                if (mb_strlen($remaining_text) >= $prev_len) break;
+            }
+
+            // 2. 対象の抽出ループ
+            while (mb_strlen($remaining_text) > 0) {
+                $prev_len = mb_strlen($remaining_text);
+                // 【修正】先頭の「、」や「,」を削る
+                $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
+
+                $match = koto_match_csv_template($remaining_text, $target_rows, $input_key, 'prefix');
+                if (koto_is_csv_template_match($match)) {
+                    $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
+                    foreach ($acf_rows as $row) {
+                        if (isset($row['ls_target_chara_loop'])) {
+                            $targets = array_merge($targets, $row['ls_target_chara_loop']);
+                        } elseif (isset($row['target_field_group'])) {
+                            $targets[] = $row;
+                        } else {
+                            $targets[] = ['target_field_group' => $row];
+                        }
+                    }
+                    $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
+                } else {
+                    break;
+                }
+                if (mb_strlen($remaining_text) >= $prev_len) break;
+            }
+
+            // 3. 効果の抽出ループ（ls_type ごとに仕分ける）
+            $effects_by_type = [];
+            while (mb_strlen($remaining_text) > 0) {
+                $prev_len = mb_strlen($remaining_text);
+                // 【修正】先頭の「、」や「,」を削る
+                $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
+
+                $match = koto_match_csv_template($remaining_text, $effect_rows, $input_key, 'prefix');
+                if (koto_is_csv_template_match($match)) {
+                    $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
+                    foreach ($acf_rows as $row) {
+                        $type = !empty($row['ls_type']) ? $row['ls_type'] : 'fixed';
+                        unset($row['ls_type']);
+
+                        if (isset($row['ls_status']) || isset($row['resist_status']) || isset($row['rate'])) {
+                            $status_item = [];
+                            if (isset($row['ls_status'])) {
+                                $status_item['ls_status'] = $row['ls_status'];
+                                unset($row['ls_status']);
                             }
+                            if (isset($row['resist_status'])) {
+                                $status_item['resist_status'] = $row['resist_status'];
+                                unset($row['resist_status']);
+                            }
+                            if (isset($row['rate'])) {
+                                $status_item['rate'] = $row['rate'];
+                                unset($row['rate']);
+                            }
+
+                            if (!isset($row['ls_status_loop'])) {
+                                $row['ls_status_loop'] = [];
+                            }
+                            $row['ls_status_loop'][] = $status_item;
+                        }
+
+                        if (!isset($effects_by_type[$type])) {
+                            $effects_by_type[$type] = [];
+                        }
+                        $effects_by_type[$type][] = $row;
+                    }
+                    $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
+                } else {
+                    break;
+                }
+                if (mb_strlen($remaining_text) >= $prev_len) break;
+            }
+
+            // 効果が1つもヒットしなかったが条件・対象が存在する場合の救済処理
+            if (empty($effects_by_type) && (!empty($conditions) || !empty($targets))) {
+                $effects_by_type['fixed'] = [];
+            }
+
+            // 何も抽出できなかった場合は無限ループ防止のため終了
+            if (empty($effects_by_type) && empty($conditions) && empty($targets)) {
+                break;
+            }
+
+            // 4. 仕分けた ls_type ごとに行データを構築・マージ
+            foreach ($effects_by_type as $type => $effects) {
+                $row_data = $leader_dummy;
+                $row_data['ls_type'] = $type;
+
+                if ($limit_wave !== "") {
+                    $row_data['limit_wave_count'] = $limit_wave;
+                }
+                if (!empty($conditions)) {
+                    $row_data['ls_cond_pattern_loop'] = [
+                        [
+                            'ls_cond_loop' => $conditions
+                        ]
+                    ];
+                }
+                if (!empty($targets)) {
+                    $row_data['ls_target_chara_loop'] = $targets;
+                }
+
+                // 同一 type 内の複数の効果（HPとATKなど）をマージしていく
+                foreach ($effects as $effect) {
+                    foreach ($effect as $k => $v) {
+                        if (is_array($v) && isset($row_data[$k]) && is_array($row_data[$k])) {
+                            $row_data[$k] = array_merge($row_data[$k], $v);
+                        } else {
+                            $row_data[$k] = $v;
                         }
                     }
                 }
-                $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
 
-                // leader_text (または typoの laeder_text) があれば、対象・効果処理にかけるため残りの文の先頭に戻す
-                if (!empty($match['matches']['leader_text'])) {
-                    $remaining_text = $match['matches']['leader_text'] . '、' . $remaining_text;
-                } elseif (!empty($match['matches']['laeder_text'])) {
-                    $remaining_text = $match['matches']['laeder_text'] . '、' . $remaining_text;
+                $cleaned_row = koto_remove_empty_keys_recursive($row_data);
+                if (!empty($cleaned_row)) {
+                    $results[] = $cleaned_row;
                 }
-            } else {
-                break;
             }
-            if (mb_strlen($remaining_text) >= $prev_len) break;
-        }
 
-        // 2. 対象の抽出ループ
-        while (mb_strlen($remaining_text) > 0) {
-            $prev_len = mb_strlen($remaining_text);
-            // 【修正】先頭の「、」や「,」を削る
             $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
-
-            $match = koto_match_csv_template($remaining_text, $target_rows, $input_key, 'prefix');
-            if (koto_is_csv_template_match($match)) {
-                $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
-                foreach ($acf_rows as $row) {
-                    if (isset($row['ls_target_chara_loop'])) {
-                        $targets = array_merge($targets, $row['ls_target_chara_loop']);
-                    } elseif (isset($row['target_field_group'])) {
-                        $targets[] = $row;
-                    } else {
-                        $targets[] = ['target_field_group' => $row];
-                    }
-                }
-                $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
-            } else {
+            if (mb_strlen($remaining_text) >= $prev_pattern_b_len) {
                 break;
-            }
-            if (mb_strlen($remaining_text) >= $prev_len) break;
-        }
-
-        // 3. 効果の抽出ループ（ls_type ごとに仕分ける）
-        $effects_by_type = [];
-        while (mb_strlen($remaining_text) > 0) {
-            $prev_len = mb_strlen($remaining_text);
-            // 【修正】先頭の「、」や「,」を削る
-            $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
-
-            $match = koto_match_csv_template($remaining_text, $effect_rows, $input_key, 'prefix');
-            if (koto_is_csv_template_match($match)) {
-                $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
-                foreach ($acf_rows as $row) {
-                    $type = !empty($row['ls_type']) ? $row['ls_type'] : 'fixed';
-                    unset($row['ls_type']);
-
-                    if (isset($row['ls_status']) || isset($row['resist_status']) || isset($row['rate'])) {
-                        $status_item = [];
-                        if (isset($row['ls_status'])) {
-                            $status_item['ls_status'] = $row['ls_status'];
-                            unset($row['ls_status']);
-                        }
-                        if (isset($row['resist_status'])) {
-                            $status_item['resist_status'] = $row['resist_status'];
-                            unset($row['resist_status']);
-                        }
-                        if (isset($row['rate'])) {
-                            $status_item['rate'] = $row['rate'];
-                            unset($row['rate']);
-                        }
-
-                        if (!isset($row['ls_status_loop'])) {
-                            $row['ls_status_loop'] = [];
-                        }
-                        $row['ls_status_loop'][] = $status_item;
-                    }
-
-                    if (!isset($effects_by_type[$type])) {
-                        $effects_by_type[$type] = [];
-                    }
-                    $effects_by_type[$type][] = $row;
-                }
-                $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
-            } else {
-                break;
-            }
-            if (mb_strlen($remaining_text) >= $prev_len) break;
-        }
-
-        // 効果が1つもヒットしなかったが条件・対象が存在する場合の救済処理
-        if (empty($effects_by_type) && (!empty($conditions) || !empty($targets))) {
-            $effects_by_type['fixed'] = [];
-        }
-
-        // 4. 仕分けた ls_type ごとに行データを構築・マージ
-        foreach ($effects_by_type as $type => $effects) {
-            $row_data = $leader_dummy;
-            $row_data['ls_type'] = $type;
-
-            if ($limit_wave !== "") {
-                $row_data['limit_wave_count'] = $limit_wave;
-            }
-            if (!empty($conditions)) {
-                $row_data['ls_cond_pattern_loop'] = [
-                    [
-                        'ls_cond_loop' => $conditions
-                    ]
-                ];
-            }
-            if (!empty($targets)) {
-                $row_data['ls_target_chara_loop'] = $targets;
-            }
-
-            // 同一 type 内の複数の効果（HPとATKなど）をマージしていく
-            foreach ($effects as $effect) {
-                foreach ($effect as $k => $v) {
-                    if (is_array($v) && isset($row_data[$k]) && is_array($row_data[$k])) {
-                        $row_data[$k] = array_merge($row_data[$k], $v);
-                    } else {
-                        $row_data[$k] = $v;
-                    }
-                }
-            }
-
-            $cleaned_row = koto_remove_empty_keys_recursive($row_data);
-            if (!empty($cleaned_row)) {
-                $results[] = $cleaned_row;
             }
         }
     }
