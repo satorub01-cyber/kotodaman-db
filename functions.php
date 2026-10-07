@@ -41,6 +41,7 @@ require_once $theme_dir . '/lib/acf/acf-editor.php';
 // 各種専用機能
 require_once $theme_dir . '/lib/missing-info-characters.php';
 require_once $theme_dir . '/lib/term-setter/term-setter-ajax.php';
+require_once $theme_dir . '/lib/image-setter/image-setter-ajax.php';
 require_once $theme_dir . '/lib/media-functions.php';
 
 // 管理画面設定・ユーザー権限管理

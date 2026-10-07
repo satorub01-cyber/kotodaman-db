@@ -1,0 +1,475 @@
+/* =================================================================
+   キャラ画像設定 専用スタイルシート
+   サイトカラー: #f7ede3 / アクセントカラー: #135e96
+   ================================================================= */
+
+/* ページ全体背景 */
+body {
+    background-color: #f7ede3 !important;
+}
+
+.image-setter-wrap {
+    max-width: 1100px;
+    margin: 20px auto 60px;
+    padding: 0 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    color: #333333;
+    box-sizing: border-box;
+}
+
+.image-setter-wrap * {
+    box-sizing: border-box;
+}
+
+/* ページタイトル */
+.setter-page-header {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.setter-page-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #135e96;
+    margin: 0;
+    padding-left: 10px;
+    border-left: 5px solid #135e96;
+}
+
+.setter-page-desc {
+    font-size: 13px;
+    color: #666666;
+    margin: 0;
+}
+
+/* 最上部：通知トースト／メッセージバー（添付画像に準拠） */
+.setter-toast-bar {
+    display: none;
+    background-color: #9df0ff;
+    color: #0b4975;
+    border: 2px solid #55cde2;
+    border-radius: 6px;
+    padding: 16px 24px;
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 14px rgba(19, 94, 150, 0.15);
+    animation: fadeInToast 0.25s ease-out;
+}
+
+@keyframes fadeInToast {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* パネル外枠（上・下ブロック共通） */
+.setter-panel {
+    background-color: #ffffff;
+    border: 2px solid #333333;
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 28px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+/* パネルヘッダー（タイトル＆検索窓） */
+.setter-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eeeeee;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.setter-panel-title-group {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.setter-panel-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0;
+    color: #222222;
+}
+
+.setter-count-badge {
+    font-size: 14px;
+    color: #666666;
+    font-weight: normal;
+}
+
+.setter-current-char-pill {
+    font-size: 13px;
+    background-color: #f7ede3;
+    color: #135e96;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid #dfc7b0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.setter-current-char-pill strong {
+    font-weight: 700;
+    color: #135e96;
+}
+
+/* 検索ボックス（添付画像風に右上に配置） */
+.setter-search-box {
+    position: relative;
+    width: 260px;
+    max-width: 100%;
+}
+
+.setter-search-input {
+    width: 100%;
+    height: 38px;
+    padding: 6px 32px 6px 12px;
+    border: 1px solid #333333;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: #ffffff;
+    color: #333333;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.setter-search-input:focus {
+    border-color: #135e96;
+    box-shadow: 0 0 0 2px rgba(19, 94, 150, 0.2);
+}
+
+.setter-search-clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: #999999;
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    display: none;
+    padding: 2px 4px;
+}
+
+.setter-search-clear:hover {
+    color: #333333;
+}
+
+/* =================================================================
+   上部：キャラ一覧リスト
+   ================================================================= */
+.chara-list-scroll {
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+/* スクロールバー装飾 */
+.chara-list-scroll::-webkit-scrollbar,
+.media-grid-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+.chara-list-scroll::-webkit-scrollbar-thumb,
+.media-grid-scroll::-webkit-scrollbar-thumb {
+    background-color: #cccccc;
+    border-radius: 4px;
+}
+.chara-list-scroll::-webkit-scrollbar-track,
+.media-grid-scroll::-webkit-scrollbar-track {
+    background-color: #f5f5f5;
+}
+
+.chara-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* 各キャラ行（添付画像のような四角い枠線スタイル） */
+.chara-item {
+    border: 1px solid #333333;
+    border-radius: 4px;
+    padding: 12px 18px;
+    background-color: #ffffff;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.chara-item:hover {
+    background-color: #faf7f2;
+    border-color: #135e96;
+}
+
+/* 選択中のキャラ（強調表示） */
+.chara-item.is-selected {
+    border: 2px solid #135e96;
+    background-color: #f0f7fc;
+    box-shadow: 0 2px 8px rgba(19, 94, 150, 0.2);
+    position: relative;
+}
+
+.chara-item-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-grow: 1;
+}
+
+.chara-radio-indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #888888;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.chara-item.is-selected .chara-radio-indicator {
+    border-color: #135e96;
+    background-color: #135e96;
+}
+
+.chara-item.is-selected .chara-radio-indicator::after {
+    content: "";
+    width: 6px;
+    height: 6px;
+    background-color: #ffffff;
+    border-radius: 50%;
+}
+
+.chara-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #222222;
+}
+
+.chara-ruby {
+    font-size: 12px;
+    color: #777777;
+    margin-left: 6px;
+    font-weight: normal;
+}
+
+.chara-badges {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.chara-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid #cccccc;
+    background-color: #f5f5f5;
+    color: #666666;
+}
+
+.chara-badge.is-set {
+    background-color: #e6f4ea;
+    border-color: #5bb778;
+    color: #1e7e34;
+    font-weight: 600;
+}
+
+/* =================================================================
+   下部：画像一覧グリッド
+   ================================================================= */
+.media-grid-scroll {
+    max-height: 520px;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+.media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.media-card {
+    position: relative;
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: flex;
+    flex-direction: column;
+}
+
+.media-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    border-color: #bbbbbb;
+}
+
+/* サムネイル画像領域 */
+.media-thumb-box {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: #fdfdfd url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%23f0f0f0"><rect width="8" height="8" /><rect x="8" y="8" width="8" height="8" /></svg>') repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.media-thumb-box img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+/* ホバー時のオーバーレイボタン（添付画像を再現） */
+.media-actions-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding-left: 10px;
+    gap: 6px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.media-card:hover .media-actions-overlay {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 3つのボタン（添付画像の青系・水色ボタン） */
+.btn-image-action {
+    display: inline-block;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffffff !important;
+    background-color: #38bdf8;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: all 0.15s ease-in-out;
+    text-align: center;
+    line-height: 1.2;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.btn-image-action:hover {
+    transform: scale(1.05);
+}
+
+/* 進化後ボタン（アクセントカラー #135e96 で決定感アップ） */
+.btn-image-action[data-type="character"] {
+    background-color: #135e96;
+}
+.btn-image-action[data-type="character"]:hover {
+    background-color: #0e4873;
+}
+
+/* 進化前ボタン */
+.btn-image-action[data-type="pre_evo"] {
+    background-color: #0284c7;
+}
+.btn-image-action[data-type="pre_evo"]:hover {
+    background-color: #0369a1;
+}
+
+/* 絵違いボタン */
+.btn-image-action[data-type="another"] {
+    background-color: #38bdf8;
+}
+.btn-image-action[data-type="another"]:hover {
+    background-color: #0ea5e9;
+}
+
+/* 画像ファイル名・タイトル（下部） */
+.media-title-box {
+    padding: 6px 8px;
+    font-size: 11px;
+    color: #555555;
+    background-color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-top: 1px solid #f0f0f0;
+}
+
+/* 未設定・空状態メッセージ */
+.setter-empty-msg {
+    padding: 30px 10px;
+    text-align: center;
+    color: #888888;
+    font-size: 14px;
+}
+
+/* 送信中アニメーション */
+.media-card.is-uploading {
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.media-card.fade-out {
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    opacity: 0;
+    transform: scale(0.85);
+}
+
+/* レスポンシブ調整 */
+@media (max-width: 640px) {
+    .setter-panel-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .setter-search-box {
+        width: 100%;
+    }
+    .media-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 10px;
+    }
+    .btn-image-action {
+        font-size: 11px;
+        padding: 4px 8px;
+    }
+    .setter-toast-bar {
+        font-size: 16px;
+        padding: 12px 16px;
+    }
+}
+
