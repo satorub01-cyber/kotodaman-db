@@ -473,3 +473,32 @@ body {
     }
 }
 
+/* さらに読み込むボタン */
+.media-load-more-wrap {
+    text-align: center;
+    padding: 18px 0 8px;
+}
+
+.btn-media-load-more {
+    background-color: #f7ede3;
+    color: #135e96;
+    border: 2px solid #135e96;
+    border-radius: 6px;
+    padding: 8px 28px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+}
+
+.btn-media-load-more:hover {
+    background-color: #135e96;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(19, 94, 150, 0.25);
+}
+
+.btn-media-load-more:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+

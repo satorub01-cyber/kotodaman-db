@@ -18,120 +18,88 @@ if (!current_user_can('edit_posts')) {
 require_once get_stylesheet_directory() . '/lib/image-setter/image-setter-ajax.php';
 
 // 固定ページ宛ての直接POSTにも対応
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'image_setter_save_image') {
-    image_setter_handle_save_image();
-    exit;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if ($_POST['action'] === 'image_setter_save_image') {
+        image_setter_handle_save_image();
+        exit;
+    } elseif ($_POST['action'] === 'image_setter_search_media') {
+        image_setter_handle_search_media();
+        exit;
+    }
 }
 
 // =================================================================
-// データ準備
+// データ準備（メモリ最適化済み）
 // =================================================================
+global $wpdb;
 $nonce = wp_create_nonce('image_setter_nonce');
 $ajax_url = admin_url('admin-ajax.php');
 
-// --- A. キャラクター一覧取得 ---
+// --- A. キャラクター一覧取得（SQLで直接絞り込み、メモリ消費を激減） ---
 // 条件: アイキャッチ画像が「未設定」または「準備中画像（無題51_20260205005357）」
-$char_posts = get_posts([
-    'post_type'      => 'character',
-    'posts_per_page' => -1,
-    'post_status'    => ['publish', 'draft'],
-    'orderby'        => 'ID',
-    'order'          => 'DESC',
-]);
-
-$pending_characters = [];
-$prep_target_filename = '無題51_20260205005357';
-
-foreach ($char_posts as $cp) {
-    $c_id = $cp->ID;
-    $thumb_id = get_post_thumbnail_id($c_id);
-    $is_target = false;
-
-    if (!$thumb_id) {
-        $is_target = true; // アイキャッチ未設定
-    } else {
-        $thumb_url = wp_get_attachment_url($thumb_id);
-        if (!$thumb_url) {
-            $is_target = true;
-        } elseif (
-            strpos($thumb_url, $prep_target_filename) !== false ||
-            strpos(rawurldecode($thumb_url), $prep_target_filename) !== false
-        ) {
-            $is_target = true; // 準備中画像が設定されている
-        }
-    }
-
-    if ($is_target) {
-        $ruby = get_post_meta($c_id, 'name_ruby', true) ?: '';
-        $pre_id = get_post_meta($c_id, 'pre_evo_image', true);
-        $main_id = get_post_meta($c_id, 'character_image', true);
-        $ano_id = get_post_meta($c_id, 'another_character_image', true);
-
-        $pending_characters[] = [
-            'id'          => $c_id,
-            'title'       => $cp->post_title,
-            'ruby'        => $ruby,
-            'status'      => $cp->post_status,
-            'has_pre'     => !empty($pre_id),
-            'has_main'    => !empty($main_id),
-            'has_another' => !empty($ano_id),
-            'edit_url'    => admin_url('post.php?post=' . $c_id . '&action=edit'),
-        ];
-    }
-}
-
-// --- B. どの記事にも紐づいていない画像一覧取得 ---
-// 参考: /var/www/html/wp-content/themes/cocoon-child-master/lib/media-functions.php
-global $wpdb;
-$meta_keys = ['character_image', 'another_character_image', 'pre_evo_image', '_thumbnail_id'];
-$keys_placeholder = implode("','", array_map('esc_sql', $meta_keys));
-
-$used_image_ids = $wpdb->get_col("
-    SELECT DISTINCT CAST(meta_value AS UNSIGNED)
-    FROM {$wpdb->postmeta}
-    WHERE meta_key IN ('$keys_placeholder')
-    AND meta_value REGEXP '^[0-9]+$'
-");
-
-// 準備中画像のIDもメディア一覧から除外
-$prep_image_ids = $wpdb->get_col("
+$prep_ids = $wpdb->get_col("
     SELECT ID FROM {$wpdb->posts}
     WHERE post_type = 'attachment'
-    AND (guid LIKE '%無題51_20260205005357%' OR post_name LIKE '%無題51_20260205005357%')
+      AND (guid LIKE '%無題51_20260205005357%' OR post_name LIKE '%無題51_20260205005357%')
 ");
-if (!empty($prep_image_ids)) {
-    $used_image_ids = array_merge($used_image_ids, $prep_image_ids);
+$prep_sql = '';
+if (!empty($prep_ids)) {
+    $prep_clean = implode(',', array_map('intval', $prep_ids));
+    $prep_sql = "OR m_thumb.meta_value IN ({$prep_clean})";
 }
 
-$not_in_sql = '';
-if (!empty($used_image_ids)) {
-    $used_clean = implode(',', array_map('intval', array_unique($used_image_ids)));
-    $not_in_sql = "AND ID NOT IN ({$used_clean})";
-}
+$char_sql = "
+    SELECT p.ID, p.post_title, p.post_status,
+           m_ruby.meta_value AS ruby,
+           m_pre.meta_value AS pre_id,
+           m_main.meta_value AS main_id,
+           m_ano.meta_value AS ano_id
+    FROM {$wpdb->posts} p
+    LEFT JOIN {$wpdb->postmeta} m_thumb ON (p.ID = m_thumb.post_id AND m_thumb.meta_key = '_thumbnail_id')
+    LEFT JOIN {$wpdb->postmeta} m_ruby  ON (p.ID = m_ruby.post_id AND m_ruby.meta_key = 'name_ruby')
+    LEFT JOIN {$wpdb->postmeta} m_pre   ON (p.ID = m_pre.post_id AND m_pre.meta_key = 'pre_evo_image')
+    LEFT JOIN {$wpdb->postmeta} m_main  ON (p.ID = m_main.post_id AND m_main.meta_key = 'character_image')
+    LEFT JOIN {$wpdb->postmeta} m_ano   ON (p.ID = m_ano.post_id AND m_ano.meta_key = 'another_character_image')
+    WHERE p.post_type = 'character'
+      AND p.post_status IN ('publish', 'draft')
+      AND p.ID NOT IN (3683)
+      AND p.post_title NOT LIKE '%雛型%'
+      AND p.post_title NOT LIKE '%雛形%'
+      AND (
+          m_thumb.meta_value IS NULL 
+          OR m_thumb.meta_value = '' 
+          OR m_thumb.meta_value = '0'
+          {$prep_sql}
+      )
+    ORDER BY p.ID DESC
+";
+$pending_raw = $wpdb->get_results($char_sql);
 
-$raw_media = $wpdb->get_results("
-    SELECT ID, post_title, post_name, guid, post_date
-    FROM {$wpdb->posts}
-    WHERE post_type = 'attachment'
-    AND post_mime_type LIKE 'image/%'
-    {$not_in_sql}
-    ORDER BY ID DESC
-");
+$pending_characters = [];
+foreach ($pending_raw as $c) {
+    if ((int)$c->ID === 3683) {
+        continue;
+    }
+    if (strpos($c->post_title, '雛型') !== false || strpos($c->post_title, '雛形') !== false) {
+        continue;
+    }
 
-$unused_images = [];
-foreach ($raw_media as $m) {
-    $full_src = wp_get_attachment_url($m->ID);
-    $thumb_src = wp_get_attachment_image_url($m->ID, 'medium') ?: $full_src;
-    $file_name = basename(get_attached_file($m->ID) ?: $full_src);
-
-    $unused_images[] = [
-        'id'        => $m->ID,
-        'title'     => $m->post_title ?: $file_name,
-        'filename'  => $file_name,
-        'thumb_url' => $thumb_src,
-        'full_url'  => $full_src,
+    $pending_characters[] = [
+        'id'          => $c->ID,
+        'title'       => $c->post_title,
+        'ruby'        => $c->ruby ?: '',
+        'status'      => $c->post_status,
+        'has_pre'     => !empty($c->pre_id),
+        'has_main'    => !empty($c->main_id),
+        'has_another' => !empty($c->ano_id),
+        'edit_url'    => admin_url('post.php?post=' . $c->ID . '&action=edit'),
     ];
 }
+
+// --- B. どの記事にも紐づいていない画像（初期60件を取得） ---
+$initial_media_data = image_setter_get_unused_images('', 1, 60);
+$unused_images = $initial_media_data['items'];
+$has_more_media = $initial_media_data['has_more'];
 
 // CSS 読み込み
 $css_path = get_stylesheet_directory() . '/lib/image-setter/image-setter.css';
@@ -215,7 +183,7 @@ get_header();
         <div class="setter-panel-header">
             <div class="setter-panel-title-group">
                 <h2 class="setter-panel-title">未紐付け画像</h2>
-                <span class="setter-count-badge" id="media-count">(<?php echo count($unused_images); ?>件)</span>
+                <span class="setter-count-badge" id="media-count">(<?php echo count($unused_images); ?>件<?php echo $has_more_media ? '+' : ''; ?>)</span>
                 <span style="font-size: 13px; color: #777777;">※画像ホバーで「進化前」「進化後」「絵違い」ボタンが表示されます</span>
             </div>
             <div class="setter-search-box">
@@ -224,11 +192,11 @@ get_header();
             </div>
         </div>
 
-        <div class="media-grid-scroll">
-            <?php if (empty($unused_images)) : ?>
-                <div class="setter-empty-msg" id="media-empty-msg">未紐付けの画像はありません。</div>
-            <?php else : ?>
-                <ul class="media-grid" id="media-grid">
+        <div class="media-grid-scroll" id="media-scroll-container">
+            <ul class="media-grid" id="media-grid">
+                <?php if (empty($unused_images)) : ?>
+                    <li class="setter-empty-msg" id="media-empty-msg" style="grid-column: 1/-1;">未紐付けの画像はありません。</li>
+                <?php else : ?>
                     <?php foreach ($unused_images as $img) : ?>
                         <li class="media-card"
                             data-id="<?php echo esc_attr($img['id']); ?>"
@@ -252,8 +220,13 @@ get_header();
                             </div>
                         </li>
                     <?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
+                <?php endif; ?>
+            </ul>
+
+            <!-- さらに読み込むボタン -->
+            <div class="media-load-more-wrap" id="media-load-more-wrap" style="<?php echo $has_more_media ? '' : 'display:none;'; ?>">
+                <button type="button" id="btn-media-load-more" class="btn-media-load-more">さらに画像を読み込む</button>
+            </div>
         </div>
     </div>
 
