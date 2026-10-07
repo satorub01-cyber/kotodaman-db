@@ -356,3 +356,211 @@ function render_kotodaman_search_widget()
     </style>
 <?php
 }
+
+// =================================================================
+// 4. 非公開固定ページへのリンク集ダッシュボードウィジェット
+// =================================================================
+add_action('wp_dashboard_setup', 'add_private_pages_dashboard_widget');
+
+function add_private_pages_dashboard_widget()
+{
+    // 非公開ページを閲覧・編集できる権限があるユーザーにのみ表示
+    if (!current_user_can('read_private_pages') && !current_user_can('edit_pages')) {
+        return;
+    }
+
+    wp_add_dashboard_widget(
+        'private_pages_link_list_widget',
+        '非公開の固定ページ一覧',
+        'render_private_pages_dashboard_widget'
+    );
+}
+
+// 非公開固定ページウィジェットのHTMLを出力
+function render_private_pages_dashboard_widget()
+{
+    $args = [
+        'post_type'      => 'page',
+        'post_status'    => 'private',
+        'posts_per_page' => -1,
+        'orderby'        => ['menu_order' => 'ASC', 'title' => 'ASC'],
+    ];
+
+    $private_pages = get_posts($args);
+
+    if (empty($private_pages)) {
+        echo '<p class="private-pages-empty">現在、状態が「非公開」の固定ページはありません。</p>';
+        echo '<div class="private-pages-widget-footer">';
+        echo '<a href="' . esc_url(admin_url('post-new.php?post_type=page')) . '" class="button button-secondary">+ 新規固定ページ作成</a>';
+        echo '</div>';
+        return;
+    }
+?>
+    <div class="private-pages-widget-container">
+        <ul class="private-pages-list">
+            <?php foreach ($private_pages as $page) :
+                $view_url = get_permalink($page->ID);
+                $edit_url = get_edit_post_link($page->ID);
+                $title    = get_the_title($page->ID);
+                if (empty($title)) {
+                    $title = '(タイトルなし)';
+                }
+
+                // 親ページがある場合は階層構造を取得
+                $ancestor_names = [];
+                if ($page->post_parent) {
+                    $ancestors = array_reverse(get_post_ancestors($page->ID));
+                    foreach ($ancestors as $ancestor_id) {
+                        $ancestor_names[] = get_the_title($ancestor_id);
+                    }
+                }
+            ?>
+                <li class="private-page-item">
+                    <div class="private-page-info">
+                        <?php if (!empty($ancestor_names)) : ?>
+                            <div class="private-page-parents">
+                                <?php echo esc_html(implode(' / ', $ancestor_names)); ?> /
+                            </div>
+                        <?php endif; ?>
+                        <a href="<?php echo esc_url($view_url); ?>" class="private-page-title" target="_blank" rel="noopener noreferrer" title="ページを表示（新しいタブで開く）">
+                            <?php echo esc_html($title); ?>
+                            <span class="dashicons dashicons-external" aria-hidden="true"></span>
+                        </a>
+                        <div class="private-page-meta">
+                            <span class="private-page-date">更新日: <?php echo esc_html(get_the_modified_date('Y/m/d', $page)); ?></span>
+                            <?php if ($page->post_name) : ?>
+                                <span class="private-page-slug">/<?php echo esc_html($page->post_name); ?></span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="private-page-actions">
+                        <?php if ($edit_url) : ?>
+                            <a href="<?php echo esc_url($edit_url); ?>" class="button button-small" title="編集画面を開く">編集</a>
+                        <?php endif; ?>
+                    </div>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+
+        <div class="private-pages-widget-footer">
+            <a href="<?php echo esc_url(admin_url('edit.php?post_status=private&post_type=page')); ?>" class="button button-link">
+                管理画面で一覧を開く (全<?php echo count($private_pages); ?>件) &rarr;
+            </a>
+            <a href="<?php echo esc_url(admin_url('post-new.php?post_type=page')); ?>" class="button button-secondary">
+                + 新規固定ページ作成
+            </a>
+        </div>
+    </div>
+
+    <style>
+        .private-pages-widget-container {
+            margin: -6px -12px -12px;
+        }
+
+        .private-pages-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            max-height: 380px;
+            overflow-y: auto;
+        }
+
+        .private-page-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 12px;
+            margin: 0;
+            border-bottom: 1px solid #f0f0f1;
+            transition: background-color 0.15s ease;
+        }
+
+        .private-page-item:hover {
+            background-color: #f6f7f7;
+        }
+
+        .private-page-item:last-child {
+            border-bottom: none;
+        }
+
+        .private-page-info {
+            flex-grow: 1;
+            min-width: 0;
+        }
+
+        .private-page-parents {
+            font-size: 11px;
+            color: #646970;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .private-page-title {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #2271b1;
+            text-decoration: none;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .private-page-title:hover {
+            color: #135e96;
+            text-decoration: underline;
+        }
+
+        .private-page-title .dashicons {
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
+            color: #8c8f94;
+            flex-shrink: 0;
+        }
+
+        .private-page-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            font-size: 11px;
+            color: #646970;
+            margin-top: 3px;
+        }
+
+        .private-page-slug {
+            background: #f0f0f1;
+            padding: 0 4px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 10px;
+        }
+
+        .private-page-actions {
+            flex-shrink: 0;
+        }
+
+        .private-pages-widget-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background-color: #f6f7f7;
+            border-top: 1px solid #dcdcde;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .private-pages-empty {
+            padding: 12px;
+            color: #646970;
+            margin: 0;
+        }
+    </style>
+<?php
+}
