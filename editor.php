@@ -358,7 +358,7 @@ function render_kotodaman_search_widget()
 }
 
 // =================================================================
-// 4. 非公開固定ページへのリンク集ダッシュボードウィジェット
+// 4. 非公開固定ページ＆トップページへのリンク集ダッシュボードウィジェット
 // =================================================================
 add_action('wp_dashboard_setup', 'add_private_pages_dashboard_widget');
 
@@ -371,14 +371,46 @@ function add_private_pages_dashboard_widget()
 
     wp_add_dashboard_widget(
         'private_pages_link_list_widget',
-        '非公開の固定ページ一覧',
+        '非公開の固定ページ・トップページ',
         'render_private_pages_dashboard_widget'
     );
 }
 
-// 非公開固定ページウィジェットのHTMLを出力
+// 非公開固定ページ＆トップページウィジェットのHTMLを出力
 function render_private_pages_dashboard_widget()
 {
+    // --- 1. トップページ（フロントページ）情報の取得 ---
+    $home_url = home_url('/');
+    $front_page_id = (int) get_option('page_on_front');
+    $show_on_front = get_option('show_on_front');
+
+    $home_title_detail = '';
+    $home_edit_url = '';
+    $home_updated = '';
+
+    if ($show_on_front === 'page' && $front_page_id > 0) {
+        $front_page = get_post($front_page_id);
+        $front_title = $front_page ? get_the_title($front_page) : '';
+        $home_title_detail = $front_title ? ' (' . $front_title . ')' : '';
+        $home_edit_url = get_edit_post_link($front_page_id);
+        $home_updated = $front_page ? get_the_modified_date('Y/m/d', $front_page) : '';
+    } else {
+        // スラッグが home や top の固定ページが存在するかフォールバック確認
+        $fallback_page = get_page_by_path('home') ?: get_page_by_path('top');
+        if ($fallback_page) {
+            $home_title_detail = ' (' . get_the_title($fallback_page) . ')';
+            $home_edit_url = get_edit_post_link($fallback_page->ID);
+            $home_updated = get_the_modified_date('Y/m/d', $fallback_page);
+        } else {
+            $site_name = get_bloginfo('name');
+            $home_title_detail = $site_name ? ' (' . $site_name . ')' : '';
+            // 固定ページではない場合はカスタマイザー編集画面
+            $home_edit_url = admin_url('customize.php');
+            $home_updated = '';
+        }
+    }
+
+    // --- 2. 非公開固定ページの取得 ---
     $args = [
         'post_type'      => 'page',
         'post_status'    => 'private',
@@ -387,61 +419,94 @@ function render_private_pages_dashboard_widget()
     ];
 
     $private_pages = get_posts($args);
-
-    if (empty($private_pages)) {
-        echo '<p class="private-pages-empty">現在、状態が「非公開」の固定ページはありません。</p>';
-        echo '<div class="private-pages-widget-footer">';
-        echo '<a href="' . esc_url(admin_url('post-new.php?post_type=page')) . '" class="button button-secondary">+ 新規固定ページ作成</a>';
-        echo '</div>';
-        return;
-    }
 ?>
     <div class="private-pages-widget-container">
-        <ul class="private-pages-list">
-            <?php foreach ($private_pages as $page) :
-                $view_url = get_permalink($page->ID);
-                $edit_url = get_edit_post_link($page->ID);
-                $title    = get_the_title($page->ID);
-                if (empty($title)) {
-                    $title = '(タイトルなし)';
-                }
+        <!-- トップページ クイックアクセス -->
+        <div class="top-page-card">
+            <div class="private-page-info">
+                <div class="top-page-header-row">
+                    <span class="top-page-badge">TOP</span>
+                    <a href="<?php echo esc_url($home_url); ?>" class="private-page-title" target="_blank" rel="noopener noreferrer" title="トップページを表示（新しいタブで開く）">
+                        トップページ<?php echo esc_html($home_title_detail); ?>
+                        <span class="dashicons dashicons-external" aria-hidden="true"></span>
+                    </a>
+                </div>
+                <div class="private-page-meta">
+                    <span class="private-page-slug">/</span>
+                    <?php if (!empty($home_updated)) : ?>
+                        <span class="private-page-date">更新日: <?php echo esc_html($home_updated); ?></span>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="private-page-actions">
+                <?php if ($home_edit_url) : ?>
+                    <a href="<?php echo esc_url($home_edit_url); ?>" class="button button-small" title="トップページの編集画面を開く">編集</a>
+                <?php endif; ?>
+            </div>
+        </div>
 
-                // 親ページがある場合は階層構造を取得
-                $ancestor_names = [];
-                if ($page->post_parent) {
-                    $ancestors = array_reverse(get_post_ancestors($page->ID));
-                    foreach ($ancestors as $ancestor_id) {
-                        $ancestor_names[] = get_the_title($ancestor_id);
+        <!-- セクション見出し -->
+        <div class="private-pages-section-divider">
+            <span class="dashicons dashicons-lock" aria-hidden="true"></span>
+            <strong>非公開の固定ページ (<?php echo count($private_pages); ?>件)</strong>
+        </div>
+
+        <!-- 非公開固定ページ一覧 -->
+        <?php if (empty($private_pages)) : ?>
+            <p class="private-pages-empty">現在、状態が「非公開」の固定ページはありません。</p>
+        <?php else : ?>
+            <ul class="private-pages-list">
+                <?php foreach ($private_pages as $page) :
+                    // トップページと同一IDの場合は重複を防ぐためスキップ
+                    if ($front_page_id && $page->ID === $front_page_id) {
+                        continue;
                     }
-                }
-            ?>
-                <li class="private-page-item">
-                    <div class="private-page-info">
-                        <?php if (!empty($ancestor_names)) : ?>
-                            <div class="private-page-parents">
-                                <?php echo esc_html(implode(' / ', $ancestor_names)); ?> /
+
+                    $view_url = get_permalink($page->ID);
+                    $edit_url = get_edit_post_link($page->ID);
+                    $title    = get_the_title($page->ID);
+                    if (empty($title)) {
+                        $title = '(タイトルなし)';
+                    }
+
+                    // 親ページがある場合は階層構造を取得
+                    $ancestor_names = [];
+                    if ($page->post_parent) {
+                        $ancestors = array_reverse(get_post_ancestors($page->ID));
+                        foreach ($ancestors as $ancestor_id) {
+                            $ancestor_names[] = get_the_title($ancestor_id);
+                        }
+                    }
+                ?>
+                    <li class="private-page-item">
+                        <div class="private-page-info">
+                            <?php if (!empty($ancestor_names)) : ?>
+                                <div class="private-page-parents">
+                                    <?php echo esc_html(implode(' / ', $ancestor_names)); ?> /
+                                </div>
+                            <?php endif; ?>
+                            <a href="<?php echo esc_url($view_url); ?>" class="private-page-title" target="_blank" rel="noopener noreferrer" title="ページを表示（新しいタブで開く）">
+                                <?php echo esc_html($title); ?>
+                                <span class="dashicons dashicons-external" aria-hidden="true"></span>
+                            </a>
+                            <div class="private-page-meta">
+                                <span class="private-page-date">更新日: <?php echo esc_html(get_the_modified_date('Y/m/d', $page)); ?></span>
+                                <?php if ($page->post_name) : ?>
+                                    <span class="private-page-slug">/<?php echo esc_html($page->post_name); ?></span>
+                                <?php endif; ?>
                             </div>
-                        <?php endif; ?>
-                        <a href="<?php echo esc_url($view_url); ?>" class="private-page-title" target="_blank" rel="noopener noreferrer" title="ページを表示（新しいタブで開く）">
-                            <?php echo esc_html($title); ?>
-                            <span class="dashicons dashicons-external" aria-hidden="true"></span>
-                        </a>
-                        <div class="private-page-meta">
-                            <span class="private-page-date">更新日: <?php echo esc_html(get_the_modified_date('Y/m/d', $page)); ?></span>
-                            <?php if ($page->post_name) : ?>
-                                <span class="private-page-slug">/<?php echo esc_html($page->post_name); ?></span>
+                        </div>
+                        <div class="private-page-actions">
+                            <?php if ($edit_url) : ?>
+                                <a href="<?php echo esc_url($edit_url); ?>" class="button button-small" title="編集画面を開く">編集</a>
                             <?php endif; ?>
                         </div>
-                    </div>
-                    <div class="private-page-actions">
-                        <?php if ($edit_url) : ?>
-                            <a href="<?php echo esc_url($edit_url); ?>" class="button button-small" title="編集画面を開く">編集</a>
-                        <?php endif; ?>
-                    </div>
-                </li>
-            <?php endforeach; ?>
-        </ul>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
 
+        <!-- フッター操作部 -->
         <div class="private-pages-widget-footer">
             <a href="<?php echo esc_url(admin_url('edit.php?post_status=private&post_type=page')); ?>" class="button button-link">
                 管理画面で一覧を開く (全<?php echo count($private_pages); ?>件) &rarr;
@@ -457,11 +522,57 @@ function render_private_pages_dashboard_widget()
             margin: -6px -12px -12px;
         }
 
+        .top-page-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 12px;
+            background: #f0f6fc;
+            border-bottom: 2px solid #c5d9ed;
+        }
+
+        .top-page-header-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .top-page-badge {
+            background-color: #2271b1;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 3px;
+            line-height: 1.2;
+            letter-spacing: 0.5px;
+        }
+
+        .private-pages-section-divider {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: #f6f7f7;
+            border-bottom: 1px solid #dcdcde;
+            font-size: 12px;
+            color: #50575e;
+        }
+
+        .private-pages-section-divider .dashicons {
+            font-size: 15px;
+            width: 15px;
+            height: 15px;
+            color: #646970;
+        }
+
         .private-pages-list {
             margin: 0;
             padding: 0;
             list-style: none;
-            max-height: 380px;
+            max-height: 350px;
             overflow-y: auto;
         }
 
@@ -564,3 +675,4 @@ function render_private_pages_dashboard_widget()
     </style>
 <?php
 }
+
