@@ -26,6 +26,7 @@ require_once $theme_dir . '/lib/koto-helpers.php';
 require_once $theme_dir . '/lib/character-search/koto-search.php';
 require_once $theme_dir . '/lib/character-search/chara-list-functions.php';
 require_once $theme_dir . '/lib/character-search/koto-json-reformer.php';
+require_once $theme_dir . '/lib/character-search/koto-taxonomy-sync.php';
 
 // キャラクター詳細表示・モーダル表示
 require_once $theme_dir . '/lib/koto-modal-displayer.php';
