@@ -419,6 +419,7 @@
   |trait1|連想配列|任意|とくせい１||
   |trait2|連想配列|任意|とくせい２||
   |blessing|連想配列|0~8|祝福とくせい||
+  |ex_blessing|連想配列|0~8|EX祝福とくせい||
   |leader|連想配列||リーダーとくせい||
   |EX_skill|連想配列||EXスキル詳細||
   |charge_skill|連想配列||チャージスキル詳細||
@@ -723,7 +724,7 @@ ACFのとくせいの条件/わざ追加条件ループフィールドを受け�
 ACFのすごわざ条件のgroup_loopを受け取り、すごわざ/ことわざ発動条件を解析する
 ```
 [　//以下の連想配列の配列
-    ['get_place']=>default/blessing(str)
+    ['get_place']=>default/blessing/ex_blessing(str)
     ['need_point']=>必要祝福ポイントint
     ['conditions']=>[
         [type]=>すごわざ条件タイプstr

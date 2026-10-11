@@ -818,13 +818,17 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                 }
             }
 
-            $place = isset($pattern['get_palce']) ? $pattern['get_palce'] : 'default';
+            $place = isset($pattern['get_palce']) ? $pattern['get_palce'] : ($pattern['get_place'] ?? 'default');
             $blessing_suffix = '';
 
             if ($place === 'blessing') {
                 $pt = isset($pattern['need_blessing_point']) ? $pattern['need_blessing_point'] : '';
                 $pt_text = $pt ? "(pt:{$pt})" : "";
-                $blessing_suffix = '<span class="blessing-note">※祝福解放' . esc_html($pt_text) . '</span>';
+                $blessing_suffix = '<span class="blessing-note">※祝福で解放' . esc_html($pt_text) . '</span>';
+            } elseif ($place === 'ex_blessing' || $place === 'ex-blessing') {
+                $pt = isset($pattern['need_blessing_point']) ? $pattern['need_blessing_point'] : '';
+                $pt_text = $pt ? "(pt:{$pt})" : "";
+                $blessing_suffix = '<span class="blessing-note ex-blessing-note">※EX祝福で解放' . esc_html($pt_text) . '</span>';
             }
 
             if (!empty($and_texts)) {
@@ -1825,12 +1829,13 @@ function get_koto_leader_skill_html($post_id = null, $is_back_count = false)
 }
 
 /**
- * 6. 祝福とくせい用：すごわざ条件解放リスト取得関数
+ * 6. 祝福 / EX祝福とくせい用：すごわざ条件解放リスト取得関数
  *
  * @param int|null $post_id 投稿ID
+ * @param string $target_place 解放場所（'blessing' または 'ex_blessing'）
  * @return array 条件追加のテキスト配列
  */
-function get_koto_blessing_sugo_list($post_id = null)
+function get_koto_blessing_sugo_list($post_id = null, $target_place = 'blessing')
 {
     if (!$post_id) $post_id = get_the_ID();
     $cond_rows = koto_get_field_cached('sugowaza_condition', $post_id);
@@ -1838,9 +1843,15 @@ function get_koto_blessing_sugo_list($post_id = null)
 
     if ($cond_rows) {
         foreach ($cond_rows as $row) {
-            // 解放場所が 'blessing' かチェック
-            // ※フィールド名は get_palce (placeのタイポ) のまま対応
-            if (isset($row['get_palce']) && $row['get_palce'] === 'blessing') {
+            $place = $row['get_palce'] ?? ($row['get_place'] ?? 'default');
+            $is_target = false;
+            if ($target_place === 'blessing') {
+                $is_target = ($place === 'blessing');
+            } elseif ($target_place === 'ex_blessing' || $target_place === 'ex-blessing') {
+                $is_target = ($place === 'ex_blessing' || $place === 'ex-blessing');
+            }
+
+            if ($is_target) {
                 $cond_texts = [];
                 $loop = isset($row['sugo_cond_loop']) ? $row['sugo_cond_loop'] : [];
                 if ($loop) {
@@ -1879,6 +1890,17 @@ function get_koto_blessing_sugo_list($post_id = null)
         }
     }
     return $results;
+}
+
+/**
+ * 6-2. EX祝福とくせい用：すごわざ条件解放リスト取得関数
+ *
+ * @param int|null $post_id 投稿ID
+ * @return array 条件追加のテキスト配列
+ */
+function get_koto_ex_blessing_sugo_list($post_id = null)
+{
+    return get_koto_blessing_sugo_list($post_id, 'ex_blessing');
 }
 
 /**

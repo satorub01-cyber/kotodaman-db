@@ -2345,6 +2345,7 @@
                     "choices": {
                         "default": "初期",
                         "blessing": "祝福",
+                        "ex_blessing": "EX祝福",
                         "trait1": "とくせい1(グループ)",
                         "trait2": "とくせい2(グループ)"
                     },
@@ -2372,6 +2373,13 @@
                                 "operator": "==",
                                 "value": "blessing"
                             }
+                        ],
+                        [
+                            {
+                                "field": "field_695e77f85bf44",
+                                "operator": "==",
+                                "value": "ex_blessing"
+                            }
                         ]
                     ],
                     "wrapper": {
@@ -2379,7 +2387,6 @@
                         "class": "",
                         "id": ""
                     },
-                    "relevanssi_exclude": 0,
                     "default_value": "",
                     "maxlength": "",
                     "allow_in_bindings": 0,
@@ -2818,6 +2825,11 @@
                                         "field": "field_69744ae60f7c2",
                                         "operator": "!=",
                                         "value": "species"
+                                    },
+                                    {
+                                        "field": "field_69744ae60f7c2",
+                                        "operator": "!=",
+                                        "value": "character"
                                     }
                                 ],
                                 [
@@ -5140,5 +5152,5 @@
             }
         ]
     },
-    "modified": 1788268746
+    "modified": 1791737667
 }

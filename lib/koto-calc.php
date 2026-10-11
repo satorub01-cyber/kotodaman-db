@@ -203,6 +203,7 @@ function get_character_spec_data($post_id)
         'trait1'        => [],
         'trait2'        => [],
         'blessing'      => [],
+        'ex_blessing'   => [],
         'leader'        => null,
         'miracle_leader' => null,
         'EX_skill'      => [],
@@ -807,6 +808,10 @@ function get_character_spec_data($post_id)
     // 5. 祝福
     $blessing = get_field('blessing_trait_loop', $post_id);
     if ($blessing) $data['blessing'] = _parse_trait_loop_to_data($blessing, true);
+
+    // 5-2. EX祝福
+    $blessing_ex = get_field('blessing_ex_trait_loop', $post_id);
+    if ($blessing_ex) $data['ex_blessing'] = _parse_trait_loop_to_data($blessing_ex, true);
 
     // 祝福とくせいタグ収集
     if (!empty($data['blessing'])) {
@@ -1867,8 +1872,10 @@ function _parse_sugo_condition($cond_data)
                 ];
             }
         }
-        $get_place = $pattern['get_place'] ?? 'default';
-        $need_point = $pattern['need_blessing_point'] ?? 0;
+        $get_place = $pattern['get_place'] ?? $pattern['get_palce'] ?? 'default';
+        $need_point = !empty($pattern['need_blessing_point']) && is_numeric($pattern['need_blessing_point'])
+            ? (int)$pattern['need_blessing_point']
+            : ($pattern['need_blessing_point'] ?? 0);
         $parsed[] = [
             'get_place' => $get_place,
             'need_point' => $need_point,

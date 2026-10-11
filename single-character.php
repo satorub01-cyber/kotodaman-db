@@ -1222,7 +1222,11 @@ if ($has_blessing_data || $add_moji_blessing || !empty($add_sugo_blessing_list))
 // EX祝福特性
 $blessing_ex_loop = $all_fields['blessing_ex_trait_loop'] ?? null;
 $has_blessing_ex_data = ($blessing_ex_loop && is_array($blessing_ex_loop));
-if ($has_blessing_ex_data):
+
+// ★追加：すごわざ条件解放情報の取得
+$add_sugo_ex_blessing_list = function_exists('get_koto_ex_blessing_sugo_list') ? get_koto_ex_blessing_sugo_list() : [];
+
+if ($has_blessing_ex_data || !empty($add_sugo_ex_blessing_list)):
 ?>
     <div class="skill-card card-blessing" style="margin-top: 30px;">
         <div class="skill-badge-area">
@@ -1235,7 +1239,20 @@ if ($has_blessing_ex_data):
                     <?php
                     $i = 1;
 
-                    // EX祝福はEX祝福とくせいループのみを表示する
+                    // A. ★追加：すごわざ条件追加の表示
+                    if (!empty($add_sugo_ex_blessing_list)):
+                        foreach ($add_sugo_ex_blessing_list as $line):
+                        ?>
+                            <div class="skill-effect-line" style="margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
+                                <span class="effect-num">(<?php echo $i; ?>) </span>
+                                <?php echo $line; ?>
+                            </div>
+                            <?php
+                            $i++;
+                        endforeach;
+                    endif;
+
+                    // B. EX祝福とくせいループの表示
                     if ($has_blessing_ex_data):
                         foreach ($blessing_ex_loop as $row):
                             $levels_data = [];

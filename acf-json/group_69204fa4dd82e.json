@@ -478,69 +478,6 @@
             "selected": 0
         },
         {
-            "key": "field_6957839bb1fea",
-            "label": "自動計算 or 手動",
-            "name": "status_auto_tf",
-            "aria-label": "",
-            "type": "true_false",
-            "instructions": "",
-            "required": 0,
-            "conditional_logic": 0,
-            "wrapper": {
-                "width": "33",
-                "class": "",
-                "id": ""
-            },
-            "message": "Lv120時のステータスを手動入力する場合チェック",
-            "default_value": 0,
-            "allow_in_bindings": 0,
-            "ui": 0,
-            "ui_on_text": "",
-            "ui_off_text": ""
-        },
-        {
-            "key": "field_698c0a9d4b15e",
-            "label": "才能開花自動計算 or 手動",
-            "name": "talent_status_auto_tf",
-            "aria-label": "",
-            "type": "true_false",
-            "instructions": "",
-            "required": 0,
-            "conditional_logic": 0,
-            "wrapper": {
-                "width": "33",
-                "class": "",
-                "id": ""
-            },
-            "message": "Lv120時のステータスを手動入力する場合チェック",
-            "default_value": 0,
-            "allow_in_bindings": 0,
-            "ui": 0,
-            "ui_on_text": "",
-            "ui_off_text": ""
-        },
-        {
-            "key": "field_6957af71eca1b",
-            "label": "昇華の有無",
-            "name": "no_lv120_flag",
-            "aria-label": "",
-            "type": "true_false",
-            "instructions": "",
-            "required": 0,
-            "conditional_logic": 0,
-            "wrapper": {
-                "width": "33",
-                "class": "",
-                "id": ""
-            },
-            "message": "トークンや星5以下など昇華のないキャラはチェック",
-            "default_value": 0,
-            "allow_in_bindings": 0,
-            "ui": 0,
-            "ui_on_text": "",
-            "ui_off_text": ""
-        },
-        {
             "key": "field_69578484b1fee",
             "label": "lv99HP基礎値",
             "name": "lv_99_hp",
@@ -625,6 +562,79 @@
             "append": ""
         },
         {
+            "key": "field_69204fdaa2e69",
+            "label": "属性",
+            "name": "attribute",
+            "aria-label": "",
+            "type": "taxonomy",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "taxonomy": "attribute",
+            "add_term": 0,
+            "save_terms": 1,
+            "load_terms": 1,
+            "return_format": "object",
+            "field_type": "radio",
+            "allow_null": 0,
+            "allow_in_bindings": 0,
+            "bidirectional": 0,
+            "multiple": 0,
+            "bidirectional_target": []
+        },
+        {
+            "key": "field_6920509ca2e6a",
+            "label": "種族",
+            "name": "species",
+            "aria-label": "",
+            "type": "taxonomy",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "taxonomy": "species",
+            "add_term": 0,
+            "save_terms": 1,
+            "load_terms": 1,
+            "return_format": "object",
+            "field_type": "radio",
+            "allow_null": 0,
+            "allow_in_bindings": 0,
+            "bidirectional": 0,
+            "multiple": 0,
+            "bidirectional_target": []
+        },
+        {
+            "key": "field_6957839bb1fea",
+            "label": "自動計算 or 手動",
+            "name": "status_auto_tf",
+            "aria-label": "",
+            "type": "true_false",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "33",
+                "class": "",
+                "id": ""
+            },
+            "message": "Lv120時のステータスを手動入力する場合チェック",
+            "default_value": 0,
+            "allow_in_bindings": 0,
+            "ui": 0,
+            "ui_on_text": "",
+            "ui_off_text": ""
+        },
+        {
             "key": "field_695784fcb1ff1",
             "label": "lv120HP基礎値",
             "name": "lv_120_hp",
@@ -693,6 +703,48 @@
             "append": ""
         },
         {
+            "key": "field_6957af71eca1b",
+            "label": "昇華の有無",
+            "name": "no_lv120_flag",
+            "aria-label": "",
+            "type": "true_false",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "33",
+                "class": "",
+                "id": ""
+            },
+            "message": "トークンや星5以下など昇華のないキャラはチェック",
+            "default_value": 0,
+            "allow_in_bindings": 0,
+            "ui": 0,
+            "ui_on_text": "",
+            "ui_off_text": ""
+        },
+        {
+            "key": "field_698c0a9d4b15e",
+            "label": "才能開花自動計算 or 手動",
+            "name": "talent_status_auto_tf",
+            "aria-label": "",
+            "type": "true_false",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "33",
+                "class": "",
+                "id": ""
+            },
+            "message": "Lv120時のステータスを手動入力する場合チェック",
+            "default_value": 0,
+            "allow_in_bindings": 0,
+            "ui": 0,
+            "ui_on_text": "",
+            "ui_off_text": ""
+        },
+        {
             "key": "field_698c0ad84b15f",
             "label": "才能開花HP",
             "name": "talent_hp",
@@ -749,58 +801,6 @@
             "placeholder": "",
             "prepend": "",
             "append": ""
-        },
-        {
-            "key": "field_69204fdaa2e69",
-            "label": "属性",
-            "name": "attribute",
-            "aria-label": "",
-            "type": "taxonomy",
-            "instructions": "",
-            "required": 0,
-            "conditional_logic": 0,
-            "wrapper": {
-                "width": "50",
-                "class": "",
-                "id": ""
-            },
-            "taxonomy": "attribute",
-            "add_term": 0,
-            "save_terms": 1,
-            "load_terms": 1,
-            "return_format": "object",
-            "field_type": "radio",
-            "allow_null": 0,
-            "allow_in_bindings": 0,
-            "bidirectional": 0,
-            "multiple": 0,
-            "bidirectional_target": []
-        },
-        {
-            "key": "field_6920509ca2e6a",
-            "label": "種族",
-            "name": "species",
-            "aria-label": "",
-            "type": "taxonomy",
-            "instructions": "",
-            "required": 0,
-            "conditional_logic": 0,
-            "wrapper": {
-                "width": "50",
-                "class": "",
-                "id": ""
-            },
-            "taxonomy": "species",
-            "add_term": 0,
-            "save_terms": 1,
-            "load_terms": 1,
-            "return_format": "object",
-            "field_type": "radio",
-            "allow_null": 0,
-            "allow_in_bindings": 0,
-            "bidirectional": 0,
-            "multiple": 0,
-            "bidirectional_target": []
         },
         {
             "key": "field_69578447b1fec",
@@ -1080,5 +1080,5 @@
             }
         ]
     },
-    "modified": 1786448546
+    "modified": 1790343587
 }
