@@ -392,7 +392,7 @@ $moji_axis_display = !empty($moji_axis_labels) ? implode('・', $moji_axis_label
     </dl>
 
     <dl class="spec-row full-width">
-        <dt>入手方法、実装イベントなど</dt>
+        <dt>実装イベントなど</dt>
         <dd>
             <?php
             $events = get_field('event', $post_id);
@@ -408,6 +408,64 @@ $moji_axis_display = !empty($moji_axis_labels) ? implode('・', $moji_axis_label
             ?>
         </dd>
     </dl>
+    <?php
+    $sub_events = get_field('sub_event', $post_id);
+    if (!empty($sub_events) && !is_wp_error($sub_events)):
+        if (!is_array($sub_events)) {
+            $sub_events = [$sub_events];
+        }
+        $sub_event_links = [];
+        foreach ($sub_events as $sev) {
+            if (is_object($sev) && !is_wp_error($sev)) {
+                $sub_event_links[] = '<a href="' . get_term_link($sev) . '">' . esc_html($sev->name) . '</a>';
+            } elseif (is_numeric($sev)) {
+                $t = get_term($sev, 'event');
+                if ($t && !is_wp_error($t)) {
+                    $sub_event_links[] = '<a href="' . get_term_link($t) . '">' . esc_html($t->name) . '</a>';
+                }
+            }
+        }
+        if (!empty($sub_event_links)):
+    ?>
+    <dl class="spec-row full-width">
+        <dt>その他入手方法</dt>
+        <dd>
+            <?php echo implode('・', $sub_event_links); ?>
+        </dd>
+    </dl>
+    <?php
+        endif;
+    endif;
+    ?>
+    <?php
+    $guerilla_roots = get_field('guerilla_root', $post_id);
+    if (!empty($guerilla_roots) && !is_wp_error($guerilla_roots)):
+        if (!is_array($guerilla_roots)) {
+            $guerilla_roots = [$guerilla_roots];
+        }
+        $guerilla_links = [];
+        foreach ($guerilla_roots as $gev) {
+            if (is_object($gev) && !is_wp_error($gev)) {
+                $guerilla_links[] = '<a href="' . get_term_link($gev) . '">' . esc_html($gev->name) . '</a>';
+            } elseif (is_numeric($gev)) {
+                $t = get_term($gev, 'event');
+                if ($t && !is_wp_error($t)) {
+                    $guerilla_links[] = '<a href="' . get_term_link($t) . '">' . esc_html($t->name) . '</a>';
+                }
+            }
+        }
+        if (!empty($guerilla_links)):
+    ?>
+    <dl class="spec-row full-width">
+        <dt>強襲元</dt>
+        <dd>
+            <?php echo implode('・', $guerilla_links); ?>
+        </dd>
+    </dl>
+    <?php
+        endif;
+    endif;
+    ?>
     <dl class="spec-row full-width">
         <dt>適正クエスト</dt>
         <dd>

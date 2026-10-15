@@ -243,17 +243,21 @@ class Koto_Taxonomy_Sync {
             switch ($taxonomy) {
                 case 'event':
                 case 'suitable_quest':
-                    $key = ($taxonomy === 'event') ? 'event' : 'suitable_quest';
-                    if (!empty($spec[$key]) && is_array($spec[$key]) && $old_slug !== $new_slug) {
-                        foreach ($spec[$key] as &$val) {
-                            if ($val === $old_slug) {
-                                $val = $new_slug;
-                                $modified = true;
+                    $keys = ($taxonomy === 'event') ? ['event', 'sub-event', 'sub_event', 'gerilla_root', 'guerilla_root'] : ['suitable_quest'];
+                    foreach ($keys as $key) {
+                        if (!empty($spec[$key]) && is_array($spec[$key]) && $old_slug !== $new_slug) {
+                            $key_modified = false;
+                            foreach ($spec[$key] as &$val) {
+                                if ($val === $old_slug) {
+                                    $val = $new_slug;
+                                    $key_modified = true;
+                                    $modified = true;
+                                }
                             }
-                        }
-                        unset($val);
-                        if ($modified) {
-                            $spec[$key] = array_values(array_unique($spec[$key]));
+                            unset($val);
+                            if ($key_modified) {
+                                $spec[$key] = array_values(array_unique($spec[$key]));
+                            }
                         }
                     }
                     break;
@@ -382,14 +386,16 @@ class Koto_Taxonomy_Sync {
             switch ($taxonomy) {
                 case 'event':
                 case 'suitable_quest':
-                    $key = ($taxonomy === 'event') ? 'event' : 'suitable_quest';
-                    if (!empty($spec[$key]) && is_array($spec[$key])) {
-                        $before_count = count($spec[$key]);
-                        $spec[$key] = array_values(array_filter($spec[$key], function ($item) use ($slug) {
-                            return $item !== $slug;
-                        }));
-                        if (count($spec[$key]) !== $before_count) {
-                            $modified = true;
+                    $keys = ($taxonomy === 'event') ? ['event', 'sub-event', 'sub_event', 'gerilla_root', 'guerilla_root'] : ['suitable_quest'];
+                    foreach ($keys as $key) {
+                        if (!empty($spec[$key]) && is_array($spec[$key])) {
+                            $before_count = count($spec[$key]);
+                            $spec[$key] = array_values(array_filter($spec[$key], function ($item) use ($slug) {
+                                return $item !== $slug;
+                            }));
+                            if (count($spec[$key]) !== $before_count) {
+                                $modified = true;
+                            }
                         }
                     }
                     break;

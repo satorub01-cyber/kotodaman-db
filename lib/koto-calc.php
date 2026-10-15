@@ -176,6 +176,10 @@ function get_character_spec_data($post_id)
         'max_lavel'     => (int)$max_lv,
         'release_date'  => '', // ★追加: 実装日用キー
         'event'         => [],
+        'sub-event'     => [],
+        'sub_event'     => [],
+        'gerilla_root'  => [],
+        'guerilla_root' => [],
         'suitable_quest' => [],
         'attribute'     => '',
         'sub_attributes' => [],
@@ -265,7 +269,12 @@ function get_character_spec_data($post_id)
     }
 
     // ACFのタクソノミーフィールドはTermオブジェクトで返るため、slug配列として保存する
-    foreach (['event' => 'event', 'suitable_quest' => 'quest'] as $data_key => $field_name) {
+    foreach ([
+        'event'          => 'event',
+        'sub_event'      => 'sub_event',
+        'guerilla_root'  => 'guerilla_root',
+        'suitable_quest' => 'quest'
+    ] as $data_key => $field_name) {
         $field_terms = get_field($field_name, $post_id);
         if (!is_array($field_terms)) {
             $field_terms = $field_terms ? [$field_terms] : [];
@@ -277,7 +286,8 @@ function get_character_spec_data($post_id)
             } elseif (is_array($term) && !empty($term['slug'])) {
                 $data[$data_key][] = $term['slug'];
             } elseif (is_numeric($term)) {
-                $term_object = get_term($term, $data_key === 'event' ? 'event' : 'suitable_quest');
+                $taxonomy_name = ($data_key === 'suitable_quest') ? 'suitable_quest' : 'event';
+                $term_object = get_term($term, $taxonomy_name);
                 if ($term_object && !is_wp_error($term_object) && !empty($term_object->slug)) {
                     $data[$data_key][] = $term_object->slug;
                 }
@@ -286,6 +296,9 @@ function get_character_spec_data($post_id)
 
         $data[$data_key] = array_values(array_unique($data[$data_key]));
     }
+    // 表記ゆれ・キー名対応（ハイフン/アンダースコア、gerilla/guerilla）
+    $data['sub-event'] = $data['sub_event'];
+    $data['gerilla_root'] = $data['guerilla_root'];
 
     // ★サブ属性の判定ロジック（保存フックから移動）
     // メイン属性以外を持っているかチェック

@@ -447,6 +447,8 @@ function koto_get_flat_char_data($post_id)
 
     // 4. イベント・適正クエストは、保存済みspec_jsonの値を参照する
     $events = $spec['event'] ?? [];
+    $sub_events = $spec['sub-event'] ?? ($spec['sub_event'] ?? []);
+    $guerilla_roots = $spec['gerilla_root'] ?? ($spec['guerilla_root'] ?? []);
     $suitable_quests = $spec['suitable_quest'] ?? [];
 
     // 6. スキルタグ文字列 (カンマ区切りなどを配列にするか、文字列のままか。検索を簡単にするため文字列のままにして `includes` で判定するのも手です)
@@ -491,6 +493,10 @@ function koto_get_flat_char_data($post_id)
         'group_en'     => $groups['en'],
         'group_jp'     => $groups['jp'],
         'events'       => is_array($events) ? $events : [],
+        'sub-event'    => is_array($sub_events) ? $sub_events : [],
+        'sub_event'    => is_array($sub_events) ? $sub_events : [],
+        'gerilla_root' => is_array($guerilla_roots) ? $guerilla_roots : [],
+        'guerilla_root'=> is_array($guerilla_roots) ? $guerilla_roots : [],
         'quests' => is_array($suitable_quests) ? $suitable_quests : [],
         'rar'          => $spec['rarity'], //検索では不使用
         'rar_d'        => $spec['rarity_detail'], //検索では不使用

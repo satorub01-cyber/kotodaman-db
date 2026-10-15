@@ -881,7 +881,7 @@
             "name": "event",
             "aria-label": "",
             "type": "taxonomy",
-            "instructions": "該当するものがなければ追加してください\r\n＊＊要確認＊＊",
+            "instructions": "該当するものがなければ追加してください",
             "required": 0,
             "conditional_logic": 0,
             "wrapper": {
@@ -892,10 +892,71 @@
             "taxonomy": "event",
             "add_term": 1,
             "save_terms": 1,
-            "load_terms": 1,
+            "load_terms": 0,
             "return_format": "object",
             "field_type": "multi_select",
             "allow_null": 0,
+            "acfe_bidirectional": {
+                "acfe_bidirectional_enabled": "0"
+            },
+            "allow_in_bindings": 0,
+            "bidirectional": 0,
+            "multiple": 0,
+            "bidirectional_target": []
+        },
+        {
+            "key": "field_6ad0bebdab18f",
+            "label": "交換所など",
+            "name": "sub_event",
+            "aria-label": "",
+            "type": "taxonomy",
+            "instructions": "該当するものがなければ追加してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "taxonomy": "event",
+            "add_term": 1,
+            "save_terms": 1,
+            "load_terms": 0,
+            "return_format": "object",
+            "field_type": "multi_select",
+            "allow_null": 0,
+            "acfe_bidirectional": {
+                "acfe_bidirectional_enabled": "0"
+            },
+            "allow_in_bindings": 0,
+            "bidirectional": 0,
+            "multiple": 0,
+            "bidirectional_target": []
+        },
+        {
+            "key": "field_6ad0beedab190",
+            "label": "強襲元",
+            "name": "guerilla_root",
+            "aria-label": "",
+            "type": "taxonomy",
+            "instructions": "該当するものがなければ追加してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "taxonomy": "event",
+            "add_term": 1,
+            "save_terms": 1,
+            "load_terms": 0,
+            "return_format": "object",
+            "field_type": "multi_select",
+            "allow_null": 0,
+            "acfe_bidirectional": {
+                "acfe_bidirectional_enabled": "0"
+            },
             "allow_in_bindings": 0,
             "bidirectional": 0,
             "multiple": 0,
@@ -1080,5 +1141,5 @@
             }
         ]
     },
-    "modified": 1790343587
+    "modified": 1792079785
 }

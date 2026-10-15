@@ -72,7 +72,7 @@ function koto_get_column_config()
             'sort'  => null,
             'show'  => false, // 基本は隠しておく
             'header_class' => 'th-group',
-            'related_filters' => ['tx_group'] // グループ検索と連動！
+            'related_filters' => ['tx_group', 'tx_group[]'] // グループ検索と連動！
         ],
         'event' => [
             'label' => 'イベント',
@@ -80,7 +80,23 @@ function koto_get_column_config()
             'sort'  => null,
             'show'  => false, // 基本は隠しておく
             'header_class' => 'th-event',
-            'related_filters' => ['tx_event'] // イベント検索と連動！
+            'related_filters' => ['tx_event', 'tx_event[]'] // イベント検索と連動！
+        ],
+        'sub_event' => [
+            'label' => 'その他入手方法',
+            'class' => 'col-sub-event',
+            'sort'  => null,
+            'show'  => false,
+            'header_class' => 'th-sub-event',
+            'related_filters' => ['tx_event', 'tx_event[]']
+        ],
+        'guerilla_root' => [
+            'label' => '強襲元',
+            'class' => 'col-guerilla-root',
+            'sort'  => null,
+            'show'  => false,
+            'header_class' => 'th-guerilla-root',
+            'related_filters' => ['tx_event', 'tx_event[]']
         ],
         'quest' => [
             'label' => '適正クエスト',
@@ -88,7 +104,7 @@ function koto_get_column_config()
             'sort'  => null,
             'show'  => false,
             'header_class' => 'th-quest',
-            'related_filters' => ['tx_quest'] // 適正クエスト検索と連動！
+            'related_filters' => ['tx_quest', 'tx_quest[]'] // 適正クエスト検索と連動！
         ],
         'hp99' => [
             'label' => 'HP<span class="th-sub">99</span>',
