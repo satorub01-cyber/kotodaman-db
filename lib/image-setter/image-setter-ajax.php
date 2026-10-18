@@ -183,6 +183,25 @@ function image_setter_handle_save_image() {
         $thumb_updated = true;
     }
 
+    // キャッシュクリア
+    clean_post_cache($char_id);
+
+    // ACFおよびスペック解析・検索用JSON自動更新フックを発火
+    do_action('acf/save_post', $char_id);
+
+    // 万が一フック経由でJSONが更新されなかった場合の安全策（公開中キャラクターの場合）
+    if (!has_action('acf/save_post', 'koto_auto_update_json_on_save')) {
+        $post = get_post($char_id);
+        if ($post && $post->post_status === 'publish') {
+            if (function_exists('koto_update_search_json_single')) {
+                koto_update_search_json_single($char_id);
+            }
+            if (function_exists('koto_update_missing_info_json_single')) {
+                koto_update_missing_info_json_single($char_id);
+            }
+        }
+    }
+
     $char_title = get_the_title($char_id);
     $msg = "{$char_title}の{$label_name}に設定しました";
 

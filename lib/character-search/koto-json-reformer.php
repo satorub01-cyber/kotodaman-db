@@ -447,8 +447,15 @@ function koto_get_flat_char_data($post_id)
     if (!is_array($spec) || empty($spec)) {
         return null;
     }
-    // 画像URLの取得
-    $thumb_url = get_the_post_thumbnail_url($post_id, 'thumbnail') ?? '';
+    // 画像URLの取得（アイキャッチ優先、未設定時は進化後画像character_imageからフォールバック取得）
+    $thumb_url = get_the_post_thumbnail_url($post_id, 'thumbnail');
+    if (!$thumb_url) {
+        $char_img_id = get_post_meta($post_id, 'character_image', true);
+        if ($char_img_id) {
+            $thumb_url = wp_get_attachment_image_url($char_img_id, 'thumbnail') ?: wp_get_attachment_url($char_img_id);
+        }
+    }
+    $thumb_url = $thumb_url ?: '';
 
     // ギミック名の抽出
     $gimmick_pairs = [];
