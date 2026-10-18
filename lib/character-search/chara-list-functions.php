@@ -113,7 +113,7 @@ function koto_get_column_config()
             'sort'  => 'hp99',
             'meta'  => '99_hp',
             'type'  => 'NUMERIC',
-            'show'  => true,
+            'show'  => false,
             'header_class' => 'th-stat',
             'related_filters' => []
         ],
@@ -124,7 +124,7 @@ function koto_get_column_config()
             'sort'  => 'atk99',
             'meta'  => '99_atk',
             'type'  => 'NUMERIC',
-            'show'  => true,
+            'show'  => false,
             'header_class' => 'th-stat',
             'related_filters' => []
         ],
@@ -135,7 +135,7 @@ function koto_get_column_config()
             'sort'  => 'hp120',
             'meta'  => '120_hp',
             'type'  => 'NUMERIC',
-            'show'  => false,
+            'show'  => true,
             'header_class' => 'th-stat th-120',
             'related_filters' => []
         ],
@@ -146,7 +146,7 @@ function koto_get_column_config()
             'sort'  => 'atk120',
             'meta'  => '120_atk',
             'type'  => 'NUMERIC',
-            'show'  => false,
+            'show'  => true,
             'header_class' => 'th-stat th-120',
             'related_filters' => []
         ],
@@ -179,7 +179,7 @@ function koto_get_column_config()
             'sort'  => 'buff_board',
             'meta'  => 'buff_count_board_lv5',
             'type'  => 'NUMERIC',
-            'show'  => true,
+            'show'  => false,
             'header_class' => 'th-buff',
             'related_filters' => []
         ],
@@ -200,7 +200,7 @@ function koto_get_column_config()
             'sort'  => 'debuff',
             'meta'  => 'debuff_count_lv5',
             'type'  => 'NUMERIC',
-            'show'  => true,
+            'show'  => false,
             'header_class' => 'th-debuff',
             'related_filters' => []
         ],
@@ -208,6 +208,8 @@ function koto_get_column_config()
             'label' => 'ギミック',
             'class' => 'col-gimmick',
             'sort'  => null,
+            'meta'  => 'gimmick',
+            'type'  => 'TEXT',
             'show'  => true,
             'header_class' => 'th-gimmick',
             'related_filters' => ['tx_gimmick[]']

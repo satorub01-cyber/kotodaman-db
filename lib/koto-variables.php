@@ -267,7 +267,6 @@ function koto_get_trait_search_label_map()
         'give_trait' => '特性付与',
 
         // ----- 火力補正 -----
-        'damage_correction' => '火力補正',
         'damage_correction_oneself' => '自身の威力up',
         'damage_correction_killer' => 'キラー',
         'damage_correction_break_limit' => '自身の上限解放',
@@ -277,7 +276,6 @@ function koto_get_trait_search_label_map()
         'damage_correction_single_shot_killer' => '単体単発キラー補正',
 
         // ----- ステータス・クリティカル補正 -----
-        'status_up' => 'ステータス・クリティカル補正',
         'status_up_atk' => 'ATKUP',
         'status_up_hp' => 'HPUP',
         'status_up_critical_rate' => 'クリティカル率',
@@ -288,19 +286,16 @@ function koto_get_trait_search_label_map()
         'status_up_dodge' => '心眼回避',
 
         // ----- ドロー時効果 -----
-        'draw_eff' => 'ドロー時効果',
         'draw_eff_atk_buff' => '攻撃バフ',
         'draw_eff_def_buff' => '防御バフ',
         'draw_eff_healing' => '回復',
         'draw_eff_status_healing' => '状態異常回復',
 
         // ----- 実体時効果 -----
-        'on_play_eff' => '実体時効果',
         'on_play_eff_atk_buff' => '攻撃バフ',
         'on_play_eff_def_buff' => '防御バフ',
 
         // ----- 新とくせい -----
-        'new_traits' => '新とくせい',
         'new_traits_support' => '応援',
         'new_traits_see_through' => '看破',
         'new_traits_assistance' => '援護',
@@ -309,13 +304,11 @@ function koto_get_trait_search_label_map()
         'new_traits_poke' => '牽制',
 
         // ----- 特殊な攻撃バフ -----
-        'unique_buff' => '特殊な攻撃バフ',
         'unique_buff_gimmick_count' => 'ギミックカウントATKバフ',
         'unique_buff_block_break' => 'ブロック破壊時ATKバフ',
         'unique_buff_passed_turn' => 'ターン経過ATKバフ',
 
         // ----- 反撃・腐敗など -----
-        'after_attack' => '反撃・腐敗など',
         'after_attack_counter' => 'わざ反撃',
         'after_attack_sugo_counter' => 'すごわざ反撃',
         'after_attack_absolute_counter' => '確定反撃', // ← HTMLにあり、元マップになかった追加分
@@ -323,12 +316,10 @@ function koto_get_trait_search_label_map()
         'after_attack_reflection' => 'ダメージ反射',
 
         // ----- モードシフト・変身 -----
-        'mode_shift' => 'モードシフト・変身',
         'mode_shift_mode_shift' => 'モードシフト',
         'mode_shift_transform' => '変身',
 
         // ----- その他 -----
-        'other' => 'その他',
         'other_combo_plus' => 'コンボ＋',
         'other_penetration' => 'バリア貫通',
         'other_over_healing' => 'オーバーヒール',

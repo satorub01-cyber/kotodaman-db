@@ -512,8 +512,8 @@ function get_character_spec_data($post_id)
                         }
                     }
 
-                    // ★追加: 生のタイプもタグとして保存
-                    if ($type) $target_tags[] = 'type_' . $type;
+                    // ★追加: 生のタイプもタグとして保存（親要素用のtype_attackは除外）
+                    if ($type && $type !== 'attack') $target_tags[] = 'type_' . $type;
 
                     // attack_type は複数ある可能性があるのでループ
                     foreach ($attack_types_list as $at_val) {
@@ -522,8 +522,7 @@ function get_character_spec_data($post_id)
                     if ($omni_advantage) $target_tags[] = 'type_omni_advantage';
 
                     // タイプに応じたタグ追加
-                    if (strpos($type, 'attack') !== false || strpos($type, 'command') !== false) {
-                        $target_tags[] = 'type_attack'; // 攻撃
+                    if (strpos($type, 'attack') !== false) {
                         if (strpos($type, 'attack') !== false) {
                             if ($target === 'single_oppo') {
                                 if ($hit_count > 1) {
@@ -797,9 +796,6 @@ function get_character_spec_data($post_id)
                 } else {
                     $t_sub = 'resonance_atk';
                 }
-            }
-            if (!empty($t_type)) {
-                $target_tags[] = 'trait_' . $t_type;
             }
             if (!empty($t_sub) && is_string($t_sub)) {
                 $target_tags[] = 'trait_' . $t_type . '_' . $t_sub;

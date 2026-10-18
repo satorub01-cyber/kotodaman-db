@@ -1235,6 +1235,8 @@ function koto_preprocess_text($text, $category = '')
         'すごわさ' => 'すごわざ',
         'すこわさ' => 'すごわざ',
         '擊' => '撃',
+        '<' => 'く',
+        '＜' => 'く',
     ];
     $text = str_replace(array_keys($hankaku_to_zenkaku), array_values($hankaku_to_zenkaku), $text);
     $text = str_replace(array_keys($zenkaku_to_hankaku), array_values($zenkaku_to_hankaku), $text);

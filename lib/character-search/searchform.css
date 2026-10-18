@@ -342,13 +342,67 @@ button.js-toggle-advanced-search.toggle-btn:hover {
 }
 
 .term-tree-item {
+    list-style: none !important;
     margin: 2px 0;
 }
 
 .term-children-container {
-    margin-left: 18px;
+    list-style: none !important;
+    margin: 0 0 0 18px;
     border-left: 1px solid #eee;
-    padding-left: 5px;
+    padding: 0 0 0 6px;
+}
+
+.term-tree-list > .term-children-container {
+    margin-left: 0;
+    border-left: none;
+    padding-left: 0;
+}
+
+.term-summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.term-summary::-webkit-details-marker {
+    display: none;
+}
+
+.term-summary::marker {
+    content: '';
+}
+
+.term-summary::before {
+    content: '▶';
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    flex: 0 0 16px;
+    font-size: 10px;
+    color: #666;
+    transition: transform 0.15s ease;
+}
+
+details[open] > .term-summary::before {
+    transform: rotate(90deg);
+}
+
+.term-tree-item > .term-label {
+    display: inline-flex;
+    align-items: center;
+    padding-left: 16px;
+}
+
+.term-summary > .term-label {
+    display: inline-flex;
+    align-items: center;
+}
+
+.term-label input[type="checkbox"] {
+    margin: 0 5px 0 0;
 }
 
 .tree-accordion {

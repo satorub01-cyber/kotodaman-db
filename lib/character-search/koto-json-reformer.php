@@ -158,7 +158,7 @@ function koto_extract_trait_contents($section)
 
 function koto_get_trait_whose_type($trait)
 {
-    $whose = $trait['whose'] ?? 'self';
+    $whose = $trait['whose'] ?? ($trait['whose_trait'] ?? 'self');
     $whose_type = '';
 
     if (is_array($whose)) {
@@ -180,19 +180,19 @@ function koto_normalize_trait_search_slug($trait)
     }
 
     $canonical_type = ($type === 'other_traits') ? 'other' : $type;
-    $slugs = [$canonical_type];
+    $slugs = [];
 
     if ($canonical_type === 'mode_shift') {
         $relation = trim((string) ($trait['shift_relation'] ?? ($trait['relation_ship'] ?? '')));
         if ($relation === 'mode_shift') {
             $slugs[] = 'mode_shift_mode_shift';
-        } elseif ($relation === 'before_transform' || $relation === 'after_transform') {
+        } elseif ($relation === 'before_transform' || $relation === 'after_transform' || strpos($relation, 'transform') !== false) {
             $slugs[] = 'mode_shift_transform';
         }
     } else {
         $sub_type = trim((string) ($trait['sub_type'] ?? ''));
-        if ($sub_type === 'healling') {
-            $sub_type = 'healing';
+        if (strpos($sub_type, 'healling') !== false) {
+            $sub_type = str_replace('healling', 'healing', $sub_type);
         }
 
         if ($canonical_type === 'new_traits' && ($sub_type === 'resonance' || $sub_type === 'resonance_crit')) {
@@ -205,10 +205,10 @@ function koto_normalize_trait_search_slug($trait)
         }
 
         if ($sub_type === "single_shot") {
-            if (!empty($trait["value"])) {
+            if (!empty($trait["value"]) || !empty($trait["trait_rate"])) {
                 $slugs[] = $canonical_type . '_single_shot_killer';
             }
-            if (!empty($trait["limit_break"])) {
+            if (!empty($trait["limit_break"]) || !empty($trait["limit_break_rate"])) {
                 $slugs[] = $canonical_type . '_single_shot_limit_break';
             }
         }
@@ -237,18 +237,121 @@ function koto_collect_trait_search_pairs($trait_contents, $label_map)
         }
 
         foreach (koto_normalize_trait_search_slug($trait) as $slug) {
-            if (empty($label_map[$slug])) {
+            if ($slug === '') {
                 continue;
             }
 
             $pairs[] = [
                 'en' => $slug,
-                'jp' => $label_map[$slug],
+                'jp' => $label_map[$slug] ?? $slug,
             ];
         }
     }
 
     return koto_unique_bilingual_pairs($pairs);
+}
+
+/**
+ * _spec_jsonのスキルセクションから検索タグを生成・抽出するフォールバック関数
+ */
+function koto_extract_skill_tags_from_spec_section($section)
+{
+    if (empty($section) || !is_array($section)) {
+        return [];
+    }
+
+    $tags = [];
+    $variations = [];
+
+    if (isset($section['variations']) && is_array($section['variations'])) {
+        $variations = $section['variations'];
+    } elseif (isset($section[0]) && is_array($section[0])) {
+        foreach ($section as $lvl) {
+            if (!empty($lvl['variations']) && is_array($lvl['variations'])) {
+                $variations = array_merge($variations, $lvl['variations']);
+            }
+        }
+    }
+
+    foreach ($variations as $var) {
+        $timelines = $var['timelines'] ?? [];
+        if (!is_array($timelines)) {
+            continue;
+        }
+
+        foreach ($timelines as $action) {
+            $type = trim((string) ($action['type'] ?? ''));
+            if ($type === '') {
+                continue;
+            }
+
+            // 親要素のタグ（type_attack）は付与せず、個別の子タイプのみ付与
+            if ($type !== 'attack') {
+                $tags[] = 'type_' . $type;
+            }
+
+            $attack_types = $action['attack_type'] ?? [];
+            if (!is_array($attack_types)) {
+                $attack_types = $attack_types !== '' ? [$attack_types] : [];
+            }
+            foreach ($attack_types as $at) {
+                $at_str = trim((string) (is_array($at) ? ($at['value'] ?? '') : $at));
+                if ($at_str !== '') {
+                    $tags[] = 'attack_type_' . $at_str;
+                }
+            }
+
+            if (!empty($action['omni_advantage'])) {
+                $tags[] = 'type_omni_advantage';
+            }
+
+            if (strpos($type, 'attack') !== false) {
+                $target_data = $action['target'] ?? [];
+                $target_main = is_array($target_data) ? ($target_data['main'] ?? '') : (string) $target_data;
+                $hit_count = (int) ($action['hit_count'] ?? 1);
+
+                if ($target_main === 'single_oppo') {
+                    $tags[] = ($hit_count > 1) ? 'type_attack_single_multi' : 'type_attack_single';
+                } elseif ($target_main === 'all_oppo') {
+                    $tags[] = ($hit_count > 1) ? 'type_attack_all_multi' : 'type_attack_all';
+                } elseif ($target_main === 'random_oppo') {
+                    $tags[] = 'type_attack_random';
+                }
+            }
+        }
+    }
+
+    return array_values(array_unique(array_filter($tags)));
+}
+
+/**
+ * _spec_jsonの文字配列から文字軸タグを生成するフォールバック関数
+ */
+function koto_extract_axis_from_chars($chars)
+{
+    if (empty($chars) || !is_array($chars)) {
+        return [];
+    }
+
+    $def_connector = ['い', 'う', 'ん'];
+    $def_small_yuyo = ['ゅ', 'ょ'];
+    $def_axis_i = ['あ', 'か', 'さ', 'た', 'な', 'は', 'ま', 'や', 'ら', 'わ', 'が', 'ざ', 'だ', 'ば', 'ぱ', 'え', 'け', 'せ', 'て', 'ね', 'へ', 'め', 'れ', 'げ', 'ぜ', 'で', 'べ', 'ぺ', 'す', 'ず'];
+    $def_axis_u = ['く', 'す', 'つ', 'ふ', 'ゆ', 'ぐ', 'ず', 'づ', 'ぶ', 'ぷ', 'お', 'こ', 'そ', 'と', 'の', 'ほ', 'も', 'よ', 'ろ', 'ご', 'ぞ', 'ど', 'ぼ', 'ぽ'];
+    $def_axis_youon = ['き', 'し', 'ち', 'に', 'ひ', 'み', 'り', 'ぎ', 'じ', 'ぢ', 'び', 'ぴ', 'う', 'ゃ'];
+
+    $tags = [];
+    foreach ($chars as $c) {
+        $val = is_array($c) ? ($c['val'] ?? '') : (is_string($c) ? $c : '');
+        if ($val === '') continue;
+
+        if (in_array($val, $def_connector, true)) $tags[] = 'char_connector';
+        if (in_array($val, $def_small_yuyo, true)) $tags[] = 'char_small_yuyo';
+        if (in_array($val, $def_axis_i, true)) $tags[] = 'axis_i';
+        if (in_array($val, $def_axis_u, true)) $tags[] = 'axis_u';
+        if (in_array($val, $def_axis_youon, true)) $tags[] = 'axis_youon';
+    }
+
+    return array_values(array_unique($tags));
 }
 
 function koto_json_reform_format_bytes($bytes)
@@ -351,7 +454,10 @@ function koto_get_flat_char_data($post_id)
     $gimmick_pairs = [];
     $contents_trait1 = koto_extract_trait_contents($spec['trait1'] ?? []);
     $contents_trait2 = koto_extract_trait_contents($spec['trait2'] ?? []);
-    $contents_blessing = koto_extract_trait_contents($spec['blessing'] ?? []);
+    $contents_blessing = array_merge(
+        koto_extract_trait_contents($spec['blessing'] ?? []),
+        koto_extract_trait_contents($spec['ex_blessing'] ?? [])
+    );
 
     $traits = array_merge($contents_trait1, $contents_trait2, $contents_blessing);
     if (!empty($traits)) {
@@ -451,12 +557,44 @@ function koto_get_flat_char_data($post_id)
     $guerilla_roots = $spec['gerilla_root'] ?? ($spec['guerilla_root'] ?? []);
     $suitable_quests = $spec['suitable_quest'] ?? [];
 
-    // 6. スキルタグ文字列 (カンマ区切りなどを配列にするか、文字列のままか。検索を簡単にするため文字列のままにして `includes` で判定するのも手です)
+    // 6. スキルタグ文字列（保存済みmeta優先、空なら_spec_jsonからフォールバック生成）
     $waza_tags = get_post_meta($post_id, '_waza_tags_str', true) ?: '';
+    if (!$waza_tags && !empty($spec['waza'])) {
+        $extracted = koto_extract_skill_tags_from_spec_section($spec['waza']);
+        if (!empty($extracted)) {
+            $waza_tags = ' ' . implode(' ', $extracted) . ' ';
+        }
+    } else {
+        $waza_tags = $waza_tags ? (' ' . trim((string)$waza_tags) . ' ') : '';
+    }
+
     $sugo_tags = get_post_meta($post_id, '_sugo_tags_str', true) ?: '';
+    if (!$sugo_tags && !empty($spec['sugowaza'])) {
+        $extracted = koto_extract_skill_tags_from_spec_section($spec['sugowaza']);
+        if (!empty($extracted)) {
+            $sugo_tags = ' ' . implode(' ', $extracted) . ' ';
+        }
+    } else {
+        $sugo_tags = $sugo_tags ? (' ' . trim((string)$sugo_tags) . ' ') : '';
+    }
+
     $koto_tags = get_post_meta($post_id, '_kotowaza_tags_str', true) ?: '';
+    if (!$koto_tags && !empty($spec['kotowaza'])) {
+        $extracted = koto_extract_skill_tags_from_spec_section($spec['kotowaza']);
+        if (!empty($extracted)) {
+            $koto_tags = ' ' . implode(' ', $extracted) . ' ';
+        }
+    } else {
+        $koto_tags = $koto_tags ? (' ' . trim((string)$koto_tags) . ' ') : '';
+    }
 
     $other_tags = get_post_meta($post_id, '_search_tags_str', true) ?: '';
+    if (empty($other_tags)) {
+        $extracted_axis = koto_extract_axis_from_chars($spec['chars'] ?? []);
+        if (!empty($extracted_axis)) {
+            $other_tags = $extracted_axis;
+        }
+    }
 
     // リーダーとくせい
     $leader_raws = $spec['leader'] ?? [];

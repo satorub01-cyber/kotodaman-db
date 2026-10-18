@@ -184,7 +184,7 @@
                             <details class="tag-details">
                                 <summary class="tag-summary">
                                     <label class="parent-label" onclick="event.stopPropagation();">
-                                        <input type="checkbox" name="tx_skill_tags[]" value="type_attack"> 攻撃タイプ (全体)
+                                        <input type="checkbox" class="js-parent-checkbox"> 攻撃タイプ (全体)
                                     </label>
                                 </summary>
                                 <div class="tag-children">
@@ -202,7 +202,7 @@
                             <details class="tag-details">
                                 <summary class="tag-summary">
                                     <label class="parent-label" onclick="event.stopPropagation();">
-                                        <input type="checkbox" name="tx_skill_tags[]" value="type_buff"> バフ (強化)
+                                        <input type="checkbox" class="js-parent-checkbox"> バフ (強化)
                                     </label>
                                 </summary>
                                 <div class="tag-children">
@@ -213,7 +213,7 @@
                             <details class="tag-details">
                                 <summary class="tag-summary">
                                     <label class="parent-label" onclick="event.stopPropagation();">
-                                        <input type="checkbox" name="tx_skill_tags[]" value="type_debuff"> デバフ (弱体化)
+                                        <input type="checkbox" class="js-parent-checkbox"> デバフ (弱体化)
                                     </label>
                                 </summary>
                                 <div class="tag-children">
@@ -255,7 +255,7 @@
                             <details class="tag-details">
                                 <summary class="tag-summary">
                                     <label class="parent-label" onclick="event.stopPropagation();">
-                                        <input type="checkbox" name="tx_trait_tags[]" value="trait_damage_correction"> 火力補正
+                                        <input type="checkbox" class="js-parent-checkbox"> 火力補正
                                     </label>
                                 </summary>
                                 <div class="tag-children">
@@ -271,7 +271,7 @@
                             <details class="tag-details">
                                 <summary class="tag-summary">
                                     <label class="parent-label" onclick="event.stopPropagation();">
-                                        <input type="checkbox" name="tx_trait_tags[]" value="trait_status_up">ステータス・クリティカル補正
+                                        <input type="checkbox" class="js-parent-checkbox">ステータス・クリティカル補正
                                     </label>
                                 </summary>
                                 <div class="tag-children">
@@ -288,7 +288,7 @@
                             <details class="tag-details">
                                 <summary class="tag-summary">
                                     <label class="parent-label" onclick="event.stopPropagation();">
-                                        <input type="checkbox" name="tx_trait_tags[]" value="trait_draw_eff">ドロー時効果
+                                        <input type="checkbox" class="js-parent-checkbox">ドロー時効果
                                     </label>
                                 </summary>
                                 <div class="tag-children">
@@ -301,7 +301,7 @@
                             <details class="tag-details">
                                 <summary class="tag-summary">
                                     <label class="parent-label" onclick="event.stopPropagation();">
-                                        <input type="checkbox" name="tx_trait_tags[]" value="trait_on_play_eff">実体時効果
+                                        <input type="checkbox" class="js-parent-checkbox">実体時効果
                                     </label>
                                 </summary>
                                 <div class="tag-children">
@@ -312,7 +312,7 @@
                             <details class="tag-details">
                                 <summary class="tag-summary">
                                     <label class="parent-label" onclick="event.stopPropagation();">
-                                        <input type="checkbox" name="tx_trait_tags[]" value="trait_new_traits"> 新とくせい
+                                        <input type="checkbox" class="js-parent-checkbox"> 新とくせい
                                     </label>
                                 </summary>
                                 <div class="tag-children">
@@ -327,7 +327,7 @@
                             <details class="tag-details">
                                 <summary class="tag-summary">
                                     <label class="parent-label" onclick="event.stopPropagation();">
-                                        <input type="checkbox" name="tx_trait_tags[]" value="trait_unique_buff"> 特殊な攻撃バフ
+                                        <input type="checkbox" class="js-parent-checkbox"> 特殊な攻撃バフ
                                     </label>
                                 </summary>
                                 <div class="tag-children">
@@ -339,7 +339,7 @@
                             <details class="tag-details">
                                 <summary class="tag-summary">
                                     <label class="parent-label" onclick="event.stopPropagation();">
-                                        <input type="checkbox" name="tx_trait_tags[]" value="trait_after_attack"> 反撃・腐敗など
+                                        <input type="checkbox" class="js-parent-checkbox"> 反撃・腐敗など
                                     </label>
                                 </summary>
                                 <div class="tag-children">
@@ -353,7 +353,7 @@
                             <details class="tag-details">
                                 <summary class="tag-summary">
                                     <label class="parent-label" onclick="event.stopPropagation();">
-                                        <input type="checkbox" name="tx_trait_tags[]" value="trait_mode_shift"> モードシフト・変身
+                                        <input type="checkbox" class="js-parent-checkbox"> モードシフト・変身
                                     </label>
                                 </summary>
                                 <div class="tag-children">
@@ -364,7 +364,7 @@
                             <details class="tag-details">
                                 <summary class="tag-summary">
                                     <label class="parent-label" onclick="event.stopPropagation();">
-                                        <input type="checkbox" name="tx_trait_tags[]" value="trait_other"> その他
+                                        <input type="checkbox" class="js-parent-checkbox"> その他
                                     </label>
                                 </summary>
                                 <div class="tag-children">
