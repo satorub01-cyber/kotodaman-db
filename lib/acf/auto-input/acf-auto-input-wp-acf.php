@@ -3,6 +3,148 @@ if (!defined('ABSPATH')) exit;
 require_once __DIR__ . '/acf-auto-input-parsers.php';
 
 /**
+ * トップレベルのACFフィールド名から、サブフィールドと衝突しないようトップレベルのフィールド定義配列を取得する。
+ *
+ * @param string $field_name ACFフィールド名またはフィールドキー。
+ * @return array<string, mixed>|null フィールド定義配列（sub_fields含む）、見つからない場合は null。
+ */
+function koto_get_top_level_character_acf_field($field_name)
+{
+    if (!function_exists('acf_get_field')) {
+        return null;
+    }
+
+    // 既知のキャラクタートップレベルフィールド名 → フィールドキーの確定マップ（サブフィールドとの同名衝突を完全に防ぐ）
+    static $known_top_level_keys = [
+        'name_ruby'                       => 'field_69298e45010a1',
+        'available_moji_loop'             => 'field_6923dc9266244',
+        'waza_name'                       => 'field_693fce13cea09',
+        'waza_group_loop'                 => 'field_693985f087fc9',
+        'waza_maltiplier_table_group'     => 'field_6939860a88001',
+        'sugowaza_condition'              => 'field_6921a084af93c',
+        'sugowaza_name'                   => 'field_693fce23cea0a',
+        'sugo_shift_type'                 => 'field_694948a54ec6b',
+        'sugowaza_group_loop'             => 'field_6921a053af92c',
+        'sugowaza_maltiplier_table_group' => 'field_69379b1a04543',
+        'koto_shift_type'                 => 'field_6950ee6aeae37',
+        'kotowaza_loop_v2'                => 'field_693fc233585f3',
+        'kotowaza_maltiplier_table_group' => 'field_693986368804d',
+        'max_ls_hp'                       => 'field_6930525abfd59',
+        'max_ls_atk'                      => 'field_69305287bfd5a',
+        'ls_loop'                         => 'field_692d150d17187',
+        'miracle_leader_loop'             => 'field_69d502369ba3d',
+        'first_trait_name'                => 'field_693fcdcd8c318',
+        'first_trait_loop'                => 'field_692d15ae17188',
+        'second_trait_name'               => 'field_693fcde48c319',
+        'second_trait_loop'               => 'field_693981d87156a',
+        'blessing_trait_loop'             => 'field_693981fe6d220',
+        'blessing_ex_trait_loop'          => 'field_6a4f265165fe4',
+    ];
+
+    if (strpos($field_name, 'field_') === 0) {
+        $field = acf_get_field($field_name);
+        return is_array($field) ? $field : null;
+    }
+
+    if (isset($known_top_level_keys[$field_name])) {
+        $field = acf_get_field($known_top_level_keys[$field_name]);
+        if (is_array($field)) {
+            return $field;
+        }
+    }
+
+    // 未知のトップレベルフィールドが追加された場合の動的解決フォールバック
+    static $dynamic_top_level_map = null;
+    if ($dynamic_top_level_map === null) {
+        $dynamic_top_level_map = [];
+        if (function_exists('acf_get_field_groups') && function_exists('acf_get_fields')) {
+            $groups = acf_get_field_groups();
+            if (is_array($groups)) {
+                foreach ($groups as $group) {
+                    $fields = acf_get_fields($group);
+                    if (is_array($fields)) {
+                        foreach ($fields as $f) {
+                            if (!empty($f['name']) && !empty($f['key']) && !isset($dynamic_top_level_map[$f['name']])) {
+                                $dynamic_top_level_map[$f['name']] = $f['key'];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (isset($dynamic_top_level_map[$field_name])) {
+        $field = acf_get_field($dynamic_top_level_map[$field_name]);
+        if (is_array($field)) {
+            return $field;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * RepeaterやGroupへ渡す行データ配列内のサブフィールド名（name）を、
+ * 親フィールド定義の sub_fields に基づいて再帰的にフィールドキー（field_xxxxxx）へ変換する。
+ *
+ * @param array<int|string, mixed> $data 変換対象の配列。
+ * @param array<string, mixed> $field_obj 親ACFフィールド定義配列。
+ * @return array<int|string, mixed> キー変換後の配列。
+ */
+function koto_convert_acf_rows_to_field_keys($data, $field_obj)
+{
+    if (!is_array($data) || empty($field_obj['sub_fields']) || !is_array($field_obj['sub_fields'])) {
+        return $data;
+    }
+
+    $sub_by_name = [];
+    $sub_by_key  = [];
+    foreach ($field_obj['sub_fields'] as $sub) {
+        if (empty($sub['key'])) continue;
+        $sub_by_key[$sub['key']] = $sub;
+        if (!empty($sub['name'])) {
+            $sub_by_name[$sub['name']] = $sub;
+        }
+    }
+
+    // 単一行（Group または Repeaterの1行分）を変換するクロージャ
+    $convert_single_row = function ($row) use ($sub_by_name, $sub_by_key) {
+        if (!is_array($row)) return $row;
+        $converted = [];
+        foreach ($row as $k => $v) {
+            $sub_field = null;
+            $target_key = $k;
+            if (isset($sub_by_key[$k])) {
+                $sub_field = $sub_by_key[$k];
+                $target_key = $sub_field['key'];
+            } elseif (isset($sub_by_name[$k])) {
+                $sub_field = $sub_by_name[$k];
+                $target_key = $sub_field['key'];
+            }
+
+            if ($sub_field && !empty($sub_field['sub_fields']) && is_array($v)) {
+                $v = koto_convert_acf_rows_to_field_keys($v, $sub_field);
+            }
+            $converted[$target_key] = $v;
+        }
+        return $converted;
+    };
+
+    // Repeater（数値添字の行リスト）か Group（連想配列）かを判定
+    $is_list = array_keys($data) === range(0, count($data) - 1);
+    if ($is_list) {
+        $result = [];
+        foreach ($data as $row) {
+            $result[] = $convert_single_row($row);
+        }
+        return $result;
+    }
+
+    return $convert_single_row($data);
+}
+
+/**
  * 解析済みACFデータを既存キャラクター投稿へ追記反映する。
  *
  * @param int $post_id 更新対象の投稿ID。
@@ -12,6 +154,14 @@ require_once __DIR__ . '/acf-auto-input-parsers.php';
 function koto_update_character_post_with_acf($post_id, $acf_data)
 {
     if (!$post_id || empty($acf_data)) return false;
+
+    // 直前のリクエストや同一プロセス内の古いメタ・ACF値キャッシュをクリア
+    if (function_exists('clean_post_cache')) {
+        clean_post_cache($post_id);
+    }
+    if (function_exists('acf_flush_value_cache')) {
+        acf_flush_value_cache($post_id);
+    }
 
     $default_attr_id = null;
     $terms = get_the_terms($post_id, 'attribute');
@@ -113,8 +263,17 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
 
     // 分類したデータをまとめて更新する
     foreach ($fields_to_update as $acf_field_name => $new_rows) {
-        $existing_data = get_field($acf_field_name, $post_id) ?: [];
+        $field_obj = koto_get_top_level_character_acf_field($acf_field_name);
+        $target_selector = $field_obj ? $field_obj['key'] : $acf_field_name;
+
+        // 既存データを未フォーマット（raw）で取得し、GroupやTaxonomyのフォーマット変質を防ぐ
+        $existing_data = get_field($target_selector, $post_id, false) ?: [];
         if (!is_array($existing_data)) $existing_data = [];
+
+        // 新規行のサブフィールド名を再帰的に field_xxxxxx キーへ正規化
+        if ($field_obj) {
+            $new_rows = koto_convert_acf_rows_to_field_keys($new_rows, $field_obj);
+        }
 
         foreach ($new_rows as $row) {
             $existing_data[] = $row;
@@ -124,12 +283,18 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
             // グループフィールドの場合は配列から外す
             $existing_data = $existing_data[0] ?? [];
         }
-        update_field($acf_field_name, $existing_data, $post_id);
+        update_field($target_selector, $existing_data, $post_id);
     }
 
     // 通常のフィールドをまとめて更新する
     foreach ($normal_fields_to_update as $field_key => $field_value) {
-        update_field($field_key, $field_value, $post_id);
+        $field_obj = koto_get_top_level_character_acf_field($field_key);
+        $target_selector = $field_obj ? $field_obj['key'] : $field_key;
+        update_field($target_selector, $field_value, $post_id);
+    }
+
+    if (function_exists('acf_flush_value_cache')) {
+        acf_flush_value_cache($post_id);
     }
 
     return true;
@@ -168,7 +333,9 @@ function koto_create_character_post_from_acf($character_name, $acf_data)
 
             // カタカナをひらがなに変換する
             $name_ruby = mb_convert_kana($dispName, 'c', 'UTF-8');
-            update_field('name_ruby', $name_ruby, $post_id);
+            $ruby_field = koto_get_top_level_character_acf_field('name_ruby');
+            $ruby_selector = $ruby_field ? $ruby_field['key'] : 'name_ruby';
+            update_field($ruby_selector, $name_ruby, $post_id);
         }
     }
 

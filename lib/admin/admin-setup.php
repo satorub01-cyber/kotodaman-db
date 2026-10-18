@@ -52,13 +52,23 @@ add_action('admin_enqueue_scripts', function ($hook) {
     // 親テーマ/カスタムAJAXスクリプトの登録・読み込み
     wp_enqueue_script('custom-ajax-script', get_template_directory_uri() . '/js/custom-ajax.js', ['jquery'], null, true);
 
-    // ローカル環境かどうかの判定
-    $is_local = (wp_get_environment_type() === 'local') || (isset($_SERVER['HTTP_HOST']) && str_contains($_SERVER['HTTP_HOST'], 'local'));
+    // ローカル環境かどうかの判定（WP環境タイプ、WP_DEBUG、ホスト名等から総合判定）
+    $is_local = (wp_get_environment_type() === 'local')
+        || (defined('WP_DEBUG') && WP_DEBUG)
+        || (isset($_SERVER['HTTP_HOST']) && (
+            str_contains($_SERVER['HTTP_HOST'], 'local')
+            || str_contains($_SERVER['HTTP_HOST'], '127.0.0.1')
+        ));
 
-    wp_localize_script('custom-ajax-script', 'AppDebugConfig', [
+    $debug_config = [
         'isLocal' => $is_local,
         'ajaxUrl' => admin_url('admin-ajax.php'),
-    ]);
+    ];
+
+    wp_localize_script('custom-ajax-script', 'AppDebugConfig', $debug_config);
+    if (wp_script_is('koto-admin-tweaks-script', 'enqueued') || wp_script_is('koto-admin-tweaks-script', 'registered')) {
+        wp_localize_script('koto-admin-tweaks-script', 'AppDebugConfig', $debug_config);
+    }
 });
 
 /**

@@ -71,6 +71,18 @@ function koto_acf_editor_menu()
         wp_enqueue_style('acf-editor-style', $theme_uri . '/lib/acf/acf-editor.css', [], time());
         wp_enqueue_script('acf-editor-script', $theme_uri . '/lib/acf/acf-editor.js', ['jquery', 'acf-input'], time(), true);
         wp_enqueue_script('acf-auto-input-script', $theme_uri . '/lib/acf/acf-auto-input.js', ['jquery'], time(), true);
+
+        $is_local = (wp_get_environment_type() === 'local')
+            || (defined('WP_DEBUG') && WP_DEBUG)
+            || (isset($_SERVER['HTTP_HOST']) && (
+                str_contains($_SERVER['HTTP_HOST'], 'local')
+                || str_contains($_SERVER['HTTP_HOST'], '127.0.0.1')
+            ));
+
+        wp_localize_script('acf-auto-input-script', 'AppDebugConfig', [
+            'isLocal' => $is_local,
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+        ]);
     });
 }
 
