@@ -763,7 +763,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             }
             $value = $attr_ids;
         } elseif (strpos($key, 'attr') === 0) {
-            $value = str_replace('属性', '', $value);
+            $value = str_replace(['属性', '【', '】', '[', ']'], '', $value);
             $attr_names = preg_split('/[・|と]/u', $value);
             $attr_ids = [];
             foreach ($attr_names as $name) {
@@ -804,7 +804,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                     $attr_ids[] = $term->term_id;
                 }
             }
-            $value = $attr_ids;
+            $value = array_values(array_unique($attr_ids));
         } elseif (strpos($key, 'character_target') === 0 || strpos($key, 'whose_trait') === 0) {
             $target_type = 'self';
             $target_detail = '';
@@ -1159,7 +1159,6 @@ function koto_get_ignore_texts_by_category($category = '')
             '(味方のコトダマンのみ適用されます)',
             '(ターン開始時に重圧付与後の経過ターン数に応じた段階の被ダメージ増加状態を付与し、味方行動終了時に被ダメージ増加状態の段階と効果値に応じたダメージを与える効果)',
             '(一部攻撃を除く)',
-            '。',
             '【マネをする条件が満たされない場合は自身のわざが発動する】',
         ],
         'とくせい' => [
@@ -1205,6 +1204,14 @@ function koto_get_ignore_texts_by_category($category = '')
  */
 function koto_preprocess_text($text, $category = '')
 {
+    // わざカテゴリの場合の句点「。」の正規化（文結合によるマッチ失敗を防ぐ）
+    if ($category === 'わざ' || $category === 'waza') {
+        // 「。さらに」「。また、」等を効果連結（+）に変換
+        $text = preg_replace('/。(?:さらに|また(?:は)?)[、,]?/u', '+', $text);
+        // 残る「。」を改行（\n）に変換して文ごとのパート分割・トリムを可能にする
+        $text = str_replace('。', "\n", $text);
+    }
+
     $ignore_texts = koto_get_ignore_texts_by_category($category);
 
     // 英数字とスペースを半角に

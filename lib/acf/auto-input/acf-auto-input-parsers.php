@@ -223,7 +223,8 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
         $child_parts = preg_split('/(?:\+|、さらに)/u', $remaining_text);
 
         foreach ($child_parts as $child_part) {
-            $child_part = trim((string) $child_part);
+            $child_part = preg_replace('/^[、,\s]+/u', '', (string) $child_part);
+            $child_part = preg_replace('/[、,\s]+$/u', '', $child_part);
             if ($child_part === '') {
                 continue;
             }
@@ -240,8 +241,8 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
             }
         }
 
-        // 1つの丸数字区分 = 1つのgroup_loop行にまとめる
-        if (!empty($all_effects) || !empty($conditions)) {
+        // 1つの丸数字区分 = 1つのgroup_loop行にまとめる（効果が1件以上ある場合のみ追加）
+        if (!empty($all_effects)) {
             $parsed_part = [
                 'waza_add_cond_loop' => $conditions,
                 'sugo_detail_loop' => $all_effects,
