@@ -379,6 +379,8 @@
 - `mode_shift_transform`
 - `other`
 - `other_combo_plus`
+- `other_combo_plus_1`
+- `other_combo_plus_2`
 - `other_penetration`
 - `other_over_healing`
 - `other_exp_up`

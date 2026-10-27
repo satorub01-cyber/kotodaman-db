@@ -321,6 +321,8 @@ function koto_get_trait_search_label_map()
 
         // ----- その他 -----
         'other_combo_plus' => 'コンボ＋',
+        'other_combo_plus_1' => 'コンボ＋1',
+        'other_combo_plus_2' => 'コンボ＋2',
         'other_penetration' => 'バリア貫通',
         'other_over_healing' => 'オーバーヒール',
         'other_exp_up' => '経験値UP',

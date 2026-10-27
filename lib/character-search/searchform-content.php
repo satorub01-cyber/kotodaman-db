@@ -368,7 +368,8 @@
                                     </label>
                                 </summary>
                                 <div class="tag-children">
-                                    <label><input type="checkbox" name="tx_trait_tags[]" value="trait_other_combo_plus"> コンボ＋</label>
+                                    <label><input type="checkbox" name="tx_trait_tags[]" value="trait_other_combo_plus_1"> コンボ＋1</label>
+                                    <label><input type="checkbox" name="tx_trait_tags[]" value="trait_other_combo_plus_2"> コンボ＋2</label>
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_other_penetration"> バリア貫通</label>
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_other_over_healing"> オーバーヒール</label>
                                     <label><input type="checkbox" name="tx_trait_tags[]" value="trait_other_exp_up"> 経験値UP</label>

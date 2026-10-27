@@ -213,6 +213,18 @@ function koto_normalize_trait_search_slug($trait)
             }
         }
 
+        if ($sub_type === 'combo_plus') {
+            $combo_val = (int) ($trait['value'] ?? ($trait['trait_rate'] ?? 0));
+            if ($combo_val === 0 && !empty($trait['levels'][0]['value'])) {
+                $combo_val = (int) $trait['levels'][0]['value'];
+            }
+            if ($combo_val === 1) {
+                $slugs[] = $canonical_type . '_combo_plus_1';
+            } elseif ($combo_val === 2) {
+                $slugs[] = $canonical_type . '_combo_plus_2';
+            }
+        }
+
         if ($sub_type !== '') {
             $slugs[] = $canonical_type . '_' . $sub_type;
         }

@@ -797,6 +797,17 @@ function get_character_spec_data($post_id)
                     $t_sub = 'resonance_atk';
                 }
             }
+            if ($t_sub === 'combo_plus') {
+                $c_val = (int)($tr['value'] ?? ($tr['trait_rate'] ?? 0));
+                if ($c_val === 0 && !empty($tr['levels'][0]['value'])) {
+                    $c_val = (int)$tr['levels'][0]['value'];
+                }
+                if ($c_val === 1) {
+                    $target_tags[] = 'trait_' . $t_type . '_combo_plus_1';
+                } elseif ($c_val === 2) {
+                    $target_tags[] = 'trait_' . $t_type . '_combo_plus_2';
+                }
+            }
             if (!empty($t_sub) && is_string($t_sub)) {
                 $target_tags[] = 'trait_' . $t_type . '_' . $t_sub;
             }
