@@ -52,21 +52,46 @@ function flatten_target_group($item)
 
 function flatten_leader($item)
 {
+    $format_single_cond = function ($c) {
+        return [
+            'ty' => $c['type'] ?? '',
+            'vals' => $c['val'] ?? [],
+            'tgts' => array_map(function ($t) {
+                // ターゲットの基本情報を取得し、編成条件の数値を統合する
+                $parsed = flatten_target_group($t);
+                $parsed['ttl'] = $t['total_tf'] ?? false;
+                $parsed['num'] = $t['need_num'] ?? 0;
+                return $parsed;
+            }, $c['cond_targets'] ?? [])
+        ];
+    };
+
+    $raw_conditions = $item['conditions'] ?? [];
+    $flattened_conds = [];
+    foreach ($raw_conditions as $cond_entry) {
+        if (!is_array($cond_entry)) {
+            continue;
+        }
+        // 旧1次元構造（直接 'type' 等を持つ連想配列）への後方互換
+        if (array_key_exists('type', $cond_entry) || array_key_exists('cond_targets', $cond_entry)) {
+            $flattened_conds[] = [$format_single_cond($cond_entry)];
+        } else {
+            // 新2次元構造（ORパターン配下のAND条件配列）
+            $and_list = [];
+            foreach ($cond_entry as $sub_c) {
+                if (is_array($sub_c)) {
+                    $and_list[] = $format_single_cond($sub_c);
+                }
+            }
+            if (!empty($and_list)) {
+                $flattened_conds[] = $and_list;
+            }
+        }
+    }
+
     return [
         'ty' => $item['type'] ?? '',
-        'cond' => array_map(function ($c) {
-            return [
-                'ty' => $c['type'] ?? '',
-                'vals' => $c['val'] ?? [],
-                'tgts' => array_map(function ($t) {
-                    // ターゲットの基本情報を取得し、編成条件の数値を統合する
-                    $parsed = flatten_target_group($t);
-                    $parsed['ttl'] = $t['total_tf'] ?? false;
-                    $parsed['num'] = $t['need_num'] ?? 0;
-                    return $parsed;
-                }, $c['cond_targets'] ?? [])
-            ];
-        }, $item['conditions'] ?? []),
+        'cond' => $flattened_conds,
         'lm_wave' => $item['limit_wave'] ?? 0,
         'per_unit' => $item['per_unit'] ?? false,
         'effs' => array_map(function ($e) {
@@ -184,7 +209,7 @@ function koto_normalize_trait_search_slug($trait)
 
     if ($canonical_type === 'mode_shift') {
         $relation = trim((string) ($trait['shift_relation'] ?? ($trait['relation_ship'] ?? '')));
-        if ($relation === 'mode_shift') {
+        if ($relation === 'mode_shift' || $relation === 'another_image') {
             $slugs[] = 'mode_shift_mode_shift';
         } elseif ($relation === 'before_transform' || $relation === 'after_transform' || strpos($relation, 'transform') !== false) {
             $slugs[] = 'mode_shift_transform';

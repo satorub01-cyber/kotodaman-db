@@ -555,10 +555,21 @@ function get_koto_trait_text_from_row($row)
             } elseif ($sub === 'assistance') {
                 $effect_text = "{$name}：{$target_label}がすごわざを発動したとき、このコトダマンが盤面、手札にいないならわざを発動する";
             } elseif ($sub === 'resonance') {
-                if (empty($row['resonance_crit_rate'])) {
-                    $effect_text = "{$name}：自身と同じ文字のコトダマンが実体化している場合、これらのコトダマンの威力{$rate}%UP+ダメージ上限+{$limit}";
-                } else {
-                    $effect_text = "{$name}：自身と同じ文字のコトダマンが実体化している場合、これらのコトダマンのクリティカル率{$row['resonance_crit_rate']}%UP+クリティカルダメージ{$row['resonance_crit_damage']}%UP";
+                $resonance_parts = [];
+                if (!empty($rate)) {
+                    $resonance_parts[] = "威力{$rate}%UP";
+                }
+                if (!empty($limit)) {
+                    $resonance_parts[] = "ダメージ上限+{$limit}";
+                }
+                if (!empty($row['resonance_crit_rate'])) {
+                    $resonance_parts[] = "クリティカル率{$row['resonance_crit_rate']}%UP";
+                }
+                if (!empty($row['resonance_crit_damage'])) {
+                    $resonance_parts[] = "クリティカル威力{$row['resonance_crit_damage']}%UP";
+                }
+                if (!empty($resonance_parts)) {
+                    $effect_text = "{$name}：自身と同じ文字のコトダマンが実体化している場合、これらのコトダマンの" . implode('+', $resonance_parts);
                 }
             } elseif ($sub === 'poke') {
                 $effect_text = "{$name}：敵全体に{$turn_text}{$rate}段階デバフを付与";
@@ -566,25 +577,73 @@ function get_koto_trait_text_from_row($row)
             break;
 
         case 'mode_shift':
-            $rel = $row['relation_ship'];
-            $forms = $row['related_form'];
-            $names = [];
+            $rel = $row['relation_ship'] ?? '';
+            $forms = $row['related_form'] ?? [];
+            $current_post_id = (int)get_the_ID();
+            $is_blessing_row = !empty($row['_is_blessing']) || isset($row['pt_pattern']);
+            $target_ids = [];
+            $self_ids = [];
+
             if (!empty($forms)) {
-                foreach ($forms as $f) {
-                    if ($f->ID !== get_the_ID()) {
-                        $permalink = get_permalink($f->ID);
-                        $title = get_the_title($f->ID);
-                        $names[] = '<a href="' . esc_url($permalink) . '">' . esc_html($title) . '</a>';
+                $forms_arr = is_array($forms) ? $forms : [$forms];
+                foreach ($forms_arr as $f) {
+                    $f_id = is_object($f) ? (int)($f->ID ?? 0) : (is_numeric($f) ? (int)$f : 0);
+                    if ($f_id > 0 && get_post_type($f_id) === 'character') {
+                        if ($f_id !== $current_post_id) {
+                            $target_ids[] = $f_id;
+                        } else {
+                            $self_ids[] = $f_id;
+                        }
                     }
                 }
             }
+
+            // related_form が空の場合のみ、same_character から他形態をフォールバック取得
+            // （related_form に自身のみが設定されている場合は、自身がシフト先であるため same_character で上書きしない）
+            if (empty($target_ids) && empty($self_ids) && $rel !== 'another_image') {
+                $same_chars = koto_get_field_cached('same_character', $current_post_id);
+                if (!empty($same_chars)) {
+                    $same_arr = is_array($same_chars) ? $same_chars : [$same_chars];
+                    foreach ($same_arr as $sc) {
+                        $sc_id = is_object($sc) ? (int)($sc->ID ?? 0) : (is_numeric($sc) ? (int)$sc : 0);
+                        if ($sc_id > 0 && get_post_type($sc_id) === 'character') {
+                            if ($sc_id !== $current_post_id) {
+                                $target_ids[] = $sc_id;
+                            } else {
+                                $self_ids[] = $sc_id;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 祝福（または related_form に自身のみが設定されている場合）は、モードシフト先が自身であっても表示する
+            if (empty($target_ids) && (!empty($self_ids) || $is_blessing_row) && $current_post_id > 0) {
+                $target_ids[] = $current_post_id;
+            }
+
+            $names = [];
+            foreach (array_values(array_unique($target_ids)) as $tid) {
+                $permalink = get_permalink($tid);
+                $title = get_the_title($tid);
+                if ($title) {
+                    $names[] = '<a href="' . esc_url($permalink) . '">' . esc_html($title) . '</a>';
+                }
+            }
             $joined_names = implode('・', $names);
-            if ($rel === 'mode_shift') $effect_text = "モードシフト先：{$joined_names}";
-            elseif ($rel === 'another_image') {
-                $joined_names = koto_get_field_cached('another_image_name');
-                $effect_text = "モードシフト先：{$joined_names}";
-            } elseif ($rel === 'before_transform') $effect_text = "変身先：{$joined_names}";
-            else $effect_text = "変身前：{$joined_names}";
+
+            if ($rel === 'another_image') {
+                $another_name = koto_get_field_cached('another_image_name', $current_post_id);
+                $joined_names = $another_name ? esc_html($another_name) : $joined_names;
+                $effect_text = $joined_names !== '' ? "モードシフト先：{$joined_names}" : "モードシフト";
+            } elseif ($rel === 'before_transform') {
+                $effect_text = $joined_names !== '' ? "変身先：{$joined_names}" : "変身";
+            } elseif ($rel === 'after_transform') {
+                $effect_text = $joined_names !== '' ? "変身前：{$joined_names}" : "変身（変身後）";
+            } else {
+                // 'mode_shift' または未選択時のデフォルト
+                $effect_text = $joined_names !== '' ? "モードシフト先：{$joined_names}" : "モードシフト";
+            }
             break;
 
         case 'other_traits':
@@ -760,13 +819,6 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
 {
     ob_start();
     $post_id = get_the_ID();
-    $raw_data = get_post_meta($post_id, '_spec_json', true);
-    $spec_data = null;
-    if (is_string($raw_data)) {
-        $spec_data = json_decode($raw_data, true);
-    } elseif (is_array($raw_data)) {
-        $spec_data = $raw_data;
-    }
 
     // =========================================================
     // A. 発動条件 (青タグ) - ロジック部
@@ -1901,6 +1953,224 @@ function get_koto_blessing_sugo_list($post_id = null, $target_place = 'blessing'
 function get_koto_ex_blessing_sugo_list($post_id = null)
 {
     return get_koto_blessing_sugo_list($post_id, 'ex_blessing');
+}
+
+/**
+ * 6-3. 祝福 / EX祝福カードのHTML一括生成関数
+ *
+ * @param array|null $blessing_loop 祝福とくせいループデータ
+ * @param bool $is_ex EX祝福かどうか（true: EX祝福, false: 通常祝福）
+ * @param int|null $post_id 投稿ID
+ * @return string 生成されたカードHTML（表示項目がない場合は空文字列）
+ */
+function get_koto_blessing_card_html($blessing_loop, $is_ex = false, $post_id = null)
+{
+    if (!$post_id) $post_id = get_the_ID();
+    $has_blessing_data = ($blessing_loop && is_array($blessing_loop));
+
+    // 1. 文字追加情報の取得（通常祝福のみ）
+    $add_moji_blessing = '';
+    if (!$is_ex && function_exists('get_koto_add_moji_html')) {
+        $moji_res = get_koto_add_moji_html('blessing');
+        $add_moji_blessing = $moji_res[0] ?? '';
+    }
+
+    // 2. すごわざ条件解放情報の取得
+    if ($is_ex) {
+        $add_sugo_list = function_exists('get_koto_ex_blessing_sugo_list') ? get_koto_ex_blessing_sugo_list($post_id) : [];
+    } else {
+        $add_sugo_list = function_exists('get_koto_blessing_sugo_list') ? get_koto_blessing_sugo_list($post_id) : [];
+    }
+
+    if (!$has_blessing_data && !$add_moji_blessing && empty($add_sugo_list)) {
+        return '';
+    }
+
+    $badge_class = $is_ex ? 'badge-ex-blessing' : 'badge-blessing';
+    $badge_label = $is_ex ? 'EX祝福とくせい' : '祝福とくせい';
+
+    ob_start();
+    $i = 1;
+
+    // A. 文字追加の表示
+    if ($add_moji_blessing):
+    ?>
+        <div class="skill-effect-line blessing-effect-line">
+            <span class="effect-num">(<?php echo $i; ?>) </span>
+            <?php echo $add_moji_blessing; ?>
+        </div>
+    <?php
+        $i++;
+    endif;
+
+    // B. すごわざ条件追加の表示
+    if (!empty($add_sugo_list)):
+        foreach ($add_sugo_list as $line):
+    ?>
+            <div class="skill-effect-line blessing-effect-line">
+                <span class="effect-num">(<?php echo $i; ?>) </span>
+                <?php echo $line; ?>
+            </div>
+    <?php
+            $i++;
+        endforeach;
+    endif;
+
+    // C. 祝福とくせいループの表示
+    if ($has_blessing_data):
+        foreach ($blessing_loop as $row):
+            $levels_data = [];
+            $t_type = $row['trait_type'] ?? '';
+            $pt_pattern = (!empty($row['pt_pattern'])) ? $row['pt_pattern'] : 'default';
+            if (in_array($t_type, ['mode_shift', 'gimmick', 'add_moji'], true)) {
+                $pt_pattern = 'single';
+            }
+            $points = [];
+
+            if ($pt_pattern === 'default') {
+                $points = [1, 2, 3, 4, 5, 7, 9, 12, 15, 20];
+            } elseif ($pt_pattern === 'single') {
+                $raw_pt = isset($row['need_point']) ? $row['need_point'] : '';
+                $points = [$raw_pt];
+            } elseif ($pt_pattern === 'csv') {
+                $raw_pt = isset($row['need_point']) ? $row['need_point'] : '';
+                $points = $raw_pt !== '' ? array_map('trim', explode(',', $raw_pt)) : [];
+            }
+
+            $values = [];
+            $lv_count = count($points);
+
+            if ($pt_pattern === 'single') {
+                $val = isset($row['blessing_value']) ? $row['blessing_value'] : '';
+                $values[] = $val;
+            } else {
+                $calc_type = isset($row['blessing_level_value']) ? $row['blessing_level_value'] : 'csv';
+                if ($calc_type === 'min_max') {
+                    $min = isset($row['min_value']) ? (float)$row['min_value'] : 0;
+                    $max = isset($row['max_value']) ? (float)$row['max_value'] : 0;
+                    $gaps = $lv_count - 1;
+
+                    if ($gaps > 0) {
+                        $diff = $max - $min;
+                        if ($diff % $gaps === 0) {
+                            $step = $diff / $gaps;
+                            for ($k = 0; $k < $lv_count; $k++) $values[] = $min + ($step * $k);
+                        } elseif ($gaps > 0) {
+                            $val = $min;
+                            $values[] = $val;
+                            $base_step = floor($diff / $gaps);
+                            $remainder = $diff % $gaps;
+                            for ($k = 0; $k < $gaps; $k++) {
+                                $step = $base_step + ($k < $remainder ? 1 : 0);
+                                $val += $step;
+                                $values[] = $val;
+                            }
+                        } else {
+                            $step_float = $diff / $gaps;
+                            for ($k = 0; $k < $lv_count; $k++) $values[] = round($min + ($step_float * $k));
+                        }
+                    } else {
+                        $values[] = $min;
+                    }
+                } else {
+                    $raw_val = isset($row['blessing_value']) ? $row['blessing_value'] : '';
+                    if ($raw_val === '200!') {
+                        $raw_val = '200,225,250,275,300,330,360,390,420,450';
+                    }
+                    $values = $raw_val !== '' ? array_map('trim', explode(',', $raw_val)) : [];
+                }
+            }
+
+            foreach ($points as $k => $pt) {
+                $val = isset($values[$k]) ? $values[$k] : '';
+                $temp_row = $row;
+                $temp_row['trait_rate'] = $val;
+                $temp_row['_is_blessing'] = true;
+
+                $generated_text = function_exists('get_koto_trait_text_from_row') ? get_koto_trait_text_from_row($temp_row) : '';
+                $lv_label = ($pt_pattern === 'single') ? '' : ($k + 1);
+
+                $levels_data[] = [
+                    'blessing_level' => $lv_label,
+                    'need_point'     => $pt,
+                    'generated_text' => $generated_text
+                ];
+            }
+
+            if (empty($levels_data)) continue;
+
+            $first_lv = $levels_data[0];
+            $rest_lvs = array_slice($levels_data, 1);
+            $has_rest = !empty($rest_lvs);
+
+            $text_first   = $first_lv['generated_text'];
+            $pt_first     = $first_lv['need_point'];
+            $lv_num_first = $first_lv['blessing_level'];
+
+            if ($text_first):
+    ?>
+                <div class="skill-effect-line blessing-effect-line">
+                    <div class="blessing-acc-row">
+                        <span class="effect-num blessing-effect-num">(<?php echo $i; ?>)</span>
+                        <div class="blessing-accordion-wrapper">
+                            <div class="blessing-acc-header <?php echo $has_rest ? 'is-toggle' : ''; ?>">
+                                <span class="blessing-level-item">
+                                    <?php if ($lv_num_first): ?>
+                                        <span class="blessing-lv-label">Lv.<?php echo $lv_num_first; ?></span>
+                                    <?php endif; ?>
+                                    <?php if ($pt_first): ?>
+                                        <span class="blessing-pt-label">(<?php echo $pt_first; ?>pt)</span>
+                                    <?php endif; ?>
+                                    <?php echo ($lv_num_first || $pt_first) ? ': ' : ''; ?><?php echo $text_first; ?>
+                                </span>
+                                <?php if ($has_rest): ?><span class="acc-icon">▼</span><?php endif; ?>
+                            </div>
+                            <?php if ($has_rest): ?>
+                                <div class="blessing-acc-body">
+                                    <?php foreach ($rest_lvs as $lv_row): ?>
+                                        <div class="blessing-level-item">
+                                            <?php if ($lv_row['blessing_level']): ?>
+                                                <span class="blessing-lv-label">Lv.<?php echo $lv_row['blessing_level']; ?></span>
+                                            <?php endif; ?>
+                                            <?php if ($lv_row['need_point']): ?>
+                                                <span class="blessing-pt-label">(<?php echo $lv_row['need_point']; ?>pt)</span>
+                                            <?php endif; ?>
+                                            <?php echo ($lv_row['blessing_level'] || $lv_row['need_point']) ? ': ' : ''; ?><?php echo $lv_row['generated_text']; ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+    <?php
+                $i++;
+            endif;
+        endforeach;
+    endif;
+
+    $inner_lines_html = ob_get_clean();
+    if (trim($inner_lines_html) === '') {
+        return '';
+    }
+
+    ob_start();
+    ?>
+    <div class="skill-card card-blessing">
+        <div class="skill-badge-area">
+            <span class="skill-badge <?php echo esc_attr($badge_class); ?>"><?php echo esc_html($badge_label); ?></span>
+        </div>
+        <div class="skill-text-area">
+            <div class="skill-row">
+                <span class="label-tag tag-effect">効果</span>
+                <div class="skill-text-block">
+                    <?php echo $inner_lines_html; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
 }
 
 /**

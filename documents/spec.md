@@ -440,7 +440,8 @@
   |is_koto_estimate|bool||ことわざ倍率が一部未調査ならtrue||
   |pre_evo_name|str||進化前の名前||
   |another_image_name|str||絵違いの名前||
-  |is_break_fuku|bool||言塊凸破福があればtrue|まだ|
+  |is_break_fuku|bool||言塊突破・福があればtrue||
+  |fuku_break|bool||言塊突破・福があればtrue（互換キー）||
   
 ## 詳細
 ### chars
@@ -450,6 +451,9 @@
   |slug|str||タクソノミーのスラッグ||
   |unlock|str||初期かとくせい1/2か祝福とくせいか||
   |attr|str||この文字の属性||
+  |moji_group_cond|bool||グループ編成条件付き文字かどうか||
+  |need_point|int||祝福解放時の必要ポイント（unlock_need_point）||
+  |row_index|int||available_moji_loopの行番号（1始まり）||
 ### waza
   |キー|型|要素数|データの役割|未実装?|
   |---|---|---|---|---|
@@ -688,7 +692,9 @@ ACFのループからとくせいの中身を取り出し、データを解析�
     [whose]=>誰の？str
     [super_heal]=>スーパーヒール回復値(int)
     [limit_break]=>上限解放値(int)
-    [turn_count]=>ドロバフ、看破のターン数(int)
+    [turn_count]=>ドロバフ、看破、牽制、腐敗などのターン数(int) ※turnキーにも同値を保持
+    [attack_limit_count]=>回数制限「X回まで」(int, 設定時のみ)
+    [moji_index]=>追加文字の行番号指定配列(int[], 設定時のみ)
     [target_info]=>(
         parse_target_groupの戻り値
     )
@@ -741,7 +747,9 @@ ACFのリーダーとくせいループを受け取り、jsonを成型する
 ```
 [
     [type]=>リーダーとくせいタイプstr
-    [conditions]=>[ //以下の連想配列の配列
+    [conditions]=>[ //2次元配列: 外側がOR条件パターン(ls_cond_pattern_loop)、内側がAND条件(ls_cond_loop)
+        [
+            [
                 [type]=>リーダーとくせい条件タイプstr
                 [val]=>[値1,値2,...] //数値は自動でintに変換される
                 [cond_targets]=>[　//以下の連想配列の配列
@@ -753,6 +761,8 @@ ACFのリーダーとくせいループを受け取り、jsonを成型する
                     [total_tf]=>編成条件が、「合計〇体」かどうかbool
                     [need_num]=>編成必要数int
                 ]
+            ]
+        ]
     ]
     [limit_wave]=>上限wave(int)
     [per_unit]=>キャラ数依存かどうかbool

@@ -601,6 +601,41 @@
 
 /* --- 祝福とくせいアコーディオン --- */
 
+.skill-card.card-blessing {
+    margin-top: 30px;
+}
+
+.blessing-effect-line {
+    margin-bottom: 10px;
+    border-bottom: 1px dashed #eee;
+    padding-bottom: 5px;
+}
+
+.blessing-acc-row {
+    display: flex;
+    align-items: flex-start;
+}
+
+.blessing-effect-num {
+    margin-right: 5px;
+    margin-top: 2px;
+}
+
+.blessing-accordion-wrapper {
+    flex: 1;
+}
+
+.blessing-lv-label {
+    color: #e91e63;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.blessing-pt-label {
+    color: #666;
+    font-size: 0.85em;
+}
+
 /* ヘッダー (Lv.1部分) */
 .blessing-acc-header {
     display: flex;
@@ -639,10 +674,21 @@
 
 /* 中身 (Lv.2以降) */
 .blessing-acc-body {
+    display: none;
     margin-top: 5px;
     padding-left: 10px;
     /* 少しインデント */
     /* border-left: 2px solid #eee; 線を入れるとおしゃれかも */
+}
+
+.blessing-acc-header.active + .blessing-acc-body {
+    display: block;
+}
+
+.blessing-acc-body .blessing-level-item {
+    margin-top: 8px;
+    border-top: 1px dotted #f0f0f0;
+    padding-top: 4px;
 }
 
 /* ========================================= */

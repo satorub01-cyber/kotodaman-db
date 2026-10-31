@@ -197,6 +197,8 @@ function get_character_spec_data($post_id)
         'firepower_index' => 0,
         'is_estimate'   => (bool)$is_estimate,
         'is_koto_estimate' => (bool)$is_koto_estimate,
+        'is_break_fuku' => false,
+        'fuku_break'    => false,
         'pre_evo_name'  => '', // ★追加
         'another_image_name' => '', // ★追加
         'waza'          => null,
@@ -242,6 +244,9 @@ function get_character_spec_data($post_id)
     $data['acquisition'] = $data['acquisition'] === 'gacha' ? 'ガチャ' : 'その他';
     $data['pre_evo_name'] = get_field('pre_evo_name', $post_id) ?: '';
     $data['another_image_name'] = get_field('another_image_name', $post_id) ?: '';
+    $is_break_fuku = (bool)get_field('fuku_break', $post_id);
+    $data['is_break_fuku'] = $is_break_fuku;
+    $data['fuku_break'] = $is_break_fuku;
 
     // ★追加: 実装日の取得
     // ※ 'impl_date' の部分は、実際のACFフィールド名(スラッグ)に書き換えてください！
@@ -356,11 +361,12 @@ function get_character_spec_data($post_id)
     $moji_rows = get_field('available_moji_loop', $post_id);
 
     if ($moji_rows && is_array($moji_rows)) {
-        foreach ($moji_rows as $row) {
+        foreach ($moji_rows as $row_idx => $row) {
             $unlock_place = $row['unlock_place'] ?? 'normal';
             if (empty($unlock_place)) $unlock_place = 'normal';
-            $grp_cond = $row['moji_group_cond'] ?? false;
+            $grp_cond = (bool)($row['moji_group_cond'] ?? false);
             $unlock_place = $grp_cond ? 'group_cond_' . $unlock_place : $unlock_place;
+            $need_pt = (int)($row['unlock_need_point'] ?? 0);
 
             // ★修正: 属性の取得ロジックを強化 (ID, オブジェクト, 配列に対応)
             $attr_slug = '';
@@ -395,10 +401,13 @@ function get_character_spec_data($post_id)
 
                     if ($m_val) {
                         $chars_detail[] = [
-                            'val'    => $m_val,
-                            'slug'   => $m_slug,
-                            'unlock' => $unlock_place,
-                            'attr'   => $attr_slug // ★属性を含めることで区別する
+                            'val'             => $m_val,
+                            'slug'            => $m_slug,
+                            'unlock'          => $unlock_place,
+                            'attr'            => $attr_slug, // ★属性を含めることで区別する
+                            'moji_group_cond' => $grp_cond,
+                            'need_point'      => $need_pt,
+                            'row_index'       => $row_idx + 1,
                         ];
                     }
                 }
@@ -411,10 +420,13 @@ function get_character_spec_data($post_id)
         if ($terms_moji && !is_wp_error($terms_moji)) {
             foreach ($terms_moji as $t) {
                 $chars_detail[] = [
-                    'val'    => $t->name,
-                    'slug'   => $t->slug,
-                    'unlock' => 'normal',
-                    'attr'   => ''
+                    'val'             => $t->name,
+                    'slug'            => $t->slug,
+                    'unlock'          => 'normal',
+                    'attr'            => '',
+                    'moji_group_cond' => false,
+                    'need_point'      => 0,
+                    'row_index'       => 0,
                 ];
             }
         }
@@ -783,7 +795,9 @@ function get_character_spec_data($post_id)
             // モードシフトは参照するフィールド名が特殊
             if ($t_type === 'mode_shift') {
                 $t_sub = $tr['shift_relation'] ?? '';
-                if (strpos($t_sub, 'transform') !== false) {
+                if ($t_sub === 'another_image') {
+                    $t_sub = 'mode_shift';
+                } elseif (strpos($t_sub, 'transform') !== false) {
                     $t_sub = 'transform';
                 }
             } else {
@@ -833,9 +847,10 @@ function get_character_spec_data($post_id)
     $blessing_ex = get_field('blessing_ex_trait_loop', $post_id);
     if ($blessing_ex) $data['ex_blessing'] = _parse_trait_loop_to_data($blessing_ex, true);
 
-    // 祝福とくせいタグ収集
-    if (!empty($data['blessing'])) {
-        $collect_trait_tags($data['blessing'], $data['trait_search_tags_blessing']);
+    // 祝福とくせいタグ収集（通常祝福 + EX祝福）
+    $merged_blessing_traits = array_merge($data['blessing'] ?? [], $data['ex_blessing'] ?? []);
+    if (!empty($merged_blessing_traits)) {
+        $collect_trait_tags($merged_blessing_traits, $data['trait_search_tags_blessing']);
         $data['trait_search_tags_blessing'] = array_values(array_unique($data['trait_search_tags_blessing']));
     }
 
@@ -1557,7 +1572,10 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
             $parsed['levels'] = []; // 祝福のみlevelsを持つ
 
             // 1. ポイントパターンの決定
-            $pt_pattern = $t['pt_pattern'] ?? 'default';
+            $pt_pattern = (!empty($t['pt_pattern'])) ? $t['pt_pattern'] : 'default';
+            if (in_array($type, ['mode_shift', 'gimmick', 'add_moji'], true)) {
+                $pt_pattern = 'single';
+            }
             $points = [];
 
             if ($pt_pattern === 'default') {
@@ -1677,8 +1695,10 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
 
         // 4. Draw/On Play Eff
         elseif ($type === 'draw_eff' || $type === 'on_play_eff') {
-            if (isset($t['turn_count']) && $t['turn_count'] !== '') {
-                $parsed['turn'] = (int)$t['turn_count'];
+            $raw_turn = $t['draw_triat_turn'] ?? ($t['draw_trait_turn'] ?? ($t['turn_count'] ?? ''));
+            if ($raw_turn !== '') {
+                $parsed['turn'] = (int)$raw_turn;
+                $parsed['turn_count'] = (int)$raw_turn;
             }
             if ($sub === 'status_healing' && !empty($t['resistance'])) {
                 $parsed['heal_status'] = $t['resistance'];
@@ -1706,8 +1726,10 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
 
         // 6. After Attack
         elseif ($type === 'after_attack') {
-            if (isset($t['turn_count']) && $t['turn_count'] !== '') {
-                $parsed['turn'] = (int)$t['turn_count'];
+            $raw_turn = $t['draw_triat_turn'] ?? ($t['draw_trait_turn'] ?? ($t['turn_count'] ?? ''));
+            if ($raw_turn !== '') {
+                $parsed['turn'] = (int)$raw_turn;
+                $parsed['turn_count'] = (int)$raw_turn;
             }
         }
 
@@ -1725,8 +1747,10 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
                 if (isset($t['limit_break_rate']) && $t['limit_break_rate'] !== '') {
                     $parsed['limit_break'] = (int)$t['limit_break_rate'];
                 }
-                if (isset($t['turn_count']) && $t['turn_count'] !== '') {
-                    $parsed['turn'] = (int)$t['turn_count'];
+                $raw_turn = $t['draw_triat_turn'] ?? ($t['draw_trait_turn'] ?? ($t['turn_count'] ?? ''));
+                if ($raw_turn !== '') {
+                    $parsed['turn'] = (int)$raw_turn;
+                    $parsed['turn_count'] = (int)$raw_turn;
                 }
             }
         }
@@ -1737,8 +1761,12 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
             $forms = $t['related_form'] ?? [];
             if ($forms) {
                 $parsed['related_ids'] = [];
-                foreach ($forms as $f) {
-                    if (is_object($f)) $parsed['related_ids'][] = $f->ID;
+                $forms_arr = is_array($forms) ? $forms : [$forms];
+                foreach ($forms_arr as $f) {
+                    $fid = is_object($f) ? (int)($f->ID ?? 0) : (is_numeric($f) ? (int)$f : 0);
+                    if ($fid > 0 && get_post_type($fid) === 'character') {
+                        $parsed['related_ids'][] = $fid;
+                    }
                 }
             }
         }
@@ -1781,6 +1809,13 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
 
         $cond_loop = $t['condition_type_loop'] ?? [];
         $parsed['conditions'] = _parse_trait_condition($cond_loop);
+
+        if (!empty($t['attack_limit_count'])) {
+            $parsed['attack_limit_count'] = (int)$t['attack_limit_count'];
+        }
+        if (!empty($t['super_gimmick_moji_index'])) {
+            $parsed['moji_index'] = split_str_comma($t['super_gimmick_moji_index']);
+        }
 
         $data[] = $parsed;
     }
@@ -2187,23 +2222,10 @@ function _parse_leader_skill_data($loop)
             'turn_count' => (int)$pattern['turn_count'] ?? 0,
         ];
         if ($parsed['type'] === 'per_unit') $parsed['per_unit'] = true;
-        $parsed['conditions'] = [
-            [
-                'type' => '', // 条件タイプ自体が「なし」
-                'val'  => [],
-                'cond_targets' => [
-                    [
-                        'total_tf' => false,
-                        'need_num' => 0,
-                        'type'     => '',
-                        'obj'      => []
-                    ]
-                ]
-            ]
-        ];
         $conditions = [];
         if (!empty($pattern['ls_cond_pattern_loop'])) :
             foreach ($pattern['ls_cond_pattern_loop'] as $cond_p) {
+                $and_conditions = [];
                 if (!empty($cond_p['ls_cond_loop'])) :
                     foreach ($cond_p['ls_cond_loop'] as $cond) {
                         $temp_cond = [
@@ -2254,9 +2276,12 @@ function _parse_leader_skill_data($loop)
                                     ]
                                 ];
                         endswitch;
-                        $conditions[] = $temp_cond;
+                        $and_conditions[] = $temp_cond;
                     }
                 endif;
+                if (!empty($and_conditions)) {
+                    $conditions[] = $and_conditions;
+                }
             }
         endif;
         $parsed['conditions'] = $conditions;
