@@ -73,6 +73,9 @@ function koto_generate_regex_pattern($template, &$seen_vars, $match_mode = 'exac
                         $pattern .= '(?P<' . $var_name . '>[0-9０-９]+)';
                     } elseif (strpos($var_name, 'leader_text') !== false || strpos($var_name, 'laeder_text') !== false) {
                         $pattern .= '(?P<' . $var_name . '>.+?)'; // リーダー文言はすべて許容
+                    } elseif (strpos($var_name, 'attr') === 0 || strpos($var_name, 'species') === 0) {
+                        // 属性・種族プレースホルダが助詞（が・を・に・で・へ）を跨いで後続の「無属性」等に誤マッチするのを防ぐ
+                        $pattern .= '(?P<' . $var_name . '>[^、。\n×xX%％がをにでへ]+?)';
                     } else {
                         // 【修正】×や%を跨いで強引にマッチングするのを防ぐ
                         $pattern .= '(?P<' . $var_name . '>[^、。\n×xX%％]+?)';
@@ -1252,12 +1255,14 @@ function koto_preprocess_text($text, $category = '')
     $text = str_replace(['\n', '\r', "\n", "\r"], "\n", $text);
     $text = str_replace(' ', '', $text);
 
+    // 腐敗の注釈文言を除去（「リーダーとくせい」の除外語「各」で「各敵」が壊れる前に実行、かつ「各」の有無両対応）
+    $text = preg_replace('/\(敵の行動時、そのターンに.+?が(?:各)?敵にわざ・すごわざ・コトわざで与えた合計ダメージの[\d.]+%の値で固定ダメージを与える効果\)/u', '', $text);
+
     // 「、さらに」はdetail_loop行分割の役割を持つため消去せず保護する
     $text = str_replace('、さらに', '___TEMP_COMMA_SARANI___', $text);
     $text = trim(str_replace($ignore_texts, '', $text));
     $text = str_replace('___TEMP_COMMA_SARANI___', '、さらに', $text);
 
-    $text = preg_replace('/\(敵の行動時、そのターンに.+?が各敵にわざ・すごわざ・コトわざで与えた合計ダメージの[\d.]+%の値で固定ダメージを与える効果\)/u', '', $text);
     return trim($text);
 }
 

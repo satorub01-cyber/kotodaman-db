@@ -818,7 +818,10 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
             if (!empty($cleaned_row)) {
                 $results[] = $cleaned_row;
             }
-            continue;
+            $remaining_text = preg_replace('/^[・\s、,。]+/u', '', $remaining_text);
+            if ($remaining_text === '') {
+                continue;
+            }
         }
 
         // ----------------------------------------------------
@@ -826,7 +829,7 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
         // ----------------------------------------------------
         while (mb_strlen($remaining_text) > 0) {
             $prev_pattern_b_len = mb_strlen($remaining_text);
-            $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
+            $remaining_text = preg_replace('/^[・\s、,。]+/u', '', $remaining_text);
             if ($remaining_text === '') {
                 break;
             }
@@ -839,7 +842,7 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
             while (mb_strlen($remaining_text) > 0) {
                 $prev_len = mb_strlen($remaining_text);
                 // 【修正】先頭に残った「、」や「,」も削る
-                $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
+                $remaining_text = preg_replace('/^[・\s、,。]+/u', '', $remaining_text);
 
                 $match = koto_match_csv_template($remaining_text, $condition_rows, $input_key, 'prefix');
                 if (koto_is_csv_template_match($match)) {
