@@ -189,8 +189,14 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
         $conditions = [];
         $all_effects = [];
 
-        // わざ追加条件の抽出
-        while (true) {
+        // わざ追加条件の抽出（先頭の「、」「または」等を除去しながらヒットしなくなるまでループ）
+        while (mb_strlen($remaining_text, 'UTF-8') > 0) {
+            $prev_len = mb_strlen($remaining_text, 'UTF-8');
+            $remaining_text = preg_replace('/^(?:[・\s、,]+|(?:または|もしくは)[・\s、,]*)+/u', '', $remaining_text);
+            if ($remaining_text === '') {
+                break;
+            }
+
             $match = koto_match_csv_template(
                 $remaining_text,
                 $waza_condition_rows,
@@ -216,6 +222,13 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
                 }
             }
             $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
+            if (mb_strlen($remaining_text, 'UTF-8') >= $prev_len) {
+                break;
+            }
+        }
+        // 条件抽出後に先頭に残った「の場合、」「の時、」「、」等を除去
+        if (!empty($conditions)) {
+            $remaining_text = preg_replace('/^(?:の場合|の時|のとき|場合|時|とき|で)?[・\s、,]+/u', '', $remaining_text);
         }
 
         // わざ効果の抽出（全角＋にも対応、「、さらに」も＋と同様に行分割として扱う）
