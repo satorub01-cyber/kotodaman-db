@@ -111,9 +111,29 @@ add_action('template_redirect', function () {
     exit;
 });
 
-function koto_mcp_current_user_from_token()
+function koto_mcp_get_authorization_header($request = null)
 {
-    $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if ($request instanceof WP_REST_Request) {
+        $header = $request->get_header('authorization');
+        if ($header) return $header;
+    }
+    if (!empty($_SERVER['HTTP_AUTHORIZATION'])) {
+        return $_SERVER['HTTP_AUTHORIZATION'];
+    }
+    if (!empty($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+        return $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+    }
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        if (!empty($headers['Authorization'])) return $headers['Authorization'];
+        if (!empty($headers['authorization'])) return $headers['authorization'];
+    }
+    return '';
+}
+
+function koto_mcp_current_user_from_token($request = null)
+{
+    $header = koto_mcp_get_authorization_header($request);
     if (!preg_match('/^Bearer\s+(.+)$/i', $header, $match)) return 0;
     $token = hash('sha256', trim($match[1]));
     $data = get_transient('koto_mcp_token_' . $token);
@@ -124,11 +144,11 @@ function koto_mcp_current_user_from_token()
     return (int) $data['user_id'];
 }
 
-function koto_mcp_require_scope($scope)
+function koto_mcp_require_scope($scope, $request = null)
 {
-    $user_id = koto_mcp_current_user_from_token();
+    $user_id = koto_mcp_current_user_from_token($request);
     if (!$user_id) return new WP_Error('mcp_unauthorized', 'OAuth access token is required.', ['status' => 401]);
-    $token = preg_replace('/^Bearer\s+/i', '', $_SERVER['HTTP_AUTHORIZATION'] ?? '');
+    $token = preg_replace('/^Bearer\s+/i', '', koto_mcp_get_authorization_header($request));
     $data = get_transient('koto_mcp_token_' . hash('sha256', trim($token)));
     $scopes = preg_split('/\s+/', trim((string) ($data['scope'] ?? '')));
     if (!in_array($scope, $scopes, true) && !user_can($user_id, 'manage_options')) {
@@ -171,9 +191,20 @@ function koto_mcp_handle_http($request)
     }
     $name = $body['params']['name'] ?? '';
     $arguments = $body['params']['arguments'] ?? [];
-    $tool = koto_mcp_call_tool($name, $arguments);
+    $tool = koto_mcp_call_tool($name, $arguments, $request);
     if (is_wp_error($tool)) {
-        return rest_ensure_response(['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => $tool->get_error_code(), 'message' => $tool->get_error_message(), 'data' => $tool->get_error_data()]]);
+        return rest_ensure_response([
+            'jsonrpc' => '2.0',
+            'id' => $id,
+            'error' => [
+                'code' => -32000,
+                'message' => $tool->get_error_message(),
+                'data' => [
+                    'code' => $tool->get_error_code(),
+                    'detail' => $tool->get_error_data(),
+                ],
+            ],
+        ]);
     }
     return rest_ensure_response(['jsonrpc' => '2.0', 'id' => $id, 'result' => ['content' => [['type' => 'text', 'text' => wp_json_encode($tool, JSON_UNESCAPED_UNICODE)]]]]);
 }
@@ -250,7 +281,7 @@ function koto_mcp_field_schema()
 function koto_mcp_validate_draft($args)
 {
     $errors = ['missing_fields' => [], 'invalid_fields' => []];
-    $fields = $args['basic_fields'] ?? [];
+    $fields = is_array($args['basic_fields'] ?? null) ? $args['basic_fields'] : [];
     $schema = koto_mcp_field_schema();
     foreach (['attribute', 'species', 'rarity'] as $required) {
         if (!array_key_exists($required, $fields) || $fields[$required] === null || $fields[$required] === '') {
@@ -293,11 +324,11 @@ function koto_mcp_content_hash($args, $parsed)
     return hash('sha256', wp_json_encode(['character_name' => $args['character_name'] ?? '', 'basic_fields' => $args['basic_fields'] ?? [], 'auto_input' => $args['auto_input'] ?? [], 'parsed_acf' => $parsed], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 }
 
-function koto_mcp_call_tool($name, $args)
+function koto_mcp_call_tool($name, $args, $request = null)
 {
     $scope = in_array($name, ['get_field_schema', 'get_terms', 'search_character', 'validate'], true) ? 'validate' : 'preview';
     if (in_array($name, ['create_draft', 'update_draft', 'trash_draft'], true)) $scope = 'create';
-    $auth = koto_mcp_require_scope($scope);
+    $auth = koto_mcp_require_scope($scope, $request);
     if (is_wp_error($auth)) return $auth;
     $rate_key = 'koto_mcp_rate_' . $auth;
     $rate_count = (int) get_transient($rate_key);

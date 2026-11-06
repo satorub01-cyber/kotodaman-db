@@ -19,19 +19,32 @@ http://localhost:8080
 
 ## Antigravity設定例
 
-AntigravityがOAuth対応の`serverUrl`形式を受け付ける場合の例です。
+Antigravity CLI (`agy`) を使って HTTP MCP サーバーを登録する場合：
+
+```bash
+# ローカル (kotodaman-db.local)
+agy mcp add --header "Authorization: Bearer <TOKEN>" kotodaman-db http://kotodaman-db.local/wp-json/kotodaman/v1/mcp
+
+# ローカル (localhost:8080)
+agy mcp add --header "Authorization: Bearer <TOKEN>" kotodaman-db http://localhost:8080/wp-json/kotodaman/v1/mcp
+```
+
+設定ファイル (`~/.gemini/config/mcp_config.json`) へ直接記載する場合：
 
 ```json
 {
   "mcpServers": {
     "kotodaman-db": {
-      "serverUrl": "${KOTO_MCP_BASE_URL}/mcp"
+      "serverUrl": "http://kotodaman-db.local/wp-json/kotodaman/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer <TOKEN>"
+      }
     }
   }
 }
 ```
 
-初回接続時はOAuth認可画面へ移動します。管理者・編集者は即時認可、それ以外のユーザーは申請状態になります。管理者はWordPress管理画面の「ユーザー > MCP利用申請」から承認します。
+OAuth対応の認可画面を利用できるクライアントでは、初回接続時にOAuth認可画面へ移動します。管理者・編集者は即時認可、それ以外のユーザーは申請状態になります。管理者はWordPress管理画面の「ユーザー > MCP利用申請」から承認します。
 
 ## Muse設定
 
