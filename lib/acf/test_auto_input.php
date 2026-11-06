@@ -22,6 +22,15 @@ if (php_sapi_name() !== 'cli') {
     exit('CLI only.');
 }
 
+// テスト詳細出力フラグ（初期値 false。--test-mode または --verbose 指定時に true）
+$test_mode = in_array('--test-mode', $argv, true) || in_array('--verbose', $argv, true);
+$cli_args = array_values(array_filter(array_slice($argv, 1), static function ($arg) {
+    return !in_array($arg, ['--test-mode', '--verbose'], true);
+}));
+if ($test_mode && !defined('KOTO_AUTO_INPUT_TEST_MODE')) {
+    define('KOTO_AUTO_INPUT_TEST_MODE', true);
+}
+
 $theme_dir = dirname(__DIR__, 2);
 $wp_load_path = dirname($theme_dir, 3) . '/wp-load.php';
 
@@ -40,15 +49,16 @@ $csv_data = koto_load_csv_dictionary($csv_path);
 $grouped_csv = koto_group_csv_by_type($csv_data);
 
 // 引数指定時は単発テストを実行
-if (isset($argv[1], $argv[2])) {
-    $type = $argv[1];
-    $phrase = $argv[2];
+if (isset($cli_args[0], $cli_args[1])) {
+    $type = $cli_args[0];
+    $phrase = $cli_args[1];
     $input_key = ($type === 'とくせい') ? 'auto_input_trait1' : '';
     $parsed = koto_parse_text_by_type($phrase, $type, $grouped_csv, $input_key);
     echo "■ 種別: {$type}\n";
     echo "■ 文言: {$phrase}\n";
-    echo json_encode($parsed, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n";
-    exit(0);
+    $flags = JSON_UNESCAPED_UNICODE | ($test_mode ? JSON_PRETTY_PRINT : 0);
+    echo json_encode($parsed, $flags) . "\n";
+    exit(!empty($parsed) ? 0 : 1);
 }
 
 $tests = [
@@ -136,15 +146,43 @@ $tests = [
     ],
 ];
 
+$total_count = 0;
+$passed_count = 0;
+$failed_cases = [];
+
 foreach ($tests as $type => $phrases) {
-    echo "========================================\n";
-    echo "■ カテゴリ: {$type}\n";
-    echo "========================================\n";
+    if ($test_mode) {
+        echo "========================================\n";
+        echo "■ カテゴリ: {$type}\n";
+        echo "========================================\n";
+    }
+    $cat_passed = 0;
     $input_key = ($type === 'とくせい') ? 'auto_input_trait1' : '';
     foreach ($phrases as $i => $phrase) {
         $num = $i + 1;
+        $total_count++;
         $parsed = koto_parse_text_by_type($phrase, $type, $grouped_csv, $input_key);
-        echo "[Test {$num}] {$phrase}\n";
-        echo json_encode($parsed, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n\n";
+        if (!empty($parsed)) {
+            $passed_count++;
+            $cat_passed++;
+        } else {
+            $failed_cases[] = "[{$type} #{$num}] {$phrase}";
+        }
+        if ($test_mode) {
+            echo "[Test {$num}] {$phrase}\n";
+            echo json_encode($parsed, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n\n";
+        }
+    }
+    if (!$test_mode) {
+        echo sprintf("[PASS] %-18s : %d / %d passed\n", $type, $cat_passed, count($phrases));
     }
 }
+
+if (!$test_mode) {
+    echo sprintf("Total: %d / %d passed (詳細なJSON出力は --test-mode を付与)\n", $passed_count, $total_count);
+    if (!empty($failed_cases)) {
+        echo "Failed cases:\n  " . implode("\n  ", $failed_cases) . "\n";
+        exit(1);
+    }
+}
+exit(!empty($failed_cases) ? 1 : 0);
