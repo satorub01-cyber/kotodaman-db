@@ -19,6 +19,125 @@ function koto_mcp_base_url()
     return $configured;
 }
 
+function koto_mcp_tool_names()
+{
+    return array_map(static function ($tool) {
+        return $tool['name'] ?? '';
+    }, koto_mcp_tools());
+}
+
+function koto_mcp_is_object_like_array($value)
+{
+    if (!is_array($value)) return false;
+    if (empty($value)) return true;
+    return array_keys($value) !== range(0, count($value) - 1);
+}
+
+function koto_mcp_validate_tool_arguments($name, $arguments)
+{
+    if (!is_array($arguments)) {
+        return new WP_Error('INVALID_PARAMS', 'Tool arguments must be an object.', ['field' => 'arguments', 'reason' => 'invalid_type', 'status' => 400]);
+    }
+
+    $validators = [
+        'get_terms' => ['taxonomy' => 'string'],
+        'search_character' => ['name' => 'string'],
+    ];
+    if (isset($validators[$name])) {
+        foreach ($validators[$name] as $key => $expected_type) {
+            if (!array_key_exists($key, $arguments)) {
+                return new WP_Error('INVALID_PARAMS', sprintf('%s is required.', $key), ['field' => $key, 'reason' => 'required_empty', 'status' => 400]);
+            }
+            if ($expected_type === 'string' && !is_string($arguments[$key])) {
+                return new WP_Error('INVALID_PARAMS', sprintf('%s must be a string.', $key), ['field' => $key, 'reason' => 'invalid_type', 'status' => 400]);
+            }
+        }
+    }
+
+    if (in_array($name, ['validate', 'preview_draft', 'create_draft', 'update_draft'], true)) {
+        if (array_key_exists('character_name', $arguments) && !is_string($arguments['character_name'])) {
+            return new WP_Error('INVALID_PARAMS', 'character_name must be a string.', ['field' => 'character_name', 'reason' => 'invalid_type', 'status' => 400]);
+        }
+        if (array_key_exists('basic_fields', $arguments) && !koto_mcp_is_object_like_array($arguments['basic_fields'])) {
+            return new WP_Error('INVALID_PARAMS', 'basic_fields must be an object.', ['field' => 'basic_fields', 'reason' => 'invalid_type', 'status' => 400]);
+        }
+        if (array_key_exists('auto_input', $arguments) && !koto_mcp_is_object_like_array($arguments['auto_input'])) {
+            return new WP_Error('INVALID_PARAMS', 'auto_input must be an object.', ['field' => 'auto_input', 'reason' => 'invalid_type', 'status' => 400]);
+        }
+        if (array_key_exists('screenshot_urls', $arguments)) {
+            if (!is_array($arguments['screenshot_urls'])) {
+                return new WP_Error('INVALID_PARAMS', 'screenshot_urls must be an array.', ['field' => 'screenshot_urls', 'reason' => 'invalid_type', 'status' => 400]);
+            }
+            foreach ($arguments['screenshot_urls'] as $index => $url) {
+                if (!is_string($url)) {
+                    return new WP_Error('INVALID_PARAMS', 'screenshot_urls items must be strings.', ['field' => 'screenshot_urls.' . $index, 'reason' => 'invalid_type', 'status' => 400]);
+                }
+            }
+        }
+    }
+
+    if (in_array($name, ['create_draft', 'update_draft'], true)) {
+        if (!array_key_exists('idempotency_key', $arguments) || !is_string($arguments['idempotency_key']) || trim($arguments['idempotency_key']) === '') {
+            return new WP_Error('INVALID_PARAMS', 'idempotency_key is required.', ['field' => 'idempotency_key', 'reason' => 'required_empty', 'status' => 400]);
+        }
+        if (!array_key_exists('preview_hash', $arguments) || !is_string($arguments['preview_hash']) || trim($arguments['preview_hash']) === '') {
+            return new WP_Error('INVALID_PARAMS', 'preview_hash is required.', ['field' => 'preview_hash', 'reason' => 'required_empty', 'status' => 400]);
+        }
+    }
+    if ($name === 'update_draft') {
+        if (!array_key_exists('post_id', $arguments) || (!is_int($arguments['post_id']) && !(is_string($arguments['post_id']) && ctype_digit($arguments['post_id'])))) {
+            return new WP_Error('INVALID_PARAMS', 'post_id must be an integer.', ['field' => 'post_id', 'reason' => 'invalid_type', 'status' => 400]);
+        }
+    }
+    if ($name === 'trash_draft') {
+        if (!array_key_exists('post_id', $arguments) || (!is_int($arguments['post_id']) && !(is_string($arguments['post_id']) && ctype_digit($arguments['post_id'])))) {
+            return new WP_Error('INVALID_PARAMS', 'post_id must be an integer.', ['field' => 'post_id', 'reason' => 'invalid_type', 'status' => 400]);
+        }
+    }
+    return true;
+}
+
+function koto_mcp_idempotency_option_name($user_id, $key)
+{
+    return 'koto_mcp_idem_' . hash('sha256', $user_id . '|' . $key);
+}
+
+function koto_mcp_reserve_idempotency_key($user_id, $key)
+{
+    $option = koto_mcp_idempotency_option_name($user_id, $key);
+    $now = time();
+    $reservation = ['state' => 'processing', 'updated_at' => $now, 'expires_at' => $now + DAY_IN_SECONDS];
+
+    if (add_option($option, $reservation, '', false)) {
+        return ['option' => $option];
+    }
+
+    $existing = get_option($option);
+    if (is_array($existing) && !empty($existing['expires_at']) && (int) $existing['expires_at'] < $now) {
+        delete_option($option);
+        if (add_option($option, $reservation, '', false)) {
+            return ['option' => $option];
+        }
+        $existing = get_option($option);
+    }
+
+    if (is_array($existing) && ($existing['state'] ?? '') === 'done' && array_key_exists('result', $existing)) {
+        return ['result' => $existing['result']];
+    }
+
+    return new WP_Error('IDEMPOTENCY_IN_PROGRESS', 'An identical request is already processing.', ['field' => 'idempotency_key', 'reason' => 'conflict', 'status' => 409]);
+}
+
+function koto_mcp_complete_idempotency_key($option, $result)
+{
+    update_option($option, ['state' => 'done', 'updated_at' => time(), 'expires_at' => time() + DAY_IN_SECONDS, 'result' => $result], false);
+}
+
+function koto_mcp_release_idempotency_key($option)
+{
+    delete_option($option);
+}
+
 function koto_mcp_server_url()
 {
     return koto_mcp_base_url() . '/mcp';
@@ -191,6 +310,31 @@ function koto_mcp_handle_http($request)
     }
     $name = $body['params']['name'] ?? '';
     $arguments = $body['params']['arguments'] ?? [];
+    if (!is_string($name) || $name === '' || !in_array($name, koto_mcp_tool_names(), true)) {
+        return rest_ensure_response([
+            'jsonrpc' => '2.0',
+            'id' => $id,
+            'error' => [
+                'code' => -32602,
+                'message' => 'Invalid tool name.',
+            ],
+        ]);
+    }
+    $validation = koto_mcp_validate_tool_arguments($name, $arguments);
+    if (is_wp_error($validation)) {
+        return rest_ensure_response([
+            'jsonrpc' => '2.0',
+            'id' => $id,
+            'error' => [
+                'code' => -32602,
+                'message' => $validation->get_error_message(),
+                'data' => [
+                    'code' => $validation->get_error_code(),
+                    'detail' => $validation->get_error_data(),
+                ],
+            ],
+        ]);
+    }
     $tool = koto_mcp_call_tool($name, $arguments, $request);
     if (is_wp_error($tool)) {
         return rest_ensure_response([
@@ -284,7 +428,8 @@ function koto_mcp_validate_draft($args)
     $fields = is_array($args['basic_fields'] ?? null) ? $args['basic_fields'] : [];
     $schema = koto_mcp_field_schema();
     foreach (['attribute', 'species', 'rarity'] as $required) {
-        if (!array_key_exists($required, $fields) || $fields[$required] === null || $fields[$required] === '') {
+        $is_empty_array = is_array($fields[$required] ?? null) && count($fields[$required]) === 0;
+        if (!array_key_exists($required, $fields) || $fields[$required] === null || $fields[$required] === '' || $is_empty_array) {
             $errors['missing_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $required, 'required_empty');
         }
     }
@@ -296,6 +441,10 @@ function koto_mcp_validate_draft($args)
         if ($value === null) continue;
         $definition = $schema[$name];
         if (!empty($definition['taxonomy'])) {
+            if (is_array($value) && count($value) === 0) {
+                $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'required_empty');
+                continue;
+            }
             $ids = is_array($value) ? $value : [$value];
             foreach ($ids as $term_id) {
                 if (!is_int($term_id) && !(is_string($term_id) && ctype_digit($term_id))) {
@@ -306,6 +455,47 @@ function koto_mcp_validate_draft($args)
                     $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'unknown_term');
                 }
             }
+            continue;
+        }
+
+        if (!empty($definition['choices']) && is_array($definition['choices'])) {
+            $values = is_array($value) ? $value : [$value];
+            if (count($values) === 0) {
+                $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'required_empty');
+                continue;
+            }
+            foreach ($values as $choice) {
+                if (!is_scalar($choice) || !array_key_exists((string) $choice, $definition['choices'])) {
+                    $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_choice');
+                }
+            }
+        }
+
+        if ($definition['type'] === 'number' || $definition['type'] === 'range') {
+            if (!is_numeric($value)) {
+                $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_number');
+                continue;
+            }
+            $number = (float) $value;
+            if ($definition['min'] !== null && is_numeric($definition['min']) && $number < (float) $definition['min']) {
+                $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'below_min');
+            }
+            if ($definition['max'] !== null && is_numeric($definition['max']) && $number > (float) $definition['max']) {
+                $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'above_max');
+            }
+            continue;
+        }
+
+        if ($definition['type'] === 'true_false') {
+            $valid_bool = is_bool($value) || $value === 0 || $value === 1 || $value === '0' || $value === '1';
+            if (!$valid_bool) {
+                $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_boolean');
+            }
+            continue;
+        }
+
+        if (in_array($definition['type'], ['text', 'textarea', 'url', 'email', 'select', 'radio'], true) && is_array($value)) {
+            $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_type');
         }
     }
     $csv = koto_group_csv_by_type(koto_load_csv_dictionary(get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv'));
@@ -326,6 +516,9 @@ function koto_mcp_content_hash($args, $parsed)
 
 function koto_mcp_call_tool($name, $args, $request = null)
 {
+    if (!in_array($name, koto_mcp_tool_names(), true)) {
+        return new WP_Error('INVALID_TOOL', 'Unknown tool name.', ['field' => 'name', 'reason' => 'invalid_value', 'status' => 400]);
+    }
     $scope = in_array($name, ['get_field_schema', 'get_terms', 'search_character', 'validate'], true) ? 'validate' : 'preview';
     if (in_array($name, ['create_draft', 'update_draft', 'trash_draft'], true)) $scope = 'create';
     $auth = koto_mcp_require_scope($scope, $request);
@@ -345,11 +538,21 @@ function koto_mcp_call_tool($name, $args, $request = null)
     }
     if ($name === 'search_character') {
         $query = new WP_Query(['post_type' => 'character', 'post_status' => ['publish', 'draft', 'pending', 'private'], 's' => sanitize_text_field($args['name'] ?? ''), 'posts_per_page' => 20]);
-        return ['matches' => array_map(static function ($post) { return ['id' => $post->ID, 'title' => $post->post_title, 'status' => $post->post_status]; }, $query->posts)];
+        $matches = [];
+        foreach ($query->posts as $post) {
+            if ($post->post_status === 'private') {
+                if (!user_can($auth, 'read_post', $post->ID)) continue;
+            } elseif ($post->post_status !== 'publish') {
+                if (!user_can($auth, 'edit_post', $post->ID)) continue;
+            }
+            $matches[] = ['id' => $post->ID, 'title' => $post->post_title, 'status' => $post->post_status];
+        }
+        return ['matches' => $matches];
     }
     if ($name === 'trash_draft') {
         $post = get_post((int) ($args['post_id'] ?? 0));
         if (!$post || $post->post_type !== 'character' || $post->post_status !== 'draft') return new WP_Error('VALIDATION_FAILED', 'Only character drafts can be trashed.', ['field' => 'post_id', 'reason' => 'invalid_value']);
+        if (!user_can($auth, 'delete_post', $post->ID)) return new WP_Error('VALIDATION_FAILED', 'The draft cannot be deleted by this user.', ['field' => 'post_id', 'reason' => 'invalid_value']);
         wp_trash_post($post->ID);
         return ['post_id' => $post->ID, 'status' => 'trash'];
     }
@@ -365,27 +568,48 @@ function koto_mcp_call_tool($name, $args, $request = null)
     }
     $key = sanitize_key($args['idempotency_key'] ?? '');
     if ($key === '') return new WP_Error('VALIDATION_FAILED', 'idempotency_key is required.', ['field' => 'idempotency_key', 'reason' => 'required_empty']);
-    $existing = get_transient('koto_mcp_idempotency_' . $auth . '_' . $key);
-    if ($existing) return $existing;
+    $reservation = koto_mcp_reserve_idempotency_key($auth, $key);
+    if (is_wp_error($reservation)) return $reservation;
+    if (!empty($reservation['result'])) return $reservation['result'];
+    $idempotency_option = $reservation['option'];
     if ($name === 'create_draft') {
-        $post_id = koto_create_character_post_from_acf(sanitize_text_field($args['character_name']), $validation['parsed_acf']);
+        $post_id = koto_create_character_post_from_acf(sanitize_text_field($args['character_name']), []);
+        if (!is_wp_error($post_id) && $post_id) {
+            koto_mcp_update_basic_fields($post_id, $args['basic_fields'] ?? []);
+            koto_update_character_post_with_acf($post_id, $validation['parsed_acf']);
+        }
     } else {
         $post_id = (int) $args['post_id'];
         $post = get_post($post_id);
-        if (!$post || $post->post_type !== 'character' || $post->post_status !== 'draft' || !current_user_can('edit_post', $post_id)) return new WP_Error('VALIDATION_FAILED', 'Only editable character drafts can be updated.', ['field' => 'post_id', 'reason' => 'invalid_value']);
-        koto_update_character_post_with_acf($post_id, $validation['parsed_acf']);
+        if (!$post || $post->post_type !== 'character' || $post->post_status !== 'draft' || !user_can($auth, 'edit_post', $post_id)) {
+            koto_mcp_release_idempotency_key($idempotency_option);
+            return new WP_Error('VALIDATION_FAILED', 'Only editable character drafts can be updated.', ['field' => 'post_id', 'reason' => 'invalid_value']);
+        }
+        koto_mcp_update_basic_fields($post_id, $args['basic_fields'] ?? []);
+        koto_update_character_post_with_acf($post_id, $validation['parsed_acf'], true);
     }
-    if (is_wp_error($post_id) || !$post_id) return new WP_Error('CREATE_FAILED', 'Draft creation failed.', ['field' => 'post', 'reason' => 'invalid_value']);
-    koto_mcp_update_basic_fields($post_id, $args['basic_fields'] ?? []);
-    $urls = !empty($args['screenshot_urls']) ? $args['screenshot_urls'] : [KOTO_MCP_DEFAULT_IMAGE_URL];
-    update_post_meta($post_id, '_koto_mcp_screenshot_urls', array_values(array_filter(array_map('esc_url_raw', $urls))));
-    koto_mcp_set_featured_image_from_url($post_id, $urls[0] ?? '');
+    if (is_wp_error($post_id) || !$post_id) {
+        koto_mcp_release_idempotency_key($idempotency_option);
+        return new WP_Error('CREATE_FAILED', 'Draft creation failed.', ['field' => 'post', 'reason' => 'invalid_value']);
+    }
+    if ($name === 'create_draft') {
+        $urls = !empty($args['screenshot_urls']) ? $args['screenshot_urls'] : [KOTO_MCP_DEFAULT_IMAGE_URL];
+        $urls = array_values(array_filter(array_map('esc_url_raw', $urls)));
+        update_post_meta($post_id, '_koto_mcp_screenshot_urls', $urls);
+        koto_mcp_set_featured_image_from_url($post_id, $urls[0] ?? '');
+    } elseif (array_key_exists('screenshot_urls', $args)) {
+        $urls = array_values(array_filter(array_map('esc_url_raw', (array) $args['screenshot_urls'])));
+        update_post_meta($post_id, '_koto_mcp_screenshot_urls', $urls);
+        if (!empty($urls)) {
+            koto_mcp_set_featured_image_from_url($post_id, $urls[0]);
+        }
+    }
     update_post_meta($post_id, '_koto_mcp_generated', 1);
     update_post_meta($post_id, '_koto_mcp_needs_review', 1);
     update_post_meta($post_id, '_koto_mcp_audit', ['user_id' => $auth, 'content_hash' => $hash, 'evidence' => $args['evidence'] ?? [], 'created_at' => current_time('mysql')]);
     do_action('acf/save_post', $post_id);
     $result = ['post_id' => $post_id, 'status' => 'draft', 'edit_url' => admin_url('admin.php?page=koto-acf-editor&edit_post_id=' . $post_id), 'content_hash' => $hash, 'screenshot_urls' => get_post_meta($post_id, '_koto_mcp_screenshot_urls', true)];
-    set_transient('koto_mcp_idempotency_' . $auth . '_' . $key, $result, DAY_IN_SECONDS);
+    koto_mcp_complete_idempotency_key($idempotency_option, $result);
     return $result;
 }
 

@@ -14,8 +14,15 @@ function koto_register_post_mcp_routes()
     register_rest_route('kotodaman/v1', '/mcp/character-draft', [
         'methods'             => WP_REST_Server::CREATABLE,
         'callback'            => 'koto_mcp_create_character_draft',
-        'permission_callback' => function () {
-            return current_user_can('edit_posts');
+        'permission_callback' => function ($request) {
+            if (!current_user_can('edit_posts')) {
+                return false;
+            }
+            $screenshots = $request instanceof WP_REST_Request ? $request->get_param('screenshots') : null;
+            if (is_array($screenshots) && !empty($screenshots) && !current_user_can('upload_files')) {
+                return new WP_Error('forbidden_upload_files', 'screenshots を指定する場合は upload_files 権限が必要です。', ['status' => 403]);
+            }
+            return true;
         },
         'args'                => [
             'character_name' => [
@@ -67,6 +74,14 @@ function koto_mcp_save_screenshots($screenshots, $post_id)
     }
 
     $attachment_ids = [];
+    $rollback = static function ($error) use (&$attachment_ids) {
+        foreach ($attachment_ids as $saved_attachment_id) {
+            if (is_int($saved_attachment_id)) {
+                wp_delete_attachment($saved_attachment_id, true);
+            }
+        }
+        return $error;
+    };
     foreach (array_slice($screenshots, 0, 20) as $index => $screenshot) {
         if (!is_array($screenshot) || empty($screenshot['data'])) {
             continue;
@@ -74,27 +89,27 @@ function koto_mcp_save_screenshots($screenshots, $post_id)
 
         $data_uri = (string) $screenshot['data'];
         if (!preg_match('#^data:(image/(?:png|jpeg|webp));base64,(.+)$#s', $data_uri, $matches)) {
-            return [new WP_Error(
+            return $rollback(new WP_Error(
                 'invalid_screenshot',
                 sprintf('screenshots[%d] はPNG/JPEG/WebPのdata URIで指定してください。', $index),
                 ['status' => 400]
-            )];
+            ));
         }
 
         $binary = base64_decode($matches[2], true);
         if ($binary === false || strlen($binary) > 10 * 1024 * 1024) {
-            return [new WP_Error(
+            return $rollback(new WP_Error(
                 'invalid_screenshot_size',
                 sprintf('screenshots[%d] のサイズが不正です。', $index),
                 ['status' => 400]
-            )];
+            ));
         }
 
         $extension = $matches[1] === 'image/jpeg' ? 'jpg' : substr($matches[1], 6);
         $filename = sanitize_file_name(($screenshot['name'] ?? 'screenshot-' . ($index + 1)) . '.' . $extension);
         $upload = wp_upload_bits($filename, null, $binary);
         if (!empty($upload['error'])) {
-            return [new WP_Error('screenshot_upload_failed', $upload['error'], ['status' => 500])];
+            return $rollback(new WP_Error('screenshot_upload_failed', $upload['error'], ['status' => 500]));
         }
 
         $attachment_id = wp_insert_attachment([
@@ -102,10 +117,13 @@ function koto_mcp_save_screenshots($screenshots, $post_id)
             'post_title'     => sanitize_text_field($screenshot['name'] ?? 'キャラクタースクリーンショット'),
             'post_status'    => 'inherit',
             'post_parent'    => $post_id,
-        ], $upload['file'], $post_id);
+        ], $upload['file'], $post_id, true);
 
-        if (is_wp_error($attachment_id)) {
-            return [$attachment_id];
+        if (is_wp_error($attachment_id) || !$attachment_id) {
+            if (!empty($upload['file']) && file_exists($upload['file'])) {
+                @unlink($upload['file']);
+            }
+            return $rollback(is_wp_error($attachment_id) ? $attachment_id : new WP_Error('screenshot_attachment_failed', '添付ファイルの登録に失敗しました。', ['status' => 500]));
         }
         wp_update_attachment_metadata($attachment_id, wp_generate_attachment_metadata($attachment_id, $upload['file']));
         $attachment_ids[] = $attachment_id;
@@ -165,11 +183,29 @@ function koto_mcp_create_character_draft($request)
     if ($character_name === '') {
         return new WP_Error('missing_character_name', 'character_name は必須です。', ['status' => 400]);
     }
+    $basic_fields_is_list = is_array($basic_fields) && !empty($basic_fields) && array_keys($basic_fields) === range(0, count($basic_fields) - 1);
+    if ($basic_fields !== null && (!is_array($basic_fields) || $basic_fields_is_list)) {
+        return new WP_Error('invalid_basic_fields', 'basic_fields はオブジェクトで指定してください。', ['status' => 400]);
+    }
+    $auto_input_is_list = is_array($auto_input) && !empty($auto_input) && array_keys($auto_input) === range(0, count($auto_input) - 1);
+    if ($auto_input !== null && (!is_array($auto_input) || $auto_input_is_list)) {
+        return new WP_Error('invalid_auto_input', 'auto_input はオブジェクトで指定してください。', ['status' => 400]);
+    }
+    if ($screenshots !== null && !is_array($screenshots)) {
+        return new WP_Error('invalid_screenshots', 'screenshots は配列で指定してください。', ['status' => 400]);
+    }
+    if ($screenshot_urls !== null && !is_array($screenshot_urls)) {
+        return new WP_Error('invalid_screenshot_urls', 'screenshot_urls は配列で指定してください。', ['status' => 400]);
+    }
+
     if (!is_array($basic_fields)) {
         $basic_fields = [];
     }
     if (!is_array($auto_input)) {
         $auto_input = [];
+    }
+    if (!empty($screenshots) && !current_user_can('upload_files')) {
+        return new WP_Error('forbidden_upload_files', 'screenshots を指定する場合は upload_files 権限が必要です。', ['status' => 403]);
     }
     if (!is_array($screenshot_urls)) {
         $screenshot_urls = [];
@@ -194,7 +230,7 @@ function koto_mcp_create_character_draft($request)
         ]);
     }
 
-    $post_id = koto_create_character_post_from_acf($character_name, $acf_data);
+    $post_id = koto_create_character_post_from_acf($character_name, []);
     if (!$post_id || is_wp_error($post_id)) {
         return new WP_Error(
             'character_draft_failed',
@@ -204,20 +240,19 @@ function koto_mcp_create_character_draft($request)
     }
 
     $warnings = koto_mcp_update_basic_fields($post_id, $basic_fields);
-    if (!empty($auto_input) && empty($acf_data)) {
-        $warnings[] = 'auto_input を解析できる文言がありませんでした。';
+    koto_update_character_post_with_acf($post_id, $acf_data);
+    $requested_auto_inputs = array_filter($auto_input, static function ($value) {
+        return $value !== null && $value !== '';
+    });
+    foreach ($requested_auto_inputs as $input_key => $input_value) {
+        if (!array_key_exists($input_key, $acf_data) || empty($acf_data[$input_key])) {
+            $warnings[] = sprintf('%s を解析できませんでした。', $input_key);
+        }
     }
     $attachment_ids = koto_mcp_save_screenshots($screenshots, $post_id);
-    foreach ($attachment_ids as $attachment_id) {
-        if (is_wp_error($attachment_id)) {
-            foreach ($attachment_ids as $saved_attachment_id) {
-                if (is_int($saved_attachment_id)) {
-                    wp_delete_attachment($saved_attachment_id, true);
-                }
-            }
-            wp_delete_post($post_id, true);
-            return $attachment_id;
-        }
+    if (is_wp_error($attachment_ids)) {
+        wp_delete_post($post_id, true);
+        return $attachment_ids;
     }
 
     if (!empty($screenshot_urls)) {

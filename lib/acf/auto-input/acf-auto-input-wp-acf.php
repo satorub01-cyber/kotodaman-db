@@ -149,9 +149,10 @@ function koto_convert_acf_rows_to_field_keys($data, $field_obj)
  *
  * @param int $post_id 更新対象の投稿ID。
  * @param array<string, array<int, array<string, mixed>>> $acf_data 入力欄キーごとの解析結果。
+ * @param bool $replace_existing true の場合、今回入力があるセクションは既存値を置換する。
  * @return bool 更新処理を実行できた場合 true、入力不備時 false。
  */
-function koto_update_character_post_with_acf($post_id, $acf_data)
+function koto_update_character_post_with_acf($post_id, $acf_data, $replace_existing = false)
 {
     if (!$post_id || empty($acf_data)) return false;
 
@@ -267,8 +268,12 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
         $target_selector = $field_obj ? $field_obj['key'] : $acf_field_name;
 
         // 既存データを未フォーマット（raw）で取得し、GroupやTaxonomyのフォーマット変質を防ぐ
-        $existing_data = get_field($target_selector, $post_id, false) ?: [];
-        if (!is_array($existing_data)) $existing_data = [];
+        if ($replace_existing) {
+            $existing_data = [];
+        } else {
+            $existing_data = get_field($target_selector, $post_id, false) ?: [];
+            if (!is_array($existing_data)) $existing_data = [];
+        }
 
         // 新規行のサブフィールド名を再帰的に field_xxxxxx キーへ正規化
         if ($field_obj) {
