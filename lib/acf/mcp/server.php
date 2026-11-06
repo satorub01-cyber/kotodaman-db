@@ -117,11 +117,23 @@ function koto_mcp_validate_tool_arguments($name, $arguments)
         if (array_key_exists('character_name', $arguments) && !is_string($arguments['character_name'])) {
             return new WP_Error('INVALID_PARAMS', 'character_name must be a string.', ['field' => 'character_name', 'reason' => 'invalid_type', 'status' => 400]);
         }
+        if ($name !== 'update_draft' && empty($arguments['post_id'])) {
+            if (!array_key_exists('character_name', $arguments) || trim((string) $arguments['character_name']) === '') {
+                return new WP_Error('INVALID_PARAMS', 'character_name is required.', ['field' => 'character_name', 'reason' => 'required_empty', 'status' => 400]);
+            }
+        }
         if (array_key_exists('basic_fields', $arguments) && !koto_mcp_is_object_like_array($arguments['basic_fields'])) {
             return new WP_Error('INVALID_PARAMS', 'basic_fields must be an object.', ['field' => 'basic_fields', 'reason' => 'invalid_type', 'status' => 400]);
         }
-        if (array_key_exists('auto_input', $arguments) && !koto_mcp_is_object_like_array($arguments['auto_input'])) {
-            return new WP_Error('INVALID_PARAMS', 'auto_input must be an object.', ['field' => 'auto_input', 'reason' => 'invalid_type', 'status' => 400]);
+        if (array_key_exists('auto_input', $arguments)) {
+            if (!koto_mcp_is_object_like_array($arguments['auto_input'])) {
+                return new WP_Error('INVALID_PARAMS', 'auto_input must be an object.', ['field' => 'auto_input', 'reason' => 'invalid_type', 'status' => 400]);
+            }
+            foreach ($arguments['auto_input'] as $input_key => $input_val) {
+                if (!is_string($input_key) || ($input_val !== null && !is_string($input_val))) {
+                    return new WP_Error('INVALID_PARAMS', 'auto_input values must be strings.', ['field' => 'auto_input.' . $input_key, 'reason' => 'invalid_type', 'status' => 400]);
+                }
+            }
         }
         if (array_key_exists('screenshot_urls', $arguments)) {
             if (!is_array($arguments['screenshot_urls'])) {
@@ -133,10 +145,16 @@ function koto_mcp_validate_tool_arguments($name, $arguments)
                 }
             }
         }
+        if (array_key_exists('evidence', $arguments) && !koto_mcp_is_object_like_array($arguments['evidence'])) {
+            return new WP_Error('INVALID_PARAMS', 'evidence must be an object.', ['field' => 'evidence', 'reason' => 'invalid_type', 'status' => 400]);
+        }
+        if (array_key_exists('human_approved', $arguments) && !is_bool($arguments['human_approved'])) {
+            return new WP_Error('INVALID_PARAMS', 'human_approved must be a boolean.', ['field' => 'human_approved', 'reason' => 'invalid_type', 'status' => 400]);
+        }
     }
 
     if (in_array($name, ['create_draft', 'update_draft'], true)) {
-        if (!array_key_exists('idempotency_key', $arguments) || !is_string($arguments['idempotency_key']) || trim($arguments['idempotency_key']) === '') {
+        if (!array_key_exists('idempotency_key', $arguments) || !is_string($arguments['idempotency_key']) || trim($arguments['idempotency_key']) === '' || strlen(trim($arguments['idempotency_key'])) > 255) {
             return new WP_Error('INVALID_PARAMS', 'idempotency_key is required.', ['field' => 'idempotency_key', 'reason' => 'required_empty', 'status' => 400]);
         }
         if (!array_key_exists('preview_hash', $arguments) || !is_string($arguments['preview_hash']) || trim($arguments['preview_hash']) === '') {
@@ -161,23 +179,35 @@ function koto_mcp_idempotency_option_name($user_id, $key)
     return 'koto_mcp_idem_' . hash('sha256', $user_id . '|' . $key);
 }
 
-function koto_mcp_reserve_idempotency_key($user_id, $key)
+function koto_mcp_reserve_idempotency_key($user_id, $key, $fingerprint = '')
 {
     $option = koto_mcp_idempotency_option_name($user_id, $key);
     $now = time();
-    $reservation = ['state' => 'processing', 'updated_at' => $now, 'expires_at' => $now + DAY_IN_SECONDS];
+    $reservation = [
+        'state' => 'processing',
+        'fingerprint' => $fingerprint,
+        'updated_at' => $now,
+        'lock_expires_at' => $now + 120,
+        'expires_at' => $now + DAY_IN_SECONDS,
+    ];
 
     if (add_option($option, $reservation, '', false)) {
         return ['option' => $option];
     }
 
     $existing = get_option($option);
-    if (is_array($existing) && !empty($existing['expires_at']) && (int) $existing['expires_at'] < $now) {
+    $is_expired = is_array($existing) && !empty($existing['expires_at']) && (int) $existing['expires_at'] < $now;
+    $is_stale_lock = is_array($existing) && ($existing['state'] ?? '') === 'processing' && !empty($existing['lock_expires_at']) && (int) $existing['lock_expires_at'] < $now;
+    if ($is_expired || $is_stale_lock) {
         delete_option($option);
         if (add_option($option, $reservation, '', false)) {
             return ['option' => $option];
         }
         $existing = get_option($option);
+    }
+
+    if (is_array($existing) && $fingerprint !== '' && !empty($existing['fingerprint']) && $existing['fingerprint'] !== $fingerprint) {
+        return new WP_Error('IDEMPOTENCY_CONFLICT', 'idempotency_key was already used with different parameters.', ['field' => 'idempotency_key', 'reason' => 'conflict', 'status' => 409]);
     }
 
     if (is_array($existing) && ($existing['state'] ?? '') === 'done' && array_key_exists('result', $existing)) {
@@ -187,9 +217,9 @@ function koto_mcp_reserve_idempotency_key($user_id, $key)
     return new WP_Error('IDEMPOTENCY_IN_PROGRESS', 'An identical request is already processing.', ['field' => 'idempotency_key', 'reason' => 'conflict', 'status' => 409]);
 }
 
-function koto_mcp_complete_idempotency_key($option, $result)
+function koto_mcp_complete_idempotency_key($option, $result, $fingerprint = '')
 {
-    update_option($option, ['state' => 'done', 'updated_at' => time(), 'expires_at' => time() + DAY_IN_SECONDS, 'result' => $result], false);
+    update_option($option, ['state' => 'done', 'fingerprint' => $fingerprint, 'updated_at' => time(), 'expires_at' => time() + DAY_IN_SECONDS, 'result' => $result], false);
 }
 
 function koto_mcp_release_idempotency_key($option)
@@ -324,6 +354,12 @@ function koto_mcp_current_user_from_token($request = null)
     $token = hash('sha256', trim($match[1]));
     $data = get_transient('koto_mcp_token_' . $token);
     if (!is_array($data) || empty($data['user_id'])) return 0;
+    if (!empty($data['family_id'])) {
+        $family = get_option(koto_mcp_refresh_family_option_name((string) $data['family_id']));
+        if (is_array($family) && ($family['status'] ?? 'active') !== 'active') {
+            return 0;
+        }
+    }
     if (!empty($data['scope']) && !is_user_logged_in()) {
         wp_set_current_user((int) $data['user_id']);
     }
@@ -344,6 +380,12 @@ function koto_mcp_require_scope($scope, $request = null)
     $data = get_transient('koto_mcp_token_' . hash('sha256', $token));
     if (!is_array($data) || empty($data['user_id'])) {
         return new WP_Error('mcp_unauthorized', 'OAuth access token is invalid or expired.', ['status' => 401, 'oauth_error' => 'invalid_token']);
+    }
+    if (!empty($data['family_id'])) {
+        $family = get_option(koto_mcp_refresh_family_option_name((string) $data['family_id']));
+        if (is_array($family) && ($family['status'] ?? 'active') !== 'active') {
+            return new WP_Error('mcp_unauthorized', 'OAuth access token has been revoked.', ['status' => 401, 'oauth_error' => 'invalid_token']);
+        }
     }
 
     $user_id = (int) $data['user_id'];
@@ -387,6 +429,9 @@ function koto_mcp_jsonrpc_error_response($id, $code, $message, $data = null, $st
 
 function koto_mcp_handle_http($request)
 {
+    if ($request instanceof WP_REST_Request && strtoupper($request->get_method()) !== 'POST') {
+        return new WP_REST_Response(null, 405, ['Allow' => 'POST']);
+    }
     $body = json_decode($request->get_body(), true);
     if (!is_array($body)) return new WP_Error('invalid_json', 'JSON-RPC body is required.', ['status' => 400]);
     $method = $body['method'] ?? '';
@@ -402,7 +447,12 @@ function koto_mcp_handle_http($request)
             ],
         ]);
     }
-    if ($method === 'notifications/initialized') return new WP_REST_Response(null, 202);
+    if ($method === 'ping') {
+        return rest_ensure_response(['jsonrpc' => '2.0', 'id' => $id, 'result' => new stdClass()]);
+    }
+    if ($method === 'notifications/initialized' || strpos((string) $method, 'notifications/') === 0) {
+        return new WP_REST_Response(null, 202);
+    }
     if ($method === 'tools/list') {
         return rest_ensure_response(['jsonrpc' => '2.0', 'id' => $id, 'result' => ['tools' => koto_mcp_tools()]]);
     }
@@ -489,6 +539,19 @@ function koto_mcp_field_schema()
     $files = glob(get_stylesheet_directory() . '/acf-json/group_*.json') ?: [];
     foreach ($files as $file) {
         $group = json_decode(file_get_contents($file), true);
+        if (!is_array($group)) continue;
+        $is_character_group = false;
+        foreach (($group['location'] ?? []) as $or_group) {
+            foreach ((array) $or_group as $rule) {
+                if (($rule['param'] ?? '') === 'post_type' && ($rule['operator'] ?? '==') === '==' && ($rule['value'] ?? '') === 'character') {
+                    $is_character_group = true;
+                    break 2;
+                }
+            }
+        }
+        if (!$is_character_group && !empty($group['location'])) {
+            continue;
+        }
         foreach (($group['fields'] ?? []) as $field) {
             if (empty($field['name']) || in_array($field['type'], ['tab', 'accordion'], true)) continue;
             $fields[$field['name']] = [
@@ -552,7 +615,7 @@ function koto_mcp_validate_draft($args)
                 continue;
             }
             foreach ($values as $choice) {
-                if (!is_scalar($choice) || !array_key_exists((string) $choice, $definition['choices'])) {
+                if (!is_scalar($choice) || is_bool($choice) || !array_key_exists((string) $choice, $definition['choices'])) {
                     $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_choice');
                 }
             }
@@ -581,13 +644,70 @@ function koto_mcp_validate_draft($args)
             continue;
         }
 
-        if (in_array($definition['type'], ['text', 'textarea', 'url', 'email', 'select', 'radio'], true) && is_array($value)) {
+        if ($definition['type'] === 'repeater') {
+            $is_list = is_array($value) && (empty($value) || array_keys($value) === range(0, count($value) - 1));
+            if (!$is_list) {
+                $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_type');
+                continue;
+            }
+            if ($name === 'available_moji_loop') {
+                $allowed_places = ['default', 'first_trait', 'second_trait', 'blessing', 'super_copy', 'super_change', 'super_both'];
+                foreach ($value as $row) {
+                    if (!koto_mcp_is_object_like_array($row)) {
+                        $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_type');
+                        break;
+                    }
+                    $raw_moji = $row['available_moji'] ?? ($row['field_693528c3cf77c'] ?? null);
+                    $moji_items = is_array($raw_moji) ? $raw_moji : ($raw_moji !== null && $raw_moji !== '' ? [$raw_moji] : []);
+                    if (empty($moji_items)) {
+                        $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'required_empty');
+                        break;
+                    }
+                    foreach ($moji_items as $m_item) {
+                        if (is_int($m_item) || (is_string($m_item) && ctype_digit($m_item))) {
+                            if (!term_exists((int) $m_item, 'available_moji')) {
+                                $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'unknown_term');
+                            }
+                        } elseif (is_string($m_item) && trim($m_item) !== '') {
+                            $term = get_term_by('name', trim($m_item), 'available_moji') ?: get_term_by('slug', trim($m_item), 'available_moji');
+                            if (!$term || is_wp_error($term)) {
+                                $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'unknown_term');
+                            }
+                        } else {
+                            $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_type');
+                        }
+                    }
+                    if (isset($row['unlock_place']) && $row['unlock_place'] !== '' && $row['unlock_place'] !== null) {
+                        if (!is_string($row['unlock_place']) || !in_array($row['unlock_place'], $allowed_places, true)) {
+                            $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_choice');
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+
+        if ($definition['type'] === 'group') {
+            if (!koto_mcp_is_object_like_array($value)) {
+                $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_type');
+            }
+            continue;
+        }
+
+        if (in_array($definition['type'], ['text', 'textarea', 'url', 'email', 'date_picker', 'select', 'radio'], true) && (!is_string($value) && !is_numeric($value))) {
             $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_type');
         }
     }
+    $raw_auto_input = is_array($args['auto_input'] ?? null) ? $args['auto_input'] : [];
+    $safe_auto_input = [];
+    foreach ($raw_auto_input as $k => $v) {
+        if (is_string($k) && is_string($v)) {
+            $safe_auto_input[$k] = $v;
+        }
+    }
     $csv = koto_group_csv_by_type(koto_load_csv_dictionary(get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv'));
-    $parsed = koto_build_acf_data_from_inputs($args['auto_input'] ?? [], $csv);
-    $requested = array_filter($args['auto_input'] ?? [], static function ($value) { return $value !== null && $value !== ''; });
+    $parsed = koto_build_acf_data_from_inputs($safe_auto_input, $csv);
+    $requested = array_filter($raw_auto_input, static function ($value) { return $value !== null && $value !== ''; });
     foreach ($requested as $input_key => $input_value) {
         if (!array_key_exists($input_key, $parsed) || empty($parsed[$input_key])) {
             $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $input_key, 'unparsed_text');
@@ -611,11 +731,22 @@ function koto_mcp_call_tool($name, $args, $request = null)
     $auth = koto_mcp_require_scope($scope, $request);
     if (is_wp_error($auth)) return $auth;
     $rate_key = 'koto_mcp_rate_' . $auth;
-    $rate_count = (int) get_transient($rate_key);
+    $now = time();
+    $rate_state = get_transient($rate_key);
+    if (is_array($rate_state) && isset($rate_state['count'], $rate_state['reset_at']) && (int) $rate_state['reset_at'] > $now) {
+        $rate_count = (int) $rate_state['count'];
+        $reset_at = (int) $rate_state['reset_at'];
+    } elseif (is_numeric($rate_state) && (int) $rate_state > 0) {
+        $rate_count = (int) $rate_state;
+        $reset_at = $now + MINUTE_IN_SECONDS;
+    } else {
+        $rate_count = 0;
+        $reset_at = $now + MINUTE_IN_SECONDS;
+    }
     if ($rate_count >= 60) {
         return new WP_Error('RATE_LIMITED', 'Too many MCP requests. Please retry later.', ['field' => '', 'reason' => 'invalid_value', 'status' => 429]);
     }
-    set_transient($rate_key, $rate_count + 1, MINUTE_IN_SECONDS);
+    set_transient($rate_key, ['count' => $rate_count + 1, 'reset_at' => $reset_at], max(1, $reset_at - $now));
 
     if ($name === 'get_field_schema') return ['fields' => koto_mcp_field_schema(), 'required_for_create' => ['attribute', 'species', 'rarity']];
     if ($name === 'get_terms') {
@@ -624,7 +755,7 @@ function koto_mcp_call_tool($name, $args, $request = null)
         return ['taxonomy' => $taxonomy, 'terms' => array_map(static function ($term) { return ['id' => (int) $term->term_id, 'name' => $term->name, 'slug' => $term->slug]; }, get_terms(['taxonomy' => $taxonomy, 'hide_empty' => false]))];
     }
     if ($name === 'search_character') {
-        $query = new WP_Query(['post_type' => 'character', 'post_status' => ['publish', 'draft', 'pending', 'private'], 's' => sanitize_text_field($args['name'] ?? ''), 'posts_per_page' => 20]);
+        $query = new WP_Query(['post_type' => 'character', 'post_status' => ['publish', 'draft', 'pending', 'private'], 's' => sanitize_text_field($args['name'] ?? ''), 'posts_per_page' => 20, 'no_found_rows' => true]);
         $matches = [];
         foreach ($query->posts as $post) {
             if ($post->post_status === 'private') {
@@ -640,7 +771,8 @@ function koto_mcp_call_tool($name, $args, $request = null)
         $post = get_post((int) ($args['post_id'] ?? 0));
         if (!$post || $post->post_type !== 'character' || $post->post_status !== 'draft') return new WP_Error('VALIDATION_FAILED', 'Only character drafts can be trashed.', ['field' => 'post_id', 'reason' => 'invalid_value']);
         if (!user_can($auth, 'delete_post', $post->ID)) return new WP_Error('VALIDATION_FAILED', 'The draft cannot be deleted by this user.', ['field' => 'post_id', 'reason' => 'invalid_value']);
-        wp_trash_post($post->ID);
+        $trashed = wp_trash_post($post->ID);
+        if (!$trashed) return new WP_Error('TRASH_FAILED', 'Failed to trash the draft.', ['field' => 'post_id', 'reason' => 'invalid_value']);
         return ['post_id' => $post->ID, 'status' => 'trash'];
     }
     $validation = koto_mcp_validate_draft($args);
@@ -653,9 +785,10 @@ function koto_mcp_call_tool($name, $args, $request = null)
     if (empty($args['preview_hash']) || !hash_equals($hash, (string) $args['preview_hash'])) {
         return new WP_Error('PREVIEW_HASH_MISMATCH', 'preview_hash does not match the current content.', ['field' => 'preview_hash', 'reason' => 'invalid_value']);
     }
-    $key = sanitize_key($args['idempotency_key'] ?? '');
+    $key = trim((string) ($args['idempotency_key'] ?? ''));
     if ($key === '') return new WP_Error('VALIDATION_FAILED', 'idempotency_key is required.', ['field' => 'idempotency_key', 'reason' => 'required_empty']);
-    $reservation = koto_mcp_reserve_idempotency_key($auth, $key);
+    $fingerprint = $name . '|' . (int) ($args['post_id'] ?? 0) . '|' . $hash;
+    $reservation = koto_mcp_reserve_idempotency_key($auth, $key, $fingerprint);
     if (is_wp_error($reservation)) return $reservation;
     if (!empty($reservation['result'])) return $reservation['result'];
     $idempotency_option = $reservation['option'];
@@ -671,6 +804,9 @@ function koto_mcp_call_tool($name, $args, $request = null)
         if (!$post || $post->post_type !== 'character' || $post->post_status !== 'draft' || !user_can($auth, 'edit_post', $post_id)) {
             koto_mcp_release_idempotency_key($idempotency_option);
             return new WP_Error('VALIDATION_FAILED', 'Only editable character drafts can be updated.', ['field' => 'post_id', 'reason' => 'invalid_value']);
+        }
+        if (isset($args['character_name']) && is_string($args['character_name']) && trim($args['character_name']) !== '') {
+            wp_update_post(['ID' => $post_id, 'post_title' => sanitize_text_field($args['character_name'])]);
         }
         koto_mcp_update_basic_fields($post_id, $args['basic_fields'] ?? []);
         koto_update_character_post_with_acf($post_id, $validation['parsed_acf'], true);
@@ -696,19 +832,25 @@ function koto_mcp_call_tool($name, $args, $request = null)
     update_post_meta($post_id, '_koto_mcp_audit', ['user_id' => $auth, 'content_hash' => $hash, 'evidence' => $args['evidence'] ?? [], 'created_at' => current_time('mysql')]);
     do_action('acf/save_post', $post_id);
     $result = ['post_id' => $post_id, 'status' => 'draft', 'edit_url' => admin_url('admin.php?page=koto-acf-editor&edit_post_id=' . $post_id), 'content_hash' => $hash, 'screenshot_urls' => get_post_meta($post_id, '_koto_mcp_screenshot_urls', true)];
-    koto_mcp_complete_idempotency_key($idempotency_option, $result);
+    koto_mcp_complete_idempotency_key($idempotency_option, $result, $fingerprint);
     return $result;
 }
 
 function koto_mcp_set_featured_image_from_url($post_id, $url)
 {
     $url = esc_url_raw($url);
-    if (!$url || wp_parse_url($url, PHP_URL_HOST) !== 'www.kotodaman-db.com') return;
+    $scheme = strtolower((string) wp_parse_url($url, PHP_URL_SCHEME));
+    if (!$url || !in_array($scheme, ['https', 'http'], true) || wp_parse_url($url, PHP_URL_HOST) !== 'www.kotodaman-db.com') return;
     $existing = attachment_url_to_postid($url);
     if ($existing) {
+        if (!wp_attachment_is_image($existing)) return;
         set_post_thumbnail($post_id, $existing);
         $image_field = koto_get_top_level_character_acf_field('character_image');
         if ($image_field) update_field($image_field['key'], $existing, $post_id);
+        return;
+    }
+
+    if ($url !== KOTO_MCP_DEFAULT_IMAGE_URL && !current_user_can('upload_files')) {
         return;
     }
 
@@ -717,6 +859,13 @@ function koto_mcp_set_featured_image_from_url($post_id, $url)
     require_once ABSPATH . 'wp-admin/includes/image.php';
     $tmp = download_url($url, 15);
     if (is_wp_error($tmp)) return;
+    $filesize = @filesize($tmp);
+    $image_info = function_exists('getimagesize') ? @getimagesize($tmp) : false;
+    $allowed_mimes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+    if ($filesize === false || $filesize <= 0 || $filesize > 10 * 1024 * 1024 || !is_array($image_info) || !in_array($image_info['mime'] ?? '', $allowed_mimes, true)) {
+        @unlink($tmp);
+        return;
+    }
     $filename = sanitize_file_name(basename((string) wp_parse_url($url, PHP_URL_PATH)));
     $file = ['name' => $filename ?: 'koto-mcp-image.png', 'tmp_name' => $tmp];
     $attachment = media_handle_sideload($file, $post_id);
@@ -729,12 +878,32 @@ function koto_mcp_set_featured_image_from_url($post_id, $url)
     if ($image_field) update_field($image_field['key'], $attachment, $post_id);
 }
 
+function koto_mcp_oauth_is_valid_redirect_uri($uri)
+{
+    if (!is_string($uri)) return false;
+    $trimmed = trim($uri);
+    if ($trimmed === '' || strpos($trimmed, '#') !== false) return false;
+    $parsed = wp_parse_url($trimmed);
+    if (!is_array($parsed) || empty($parsed['scheme']) || empty($parsed['host'])) return false;
+    $scheme = strtolower((string) $parsed['scheme']);
+    $host = strtolower((string) $parsed['host']);
+    if ($scheme === 'https') return true;
+    if ($scheme === 'http') {
+        $site_host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+        $allowed_http_hosts = array_filter(['localhost', '127.0.0.1', '[::1]', '::1', $site_host]);
+        return in_array($host, $allowed_http_hosts, true);
+    }
+    return false;
+}
+
 function koto_mcp_oauth_registered_redirect_uris($client)
 {
     $uris = [];
     foreach ((array) ($client['redirect_uris'] ?? []) as $uri) {
         if (!is_string($uri)) continue;
-        $normalized = esc_url_raw(trim($uri));
+        $trimmed = trim($uri);
+        if (!koto_mcp_oauth_is_valid_redirect_uri($trimmed)) continue;
+        $normalized = esc_url_raw($trimmed);
         if ($normalized !== '') {
             $uris[] = $normalized;
         }
@@ -744,7 +913,11 @@ function koto_mcp_oauth_registered_redirect_uris($client)
 
 function koto_mcp_oauth_resolve_redirect_uri($submitted, $registered_uris)
 {
-    $submitted = is_string($submitted) ? esc_url_raw(trim($submitted)) : '';
+    $submitted = is_string($submitted) ? trim($submitted) : '';
+    if ($submitted !== '' && strpos($submitted, '#') !== false) {
+        return new WP_Error('invalid_request', 'redirect_uri must not contain a fragment.', ['status' => 400]);
+    }
+    $submitted = $submitted !== '' ? esc_url_raw($submitted) : '';
     if ($submitted === '' && count($registered_uris) === 1) {
         return $registered_uris[0];
     }
@@ -752,6 +925,21 @@ function koto_mcp_oauth_resolve_redirect_uri($submitted, $registered_uris)
         return new WP_Error('invalid_request', 'redirect_uri must exactly match a registered redirect URI.', ['status' => 400]);
     }
     return $submitted;
+}
+
+function koto_mcp_oauth_safe_redirect($target_url)
+{
+    $host = wp_parse_url($target_url, PHP_URL_HOST);
+    $filter = static function ($hosts) use ($host) {
+        if ($host && !in_array($host, $hosts, true)) {
+            $hosts[] = $host;
+        }
+        return $hosts;
+    };
+    add_filter('allowed_redirect_hosts', $filter);
+    wp_safe_redirect($target_url);
+    remove_filter('allowed_redirect_hosts', $filter);
+    exit;
 }
 
 function koto_mcp_oauth_redirect_error($redirect, $error, $description, $state = '')
@@ -763,24 +951,41 @@ function koto_mcp_oauth_redirect_error($redirect, $error, $description, $state =
     if ($state !== '') {
         $params['state'] = sanitize_text_field($state);
     }
-    wp_safe_redirect(add_query_arg($params, $redirect));
-    exit;
+    koto_mcp_oauth_safe_redirect(add_query_arg($params, $redirect));
 }
 
 function koto_mcp_oauth_register_client($request)
 {
+    $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field((string) $_SERVER['REMOTE_ADDR']) : 'unknown';
+    $rate_key = 'koto_mcp_reg_rate_' . hash('sha256', $ip);
+    $now = time();
+    $rate_state = get_transient($rate_key);
+    if (is_array($rate_state) && isset($rate_state['count'], $rate_state['reset_at']) && (int) $rate_state['reset_at'] > $now) {
+        $rate_count = (int) $rate_state['count'];
+        $reset_at = (int) $rate_state['reset_at'];
+    } else {
+        $rate_count = 0;
+        $reset_at = $now + MINUTE_IN_SECONDS;
+    }
+    if ($rate_count >= 30) {
+        return new WP_Error('rate_limited', 'Too many client registration requests.', ['status' => 429]);
+    }
+    set_transient($rate_key, ['count' => $rate_count + 1, 'reset_at' => $reset_at], max(1, $reset_at - $now));
+
     $body = json_decode($request->get_body(), true) ?: [];
     $redirect_uris = [];
     foreach ((array) ($body['redirect_uris'] ?? []) as $uri) {
         if (!is_string($uri)) continue;
-        $normalized = esc_url_raw(trim($uri));
+        $trimmed = trim($uri);
+        if (!koto_mcp_oauth_is_valid_redirect_uri($trimmed)) continue;
+        $normalized = esc_url_raw($trimmed);
         if ($normalized !== '') {
             $redirect_uris[] = $normalized;
         }
     }
     $redirect_uris = array_values(array_unique($redirect_uris));
     if (empty($redirect_uris)) {
-        return new WP_Error('invalid_client_metadata', 'At least one valid redirect_uris entry is required.', ['status' => 400]);
+        return new WP_Error('invalid_client_metadata', 'At least one valid redirect_uris entry (HTTPS or loopback HTTP without fragments) is required.', ['status' => 400]);
     }
 
     $id = 'koto_' . wp_generate_password(24, false, false);
@@ -831,6 +1036,10 @@ function koto_mcp_oauth_authorize_browser()
         koto_mcp_oauth_redirect_error($redirect, 'invalid_request', 'code_challenge and code_challenge_method=S256 are required.', $state);
     }
 
+    if (!current_user_can('edit_posts')) {
+        wp_die('The WordPress user cannot edit posts.', 'forbidden', ['response' => 403]);
+    }
+
     $user = wp_get_current_user();
     $privileged = array_intersect(['administrator', 'editor'], (array) $user->roles);
     if (!$privileged && !get_user_meta(get_current_user_id(), '_koto_mcp_approved', true)) {
@@ -839,13 +1048,16 @@ function koto_mcp_oauth_authorize_browser()
     }
 
     if (koto_mcp_has_scope($scope, 'create')) {
-        $nonce_action = 'koto_mcp_oauth_consent|' . get_current_user_id() . '|' . $client_id . '|' . $redirect . '|' . $scope;
+        $nonce_action = 'koto_mcp_oauth_consent|' . get_current_user_id() . '|' . $client_id . '|' . $redirect . '|' . $scope . '|' . $challenge . '|' . $state;
         if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
             status_header(200);
             header('Content-Type: text/html; charset=' . get_bloginfo('charset'));
+            header('X-Frame-Options: DENY');
+            header("Content-Security-Policy: frame-ancestors 'none'");
             echo '<!doctype html><html><head><meta charset="utf-8"><title>MCP Consent</title></head><body>';
             echo '<h1>MCP クライアント同意</h1>';
             echo '<p>クライアント: ' . esc_html((string) ($client['name'] ?? $client_id)) . '</p>';
+            echo '<p>リダイレクトURI: ' . esc_html($redirect) . '</p>';
             echo '<p>要求スコープ: ' . esc_html($scope) . '</p>';
             echo '<form method="post">';
             foreach (['client_id', 'redirect_uri', 'response_type', 'code_challenge', 'code_challenge_method', 'scope', 'state'] as $field) {
@@ -876,8 +1088,7 @@ function koto_mcp_oauth_authorize_browser()
         'scope' => $scope,
         'family_id' => wp_generate_password(32, false, false),
     ], 300);
-    wp_safe_redirect(add_query_arg(['code' => $code, 'state' => $state], $redirect));
-    exit;
+    koto_mcp_oauth_safe_redirect(add_query_arg(['code' => $code, 'state' => $state], $redirect));
 }
 
 function koto_mcp_oauth_body_params($request)
@@ -955,7 +1166,12 @@ function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null)
     $family['updated_at'] = time();
     update_option($family_option, $family, false);
 
-    return ['access_token' => $access, 'token_type' => 'Bearer', 'expires_in' => HOUR_IN_SECONDS, 'refresh_token' => $refresh, 'scope' => $scope];
+    $response = rest_ensure_response(['access_token' => $access, 'token_type' => 'Bearer', 'expires_in' => HOUR_IN_SECONDS, 'refresh_token' => $refresh, 'scope' => $scope]);
+    if ($response instanceof WP_REST_Response) {
+        $response->header('Cache-Control', 'no-store');
+        $response->header('Pragma', 'no-cache');
+    }
+    return $response;
 }
 
 function koto_mcp_oauth_token($request)
@@ -1004,13 +1220,22 @@ function koto_mcp_oauth_token($request)
                 return new WP_Error('invalid_grant', 'Refresh token replay detected; token family revoked.', ['status' => 400]);
             }
 
-            $token_response = koto_mcp_issue_token((int) $refresh['user_id'], (string) $refresh['scope'], $client_id, $family_id);
+            $refresh_user_id = (int) ($refresh['user_id'] ?? 0);
+            $refresh_user = get_userdata($refresh_user_id);
+            $privileged = $refresh_user && array_intersect(['administrator', 'editor'], (array) $refresh_user->roles);
+            if (!$refresh_user || !user_can($refresh_user_id, 'edit_posts') || (!$privileged && !get_user_meta($refresh_user_id, '_koto_mcp_approved', true))) {
+                koto_mcp_revoke_refresh_family($family_id);
+                return new WP_Error('invalid_grant', 'The WordPress user is no longer authorized for MCP access.', ['status' => 400]);
+            }
+
+            $token_response = koto_mcp_issue_token($refresh_user_id, (string) $refresh['scope'], $client_id, $family_id);
             if (is_wp_error($token_response)) {
                 return $token_response;
             }
+            $issued_data = $token_response instanceof WP_REST_Response ? $token_response->get_data() : $token_response;
             $refresh['status'] = 'rotated';
             $refresh['rotated_at'] = time();
-            $refresh['rotated_to'] = hash('sha256', (string) $token_response['refresh_token']);
+            $refresh['rotated_to'] = hash('sha256', (string) ($issued_data['refresh_token'] ?? ''));
             update_option($record_option, $refresh, false);
             return $token_response;
         } finally {
@@ -1029,19 +1254,29 @@ function koto_mcp_oauth_token($request)
         return new WP_Error('invalid_request', 'code, client_id, and redirect_uri are required.', ['status' => 400]);
     }
 
-    $data = get_transient('koto_mcp_code_' . hash('sha256', $code));
-    if (!is_array($data)) return new WP_Error('invalid_grant', 'Invalid authorization code.', ['status' => 400]);
-    if (($data['client_id'] ?? '') !== $client_id || ($data['redirect_uri'] ?? '') !== $redirect_uri) {
-        return new WP_Error('invalid_grant', 'Authorization code client/redirect binding mismatch.', ['status' => 400]);
+    $code_hash = hash('sha256', $code);
+    $code_lock = 'koto_mcp_code_lock_' . $code_hash;
+    if (!add_option($code_lock, ['created_at' => time()], '', false)) {
+        return new WP_Error('invalid_grant', 'Authorization code is already being processed.', ['status' => 400]);
     }
 
-    $verifier = (string) ($body['code_verifier'] ?? '');
-    $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
-    if (empty($data['challenge']) || !$verifier || !hash_equals((string) $data['challenge'], $challenge)) {
-        return new WP_Error('invalid_grant', 'PKCE verification failed.', ['status' => 400]);
+    try {
+        $data = get_transient('koto_mcp_code_' . $code_hash);
+        delete_transient('koto_mcp_code_' . $code_hash);
+        if (!is_array($data)) return new WP_Error('invalid_grant', 'Invalid authorization code.', ['status' => 400]);
+        if (($data['client_id'] ?? '') !== $client_id || ($data['redirect_uri'] ?? '') !== $redirect_uri) {
+            return new WP_Error('invalid_grant', 'Authorization code client/redirect binding mismatch.', ['status' => 400]);
+        }
+
+        $verifier = (string) ($body['code_verifier'] ?? '');
+        $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+        if (empty($data['challenge']) || !$verifier || !hash_equals((string) $data['challenge'], $challenge)) {
+            return new WP_Error('invalid_grant', 'PKCE verification failed.', ['status' => 400]);
+        }
+        return koto_mcp_issue_token((int) $data['user_id'], (string) $data['scope'], $client_id, (string) ($data['family_id'] ?? ''));
+    } finally {
+        delete_option($code_lock);
     }
-    delete_transient('koto_mcp_code_' . hash('sha256', $code));
-    return koto_mcp_issue_token((int) $data['user_id'], (string) $data['scope'], $client_id, (string) ($data['family_id'] ?? ''));
 }
 
 function koto_mcp_oauth_revoke($request)
@@ -1051,16 +1286,30 @@ function koto_mcp_oauth_revoke($request)
     if ($token === '') {
         return ['revoked' => true];
     }
+    $client_id = isset($params['client_id']) ? sanitize_text_field((string) $params['client_id']) : '';
 
     $token_hash = hash('sha256', $token);
-    delete_transient('koto_mcp_token_' . $token_hash);
+    $access_data = get_transient('koto_mcp_token_' . $token_hash);
+    if (is_array($access_data)) {
+        if ($client_id === '' || ($access_data['client_id'] ?? '') === $client_id) {
+            delete_transient('koto_mcp_token_' . $token_hash);
+        }
+    }
 
     $refresh_option = koto_mcp_refresh_record_option_name($token_hash);
     $refresh = get_option($refresh_option);
-    if (is_array($refresh) && !empty($refresh['family_id'])) {
-        koto_mcp_revoke_refresh_family((string) $refresh['family_id']);
+    if (is_array($refresh)) {
+        if ($client_id !== '' && ($refresh['client_id'] ?? '') !== $client_id) {
+            return new WP_Error('invalid_grant', 'Token client binding mismatch.', ['status' => 400]);
+        }
+        if (!empty($refresh['family_id'])) {
+            koto_mcp_revoke_refresh_family((string) $refresh['family_id']);
+        } else {
+            $refresh['status'] = 'revoked';
+            $refresh['revoked_at'] = time();
+            update_option($refresh_option, $refresh, false);
+        }
     }
-    delete_option($refresh_option);
     delete_transient('koto_mcp_refresh_' . $token_hash);
     return ['revoked' => true];
 }
@@ -1087,8 +1336,10 @@ function koto_mcp_handle_approval_action()
     if (!current_user_can('manage_options') || empty($_GET['koto_mcp_approve'])) return;
     $user_id = (int) $_GET['koto_mcp_approve'];
     check_admin_referer('koto_mcp_approve_' . $user_id);
-    update_user_meta($user_id, '_koto_mcp_approved', 1);
-    delete_user_meta($user_id, '_koto_mcp_requested');
+    if (get_userdata($user_id)) {
+        update_user_meta($user_id, '_koto_mcp_approved', 1);
+        delete_user_meta($user_id, '_koto_mcp_requested');
+    }
     wp_safe_redirect(admin_url('users.php?page=koto-mcp-approvals'));
     exit;
 }

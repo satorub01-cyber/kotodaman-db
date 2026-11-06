@@ -97,12 +97,22 @@ function koto_mcp_save_screenshots($screenshots, $post_id)
         }
 
         $binary = base64_decode($matches[2], true);
-        if ($binary === false || strlen($binary) > 10 * 1024 * 1024) {
+        if ($binary === false || $binary === '' || strlen($binary) > 10 * 1024 * 1024) {
             return $rollback(new WP_Error(
                 'invalid_screenshot_size',
                 sprintf('screenshots[%d] のサイズが不正です。', $index),
                 ['status' => 400]
             ));
+        }
+        if (function_exists('getimagesizefromstring')) {
+            $image_info = @getimagesizefromstring($binary);
+            if (!is_array($image_info) || ($image_info['mime'] ?? '') !== $matches[1]) {
+                return $rollback(new WP_Error(
+                    'invalid_screenshot_content',
+                    sprintf('screenshots[%d] の画像データが破損しているか、MIMEタイプが一致しません。', $index),
+                    ['status' => 400]
+                ));
+            }
         }
 
         $extension = $matches[1] === 'image/jpeg' ? 'jpg' : substr($matches[1], 6);
@@ -133,6 +143,65 @@ function koto_mcp_save_screenshots($screenshots, $post_id)
 }
 
 /**
+ * available_moji_loop の行データを正規化する（文字タームID配列化、文字色・解放場所の初期値補完）。
+ *
+ * @param array<int, mixed> $rows available_moji_loop の入力配列。
+ * @param int|null $default_attr_id キャラクターのメイン属性タームID。
+ * @return array<int, array<string, mixed>> 正規化後の行配列。
+ */
+function koto_mcp_normalize_available_moji_rows($rows, $default_attr_id = null)
+{
+    if (!is_array($rows)) return [];
+    $normalized_rows = [];
+    foreach ($rows as $row) {
+        if (!is_array($row)) continue;
+
+        $raw_moji = $row['available_moji'] ?? ($row['field_693528c3cf77c'] ?? []);
+        $moji_items = is_array($raw_moji) ? $raw_moji : ($raw_moji !== null && $raw_moji !== '' ? [$raw_moji] : []);
+        $resolved_moji_ids = [];
+        foreach ($moji_items as $item) {
+            if (is_int($item) || (is_string($item) && ctype_digit($item))) {
+                $id = (int) $item;
+                if (term_exists($id, 'available_moji')) {
+                    $resolved_moji_ids[] = $id;
+                }
+            } elseif (is_string($item) && trim($item) !== '') {
+                $term = get_term_by('name', trim($item), 'available_moji') ?: get_term_by('slug', trim($item), 'available_moji');
+                if ($term && !is_wp_error($term)) {
+                    $resolved_moji_ids[] = (int) $term->term_id;
+                }
+            }
+        }
+        $row['available_moji'] = array_values(array_unique($resolved_moji_ids));
+        unset($row['field_693528c3cf77c']);
+
+        $raw_attr = $row['moji_attr'] ?? ($row['field_693529bfcf77d'] ?? null);
+        if (is_array($raw_attr)) {
+            $raw_attr = $raw_attr[0] ?? null;
+        }
+        if ($raw_attr === null || $raw_attr === '' || $raw_attr === 'default') {
+            if ($default_attr_id !== null) {
+                $row['moji_attr'] = (int) $default_attr_id;
+            }
+        } elseif (is_int($raw_attr) || (is_string($raw_attr) && ctype_digit($raw_attr))) {
+            $row['moji_attr'] = (int) $raw_attr;
+        }
+        unset($row['field_693529bfcf77d']);
+
+        $raw_place = $row['unlock_place'] ?? ($row['field_693529d5cf77e'] ?? null);
+        if ($raw_place === null || $raw_place === '') {
+            $row['unlock_place'] = 'default';
+        } else {
+            $row['unlock_place'] = (string) $raw_place;
+        }
+        unset($row['field_693529d5cf77e']);
+
+        $normalized_rows[] = $row;
+    }
+    return $normalized_rows;
+}
+
+/**
  * 基本ACF値をフィールド定義で検証して直接保存する。
  *
  * @param int $post_id 投稿ID。
@@ -146,6 +215,27 @@ function koto_mcp_update_basic_fields($post_id, $basic_fields)
         return ['basic_fields はオブジェクトで指定してください。'];
     }
 
+    // available_moji_loop のデフォルト属性解決のため、attribute が指定されていれば先に処理する
+    if (array_key_exists('attribute', $basic_fields)) {
+        $attr_val = $basic_fields['attribute'];
+        unset($basic_fields['attribute']);
+        $basic_fields = array_merge(['attribute' => $attr_val], $basic_fields);
+    }
+
+    $default_attr_id = null;
+    if (isset($basic_fields['attribute'])) {
+        $raw_attr = is_array($basic_fields['attribute']) ? ($basic_fields['attribute'][0] ?? null) : $basic_fields['attribute'];
+        if (is_int($raw_attr) || (is_string($raw_attr) && ctype_digit($raw_attr))) {
+            $default_attr_id = (int) $raw_attr;
+        }
+    }
+    if ($default_attr_id === null) {
+        $terms = get_the_terms($post_id, 'attribute');
+        if ($terms && !is_wp_error($terms) && isset($terms[0])) {
+            $default_attr_id = (int) $terms[0]->term_id;
+        }
+    }
+
     foreach ($basic_fields as $field_name => $value) {
         if (!is_string($field_name) || $field_name === 'post_title') {
             if ($field_name === 'post_title' && is_scalar($value)) {
@@ -154,11 +244,24 @@ function koto_mcp_update_basic_fields($post_id, $basic_fields)
             continue;
         }
 
+        if (strpos($field_name, 'field_') === 0) {
+            $warnings[] = sprintf('フィールドキーの直接指定はスキップしました: %s', $field_name);
+            continue;
+        }
+
         $field = koto_get_top_level_character_acf_field($field_name);
         if (!$field || empty($field['key'])) {
             $warnings[] = sprintf('未知のトップレベルACFフィールドをスキップしました: %s', $field_name);
             continue;
         }
+
+        if ($field_name === 'available_moji_loop' && is_array($value)) {
+            $value = koto_mcp_normalize_available_moji_rows($value, $default_attr_id);
+        }
+        if (!empty($field['sub_fields']) && is_array($value)) {
+            $value = koto_convert_acf_rows_to_field_keys($value, $field);
+        }
+
         update_field($field['key'], $value, $post_id);
     }
 
@@ -191,11 +294,25 @@ function koto_mcp_create_character_draft($request)
     if ($auto_input !== null && (!is_array($auto_input) || $auto_input_is_list)) {
         return new WP_Error('invalid_auto_input', 'auto_input はオブジェクトで指定してください。', ['status' => 400]);
     }
+    if (is_array($auto_input)) {
+        foreach ($auto_input as $input_key => $input_val) {
+            if (!is_string($input_key) || ($input_val !== null && !is_string($input_val))) {
+                return new WP_Error('invalid_auto_input_value', 'auto_input の各値は文字列で指定してください。', ['status' => 400]);
+            }
+        }
+    }
     if ($screenshots !== null && !is_array($screenshots)) {
         return new WP_Error('invalid_screenshots', 'screenshots は配列で指定してください。', ['status' => 400]);
     }
     if ($screenshot_urls !== null && !is_array($screenshot_urls)) {
         return new WP_Error('invalid_screenshot_urls', 'screenshot_urls は配列で指定してください。', ['status' => 400]);
+    }
+    if (is_array($screenshot_urls)) {
+        foreach ($screenshot_urls as $url_item) {
+            if (!is_string($url_item)) {
+                return new WP_Error('invalid_screenshot_urls_item', 'screenshot_urls の各要素は文字列で指定してください。', ['status' => 400]);
+            }
+        }
     }
 
     if (!is_array($basic_fields)) {
