@@ -50,8 +50,80 @@ function koto_register_post_mcp_routes()
                 'default'  => false,
                 'type'     => 'boolean',
             ],
+            'test_mode' => [
+                'required' => false,
+                'default'  => false,
+                'type'     => 'boolean',
+            ],
         ],
     ]);
+}
+
+/**
+ * タクソノミー入力値（タームID、ターム名、スラッグ、表記ゆれ）から term_id を解決する。
+ *
+ * @param mixed $item 単一のターム指定値（intまたはstring）。
+ * @param string $taxonomy タクソノミー名。
+ * @return int 解決できた場合は term_id（1以上）、未解決時は 0。
+ */
+function koto_mcp_resolve_taxonomy_term_id($item, $taxonomy)
+{
+    if (!is_string($taxonomy) || $taxonomy === '' || !taxonomy_exists($taxonomy)) {
+        return 0;
+    }
+    if (is_int($item) || (is_string($item) && ctype_digit(trim($item)))) {
+        $id = (int) trim((string) $item);
+        if ($id > 0 && term_exists($id, $taxonomy)) {
+            return $id;
+        }
+    }
+    if (!is_string($item) && !is_int($item)) {
+        return 0;
+    }
+    $cand = trim((string) $item);
+    if ($cand === '') {
+        return 0;
+    }
+
+    $candidates = [$cand];
+    if ($taxonomy === 'attribute') {
+        $stripped = preg_replace('/属性$/u', '', $cand);
+        if ($stripped !== '' && $stripped !== $cand) {
+            $candidates[] = $stripped;
+        }
+    } elseif ($taxonomy === 'species') {
+        $stripped = preg_replace('/種族$/u', '', $cand);
+        if ($stripped !== '' && $stripped !== $cand) {
+            $candidates[] = $stripped;
+        }
+    } elseif ($taxonomy === 'rarity') {
+        $norm = str_replace(['★', '☆'], '星', $cand);
+        if ($norm !== $cand) {
+            $candidates[] = $norm;
+        }
+        $digits = preg_replace('/^[★☆星]/u', '', $cand);
+        if ($digits !== '' && $digits !== $cand) {
+            $candidates[] = $digits;
+            $candidates[] = '星' . $digits;
+        }
+    }
+
+    foreach (array_unique($candidates) as $c) {
+        $matched = get_terms(['taxonomy' => $taxonomy, 'name' => $c, 'hide_empty' => false]);
+        if (is_array($matched) && !empty($matched)) {
+            foreach ($matched as $mt) {
+                if (strpos((string) $mt->slug, '%') === false) {
+                    return (int) $mt->term_id;
+                }
+            }
+            return (int) $matched[0]->term_id;
+        }
+        $term = get_term_by('slug', $c, $taxonomy) ?: get_term_by('name', $c, $taxonomy);
+        if ($term && !is_wp_error($term)) {
+            return (int) $term->term_id;
+        }
+    }
+    return 0;
 }
 
 /**
@@ -160,16 +232,9 @@ function koto_mcp_normalize_available_moji_rows($rows, $default_attr_id = null)
         $moji_items = is_array($raw_moji) ? $raw_moji : ($raw_moji !== null && $raw_moji !== '' ? [$raw_moji] : []);
         $resolved_moji_ids = [];
         foreach ($moji_items as $item) {
-            if (is_int($item) || (is_string($item) && ctype_digit($item))) {
-                $id = (int) $item;
-                if (term_exists($id, 'available_moji')) {
-                    $resolved_moji_ids[] = $id;
-                }
-            } elseif (is_string($item) && trim($item) !== '') {
-                $term = get_term_by('name', trim($item), 'available_moji') ?: get_term_by('slug', trim($item), 'available_moji');
-                if ($term && !is_wp_error($term)) {
-                    $resolved_moji_ids[] = (int) $term->term_id;
-                }
+            $tid = koto_mcp_resolve_taxonomy_term_id($item, 'available_moji');
+            if ($tid > 0) {
+                $resolved_moji_ids[] = $tid;
             }
         }
         $row['available_moji'] = array_values(array_unique($resolved_moji_ids));
@@ -225,8 +290,9 @@ function koto_mcp_update_basic_fields($post_id, $basic_fields)
     $default_attr_id = null;
     if (isset($basic_fields['attribute'])) {
         $raw_attr = is_array($basic_fields['attribute']) ? ($basic_fields['attribute'][0] ?? null) : $basic_fields['attribute'];
-        if (is_int($raw_attr) || (is_string($raw_attr) && ctype_digit($raw_attr))) {
-            $default_attr_id = (int) $raw_attr;
+        $resolved_attr = koto_mcp_resolve_taxonomy_term_id($raw_attr, 'attribute');
+        if ($resolved_attr > 0) {
+            $default_attr_id = $resolved_attr;
         }
     }
     if ($default_attr_id === null) {
@@ -255,6 +321,31 @@ function koto_mcp_update_basic_fields($post_id, $basic_fields)
             continue;
         }
 
+        if (($field['type'] ?? '') === 'taxonomy' && !empty($field['taxonomy']) && $value !== null && $value !== '') {
+            $items = is_array($value) ? $value : [$value];
+            $resolved_ids = [];
+            foreach ($items as $item) {
+                $tid = koto_mcp_resolve_taxonomy_term_id($item, $field['taxonomy']);
+                if ($tid > 0) {
+                    $resolved_ids[] = $tid;
+                }
+            }
+            $resolved_ids = array_values(array_unique($resolved_ids));
+            $field_type = $field['field_type'] ?? 'multi_select';
+            if (in_array($field_type, ['radio', 'select'], true)) {
+                $value = $resolved_ids[0] ?? null;
+            } else {
+                $value = $resolved_ids;
+            }
+        }
+
+        if ($field_name === 'name_ruby' && is_string($value)) {
+            $value = trim((string) preg_replace('/[\(（][^\)）]*[\)）]|[\(（].*$/u', '', $value));
+            $value = mb_convert_kana($value, 'c', 'UTF-8');
+            if ($value === '') {
+                continue;
+            }
+        }
         if ($field_name === 'available_moji_loop' && is_array($value)) {
             $value = koto_mcp_normalize_available_moji_rows($value, $default_attr_id);
         }
@@ -282,6 +373,9 @@ function koto_mcp_create_character_draft($request)
     $screenshots = $request->get_param('screenshots');
     $screenshot_urls = $request->get_param('screenshot_urls');
     $dry_run = (bool) $request->get_param('dry_run');
+    $test_mode = (bool) $request->get_param('test_mode');
+    $prev_test_mode = $GLOBALS['koto_auto_input_test_mode'] ?? false;
+    $GLOBALS['koto_auto_input_test_mode'] = $test_mode;
 
     if ($character_name === '') {
         return new WP_Error('missing_character_name', 'character_name は必須です。', ['status' => 400]);
@@ -335,20 +429,31 @@ function koto_mcp_create_character_draft($request)
     $csv_path = get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv';
     $grouped_csv = koto_group_csv_by_type(koto_load_csv_dictionary($csv_path));
     $acf_data = koto_build_acf_data_from_inputs($auto_input, $grouped_csv);
+    $parsed_counts = [];
+    foreach ($acf_data as $k => $rows) {
+        $parsed_counts[$k] = is_array($rows) ? count($rows) : 1;
+    }
 
     if ($dry_run) {
-        return rest_ensure_response([
-            'dry_run'        => true,
-            'character_name' => $character_name,
-            'basic_fields'   => array_keys($basic_fields),
-            'auto_input'     => array_keys($acf_data),
+        $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+        $resp = [
+            'dry_run'         => true,
+            'character_name'  => $character_name,
+            'basic_fields'    => array_keys($basic_fields),
+            'auto_input'      => array_keys($acf_data),
+            'parsed_counts'   => $parsed_counts,
             'screenshot_urls' => $screenshot_urls,
-            'parsed_acf'     => $acf_data,
-        ]);
+        ];
+        if ($test_mode) {
+            $resp['test_mode'] = true;
+            $resp['parsed_acf'] = $acf_data;
+        }
+        return rest_ensure_response($resp);
     }
 
     $post_id = koto_create_character_post_from_acf($character_name, []);
     if (!$post_id || is_wp_error($post_id)) {
+        $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
         return new WP_Error(
             'character_draft_failed',
             is_wp_error($post_id) ? $post_id->get_error_message() : 'キャラクター下書きの作成に失敗しました。',
@@ -368,6 +473,7 @@ function koto_mcp_create_character_draft($request)
     }
     $attachment_ids = koto_mcp_save_screenshots($screenshots, $post_id);
     if (is_wp_error($attachment_ids)) {
+        $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
         wp_delete_post($post_id, true);
         return $attachment_ids;
     }
@@ -377,8 +483,9 @@ function koto_mcp_create_character_draft($request)
     }
 
     do_action('acf/save_post', $post_id);
+    $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
 
-    return rest_ensure_response([
+    $resp = [
         'post_id'          => $post_id,
         'post_status'      => get_post_status($post_id),
         'edit_url'         => admin_url('admin.php?page=koto-acf-editor&edit_post_id=' . $post_id),
@@ -386,6 +493,12 @@ function koto_mcp_create_character_draft($request)
         'screenshot_urls'  => $screenshot_urls,
         'basic_fields'     => array_keys($basic_fields),
         'auto_input'       => array_keys($acf_data),
+        'parsed_counts'    => $parsed_counts,
         'warnings'         => $warnings,
-    ]);
+    ];
+    if ($test_mode) {
+        $resp['test_mode'] = true;
+        $resp['parsed_acf'] = $acf_data;
+    }
+    return rest_ensure_response($resp);
 }

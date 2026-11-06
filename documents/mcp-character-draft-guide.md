@@ -25,18 +25,45 @@
 - 未知のACFフィールドや解析できなかった入力を警告として返す
 - 作成した下書きのIDとDBエディタURLを返す
 
-## 3. 基本的な運用フロー
+## 3. 基本的な運用フロー（最短・省トークン手順）
 
-1. 1キャラクター分のスクリーンショットを用意する。
-2. AIに画像を読み取らせる。
-3. AIがキャラクター名、`basic_fields`、`auto_input`を作成する。
-4. `dry_run: true`で自動入力の解析結果を確認する。
-5. 問題がなければ`dry_run`を外して下書きを作成する。
-6. 返却された`edit_url`を開き、人間がACFの内容を確認・修正する。
-7. 高画質画像を用意できたら、`screenshot_urls`へURLを指定して再実行または後続の画像登録機能で反映する。
-8. 公開は通常のWordPress運用で人間が行う。
+### AIエージェント向け最短4ステップ操作ガイド
+
+1. **スクリーンショットの一括前処理＆1枚読み取り（Visionトークン75〜85%削減）**:
+   - ユーザーからZIPファイルまたは複数枚のスクリーンショットが渡されたら、個別の高解像度PNGを1枚ずつ `read_file` してはいけません。
+   - まず以下の前処理スクリプトを実行し、上下の不要なスマホステータスバー／ナビバーをトリミングしてタイル状に1枚へ合成した `contact_sheet.jpg` を生成します：
+     ```bash
+     php lib/acf/mcp/prepare_screenshots.php <ZIPまたは画像ディレクトリパス> [出力先ディレクトリ]
+     ```
+   - 出力された `contact_sheet.jpg` **1枚だけ** を `read_file` で読み取り、全画面の情報を1ターンで抽出します。
+2. **ペイロード構築（ターム自動解決の活用）**:
+   - `basic_fields` のタクソノミー項目（`attribute`, `species`, `rarity`, `affiliation`, `available_moji_loop` 等）は、タームIDだけでなく日本語名やスラッグ（例: `"attribute": "水"`, `"species": "神"`, `"rarity": "星6"` または `"なし"`, `"affiliation": ["エヴァンゲリオン"]`, `"available_moji_loop": [{"available_moji": "い"}]`）でもサーバー側で自動解決されます。
+   - 所属グループ（`affiliation`）やイベント（`event`）がDBに存在するか確認が必要な場合のみ、`get_terms(taxonomy: "affiliation", search: "キーワード")` で絞り込み検索します（全件取得は避ける）。
+3. **`preview_draft` の一括実行（単発テストの省略）**:
+   - 事前に `php lib/acf/test_auto_input.php` を文言ごとに個別実行してターンを消費せず、抽出した全フィールドをまとめて MCP ツール `preview_draft` に渡します。
+   - 通常モード（`test_mode: false`、初期値）では、巨大な `parsed_acf` の代わりに `parsed_counts`（各キーの解析件数）と `preview_hash` がコンパクトに返ります。
+4. **`create_draft` の最小引数実行（重複送信の排除）**:
+   - `preview_draft` 成功後、`create_draft` には **`preview_hash` と `idempotency_key` の2項目だけ** を渡します（サーバー側の30分キャッシュから `character_name`, `basic_fields`, `auto_input` が自動復元されるため、長いJSONを再出力する必要はありません）：
+     ```json
+     {
+       "preview_hash": "<preview_draftで返却されたpreview_hash>",
+       "idempotency_key": "char-draft-<一意のキー>"
+     }
+     ```
+   - 返却された `edit_url` をユーザーへ提示し、人間が最終確認・公開を行います。
 
 AIが不確かな値を推測した場合は、空欄にするか警告対象にし、推測値を確定値として保存しない運用が推奨です。
+
+### テストフラグ（`test_mode`）による詳細ログ出力の切り替え
+
+通常運用時のトークン消費を抑えつつ、テスト・デバッグ時には詳細な解析結果を確認できるよう、初期値 `false` の `test_mode` フラグで出力を制御しています。
+
+- **MCPツール（`get_field_schema`, `validate`, `preview_draft`, `create_draft`, `update_draft`） / REST API**:
+  - 通常時（`test_mode: false`）: `parsed_counts` のみ返却、`get_field_schema` は `basic_fields` 対象項目のみコンパクト返却、文字変換デバッグログ非出力。
+  - テスト時（`"test_mode": true`）: `parsed_acf` 全構造を返却、`get_field_schema` で内部Repeater含む全67フィールドを返却、デバッグログ出力を有効化。
+- **CLIスクリプト**:
+  - `php lib/acf/test_auto_input.php`: 通常時はカテゴリ別PASS/FAIL集計（5行）のみ出力。`--test-mode`（または `--verbose`）付与時に全37ケースの整形JSONとデバッグログを出力。
+  - `php lib/acf/mcp/prepare_screenshots.php`: 通常時は1行JSONのみ出力。`--test-mode` 付与時に各パネルの元サイズ・クロップ座標・処理時間を出力。
 
 ## 4. REST API
 
@@ -91,6 +118,7 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 
 RepeaterやGroupの複雑な内部形式をAIが直接組み立てるのではなく、既存のACF定義・既存データの形式を確認してから追加するのが安全です。属性・種族などのターム系フィールドは、サイトで使用している値形式（通常はタームID配列）に合わせます。
 
+- **`name_ruby`**: キャラクター名のひらがな読みを指定します。**`()` / `（）` 内の文字列は含めません**（例: `シンジ(決戦)` の場合は `しんじ`）。万一カッコ付きで渡された場合もサーバー側で自動除去されます。
 - **`status_auto_tf`**: Lv.120のキャラクターの場合は `true` に設定します。
 - **`rarity`**: ★6の場合は子ターム（「なし」「スペシャル」「レジェンド」「グランド」のいずれか、通常の★6は「なし」のタームID）を指定します。★5以下の場合はレア度の数字（例: `5`）に対応するタームIDを指定します。
 
@@ -166,14 +194,16 @@ _koto_mcp_screenshot_urls
 
 ### WordPress側
 
+- `lib/acf/mcp/server.php`
+  - MCP Streamable HTTPサーバー（`get_field_schema`, `get_terms`, `search_character`, `validate`, `preview_draft`, `create_draft`, `update_draft`, `trash_draft`）
+  - OAuth 2.1 / PKCE認可、レート制限、Idempotency-Key管理、プレビューキャッシュ、`test_mode` 制御
 - `lib/acf/mcp/post-mcp.php`
-  - RESTルート登録
-  - 入力の正規化
-  - 基本ACF値の直接保存
-  - 自動入力パーサーの呼び出し
-  - スクリーンショット保存
-  - URLメタ保存
-  - 下書きレスポンス生成
+  - RESTルート登録（`/wp-json/kotodaman/v1/mcp/character-draft`）
+  - タクソノミー名／スラッグ／表記ゆれのタームID自動解決（`koto_mcp_resolve_taxonomy_term_id`）
+  - `available_moji_loop` の正規化と初期属性補完
+  - 基本ACF値の直接保存・自動入力パーサー呼び出し・スクリーンショット保存
+- `lib/acf/mcp/prepare_screenshots.php`
+  - 複数スクリーンショット・ZIPの展開、上下バーのトリミング、タイル状コンタクトシート（`contact_sheet.jpg`）合成CLIスクリプト
 - `lib/acf/auto-input/acf-auto-input-parsers.php`
   - わざ・とくせい等の文言解析
 - `lib/acf/auto-input/acf-auto-input-wp-acf.php`

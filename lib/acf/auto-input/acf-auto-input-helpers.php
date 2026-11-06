@@ -1,6 +1,26 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
+/**
+ * 自動入力・MCPのテスト（詳細ログ出力）モード判定。初期値は false。
+ *
+ * @return bool テストモードが有効な場合 true。
+ */
+function koto_is_auto_input_test_mode()
+{
+    if (!empty($GLOBALS['koto_auto_input_test_mode'])) {
+        return true;
+    }
+    if (defined('KOTO_AUTO_INPUT_TEST_MODE') && KOTO_AUTO_INPUT_TEST_MODE) {
+        return true;
+    }
+    if (function_exists('koto_mcp_is_test_mode') && koto_mcp_is_test_mode()) {
+        return true;
+    }
+    $env = getenv('KOTO_MCP_TEST_MODE');
+    return $env === '1' || strtolower((string) $env) === 'true';
+}
+
 // =================================================================
 // 1. CSV読み込み用関数と種別グループ化
 // =================================================================
@@ -751,8 +771,10 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                 }
             }
 
-            // 【原因特定用】実際にパースされたID配列をエラーログに書き出す
-            error_log('[dot_separated_moji Debug] Input: ' . $value . ' => Result IDs: ' . print_r($term_ids, true));
+            // 【原因特定用】テストモード有効時のみ、実際にパースされたID配列をエラーログに書き出す
+            if (koto_is_auto_input_test_mode()) {
+                error_log('[dot_separated_moji Debug] Input: ' . $value . ' => Result IDs: ' . print_r($term_ids, true));
+            }
 
             $value = $term_ids;
         } elseif (strpos($key, 'affiliation') === 0) {
