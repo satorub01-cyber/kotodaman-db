@@ -44,7 +44,9 @@ agy mcp add --header "Authorization: Bearer <TOKEN>" kotodaman-db http://localho
 }
 ```
 
-OAuth対応の認可画面を利用できるクライアントでは、初回接続時にOAuth認可画面へ移動します。管理者・編集者は即時認可、それ以外のユーザーは申請状態になります。管理者はWordPress管理画面の「ユーザー > MCP利用申請」から承認します。
+OAuth対応の認可画面を利用できるクライアントでは、認可エンドポイント `${SITE_URL}/mcp/oauth/authorize` へ移動します。管理者・編集者は即時認可、それ以外のユーザーは申請状態になります。管理者はWordPress管理画面の「ユーザー > MCP利用申請」から承認します。
+
+`create` スコープ（下書き作成・更新・削除）を要求する場合は、クライアント名・リダイレクトURI・要求スコープを表示した同意画面で明示承認が必要です。`redirect_uri` はクライアント登録時の値と完全一致しないと認可コードを発行しません。
 
 ## Muse設定
 
@@ -60,6 +62,8 @@ OAuthメタデータは次のURLから取得できます。
 ${SITE_URL}/.well-known/oauth-protected-resource
 ${SITE_URL}/.well-known/oauth-authorization-server
 ```
+
+MCP実行時にトークンが無効・期限切れ・欠落している場合、サーバーは `401 Unauthorized` と `WWW-Authenticate` ヘッダーを返します。クライアントはその内容に従って再認可・再取得を行ってください。
 
 ## ツールの使い分け
 
@@ -88,7 +92,7 @@ ${SITE_URL}/.well-known/oauth-authorization-server
 |---|---|
 | `KOTO_MCP_BASE_URL` | WordPress REST API名前空間のベースURL |
 
-ローカルは`http://localhost:8080`、本番は`https://kotodaman-db.com`を設定できます。サーバーが必要な`/wp-json/kotodaman/v1`を補完します。OAuthトークンはWordPressデータベースの一時データへ保存され、ログやレスポンス以外へ出力しません。
+ローカルは`http://localhost:8080`、本番は`https://kotodaman-db.com`を設定できます。サーバーが必要な`/wp-json/kotodaman/v1`を補完します。OAuthトークンはWordPressデータベースの一時データへ保存され、リフレッシュトークンはクライアントIDとトークンファミリーに紐づけてローテーションされます。
 
 ## 画像
 
