@@ -427,6 +427,11 @@ function koto_mcp_oauth_token($request)
     $code = (string) ($body['code'] ?? '');
     $data = get_transient('koto_mcp_code_' . hash('sha256', $code));
     if (!is_array($data)) return new WP_Error('invalid_grant', 'Invalid authorization code.', ['status' => 400]);
+    $verifier = (string) ($body['code_verifier'] ?? '');
+    $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+    if (empty($data['challenge']) || !$verifier || !hash_equals((string) $data['challenge'], $challenge)) {
+        return new WP_Error('invalid_grant', 'PKCE verification failed.', ['status' => 400]);
+    }
     delete_transient('koto_mcp_code_' . hash('sha256', $code));
     return koto_mcp_issue_token($data['user_id'], $data['scope']);
 }
