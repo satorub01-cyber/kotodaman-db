@@ -462,11 +462,35 @@ function koto_acf_editor_handle_actions()
         }
     }
 
+    // D. MCPレビュー確認完了アクション
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acf_action']) && $_POST['acf_action'] === 'dismiss_mcp_review') {
+        $post_id = intval($_POST['edit_post_id'] ?? 0);
+        check_admin_referer('koto_mcp_dismiss_review_' . $post_id);
+        if ($post_id && current_user_can('edit_post', $post_id)) {
+            delete_post_meta($post_id, '_koto_mcp_needs_review');
+            $audit = get_post_meta($post_id, '_koto_mcp_audit', true);
+            if (is_array($audit)) {
+                $audit['reviewed_at'] = current_time('mysql');
+                $audit['reviewed_by'] = get_current_user_id();
+                update_post_meta($post_id, '_koto_mcp_audit', $audit);
+            }
+            $redirect_url = add_query_arg([
+                'edit_post_id' => $post_id,
+                'acf_group'    => sanitize_text_field($_GET['acf_group'] ?? 'group_69204fa4dd82e'),
+                'mcp_reviewed' => 1,
+            ], $current_url);
+            wp_safe_redirect($redirect_url);
+            exit;
+        }
+    }
 
-    // D. カスタムステータス・アイキャッチ保存
+    // E. カスタムステータス・アイキャッチ保存
     add_action('acf/save_post', function ($post_id) {
         if (isset($_POST['custom_post_status']) && in_array($_POST['custom_post_status'], ['draft', 'publish'])) {
             wp_update_post(['ID' => $post_id, 'post_status' => $_POST['custom_post_status']]);
+            if ($_POST['custom_post_status'] === 'publish') {
+                delete_post_meta($post_id, '_koto_mcp_needs_review');
+            }
         }
 
         // 指定のフォールバック画像URL
@@ -896,6 +920,79 @@ function koto_acf_editor_page_html()
                 <button type="button" class="button button-secondary" id="btn_auto_input_make">これらの内容を自動入力して記事を作成</button>
             </div>
         </div>
+
+        <?php if (isset($_GET['mcp_reviewed'])) : ?>
+            <div class="notice notice-success is-dismissible">
+                <p>MCP作成下書きの確認を完了に設定しました。</p>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($edit_post_id && get_post_meta($edit_post_id, '_koto_mcp_generated', true)) : ?>
+            <?php
+            $mcp_needs_review = (bool) get_post_meta($edit_post_id, '_koto_mcp_needs_review', true);
+            $mcp_audit = get_post_meta($edit_post_id, '_koto_mcp_audit', true);
+            $mcp_audit = is_array($mcp_audit) ? $mcp_audit : [];
+            $mcp_screenshots = get_post_meta($edit_post_id, '_koto_mcp_screenshot_urls', true);
+            $mcp_screenshots = is_array($mcp_screenshots) ? $mcp_screenshots : [];
+            $mcp_warnings = !empty($mcp_audit['warnings']) && is_array($mcp_audit['warnings']) ? $mcp_audit['warnings'] : [];
+            $mcp_evidence = !empty($mcp_audit['evidence']) && is_array($mcp_audit['evidence']) ? $mcp_audit['evidence'] : [];
+            ?>
+            <div class="koto-mcp-review-banner <?php echo $mcp_needs_review ? 'is-needs-review' : 'is-reviewed'; ?>">
+                <div class="koto-mcp-banner-header">
+                    <div class="koto-mcp-banner-title-area">
+                        <span class="koto-mcp-badge <?php echo $mcp_needs_review ? 'badge-warning' : 'badge-success'; ?>">
+                            <?php echo $mcp_needs_review ? '🤖 MCP自動作成（要確認）' : '🤖 MCP自動作成（確認済み）'; ?>
+                        </span>
+                        <?php if (!empty($mcp_audit['created_at'])) : ?>
+                            <span class="koto-mcp-meta-time">作成日時: <?php echo esc_html($mcp_audit['created_at']); ?></span>
+                        <?php endif; ?>
+                        <?php if (!empty($mcp_audit['reviewed_at'])) : ?>
+                            <span class="koto-mcp-meta-time">確認日時: <?php echo esc_html($mcp_audit['reviewed_at']); ?></span>
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($mcp_needs_review && current_user_can('edit_post', $edit_post_id)) : ?>
+                        <form method="POST" action="" class="koto-mcp-dismiss-form">
+                            <input type="hidden" name="acf_action" value="dismiss_mcp_review">
+                            <input type="hidden" name="edit_post_id" value="<?php echo esc_attr($edit_post_id); ?>">
+                            <?php wp_nonce_field('koto_mcp_dismiss_review_' . $edit_post_id); ?>
+                            <button type="submit" class="button button-primary">確認完了にする</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+
+                <?php if (!empty($mcp_warnings)) : ?>
+                    <div class="koto-mcp-banner-warnings">
+                        <strong class="koto-mcp-warning-title">⚠️ 自動入力の警告・未解析項目:</strong>
+                        <ul class="koto-mcp-warning-list">
+                            <?php foreach ($mcp_warnings as $w) : ?>
+                                <li><?php echo esc_html($w); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($mcp_evidence) || !empty($mcp_screenshots)) : ?>
+                    <details class="koto-mcp-evidence-details">
+                        <summary class="koto-mcp-evidence-summary">OCR根拠（evidence）およびスクリーンショットを表示</summary>
+                        <div class="koto-mcp-evidence-body">
+                            <?php if (!empty($mcp_screenshots)) : ?>
+                                <div class="koto-mcp-screenshot-links">
+                                    <strong>スクリーンショット:</strong>
+                                    <ul>
+                                        <?php foreach ($mcp_screenshots as $s_url) : ?>
+                                            <li><a href="<?php echo esc_url($s_url); ?>" target="_blank" rel="noopener"><?php echo esc_html($s_url); ?></a></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                </div>
+                            <?php endif; ?>
+                            <?php if (!empty($mcp_evidence)) : ?>
+                                <pre class="koto-mcp-evidence-json"><?php echo esc_html(wp_json_encode($mcp_evidence, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)); ?></pre>
+                            <?php endif; ?>
+                        </div>
+                    </details>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
 
         <div class="acf-editor-columns">
             <div class="acf-editor-col-left">

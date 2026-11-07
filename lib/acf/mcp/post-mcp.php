@@ -9,14 +9,99 @@ if (!defined('ABSPATH')) exit;
  */
 add_action('rest_api_init', 'koto_register_post_mcp_routes');
 
+function koto_mcp_rest_permission_check($request, $required_scope = 'validate')
+{
+    if (function_exists('koto_mcp_require_scope')) {
+        $auth = koto_mcp_require_scope($required_scope, $request instanceof WP_REST_Request ? $request : null);
+        if (is_wp_error($auth)) {
+            return $auth;
+        }
+        return true;
+    }
+    if (!current_user_can('edit_posts')) {
+        return false;
+    }
+    $user_id = get_current_user_id();
+    $user = get_userdata($user_id);
+    $privileged = $user && array_intersect(['administrator', 'editor'], (array) $user->roles);
+    if (!$privileged && !get_user_meta($user_id, '_koto_mcp_approved', true)) {
+        return new WP_Error('mcp_pending_approval', 'MCP access approval is required.', ['status' => 403]);
+    }
+    return true;
+}
+
 function koto_register_post_mcp_routes()
 {
+    register_rest_route('kotodaman/v1', '/mcp/schema', [
+        'methods'             => WP_REST_Server::READABLE,
+        'callback'            => function ($request) {
+            $test_mode = (bool) ($request instanceof WP_REST_Request ? $request->get_param('test_mode') : false);
+            $result = koto_mcp_call_tool('get_field_schema', ['test_mode' => $test_mode], $request);
+            return is_wp_error($result) ? $result : rest_ensure_response($result);
+        },
+        'permission_callback' => function ($request) {
+            return koto_mcp_rest_permission_check($request, 'validate');
+        },
+        'args'                => [
+            'test_mode' => [
+                'required' => false,
+                'default'  => false,
+                'type'     => 'boolean',
+            ],
+        ],
+    ]);
+
+    register_rest_route('kotodaman/v1', '/mcp/draft/(?P<post_id>\d+)', [
+        'methods'             => WP_REST_Server::READABLE,
+        'callback'            => function ($request) {
+            $post_id = (int) ($request instanceof WP_REST_Request ? $request->get_param('post_id') : 0);
+            $result = koto_mcp_call_tool('get_draft', ['post_id' => $post_id], $request);
+            return is_wp_error($result) ? $result : rest_ensure_response($result);
+        },
+        'permission_callback' => function ($request) {
+            return koto_mcp_rest_permission_check($request, 'validate');
+        },
+        'args'                => [
+            'post_id' => [
+                'required' => true,
+                'type'     => 'integer',
+            ],
+        ],
+    ]);
+
+    register_rest_route('kotodaman/v1', '/mcp/terms', [
+        'methods'             => WP_REST_Server::READABLE,
+        'callback'            => function ($request) {
+            $taxonomy = $request instanceof WP_REST_Request ? (string) $request->get_param('taxonomy') : 'all';
+            $search = $request instanceof WP_REST_Request ? (string) $request->get_param('search') : '';
+            $result = koto_mcp_call_tool('get_terms', ['taxonomy' => $taxonomy ?: 'all', 'search' => $search], $request);
+            return is_wp_error($result) ? $result : rest_ensure_response($result);
+        },
+        'permission_callback' => function ($request) {
+            return koto_mcp_rest_permission_check($request, 'validate');
+        },
+        'args'                => [
+            'taxonomy' => [
+                'required' => false,
+                'default'  => 'all',
+                'type'     => 'string',
+            ],
+            'search' => [
+                'required' => false,
+                'default'  => '',
+                'type'     => 'string',
+            ],
+        ],
+    ]);
+
     register_rest_route('kotodaman/v1', '/mcp/character-draft', [
         'methods'             => WP_REST_Server::CREATABLE,
         'callback'            => 'koto_mcp_create_character_draft',
         'permission_callback' => function ($request) {
-            if (!current_user_can('edit_posts')) {
-                return false;
+            $dry_run = $request instanceof WP_REST_Request ? (bool) $request->get_param('dry_run') : false;
+            $perm = koto_mcp_rest_permission_check($request, $dry_run ? 'preview' : 'create');
+            if (is_wp_error($perm) || !$perm) {
+                return $perm;
             }
             $screenshots = $request instanceof WP_REST_Request ? $request->get_param('screenshots') : null;
             if (is_array($screenshots) && !empty($screenshots) && !current_user_can('upload_files')) {
@@ -26,7 +111,7 @@ function koto_register_post_mcp_routes()
         },
         'args'                => [
             'character_name' => [
-                'required'          => true,
+                'required'          => false,
                 'sanitize_callback' => 'sanitize_text_field',
             ],
             'basic_fields' => [
@@ -44,6 +129,14 @@ function koto_register_post_mcp_routes()
             'screenshot_urls' => [
                 'required' => false,
                 'type'     => 'array',
+            ],
+            'preview_hash' => [
+                'required' => false,
+                'type'     => 'string',
+            ],
+            'idempotency_key' => [
+                'required' => false,
+                'type'     => 'string',
             ],
             'dry_run' => [
                 'required' => false,
@@ -372,38 +465,94 @@ function koto_mcp_create_character_draft($request)
     $auto_input = $request->get_param('auto_input');
     $screenshots = $request->get_param('screenshots');
     $screenshot_urls = $request->get_param('screenshot_urls');
+    $preview_hash = sanitize_text_field((string) $request->get_param('preview_hash'));
+    $idempotency_key = sanitize_text_field((string) $request->get_param('idempotency_key'));
     $dry_run = (bool) $request->get_param('dry_run');
     $test_mode = (bool) $request->get_param('test_mode');
     $prev_test_mode = $GLOBALS['koto_auto_input_test_mode'] ?? false;
     $GLOBALS['koto_auto_input_test_mode'] = $test_mode;
+    $user_id = get_current_user_id();
+
+    if ($user_id > 0) {
+        $rate_key = 'koto_mcp_rate_' . $user_id;
+        $now = time();
+        $rate_state = get_transient($rate_key);
+        if (is_array($rate_state) && isset($rate_state['count'], $rate_state['reset_at']) && (int) $rate_state['reset_at'] > $now) {
+            $rate_count = (int) $rate_state['count'];
+            $reset_at = (int) $rate_state['reset_at'];
+        } else {
+            $rate_count = 0;
+            $reset_at = $now + MINUTE_IN_SECONDS;
+        }
+        if ($rate_count >= 60) {
+            $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+            return new WP_Error('rate_limited', 'リクエスト回数が上限に達しました。しばらく待ってから再試行してください。', ['status' => 429]);
+        }
+        set_transient($rate_key, ['count' => $rate_count + 1, 'reset_at' => $reset_at], max(1, $reset_at - $now));
+    }
+
+    if (!$dry_run && $preview_hash !== '' && $character_name === '' && $basic_fields === null && $auto_input === null && function_exists('koto_mcp_preview_cache_key')) {
+        $cached_preview = get_transient(koto_mcp_preview_cache_key($user_id, $preview_hash));
+        if (is_array($cached_preview)) {
+            $character_name = sanitize_text_field((string) ($cached_preview['character_name'] ?? ''));
+            $basic_fields = $cached_preview['basic_fields'] ?? [];
+            $auto_input = $cached_preview['auto_input'] ?? [];
+            if ($screenshot_urls === null && isset($cached_preview['screenshot_urls'])) {
+                $screenshot_urls = $cached_preview['screenshot_urls'];
+            }
+        }
+    }
 
     if ($character_name === '') {
-        return new WP_Error('missing_character_name', 'character_name は必須です。', ['status' => 400]);
+        $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+        return new WP_Error('missing_character_name', 'character_name は必須です（または preview_hash のキャッシュが期限切れです）。', ['status' => 400]);
+    }
+    if (mb_strlen($character_name, 'UTF-8') > 200) {
+        $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+        return new WP_Error('invalid_character_name', 'character_name は200文字以内で指定してください。', ['status' => 400]);
     }
     $basic_fields_is_list = is_array($basic_fields) && !empty($basic_fields) && array_keys($basic_fields) === range(0, count($basic_fields) - 1);
     if ($basic_fields !== null && (!is_array($basic_fields) || $basic_fields_is_list)) {
+        $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
         return new WP_Error('invalid_basic_fields', 'basic_fields はオブジェクトで指定してください。', ['status' => 400]);
+    }
+    if (is_array($basic_fields)) {
+        foreach ($basic_fields as $bf_k => $bf_v) {
+            if (is_string($bf_v) && mb_strlen($bf_v, 'UTF-8') > 2000) {
+                $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+                return new WP_Error('invalid_basic_fields_value', sprintf('basic_fields.%s が最大長（2000文字）を超えています。', $bf_k), ['status' => 400]);
+            }
+        }
     }
     $auto_input_is_list = is_array($auto_input) && !empty($auto_input) && array_keys($auto_input) === range(0, count($auto_input) - 1);
     if ($auto_input !== null && (!is_array($auto_input) || $auto_input_is_list)) {
+        $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
         return new WP_Error('invalid_auto_input', 'auto_input はオブジェクトで指定してください。', ['status' => 400]);
     }
     if (is_array($auto_input)) {
         foreach ($auto_input as $input_key => $input_val) {
             if (!is_string($input_key) || ($input_val !== null && !is_string($input_val))) {
+                $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
                 return new WP_Error('invalid_auto_input_value', 'auto_input の各値は文字列で指定してください。', ['status' => 400]);
+            }
+            if (is_string($input_val) && mb_strlen($input_val, 'UTF-8') > 4000) {
+                $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+                return new WP_Error('invalid_auto_input_value', sprintf('auto_input.%s が最大長（4000文字）を超えています。', $input_key), ['status' => 400]);
             }
         }
     }
     if ($screenshots !== null && !is_array($screenshots)) {
+        $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
         return new WP_Error('invalid_screenshots', 'screenshots は配列で指定してください。', ['status' => 400]);
     }
     if ($screenshot_urls !== null && !is_array($screenshot_urls)) {
+        $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
         return new WP_Error('invalid_screenshot_urls', 'screenshot_urls は配列で指定してください。', ['status' => 400]);
     }
     if (is_array($screenshot_urls)) {
         foreach ($screenshot_urls as $url_item) {
             if (!is_string($url_item)) {
+                $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
                 return new WP_Error('invalid_screenshot_urls_item', 'screenshot_urls の各要素は文字列で指定してください。', ['status' => 400]);
             }
         }
@@ -416,6 +565,7 @@ function koto_mcp_create_character_draft($request)
         $auto_input = [];
     }
     if (!empty($screenshots) && !current_user_can('upload_files')) {
+        $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
         return new WP_Error('forbidden_upload_files', 'screenshots を指定する場合は upload_files 権限が必要です。', ['status' => 403]);
     }
     if (!is_array($screenshot_urls)) {
@@ -433,15 +583,36 @@ function koto_mcp_create_character_draft($request)
     foreach ($acf_data as $k => $rows) {
         $parsed_counts[$k] = is_array($rows) ? count($rows) : 1;
     }
+    $computed_hash = function_exists('koto_mcp_content_hash')
+        ? koto_mcp_content_hash(['character_name' => $character_name, 'basic_fields' => $basic_fields, 'auto_input' => $auto_input], $acf_data)
+        : '';
+
+    $auto_warnings = function_exists('koto_mcp_detect_auto_input_warnings')
+        ? koto_mcp_detect_auto_input_warnings($auto_input, $acf_data, $grouped_csv)
+        : [];
 
     if ($dry_run) {
+        if ($computed_hash !== '' && function_exists('koto_mcp_preview_cache_key')) {
+            set_transient(
+                koto_mcp_preview_cache_key($user_id, $computed_hash),
+                [
+                    'character_name'  => $character_name,
+                    'basic_fields'    => $basic_fields,
+                    'auto_input'      => $auto_input,
+                    'screenshot_urls' => $screenshot_urls,
+                ],
+                30 * MINUTE_IN_SECONDS
+            );
+        }
         $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
         $resp = [
             'dry_run'         => true,
             'character_name'  => $character_name,
+            'preview_hash'    => $computed_hash,
             'basic_fields'    => array_keys($basic_fields),
             'auto_input'      => array_keys($acf_data),
             'parsed_counts'   => $parsed_counts,
+            'warnings'        => $auto_warnings,
             'screenshot_urls' => $screenshot_urls,
         ];
         if ($test_mode) {
@@ -451,8 +622,31 @@ function koto_mcp_create_character_draft($request)
         return rest_ensure_response($resp);
     }
 
+    if ($preview_hash !== '' && $computed_hash !== '' && !hash_equals($computed_hash, $preview_hash)) {
+        $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+        return new WP_Error('preview_hash_mismatch', 'preview_hash が現在の入力内容と一致しません。', ['status' => 400]);
+    }
+
+    $idempotency_option = '';
+    $fingerprint = 'rest_create|' . $computed_hash;
+    if ($idempotency_key !== '' && function_exists('koto_mcp_reserve_idempotency_key')) {
+        $reservation = koto_mcp_reserve_idempotency_key($user_id, $idempotency_key, $fingerprint);
+        if (is_wp_error($reservation)) {
+            $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+            return $reservation;
+        }
+        if (!empty($reservation['result'])) {
+            $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+            return rest_ensure_response($reservation['result']);
+        }
+        $idempotency_option = (string) ($reservation['option'] ?? '');
+    }
+
     $post_id = koto_create_character_post_from_acf($character_name, []);
     if (!$post_id || is_wp_error($post_id)) {
+        if ($idempotency_option !== '' && function_exists('koto_mcp_release_idempotency_key')) {
+            koto_mcp_release_idempotency_key($idempotency_option);
+        }
         $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
         return new WP_Error(
             'character_draft_failed',
@@ -461,7 +655,10 @@ function koto_mcp_create_character_draft($request)
         );
     }
 
-    $warnings = koto_mcp_update_basic_fields($post_id, $basic_fields);
+    $warnings = array_merge(
+        koto_mcp_update_basic_fields($post_id, $basic_fields),
+        $auto_warnings
+    );
     koto_update_character_post_with_acf($post_id, $acf_data);
     $requested_auto_inputs = array_filter($auto_input, static function ($value) {
         return $value !== null && $value !== '';
@@ -471,8 +668,12 @@ function koto_mcp_create_character_draft($request)
             $warnings[] = sprintf('%s を解析できませんでした。', $input_key);
         }
     }
+    $warnings = array_values(array_unique($warnings));
     $attachment_ids = koto_mcp_save_screenshots($screenshots, $post_id);
     if (is_wp_error($attachment_ids)) {
+        if ($idempotency_option !== '' && function_exists('koto_mcp_release_idempotency_key')) {
+            koto_mcp_release_idempotency_key($idempotency_option);
+        }
         $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
         wp_delete_post($post_id, true);
         return $attachment_ids;
@@ -480,17 +681,30 @@ function koto_mcp_create_character_draft($request)
 
     if (!empty($screenshot_urls)) {
         update_post_meta($post_id, '_koto_mcp_screenshot_urls', $screenshot_urls);
+        if (function_exists('koto_mcp_set_featured_image_from_url')) {
+            koto_mcp_set_featured_image_from_url($post_id, $screenshot_urls[0]);
+        }
+    } elseif (defined('KOTO_MCP_DEFAULT_IMAGE_URL') && function_exists('koto_mcp_set_featured_image_from_url')) {
+        update_post_meta($post_id, '_koto_mcp_screenshot_urls', [KOTO_MCP_DEFAULT_IMAGE_URL]);
+        koto_mcp_set_featured_image_from_url($post_id, KOTO_MCP_DEFAULT_IMAGE_URL);
     }
 
+    update_post_meta($post_id, '_koto_mcp_generated', 1);
+    update_post_meta($post_id, '_koto_mcp_needs_review', 1);
+    update_post_meta($post_id, '_koto_mcp_audit', ['user_id' => $user_id, 'content_hash' => $computed_hash, 'warnings' => $warnings, 'created_at' => current_time('mysql')]);
     do_action('acf/save_post', $post_id);
+    if (function_exists('koto_mcp_maybe_cleanup_expired_options')) {
+        koto_mcp_maybe_cleanup_expired_options();
+    }
     $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
 
     $resp = [
         'post_id'          => $post_id,
         'post_status'      => get_post_status($post_id),
         'edit_url'         => admin_url('admin.php?page=koto-acf-editor&edit_post_id=' . $post_id),
+        'content_hash'     => $computed_hash,
         'screenshot_ids'   => $attachment_ids,
-        'screenshot_urls'  => $screenshot_urls,
+        'screenshot_urls'  => get_post_meta($post_id, '_koto_mcp_screenshot_urls', true) ?: $screenshot_urls,
         'basic_fields'     => array_keys($basic_fields),
         'auto_input'       => array_keys($acf_data),
         'parsed_counts'    => $parsed_counts,
@@ -499,6 +713,9 @@ function koto_mcp_create_character_draft($request)
     if ($test_mode) {
         $resp['test_mode'] = true;
         $resp['parsed_acf'] = $acf_data;
+    }
+    if ($idempotency_option !== '' && function_exists('koto_mcp_complete_idempotency_key')) {
+        koto_mcp_complete_idempotency_key($idempotency_option, $resp, $fingerprint);
     }
     return rest_ensure_response($resp);
 }
