@@ -1,0 +1,224 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "コトダマンDB キャラクター下書き作成 API",
+    "version": "1.1.0",
+    "description": "スクリーンショットから読み取ったキャラクター情報（basic_fields と auto_input）を検証し、WordPress上にキャラクター下書き（draft）を作成するAPIです。最初に getFieldSchema を呼び出して workflow_guide と各フィールドの入力規則（manual）を確認してください。"
+  },
+  "servers": [
+    {
+      "url": "https://www.kotodaman-db.com/wp-json/kotodaman/v1",
+      "description": "本番環境"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "OAuth 2.1 アクセストークン、または WordPress アプリケーションパスワード（username:app_password またはそのBase64文字列）"
+      },
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "WordPress ユーザー名とアプリケーションパスワード"
+      }
+    }
+  },
+  "security": [
+    { "bearerAuth": [] },
+    { "basicAuth": [] }
+  ],
+  "paths": {
+    "/mcp/schema": {
+      "get": {
+        "operationId": "getFieldSchema",
+        "summary": "ACFフィールド定義・必須項目・自動入力キー・運用ガイド（workflow_guide）を取得する",
+        "parameters": [
+          {
+            "name": "test_mode",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean", "default": false },
+            "description": "通常は false（コンパクト定義）。全67フィールドを取得する場合のみ true。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "フィールドスキーマと workflow_guide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fields": { "type": "object" },
+                    "required_for_create": { "type": "array", "items": { "type": "string" } },
+                    "auto_input_keys": { "type": "array", "items": { "type": "string" } },
+                    "workflow_guide": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/terms": {
+      "get": {
+        "operationId": "getTerms",
+        "summary": "タクソノミー（所属グループ・イベント等）の既存ターム一覧を検索・取得する",
+        "parameters": [
+          {
+            "name": "taxonomy",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "default": "affiliation" },
+            "description": "タクソノミー名（affiliation, event, attribute, species, rarity, gimmick, available_moji, suitable_quest、カンマ区切り、または all）"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "ターム名・スラッグの部分一致検索キーワード"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ターム一覧",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/draft/{post_id}": {
+      "get": {
+        "operationId": "getCharacterDraft",
+        "summary": "既存キャラクター下書きのデータ（basic_fields、ステータス、レビュー状況）を取得する",
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" },
+            "description": "対象のキャラクター投稿ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "キャラクター下書き情報",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "404": { "description": "下書きが見つかりません" },
+          "403": { "description": "権限不足または保護対象テンプレート" }
+        }
+      }
+    },
+    "/mcp/character-draft": {
+      "post": {
+        "operationId": "createOrPreviewCharacterDraft",
+        "summary": "キャラクター下書きのプレビュー検証（dry_run: true）または本作成（dry_run: false）を行う",
+        "description": "まず dry_run: true で呼び出して解析結果（parsed_counts）と preview_hash を確認し、続けて dry_run: false で preview_hash と idempotency_key を渡して下書きを作成します。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "character_name": {
+                    "type": "string",
+                    "description": "キャラクター名（preview_hash のみでキャッシュ復元作成する場合は省略可）"
+                  },
+                  "basic_fields": {
+                    "type": "object",
+                    "description": "基本ACFフィールド。作成時は attribute, species, rarity が必須。name_ruby にはカッコ内の文字列を含めない。available_moji_loop には初期文字のみを指定する。",
+                    "properties": {
+                      "name_ruby": { "type": "string" },
+                      "attribute": { "type": "string" },
+                      "sub_attribute": { "type": "array", "items": { "type": "string" } },
+                      "species": { "type": "string" },
+                      "rarity": { "type": "string" },
+                      "affiliation": { "type": "array", "items": { "type": "string" } },
+                      "status_auto_tf": { "type": "boolean" },
+                      "99_hp": { "type": "integer" },
+                      "99_atk": { "type": "integer" },
+                      "120_hp": { "type": "integer" },
+                      "120_atk": { "type": "integer" },
+                      "plus_hp": { "type": "integer" },
+                      "plus_atk": { "type": "integer" },
+                      "max_ls_hp": { "type": "number" },
+                      "max_ls_atk": { "type": "number" },
+                      "fuku_break": { "type": "boolean" },
+                      "available_moji_loop": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "available_moji": { "type": "string" }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "auto_input": {
+                    "type": "object",
+                    "description": "わざ・すごわざ・とくせい・リーダー・祝福・コトワザのゲーム内説明文",
+                    "properties": {
+                      "auto_input_waza_name": { "type": "string" },
+                      "auto_input_waza": { "type": "string" },
+                      "auto_input_sugowaza_name": { "type": "string" },
+                      "auto_input_sugowaza_condition": { "type": "string" },
+                      "auto_input_sugowaza": { "type": "string" },
+                      "auto_input_trait1": { "type": "string" },
+                      "auto_input_trait2": { "type": "string" },
+                      "auto_input_leader": { "type": "string" },
+                      "auto_input_blessing": { "type": "string" },
+                      "auto_input_kotowaza": { "type": "string" }
+                    }
+                  },
+                  "screenshot_urls": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "www.kotodaman-db.com 上の画像URL（省略時は準備中画像が自動設定される）"
+                  },
+                  "preview_hash": {
+                    "type": "string",
+                    "description": "直前の dry_run: true で返却された preview_hash。これを指定すると30分キャッシュから入力データが自動復元される。"
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "description": "二重作成防止用の一意キー（例: char-draft-20261107-001）"
+                  },
+                  "dry_run": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "true の場合は投稿を作成せず検証と preview_hash 発行のみを行う。false で下書きを作成する。"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "プレビュー結果または作成された下書き情報（post_id, edit_url, warnings 等）",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -53,14 +53,29 @@ function koto_get_top_level_character_acf_field($field_name)
         }
     }
 
-    // 未知のトップレベルフィールドが追加された場合の動的解決フォールバック
+    // 未知のトップレベルフィールドが追加された場合の動的解決フォールバック（character投稿タイプ対象グループのみ）
     static $dynamic_top_level_map = null;
     if ($dynamic_top_level_map === null) {
         $dynamic_top_level_map = [];
         if (function_exists('acf_get_field_groups') && function_exists('acf_get_fields')) {
-            $groups = acf_get_field_groups();
+            $groups = acf_get_field_groups(['post_type' => 'character']);
+            if (empty($groups)) {
+                $groups = acf_get_field_groups();
+            }
             if (is_array($groups)) {
                 foreach ($groups as $group) {
+                    $is_character_group = false;
+                    foreach (($group['location'] ?? []) as $or_group) {
+                        foreach ((array) $or_group as $rule) {
+                            if (($rule['param'] ?? '') === 'post_type' && ($rule['operator'] ?? '==') === '==' && ($rule['value'] ?? '') === 'character') {
+                                $is_character_group = true;
+                                break 2;
+                            }
+                        }
+                    }
+                    if (!$is_character_group && !empty($group['location'])) {
+                        continue;
+                    }
                     $fields = acf_get_fields($group);
                     if (is_array($fields)) {
                         foreach ($fields as $f) {
@@ -149,9 +164,10 @@ function koto_convert_acf_rows_to_field_keys($data, $field_obj)
  *
  * @param int $post_id 更新対象の投稿ID。
  * @param array<string, array<int, array<string, mixed>>> $acf_data 入力欄キーごとの解析結果。
+ * @param bool $replace_existing true の場合、今回入力があるセクションは既存値を置換する。
  * @return bool 更新処理を実行できた場合 true、入力不備時 false。
  */
-function koto_update_character_post_with_acf($post_id, $acf_data)
+function koto_update_character_post_with_acf($post_id, $acf_data, $replace_existing = false)
 {
     if (!$post_id || empty($acf_data)) return false;
 
@@ -261,14 +277,54 @@ function koto_update_character_post_with_acf($post_id, $acf_data)
         }
     }
 
+    // $replace_existing 時、とくせい・祝福の更新によって文字変換行が無くなった場合も古い追加文字を置換できるよう対象に含める
+    $replaced_moji_unlock_places = [];
+    if ($replace_existing) {
+        if (array_key_exists('auto_input_trait1', $acf_data)) {
+            $replaced_moji_unlock_places = array_merge($replaced_moji_unlock_places, ['first_trait', 'super_change', 'super_copy', 'super_both']);
+        }
+        if (array_key_exists('auto_input_trait2', $acf_data)) {
+            $replaced_moji_unlock_places = array_merge($replaced_moji_unlock_places, ['second_trait', 'super_change', 'super_copy', 'super_both']);
+        }
+        if (array_key_exists('auto_input_blessing', $acf_data)) {
+            $replaced_moji_unlock_places[] = 'blessing';
+        }
+        $replaced_moji_unlock_places = array_values(array_unique($replaced_moji_unlock_places));
+        if (!empty($replaced_moji_unlock_places) && !isset($fields_to_update['available_moji_loop'])) {
+            $fields_to_update['available_moji_loop'] = [];
+        }
+    }
+
     // 分類したデータをまとめて更新する
     foreach ($fields_to_update as $acf_field_name => $new_rows) {
         $field_obj = koto_get_top_level_character_acf_field($acf_field_name);
         $target_selector = $field_obj ? $field_obj['key'] : $acf_field_name;
 
         // 既存データを未フォーマット（raw）で取得し、GroupやTaxonomyのフォーマット変質を防ぐ
-        $existing_data = get_field($target_selector, $post_id, false) ?: [];
-        if (!is_array($existing_data)) $existing_data = [];
+        if ($replace_existing) {
+            if ($acf_field_name === 'available_moji_loop') {
+                // 初期文字（unlock_place === 'default' 等）や今回未更新セクションの文字は保持し、更新対象セクションの追加文字のみ置換する
+                $raw_existing = get_field($target_selector, $post_id, false) ?: [];
+                $existing_data = [];
+                if (is_array($raw_existing)) {
+                    foreach ($raw_existing as $existing_row) {
+                        if (!is_array($existing_row)) continue;
+                        $place = $existing_row['field_693529d5cf77e'] ?? ($existing_row['unlock_place'] ?? 'default');
+                        if ($place === '' || $place === null) {
+                            $place = 'default';
+                        }
+                        if ($place === 'default' || (!empty($replaced_moji_unlock_places) && !in_array($place, $replaced_moji_unlock_places, true))) {
+                            $existing_data[] = $existing_row;
+                        }
+                    }
+                }
+            } else {
+                $existing_data = [];
+            }
+        } else {
+            $existing_data = get_field($target_selector, $post_id, false) ?: [];
+            if (!is_array($existing_data)) $existing_data = [];
+        }
 
         // 新規行のサブフィールド名を再帰的に field_xxxxxx キーへ正規化
         if ($field_obj) {

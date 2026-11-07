@@ -332,3 +332,132 @@
     color: #ffffff;
     border-color: #d63638;
 }
+
+/* MCP自動作成レビューバナー */
+.koto-mcp-review-banner {
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.koto-mcp-review-banner.is-needs-review {
+    background-color: #fff8e5;
+    border: 1px solid #f0c33c;
+    border-left: 5px solid #dba617;
+}
+
+.koto-mcp-review-banner.is-reviewed {
+    background-color: #edfaef;
+    border: 1px solid #68de7c;
+    border-left: 5px solid #008a20;
+}
+
+.koto-mcp-banner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.koto-mcp-banner-title-area {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.koto-mcp-badge {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+    color: #ffffff;
+}
+
+.koto-mcp-badge.badge-warning {
+    background-color: #dba617;
+}
+
+.koto-mcp-badge.badge-success {
+    background-color: #008a20;
+}
+
+.koto-mcp-meta-time {
+    font-size: 12px;
+    color: #50575e;
+}
+
+.koto-mcp-dismiss-form {
+    margin: 0;
+}
+
+.koto-mcp-banner-warnings {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background-color: #ffffff;
+    border: 1px solid #f0c33c;
+    border-radius: 4px;
+}
+
+.koto-mcp-warning-title {
+    display: block;
+    font-size: 13px;
+    color: #b32d2e;
+    margin-bottom: 4px;
+}
+
+.koto-mcp-warning-list {
+    margin: 0 0 0 20px;
+    padding: 0;
+    font-size: 12px;
+    color: #3c434a;
+}
+
+.koto-mcp-evidence-details {
+    margin-top: 10px;
+    font-size: 12px;
+}
+
+.koto-mcp-evidence-summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #2271b1;
+}
+
+.koto-mcp-evidence-summary:hover {
+    color: #135e96;
+}
+
+.koto-mcp-evidence-body {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background-color: #ffffff;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+}
+
+.koto-mcp-screenshot-links {
+    margin-bottom: 8px;
+}
+
+.koto-mcp-screenshot-links ul {
+    margin: 4px 0 0 16px;
+    padding: 0;
+}
+
+.koto-mcp-evidence-json {
+    max-height: 240px;
+    overflow-y: auto;
+    background-color: #f6f7f7;
+    padding: 8px 10px;
+    border: 1px solid #c3c4c7;
+    border-radius: 3px;
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+}
