@@ -214,7 +214,7 @@
 | 保護リソースメタデータ | `GET /.well-known/oauth-protected-resource` | リソースURI（`/wp-json/kotodaman/v1/mcp`）、認可サーバーURL、対応スコープ（`validate`, `preview`, `create`）を返却 |
 | 認可サーバーメタデータ | `GET /.well-known/oauth-authorization-server` | issuer、各OAuthエンドポイントURL、PKCE (`S256`) 対応情報を返却 |
 | 動的クライアント登録 | `POST /wp-json/kotodaman/v1/mcp/oauth/register` | `client_name`, `redirect_uris` を受け取り `client_id`（`koto_...`、有効期限1年）を発行。IPあたり30回/分のレート制限あり |
-| ブラウザ認可エンドポイント | `GET / POST /mcp/oauth/authorize` | WordPressログイン必須。PKCE（`code_challenge` + `code_challenge_method=S256`）必須。認可コード（有効期限5分）を発行 |
+| ブラウザ認可エンドポイント | `GET / POST /mcp/oauth/authorize` | 未ログイン時は認可ページ内でWordPressログインを行い、ログイン後もOAuthパラメータを保持。PKCE（`code_challenge` + `code_challenge_method=S256`）必須。認可コード（有効期限5分）を発行 |
 | トークンエンドポイント | `POST /wp-json/kotodaman/v1/mcp/oauth/token` | `authorization_code` または `refresh_token` グラントでトークンを発行 |
 | トークン失効エンドポイント | `POST /wp-json/kotodaman/v1/mcp/oauth/revoke` | アクセストークンまたはリフレッシュトークン（および紐づくトークンファミリー全体）を即時失効 |
 
@@ -224,12 +224,14 @@
    * スキームは `https`、またはローカル開発環境（`localhost`, `127.0.0.1`, `[::1]`, サイト自身のホスト）の `http` のみ許可。
    * 認可時・トークン交換時ともに、クライアント登録時の `redirect_uris` と完全一致しない限り認可コード・トークンを発行しません。
 2. **ユーザー権限と管理画面承認フロー**:
-   * `edit_posts` 権限を持たないユーザーは利用不可（`403 Forbidden`）。
-   * `administrator`（管理者）および `editor`（編集者）ロールは即時認可可能。
+   * `MCP利用者`（`mcp_user`）ロールまたは `edit_posts` 権限を持たないユーザーは利用不可（`403 Forbidden`）。
+   * `administrator`（管理者）、`editor`（編集者）、`MCP利用者`ロールは即時認可可能。
    * それ以外のロール（投稿者 `author` 等）が認可画面へアクセスすると、ユーザーメタ `_koto_mcp_requested = 1` が記録され保留状態となります。管理者がWordPress管理画面「**ユーザー > MCP利用申請**（`users.php?page=koto-mcp-approvals`）」で承認すると `_koto_mcp_approved = 1` が付与され、利用可能になります。
 3. **`create` スコープの明示同意画面（CSRF / クリックジャッキング対策）**:
    * 下書きの作成・更新・削除が可能な `create` スコープを含む認可リクエスト時は、`X-Frame-Options: DENY` / `Content-Security-Policy: frame-ancestors 'none'` およびパラメータ束縛済みWordPress Nonce付きの同意確認画面を表示し、ユーザーの明示的な「許可」POSTを必須としています。
-4. **リフレッシュトークン・ローテーションとリプレイ検知**:
+4. **未ログイン時の保護**:
+   * 認可ページ内のログインフォームは、既存の `wp-login.php` 専用CAPTCHAを自動移植せず、ログイン試行をIP単位とユーザー名単位でそれぞれ5回・15分に制限します。成功時は両方のカウンターを消去します。CAPTCHAを認可ページへ統合する場合は、認証プラグイン側の専用フック対応が必要です。
+5. **リフレッシュトークン・ローテーションとリプレイ検知**:
    * アクセストークンは有効期限1時間（SHA-256ハッシュ化してTransient保存）、リフレッシュトークンは有効期限30日（SHA-256ハッシュ化してOption保存）。
    * リフレッシュトークン使用時は毎回新しいリフレッシュトークンへローテーション（旧トークンは `status = 'rotated'` に更新）されます。
    * ローテーション済みの旧リフレッシュトークンが再利用（リプレイ）された場合、漏洩とみなして同一 `family_id` に属する全トークンを一括失効（`koto_mcp_revoke_refresh_family`）させます。
