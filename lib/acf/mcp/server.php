@@ -84,8 +84,16 @@ add_action('rest_api_init', 'koto_mcp_register_server_routes');
 add_action('admin_menu', 'koto_mcp_register_approval_menu');
 add_action('admin_init', 'koto_mcp_handle_approval_action');
 add_action('init', function () {
-    if (!get_role('mcp_user')) {
-        add_role('mcp_user', 'MCP利用者', ['read' => true]);
+    $role = get_role('mcp_user');
+    if (!$role) {
+        $role = add_role('mcp_user', 'MCP利用者', ['read' => true]);
+    }
+    if ($role) {
+        foreach (['read', 'edit_posts', 'upload_files'] as $capability) {
+            if (!$role->has_cap($capability)) {
+                $role->add_cap($capability);
+            }
+        }
     }
 });
 
@@ -2005,24 +2013,41 @@ function koto_mcp_oauth_request_fields($params)
     return $result;
 }
 
-function koto_mcp_oauth_login_rate_key($username)
+function koto_mcp_oauth_login_rate_keys($username)
 {
     $ip = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : 'unknown';
-    return 'koto_mcp_login_' . hash('sha256', strtolower(trim((string) $username)) . '|' . $ip);
+    $normalized_username = strtolower(trim((string) $username));
+    return [
+        'ip' => 'koto_mcp_login_ip_' . hash('sha256', $ip),
+        'username' => 'koto_mcp_login_user_' . hash('sha256', $normalized_username),
+    ];
 }
 
 function koto_mcp_oauth_login_is_rate_limited($username)
 {
-    $state = get_transient(koto_mcp_oauth_login_rate_key($username));
-    return is_array($state) && (int) ($state['count'] ?? 0) >= 5;
+    foreach (koto_mcp_oauth_login_rate_keys($username) as $key) {
+        $state = get_transient($key);
+        if (is_array($state) && (int) ($state['count'] ?? 0) >= 5) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function koto_mcp_oauth_login_record_failure($username)
 {
-    $key = koto_mcp_oauth_login_rate_key($username);
-    $state = get_transient($key);
-    $count = is_array($state) ? (int) ($state['count'] ?? 0) : 0;
-    set_transient($key, ['count' => $count + 1], 15 * MINUTE_IN_SECONDS);
+    foreach (koto_mcp_oauth_login_rate_keys($username) as $key) {
+        $state = get_transient($key);
+        $count = is_array($state) ? (int) ($state['count'] ?? 0) : 0;
+        set_transient($key, ['count' => $count + 1], 15 * MINUTE_IN_SECONDS);
+    }
+}
+
+function koto_mcp_oauth_login_clear_rate_limits($username)
+{
+    foreach (koto_mcp_oauth_login_rate_keys($username) as $key) {
+        delete_transient($key);
+    }
 }
 
 function koto_mcp_oauth_user_has_access($user_id)
@@ -2117,6 +2142,7 @@ function koto_mcp_oauth_authorize_browser()
                 koto_mcp_oauth_login_record_failure($username);
                 koto_mcp_oauth_render_login($request_fields, 'ログインに失敗しました。ユーザー名またはパスワードを確認してください。');
             }
+            koto_mcp_oauth_login_clear_rate_limits($username);
             wp_set_current_user($user->ID);
             $params = array_merge($params, $request_fields);
         } else {
