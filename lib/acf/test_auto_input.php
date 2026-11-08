@@ -2,6 +2,9 @@
 /**
  * ACF自動入力（auto-input）パーサー動作確認・回帰テストスクリプト
  *
+ * ※注意: 自動入力関連（lib/acf/auto-input/ や lib/ゲーム内文言ーACF-対応表.csv）の
+ *   変更がないタスクでは、本スクリプトを実行する必要はありません（auto_input修正時のみ必須）。
+ *
  * 【使い方】
  * 1. 全カテゴリのデフォルトテスト文言を一括実行する場合:
  *    php wp-content/themes/cocoon-child-master/lib/acf/test_auto_input.php
