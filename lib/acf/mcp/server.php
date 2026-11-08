@@ -68,27 +68,26 @@ function koto_mcp_handle_http($request)
     $method = $body['method'] ?? '';
     $id = $body['id'] ?? null;
 
-    // Authorization ヘッダーが明示送信されている場合は、initialize 等でもトークン有効性を検証して期限切れ時に 401 + WWW-Authenticate を返す
-    $auth_header = koto_mcp_get_authorization_header($request);
-    if ($auth_header !== '' && in_array($method, ['initialize', 'tools/list', 'resources/list', 'prompts/list'], true)) {
-        $early_auth = koto_mcp_require_scope('validate', $request);
-        if (is_wp_error($early_auth)) {
-            $detail = $early_auth->get_error_data();
-            $status = is_array($detail) && isset($detail['status']) ? (int) $detail['status'] : 401;
-            $headers = [];
-            if ($status === 401) {
-                $reason_code = is_array($detail) && !empty($detail['reason_code']) ? (string) $detail['reason_code'] : 'token_invalid';
-                $headers['WWW-Authenticate'] = koto_mcp_www_authenticate_header(
-                    is_array($detail) ? ($detail['oauth_error'] ?? 'invalid_token') : 'invalid_token',
-                    $reason_code
-                );
-            }
-            return koto_mcp_jsonrpc_error_response($id, -32000, $early_auth->get_error_message(), [
-                'code' => $early_auth->get_error_code(),
-                'reason' => is_array($detail) && !empty($detail['reason_code']) ? (string) $detail['reason_code'] : 'token_invalid',
-                'detail' => $detail,
-            ], $status, $headers);
+    // MCP Streamable HTTP 仕様準拠: 全ての JSON-RPC メソッド（initialize, tools/list, tools/call 等）で認証を必須化。
+    // トークン未指定または期限切れ・無効時は即座に 401 Unauthorized + WWW-Authenticate チャレンジを返信し、
+    // クライアント側（Claude / Cursor 等）の OAuth 自動リフレッシュフローを確実に起動させる。
+    $early_auth = koto_mcp_require_scope('validate', $request);
+    if (is_wp_error($early_auth)) {
+        $detail = $early_auth->get_error_data();
+        $status = is_array($detail) && isset($detail['status']) ? (int) $detail['status'] : 401;
+        $headers = [];
+        if ($status === 401) {
+            $reason_code = is_array($detail) && !empty($detail['reason_code']) ? (string) $detail['reason_code'] : 'token_invalid';
+            $headers['WWW-Authenticate'] = koto_mcp_www_authenticate_header(
+                is_array($detail) ? ($detail['oauth_error'] ?? 'invalid_token') : 'invalid_token',
+                $early_auth->get_error_message()
+            );
         }
+        return koto_mcp_jsonrpc_error_response($id, -32000, $early_auth->get_error_message(), [
+            'code' => $early_auth->get_error_code(),
+            'reason' => is_array($detail) && !empty($detail['reason_code']) ? (string) $detail['reason_code'] : 'token_invalid',
+            'detail' => $detail,
+        ], $status, $headers);
     }
 
     if ($method === 'initialize') {

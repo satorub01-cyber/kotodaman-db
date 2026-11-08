@@ -290,4 +290,264 @@ function koto_mcp_maybe_cleanup_expired_options()
             }
         }
     }
+
+    // 4. 期限切れの koto_mcp_token_% (アクセストークン) (LIMIT 100)
+    $token_like = $wpdb->esc_like('koto_mcp_token_') . '%';
+    $token_rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT 100",
+        $token_like
+    ));
+    if (is_array($token_rows)) {
+        foreach ($token_rows as $row) {
+            $val = maybe_unserialize($row->option_value);
+            if (is_array($val) && !empty($val['expires_at']) && (int) $val['expires_at'] < $now) {
+                delete_option($row->option_name);
+            }
+        }
+    }
+
+    // 5. 期限切れの koto_mcp_code_% (認可コード) (LIMIT 100)
+    $code_like = $wpdb->esc_like('koto_mcp_code_') . '%';
+    $code_rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT 100",
+        $code_like
+    ));
+    if (is_array($code_rows)) {
+        foreach ($code_rows as $row) {
+            $val = maybe_unserialize($row->option_value);
+            if (is_array($val) && !empty($val['expires_at']) && (int) $val['expires_at'] < $now) {
+                delete_option($row->option_name);
+            }
+        }
+    }
+
+    // 6. 期限切れの koto_mcp_lock_% (作成後5分以上経過した孤立ロック) (LIMIT 100)
+    $new_lock_like = $wpdb->esc_like('koto_mcp_lock_') . '%';
+    $new_lock_rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT 100",
+        $new_lock_like
+    ));
+    if (is_array($new_lock_rows)) {
+        foreach ($new_lock_rows as $row) {
+            $val = maybe_unserialize($row->option_value);
+            if (is_array($val) && !empty($val['created_at']) && ((int) $val['created_at'] + 300) < $now) {
+                delete_option($row->option_name);
+            }
+        }
+    }
+}
+
+/**
+ * $wp_object_cache をバイパスし、wp_options から直接データを取得する。
+ *
+ * @param string $key オプション名。
+ * @return mixed レコード値、または存在しない場合 null。
+ */
+function koto_mcp_storage_get($key)
+{
+    global $wpdb;
+    $key = (string) $key;
+    if ($key === '') return null;
+    $val = $wpdb->get_var($wpdb->prepare(
+        "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+        $key
+    ));
+    if ($val === null) return null;
+    return maybe_unserialize($val);
+}
+
+/**
+ * $wp_object_cache を更新・破棄しつつ、wp_options へ直接データを永続化保存する。
+ *
+ * @param string $key オプション名。
+ * @param mixed  $value 保存する値。
+ * @param string $autoload autoload フラグ（デフォルト 'no'）。
+ * @return bool 成否。
+ */
+function koto_mcp_storage_put($key, $value, $autoload = 'no')
+{
+    global $wpdb;
+    $key = (string) $key;
+    if ($key === '') return false;
+    $serialized = maybe_serialize($value);
+    wp_cache_delete($key, 'options');
+    $res = $wpdb->replace(
+        $wpdb->options,
+        [
+            'option_name'  => $key,
+            'option_value' => $serialized,
+            'autoload'     => $autoload,
+        ],
+        ['%s', '%s', '%s']
+    );
+    return $res !== false;
+}
+
+/**
+ * wp_options からレコードを直接削除する。
+ *
+ * @param string $key オプション名。
+ * @return bool 成否。
+ */
+function koto_mcp_storage_delete($key)
+{
+    global $wpdb;
+    $key = (string) $key;
+    if ($key === '') return false;
+    wp_cache_delete($key, 'options');
+    $res = $wpdb->delete($wpdb->options, ['option_name' => $key], ['%s']);
+    return $res !== false;
+}
+
+/**
+ * MySQL の INSERT IGNORE を用いた真の SQL アトミック排他ロックを取得する。
+ * $wp_object_cache を完全にバイパスするため、並行プロセス間でのキャッシュ汚染（503）が発生しない。
+ *
+ * @param string $lock_name ロック名。
+ * @param float  $timeout_seconds タイムアウト秒数（デフォルト 5.0秒）。
+ * @return bool ロック取得成功時 true。
+ */
+function koto_mcp_acquire_atomic_lock($lock_name, $timeout_seconds = 5.0)
+{
+    global $wpdb;
+    $option_key = 'koto_mcp_lock_' . sanitize_key($lock_name);
+    $start = microtime(true);
+    $timeout = max(1.0, (float) $timeout_seconds);
+
+    while ((microtime(true) - $start) < $timeout) {
+        $now = time();
+        $payload = maybe_serialize(['created_at' => $now, 'pid' => getmypid()]);
+
+        // INSERT IGNORE により MySQL レベルでアトミックに排他制御
+        $inserted = $wpdb->query($wpdb->prepare(
+            "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')",
+            $option_key,
+            $payload
+        ));
+
+        if ($inserted === 1) {
+            wp_cache_delete($option_key, 'options');
+            return true;
+        }
+
+        // 取得できない場合、15秒以上古い孤立ロックの有無を確認
+        $existing_val = $wpdb->get_var($wpdb->prepare(
+            "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+            $option_key
+        ));
+        if ($existing_val !== null) {
+            $existing = maybe_unserialize($existing_val);
+            if (is_array($existing) && !empty($existing['created_at']) && ((int) $existing['created_at'] + 15) < $now) {
+                // 15秒以上経過した孤立ロックを強制回収
+                $wpdb->delete($wpdb->options, ['option_name' => $option_key], ['%s']);
+                wp_cache_delete($option_key, 'options');
+                continue;
+            }
+        } else {
+            // 他プロセスが直前にロックを解放した場合は即座に再試行
+            continue;
+        }
+
+        usleep(50000); // 50ms 待機
+    }
+
+    return false;
+}
+
+/**
+ * SQL アトミック排他ロックを解放する。
+ *
+ * @param string $lock_name ロック名。
+ */
+function koto_mcp_release_atomic_lock($lock_name)
+{
+    global $wpdb;
+    $option_key = 'koto_mcp_lock_' . sanitize_key($lock_name);
+    $wpdb->delete($wpdb->options, ['option_name' => $option_key], ['%s']);
+    wp_cache_delete($option_key, 'options');
+}
+
+/**
+ * URLセーフな Base64 エンコード。
+ *
+ * @param string $data
+ * @return string
+ */
+function koto_mcp_base64url_encode($data)
+{
+    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
+
+/**
+ * URLセーフな Base64 デコード。
+ *
+ * @param string $data
+ * @return string|false
+ */
+function koto_mcp_base64url_decode($data)
+{
+    $remainder = strlen($data) % 4;
+    if ($remainder) {
+        $padlen = 4 - $remainder;
+        $data .= str_repeat('=', $padlen);
+    }
+    return base64_decode(strtr($data, '-_', '+/'), true);
+}
+
+/**
+ * HMAC-SHA256 自己検証署名付きトークン文字列を生成する。
+ * 万一キャッシュやDBの一時障害があっても、暗号学的に安全にクレームを復元可能。
+ *
+ * @param string               $type トークン種別 ('at' または 'rt')。
+ * @param array<string, mixed> $payload クレーム（user_id, client_id, family_id, expires_at, scope 等）。
+ * @return string 生成された署名付きトークン文字列。
+ */
+function koto_mcp_create_signed_token($type, array $payload)
+{
+    $salt = wp_salt('auth');
+    $payload['t'] = $type;
+    $payload['rnd'] = wp_generate_password(16, false, false);
+    $json = wp_json_encode($payload, JSON_UNESCAPED_SLASHES);
+    $encoded_payload = koto_mcp_base64url_encode($json);
+    $signature = hash_hmac('sha256', $type . '.' . $encoded_payload, $salt, true);
+    $encoded_sig = koto_mcp_base64url_encode($signature);
+
+    return 'koto_' . $type . '_' . $encoded_payload . '.' . $encoded_sig;
+}
+
+/**
+ * HMAC-SHA256 自己検証署名付きトークン文字列を検証し、ペイロードを返す。
+ *
+ * @param string $token_string トークン文字列。
+ * @return array<string, mixed>|null 検証成功時はペイロード配列、無効時は null。
+ */
+function koto_mcp_verify_signed_token($token_string)
+{
+    if (!is_string($token_string) || strpos($token_string, 'koto_') !== 0) {
+        return null;
+    }
+    if (!preg_match('/^koto_(at|rt)_([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/', $token_string, $matches)) {
+        return null;
+    }
+    $type = $matches[1];
+    $encoded_payload = $matches[2];
+    $encoded_sig = $matches[3];
+
+    $salt = wp_salt('auth');
+    $expected_sig = hash_hmac('sha256', $type . '.' . $encoded_payload, $salt, true);
+    $actual_sig = koto_mcp_base64url_decode($encoded_sig);
+    if ($actual_sig === false || !hash_equals($expected_sig, $actual_sig)) {
+        return null;
+    }
+
+    $json = koto_mcp_base64url_decode($encoded_payload);
+    if ($json === false) {
+        return null;
+    }
+    $payload = json_decode($json, true);
+    if (!is_array($payload) || ($payload['t'] ?? '') !== $type) {
+        return null;
+    }
+
+    return $payload;
 }

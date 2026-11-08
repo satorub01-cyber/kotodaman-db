@@ -9,13 +9,63 @@ if (!defined('ABSPATH')) exit;
  * Grace Period、リプレイ攻撃防止、並行ロックポーリング）、トークン失効（RFC 7009）を提供します。
  */
 
+// RFC 8414 / RFC 9728 パス型ディスカバリおよび OAuth エンドポイントの早期捕捉（リライトルール状態に依存せず常時動作）
 add_action('init', function () {
+    $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+    $path = (string) wp_parse_url($uri, PHP_URL_PATH);
+
+    // 1. Protected Resource Metadata ディスカバリ (RFC 9728)
+    if (strpos($path, '/.well-known/oauth-protected-resource') === 0) {
+        $issuer = koto_mcp_issuer_url();
+        $response = [
+            'resource' => koto_mcp_server_url(),
+            'authorization_servers' => [$issuer],
+            'scopes_supported' => ['validate', 'preview', 'create'],
+            'bearer_methods_supported' => ['header'],
+        ];
+        status_header(200);
+        header('Content-Type: application/json; charset=' . get_bloginfo('charset'));
+        header('Access-Control-Allow-Origin: *');
+        echo wp_json_encode($response);
+        exit;
+    }
+
+    // 2. Authorization Server Metadata ディスカバリ (RFC 8414) / OpenID Configuration
+    if (strpos($path, '/.well-known/oauth-authorization-server') === 0 || strpos($path, '/.well-known/openid-configuration') === 0) {
+        $base = koto_mcp_base_url();
+        $issuer = koto_mcp_issuer_url();
+        $response = [
+            'issuer' => $issuer,
+            'authorization_endpoint' => koto_mcp_authorization_endpoint_url(),
+            'token_endpoint' => $base . '/mcp/oauth/token',
+            'registration_endpoint' => $base . '/mcp/oauth/register',
+            'revocation_endpoint' => $base . '/mcp/oauth/revoke',
+            'response_types_supported' => ['code'],
+            'grant_types_supported' => ['authorization_code', 'refresh_token'],
+            'token_endpoint_auth_methods_supported' => ['none', 'client_secret_post', 'client_secret_basic'],
+            'code_challenge_methods_supported' => ['S256'],
+            'scopes_supported' => ['validate', 'preview', 'create'],
+        ];
+        status_header(200);
+        header('Content-Type: application/json; charset=' . get_bloginfo('charset'));
+        header('Access-Control-Allow-Origin: *');
+        echo wp_json_encode($response);
+        exit;
+    }
+
+    // 3. /mcp/oauth/authorize ブラウザ認可画面
+    if ($path === '/mcp/oauth/authorize' || $path === '/mcp/oauth/authorize/') {
+        koto_mcp_oauth_authorize_browser();
+        exit;
+    }
+
+    // 4. WordPress リライトルール登録（標準フォールバック）
     add_rewrite_rule('^\\.well-known/oauth-protected-resource/?$', 'index.php?koto_mcp_meta=protected', 'top');
     add_rewrite_rule('^\\.well-known/oauth-authorization-server/?$', 'index.php?koto_mcp_meta=authorization', 'top');
     add_rewrite_rule('^mcp/oauth/authorize/?$', 'index.php?koto_mcp_oauth_authorize=1', 'top');
     add_rewrite_tag('%koto_mcp_meta%', '([^&]+)');
     add_rewrite_tag('%koto_mcp_oauth_authorize%', '([0-1])');
-});
+}, 1);
 
 add_filter('query_vars', function ($vars) {
     $vars[] = 'koto_mcp_meta';
@@ -180,7 +230,9 @@ function koto_mcp_oauth_register_client($request)
 
     $id = 'koto_' . wp_generate_password(24, false, false);
     $client_name = sanitize_text_field($body['client_name'] ?? 'MCP client');
-    set_transient('koto_mcp_client_' . $id, ['redirect_uris' => $redirect_uris, 'name' => $client_name], YEAR_IN_SECONDS);
+    $client_record = ['redirect_uris' => $redirect_uris, 'name' => $client_name];
+    koto_mcp_storage_put('koto_mcp_client_' . $id, $client_record, 'no');
+    set_transient('koto_mcp_client_' . $id, $client_record, YEAR_IN_SECONDS);
     return rest_ensure_response(['client_id' => $id, 'client_name' => $client_name, 'redirect_uris' => $redirect_uris, 'grant_types' => ['authorization_code', 'refresh_token'], 'response_types' => ['code'], 'token_endpoint_auth_method' => 'none']);
 }
 
@@ -344,7 +396,10 @@ function koto_mcp_oauth_authorize_browser()
 {
     $params = wp_unslash($_REQUEST);
     $client_id = sanitize_text_field($params['client_id'] ?? '');
-    $client = get_transient('koto_mcp_client_' . $client_id);
+    $client = koto_mcp_storage_get('koto_mcp_client_' . $client_id);
+    if (!is_array($client)) {
+        $client = get_transient('koto_mcp_client_' . $client_id);
+    }
     if (!is_array($client)) {
         koto_mcp_oauth_browser_error('invalid_client', 'Unknown OAuth client.', 400);
     }
@@ -464,7 +519,7 @@ function koto_mcp_oauth_authorize_browser()
     }
 
     $code = wp_generate_password(48, false, false);
-    set_transient('koto_mcp_code_' . hash('sha256', $code), [
+    $code_data = [
         'user_id' => get_current_user_id(),
         'client_id' => $client_id,
         'redirect_uri' => $redirect,
@@ -472,7 +527,11 @@ function koto_mcp_oauth_authorize_browser()
         'resource' => $request_fields['resource'] ?? '',
         'scope' => $scope,
         'family_id' => wp_generate_password(32, false, false),
-    ], 300);
+        'expires_at' => time() + 300,
+    ];
+    $code_hash = hash('sha256', $code);
+    koto_mcp_storage_put('koto_mcp_code_' . $code_hash, $code_data, 'no');
+    set_transient('koto_mcp_code_' . $code_hash, $code_data, 300);
     koto_mcp_oauth_safe_redirect(add_query_arg(['code' => $code, 'state' => $state], $redirect));
 }
 
@@ -511,7 +570,10 @@ function koto_mcp_revoke_refresh_family($family_id, $reason = 'manual')
 {
     if (!$family_id) return;
     $family_option = koto_mcp_refresh_family_option_name($family_id);
-    $family = get_option($family_option);
+    $family = koto_mcp_storage_get($family_option);
+    if (!is_array($family)) {
+        $family = get_option($family_option);
+    }
     if (!is_array($family)) return;
 
     koto_mcp_log_token_event('family_revoked', [
@@ -523,53 +585,99 @@ function koto_mcp_revoke_refresh_family($family_id, $reason = 'manual')
     $tokens = is_array($family['tokens'] ?? null) ? $family['tokens'] : [];
     foreach (array_keys($tokens) as $token_hash) {
         $record_option = koto_mcp_refresh_record_option_name((string) $token_hash);
-        $record = get_option($record_option);
+        $record = koto_mcp_storage_get($record_option);
+        if (!is_array($record)) {
+            $record = get_option($record_option);
+        }
         if (is_array($record)) {
             $record['status'] = 'revoked';
             $record['revoked_at'] = time();
             $record['revocation_reason'] = $reason;
+            koto_mcp_storage_put($record_option, $record, 'no');
             update_option($record_option, $record, false);
         }
     }
+
+    // ファミリーに紐づくアクティブなアクセストークンも即時無効化
+    if (!empty($family['active_access_hash'])) {
+        $access_key = 'koto_mcp_token_' . $family['active_access_hash'];
+        $access_data = koto_mcp_storage_get($access_key);
+        if (is_array($access_data)) {
+            $access_data['status'] = 'revoked';
+            $access_data['revoked_at'] = time();
+            $access_data['revocation_reason'] = $reason;
+            koto_mcp_storage_put($access_key, $access_data, 'no');
+        }
+        delete_transient($access_key);
+    }
+
     $family['status'] = 'revoked';
     $family['updated_at'] = time();
     $family['revocation_reason'] = $reason;
+    koto_mcp_storage_put($family_option, $family, 'no');
     update_option($family_option, $family, false);
 }
 
 function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null)
 {
-    $access = wp_generate_password(64, false, false);
-    $refresh = wp_generate_password(72, false, false);
-    $refresh_hash = hash('sha256', $refresh);
     $family_id = $family_id ?: wp_generate_password(32, false, false);
-
     $access_ttl = defined('KOTO_MCP_ACCESS_TOKEN_TTL') ? (int) KOTO_MCP_ACCESS_TOKEN_TTL : HOUR_IN_SECONDS;
     $refresh_ttl = defined('KOTO_MCP_REFRESH_TOKEN_TTL') ? (int) KOTO_MCP_REFRESH_TOKEN_TTL : (30 * DAY_IN_SECONDS);
     $now = time();
 
-    set_transient('koto_mcp_token_' . hash('sha256', $access), [
-        'user_id' => (int) $user_id,
-        'scope' => $scope,
-        'client_id' => $client_id,
-        'family_id' => $family_id,
-        'status' => 'active',
-        'issued_at' => $now,
-        'expires_at' => $now + $access_ttl,
-    ], $access_ttl);
+    // HMAC-SHA256 自己検証署名付きトークンの生成
+    $access = koto_mcp_create_signed_token('at', [
+        'uid' => (int) $user_id,
+        'scp' => $scope,
+        'cid' => (string) $client_id,
+        'fid' => (string) $family_id,
+        'iat' => $now,
+        'exp' => $now + $access_ttl,
+    ]);
+    $refresh = koto_mcp_create_signed_token('rt', [
+        'uid' => (int) $user_id,
+        'scp' => $scope,
+        'cid' => (string) $client_id,
+        'fid' => (string) $family_id,
+        'iat' => $now,
+        'exp' => $now + $refresh_ttl,
+    ]);
 
-    update_option(koto_mcp_refresh_record_option_name($refresh_hash), [
-        'user_id' => (int) $user_id,
-        'scope' => $scope,
-        'client_id' => $client_id,
-        'family_id' => $family_id,
-        'status' => 'active',
-        'issued_at' => $now,
+    $access_hash = hash('sha256', $access);
+    $refresh_hash = hash('sha256', $refresh);
+
+    $access_data = [
+        'user_id'    => (int) $user_id,
+        'scope'      => $scope,
+        'client_id'  => $client_id,
+        'family_id'  => $family_id,
+        'status'     => 'active',
+        'issued_at'  => $now,
+        'expires_at' => $now + $access_ttl,
+    ];
+
+    // direct DB ストレージへ永続化（transient にも同期保存）
+    koto_mcp_storage_put('koto_mcp_token_' . $access_hash, $access_data, 'no');
+    set_transient('koto_mcp_token_' . $access_hash, $access_data, $access_ttl);
+
+    $refresh_data = [
+        'user_id'    => (int) $user_id,
+        'scope'      => $scope,
+        'client_id'  => $client_id,
+        'family_id'  => $family_id,
+        'status'     => 'active',
+        'issued_at'  => $now,
         'expires_at' => $now + $refresh_ttl,
-    ], false);
+    ];
+    $record_option = koto_mcp_refresh_record_option_name($refresh_hash);
+    koto_mcp_storage_put($record_option, $refresh_data, 'no');
+    update_option($record_option, $refresh_data, false);
 
     $family_option = koto_mcp_refresh_family_option_name($family_id);
-    $family = get_option($family_option);
+    $family = koto_mcp_storage_get($family_option);
+    if (!is_array($family)) {
+        $family = get_option($family_option);
+    }
     if (!is_array($family)) {
         $family = ['status' => 'active', 'tokens' => [], 'updated_at' => $now];
     }
@@ -580,8 +688,23 @@ function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null)
         ]);
         return koto_mcp_oauth_token_error('invalid_grant', 'The token family is revoked.', 400);
     }
+
+    $response_data = [
+        'access_token'  => $access,
+        'token_type'    => 'Bearer',
+        'expires_in'    => $access_ttl,
+        'refresh_token' => $refresh,
+        'scope'         => $scope,
+    ];
+
     $family['tokens'][$refresh_hash] = 1;
+    $family['active_access_hash'] = $access_hash;
+    $family['active_refresh_hash'] = $refresh_hash;
+    $family['last_issued'] = $response_data;
+    $family['last_rotated_at'] = $now;
     $family['updated_at'] = $now;
+
+    koto_mcp_storage_put($family_option, $family, 'no');
     update_option($family_option, $family, false);
 
     koto_mcp_log_token_event('token_issued', [
@@ -594,13 +717,7 @@ function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null)
         'has_refresh_token' => true,
     ]);
 
-    $response = rest_ensure_response([
-        'access_token' => $access,
-        'token_type' => 'Bearer',
-        'expires_in' => $access_ttl,
-        'refresh_token' => $refresh,
-        'scope' => $scope,
-    ]);
+    $response = rest_ensure_response($response_data);
     if ($response instanceof WP_REST_Response) {
         $response->header('Cache-Control', 'no-store');
         $response->header('Pragma', 'no-cache');
@@ -614,7 +731,7 @@ function koto_mcp_oauth_token($request)
     $body = koto_mcp_oauth_body_params($request);
     $grant_type = sanitize_text_field((string) ($body['grant_type'] ?? ''));
 
-    // client_id の解決: リクエストボディ -> HTTP Basic認証ヘッダー
+    // client_id の解決: リクエストボディ -> HTTP Basic認証ヘッダー -> $_SERVER['PHP_AUTH_USER']
     $client_id = sanitize_text_field((string) ($body['client_id'] ?? ''));
     if ($client_id === '') {
         $auth_header = koto_mcp_get_authorization_header($request);
@@ -622,8 +739,10 @@ function koto_mcp_oauth_token($request)
             $decoded = base64_decode(substr(trim($auth_header), 6));
             if ($decoded !== false && strpos($decoded, ':') !== false) {
                 list($basic_id) = explode(':', $decoded, 2);
-                $client_id = sanitize_text_field($basic_id);
+                $client_id = sanitize_text_field(rawurldecode($basic_id));
             }
+        } elseif (!empty($_SERVER['PHP_AUTH_USER'])) {
+            $client_id = sanitize_text_field(rawurldecode((string) $_SERVER['PHP_AUTH_USER']));
         }
     }
 
@@ -635,28 +754,51 @@ function koto_mcp_oauth_token($request)
 
         $refresh_hash = hash('sha256', $refresh_token);
         $refresh_id = koto_mcp_short_token_id($refresh_hash, true);
-        $lock_option = koto_mcp_refresh_lock_option_name($refresh_hash);
 
-        // 即時 503 を返すのではなく、最大 3000ms（3秒）待機してロック解放をポーリング（並行リクエストの直列化）
-        $lock_acquired = false;
-        $wait_start = microtime(true);
-        while ((microtime(true) - $wait_start) < 3.0) {
-            if (add_option($lock_option, ['created_at' => time()], '', false)) {
-                $lock_acquired = true;
-                break;
+        // リフレッシュレコードの探索（direct DB -> get_option -> HMAC署名復元）
+        $record_option = koto_mcp_refresh_record_option_name($refresh_hash);
+        $refresh = koto_mcp_storage_get($record_option);
+        if (!is_array($refresh)) {
+            $refresh = get_option($record_option);
+        }
+        if (!is_array($refresh)) {
+            $verified_rt = koto_mcp_verify_signed_token($refresh_token);
+            if (is_array($verified_rt) && ($verified_rt['t'] ?? '') === 'rt' && !empty($verified_rt['uid'])) {
+                $refresh = [
+                    'user_id'    => (int) $verified_rt['uid'],
+                    'scope'      => (string) ($verified_rt['scp'] ?? 'validate preview'),
+                    'client_id'  => (string) ($verified_rt['cid'] ?? ''),
+                    'family_id'  => (string) ($verified_rt['fid'] ?? ''),
+                    'status'     => 'active',
+                    'issued_at'  => (int) ($verified_rt['iat'] ?? time()),
+                    'expires_at' => (int) ($verified_rt['exp'] ?? (time() + 30 * DAY_IN_SECONDS)),
+                ];
+                koto_mcp_storage_put($record_option, $refresh, 'no');
             }
-            $lock = get_option($lock_option);
-            if (is_array($lock) && !empty($lock['created_at']) && ((int) $lock['created_at'] + 30) < time()) {
-                delete_option($lock_option);
-                continue;
-            }
-            usleep(100000); // 100ms 待機
         }
 
-        if (!$lock_acquired) {
+        if (!is_array($refresh)) {
             koto_mcp_log_token_event('token_request', [
                 'grant_type' => 'refresh_token',
                 'refresh_id' => $refresh_id,
+                'result' => 'refresh_failed',
+                'reason' => 'invalid_refresh_token',
+            ]);
+            return koto_mcp_oauth_token_error('invalid_grant', 'Invalid refresh token.', 400);
+        }
+
+        $family_id = (string) ($refresh['family_id'] ?? '');
+        if ($family_id === '') {
+            return koto_mcp_oauth_token_error('invalid_grant', 'Invalid refresh token family.', 400);
+        }
+
+        // ファミリー単位での真の SQL アトミックロックを取得（並行リクエストの完全直列化 & 503防止）
+        $lock_name = 'fam_' . substr(hash('sha256', $family_id), 0, 24);
+        if (!koto_mcp_acquire_atomic_lock($lock_name, 5.0)) {
+            koto_mcp_log_token_event('token_request', [
+                'grant_type' => 'refresh_token',
+                'refresh_id' => $refresh_id,
+                'family_id' => $family_id,
                 'client_id' => $client_id ?: 'none',
                 'result' => 'refresh_locked',
             ]);
@@ -664,27 +806,24 @@ function koto_mcp_oauth_token($request)
         }
 
         try {
-            $record_option = koto_mcp_refresh_record_option_name($refresh_hash);
-            $refresh = get_option($record_option);
+            // ロック取得後、DBから最新のファミリーおよびリフレッシュレコードを再読み込み
+            $family_option = koto_mcp_refresh_family_option_name($family_id);
+            $family = koto_mcp_storage_get($family_option);
+            if (!is_array($family)) {
+                $family = get_option($family_option);
+            }
+            $refresh = koto_mcp_storage_get($record_option);
             if (!is_array($refresh)) {
-                koto_mcp_log_token_event('token_request', [
-                    'grant_type' => 'refresh_token',
-                    'refresh_id' => $refresh_id,
-                    'result' => 'refresh_failed',
-                    'reason' => 'invalid_refresh_token',
-                ]);
-                return koto_mcp_oauth_token_error('invalid_grant', 'Invalid refresh token.', 400);
+                $refresh = get_option($record_option);
             }
 
-            $family_id = (string) ($refresh['family_id'] ?? '');
-
-            // client_id が明示送信された場合は整合性を検証。省略時はレコードの client_id を採用
+            // client_id 整合性検証
             $expected_client_id = (string) ($refresh['client_id'] ?? '');
             if ($client_id !== '' && $expected_client_id !== '' && $client_id !== $expected_client_id) {
                 koto_mcp_log_token_event('token_request', [
                     'grant_type' => 'refresh_token',
                     'refresh_id' => $refresh_id,
-                    'family_id' => $family_id ?: 'none',
+                    'family_id' => $family_id,
                     'result' => 'refresh_failed',
                     'reason' => 'client_binding_mismatch',
                 ]);
@@ -692,59 +831,67 @@ function koto_mcp_oauth_token($request)
             }
             $effective_client_id = $client_id !== '' ? $client_id : $expected_client_id;
 
-            if (!empty($refresh['expires_at']) && (int) $refresh['expires_at'] < time()) {
+            $now = time();
+
+            // 期限切れチェック（30日）
+            if (!empty($refresh['expires_at']) && (int) $refresh['expires_at'] < $now) {
                 koto_mcp_log_token_event('token_request', [
                     'grant_type' => 'refresh_token',
                     'refresh_id' => $refresh_id,
-                    'family_id' => $family_id ?: 'none',
+                    'family_id' => $family_id,
                     'result' => 'refresh_failed',
                     'reason' => 'refresh_token_expired',
                 ]);
                 return koto_mcp_oauth_token_error('invalid_grant', 'Refresh token expired.', 400);
             }
 
-            $family = get_option(koto_mcp_refresh_family_option_name($family_id));
+            // ファミリー失効チェック
             if (!is_array($family) || ($family['status'] ?? '') !== 'active') {
                 koto_mcp_log_token_event('token_request', [
                     'grant_type' => 'refresh_token',
                     'refresh_id' => $refresh_id,
-                    'family_id' => $family_id ?: 'none',
+                    'family_id' => $family_id,
                     'result' => 'refresh_failed',
                     'reason' => 'family_revoked',
                 ]);
                 return koto_mcp_oauth_token_error('invalid_grant', 'Refresh token family is revoked.', 400);
             }
 
-            if (($refresh['status'] ?? '') !== 'active') {
-                // Grace Period (60秒): 直近ローテーション（並行リクエストやリトライ）の場合は直前発行レスポンスを再返却
-                $now = time();
-                $rotated_at = (int) ($refresh['rotated_at'] ?? 0);
-                if ($refresh['status'] === 'rotated' && $rotated_at > 0 && ($now - $rotated_at) <= 60 && !empty($refresh['last_issued'])) {
+            // 【15秒デバウンスウィンドウ】
+            // 直近 15 秒以内に同ファミリーでローテーションが行われ、最新トークンペアが保持されている場合、
+            // 並行ワーカーやクライアントの再試行と判定。
+            // ただし、キャッシュされた最新アクセストークンが現在も有効（未失効かつ30秒以上の残寿命あり）である場合のみデバウンス返却する。
+            $last_rotated = (int) ($family['last_rotated_at'] ?? 0);
+            if ($last_rotated > 0 && ($now - $last_rotated) <= 15 && !empty($family['last_issued']) && is_array($family['last_issued'])) {
+                $cached_at_hash = (string) ($family['active_access_hash'] ?? '');
+                $cached_at_record = $cached_at_hash !== '' ? koto_mcp_storage_get('koto_mcp_token_' . $cached_at_hash) : null;
+                $is_cached_valid = is_array($cached_at_record)
+                    && ($cached_at_record['status'] ?? '') === 'active'
+                    && !empty($cached_at_record['expires_at'])
+                    && (int) $cached_at_record['expires_at'] > ($now + 30);
+
+                if ($is_cached_valid) {
                     koto_mcp_log_token_event('token_request', [
                         'grant_type' => 'refresh_token',
                         'refresh_id' => $refresh_id,
                         'family_id' => $family_id,
-                        'result' => 'refresh_grace_hit',
-                        'rotated_ago_sec' => $now - $rotated_at,
+                        'result' => 'refresh_debounce_hit',
+                        'rotated_ago_sec' => $now - $last_rotated,
                     ]);
-                    $cached_response = rest_ensure_response($refresh['last_issued']);
+                    $cached_response = rest_ensure_response($family['last_issued']);
                     if ($cached_response instanceof WP_REST_Response) {
                         $cached_response->header('Cache-Control', 'no-store');
                         $cached_response->header('Pragma', 'no-cache');
                     }
                     return $cached_response;
                 }
-                // Grace Period超過の再利用はリプレイ攻撃と判定して全トークンを無効化
-                koto_mcp_log_token_event('token_request', [
-                    'grant_type' => 'refresh_token',
-                    'refresh_id' => $refresh_id,
-                    'family_id' => $family_id,
-                    'result' => 'refresh_replay_revoked',
-                    'rotated_ago_sec' => $rotated_at > 0 ? ($now - $rotated_at) : null,
-                ]);
-                koto_mcp_revoke_refresh_family($family_id, 'replay_detected');
-                return koto_mcp_oauth_token_error('invalid_grant', 'Refresh token replay detected; token family revoked.', 400);
             }
+
+            // 【非破壊安全ローテーション】
+            // 提示されたリフレッシュトークンが既に rotated 状態であっても、
+            // ファミリーが active であり、トークンの発行期限内（30日以内）であれば、
+            // replay_detected でファミリーを道連れ即死させず、安全に最新セッションへ再発行して継続させる。
+            $is_already_rotated = (($refresh['status'] ?? '') === 'rotated');
 
             $refresh_user_id = (int) ($refresh['user_id'] ?? 0);
             $refresh_user = get_userdata($refresh_user_id);
@@ -782,9 +929,10 @@ function koto_mcp_oauth_token($request)
             $new_refresh_hash = hash('sha256', $new_refresh_token);
 
             $refresh['status'] = 'rotated';
-            $refresh['rotated_at'] = time();
+            $refresh['rotated_at'] = $now;
             $refresh['rotated_to'] = $new_refresh_hash;
             $refresh['last_issued'] = is_array($issued_data) ? $issued_data : null;
+            koto_mcp_storage_put($record_option, $refresh, 'no');
             update_option($record_option, $refresh, false);
 
             koto_mcp_log_token_event('token_request', [
@@ -792,12 +940,13 @@ function koto_mcp_oauth_token($request)
                 'refresh_id' => $refresh_id,
                 'new_refresh_id' => koto_mcp_short_token_id($new_refresh_hash, true),
                 'family_id' => $family_id,
+                'was_rotated' => $is_already_rotated,
                 'result' => 'refresh_success',
             ]);
 
             return $token_response;
         } finally {
-            delete_option($lock_option);
+            koto_mcp_release_atomic_lock($lock_name);
         }
     }
 
@@ -816,16 +965,25 @@ function koto_mcp_oauth_token($request)
     }
 
     $code_hash = hash('sha256', $code);
-    $code_lock = 'koto_mcp_code_lock_' . $code_hash;
-    if (!add_option($code_lock, ['created_at' => time()], '', false)) {
+    $code_lock = 'code_' . substr($code_hash, 0, 24);
+    if (!koto_mcp_acquire_atomic_lock($code_lock, 5.0)) {
         return koto_mcp_oauth_token_error('invalid_grant', 'Authorization code is already being processed.', 400);
     }
 
     try {
-        $data = get_transient('koto_mcp_code_' . $code_hash);
-        delete_transient('koto_mcp_code_' . $code_hash);
+        $code_key = 'koto_mcp_code_' . $code_hash;
+        $data = koto_mcp_storage_get($code_key);
+        if (!is_array($data)) {
+            $data = get_transient($code_key);
+        }
+        koto_mcp_storage_delete($code_key);
+        delete_transient($code_key);
+
         if (!is_array($data)) {
             return koto_mcp_oauth_token_error('invalid_grant', 'Invalid authorization code.', 400);
+        }
+        if (!empty($data['expires_at']) && (int) $data['expires_at'] < time()) {
+            return koto_mcp_oauth_token_error('invalid_grant', 'Authorization code expired.', 400);
         }
         if (($data['client_id'] ?? '') !== $client_id || ($data['redirect_uri'] ?? '') !== $redirect_uri) {
             return koto_mcp_oauth_token_error('invalid_grant', 'Authorization code client/redirect binding mismatch.', 400);
@@ -838,7 +996,7 @@ function koto_mcp_oauth_token($request)
         }
         return koto_mcp_issue_token((int) $data['user_id'], (string) $data['scope'], $client_id, (string) ($data['family_id'] ?? ''));
     } finally {
-        delete_option($code_lock);
+        koto_mcp_release_atomic_lock($code_lock);
     }
 }
 
@@ -852,28 +1010,74 @@ function koto_mcp_oauth_revoke($request)
     $client_id = isset($params['client_id']) ? sanitize_text_field((string) $params['client_id']) : '';
 
     $token_hash = hash('sha256', $token);
-    $access_data = get_transient('koto_mcp_token_' . $token_hash);
+    $family_id_to_revoke = '';
+
+    // 1. アクセストークンとしての失効処理
+    $access_key = 'koto_mcp_token_' . $token_hash;
+    $access_data = koto_mcp_storage_get($access_key);
+    if (!is_array($access_data)) {
+        $access_data = get_transient($access_key);
+    }
+    if (!is_array($access_data)) {
+        $verified_at = koto_mcp_verify_signed_token($token);
+        if (is_array($verified_at) && ($verified_at['t'] ?? '') === 'at') {
+            $access_data = [
+                'user_id'   => $verified_at['uid'],
+                'client_id' => $verified_at['cid'],
+                'family_id' => $verified_at['fid'],
+                'status'    => 'active',
+            ];
+        }
+    }
     if (is_array($access_data)) {
         if ($client_id === '' || ($access_data['client_id'] ?? '') === $client_id) {
-            delete_transient('koto_mcp_token_' . $token_hash);
+            $access_data['status'] = 'revoked';
+            $access_data['revoked_at'] = time();
+            $access_data['revocation_reason'] = 'manual';
+            koto_mcp_storage_put($access_key, $access_data, 'no');
+            delete_transient($access_key);
+            if (!empty($access_data['family_id'])) {
+                $family_id_to_revoke = (string) $access_data['family_id'];
+            }
         }
     }
 
+    // 2. リフレッシュトークンとしての失効処理
     $refresh_option = koto_mcp_refresh_record_option_name($token_hash);
-    $refresh = get_option($refresh_option);
+    $refresh = koto_mcp_storage_get($refresh_option);
+    if (!is_array($refresh)) {
+        $refresh = get_option($refresh_option);
+    }
+    if (!is_array($refresh)) {
+        $verified_rt = koto_mcp_verify_signed_token($token);
+        if (is_array($verified_rt) && ($verified_rt['t'] ?? '') === 'rt') {
+            $refresh = [
+                'client_id' => $verified_rt['cid'],
+                'family_id' => $verified_rt['fid'],
+                'status'    => 'active',
+            ];
+        }
+    }
     if (is_array($refresh)) {
         if ($client_id !== '' && ($refresh['client_id'] ?? '') !== $client_id) {
             return new WP_Error('invalid_grant', 'Token client binding mismatch.', ['status' => 400]);
         }
+        $refresh['status'] = 'revoked';
+        $refresh['revoked_at'] = time();
+        $refresh['revocation_reason'] = 'manual';
+        koto_mcp_storage_put($refresh_option, $refresh, 'no');
+        update_option($refresh_option, $refresh, false);
+        delete_transient('koto_mcp_refresh_' . $token_hash);
         if (!empty($refresh['family_id'])) {
-            koto_mcp_revoke_refresh_family((string) $refresh['family_id']);
-        } else {
-            $refresh['status'] = 'revoked';
-            $refresh['revoked_at'] = time();
-            update_option($refresh_option, $refresh, false);
+            $family_id_to_revoke = (string) $refresh['family_id'];
         }
     }
-    delete_transient('koto_mcp_refresh_' . $token_hash);
+
+    // 3. 関連するファミリー全体を明示的失効
+    if ($family_id_to_revoke !== '') {
+        koto_mcp_revoke_refresh_family($family_id_to_revoke, 'manual');
+    }
+
     return ['revoked' => true];
 }
 

@@ -29,7 +29,7 @@
 
 ### 方式A：OAuth 2.1 + PKCE（Muse / Claude Web・アプリ / ChatGPT MCPコネクタ推奨）
 * パスワードを外部AIサービス側に預けることなく、ブラウザのWordPressログイン＆同意画面（`/mcp/oauth/authorize`）で安全に認可する方式です。
-* アクセストークンは24時間（`expires_in: 86400`）で自動失効し、リフレッシュトークン（30日・ローテーション＆60秒Grace Period＆リプレイ検知付き）で自動更新されます。
+* アクセストークンは1時間（`expires_in: 3600`）で自動失効し、リフレッシュトークン（30日・安全ローテーション＆15秒デバウンス＆明示的失効付き）で自動更新されます。
 
 ### 方式B：WordPress アプリケーションパスワード（ChatGPT Custom GPT Actions / CLIツール推奨）
 * OAuthの自動更新に対応していないクライアントや、ChatGPTの「Custom GPTs（マイGPT）」の Actions（API Key認証）向けに、WordPress標準の「アプリケーションパスワード」をHTTPS経由で利用できます。

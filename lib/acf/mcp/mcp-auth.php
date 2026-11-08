@@ -258,22 +258,83 @@ function koto_mcp_oauth_token_error($error, $description, $status = 400)
     return $response;
 }
 
+/**
+ * アクセストークン文字列からトークンメタデータを解決する。
+ * direct DB、transient、HMAC-SHA256 自己検証署名の多重フォールバックにより、
+ * デプロイやオブジェクトキャッシュ消去時でもトークンが不意に失われない。
+ *
+ * @param string $raw_token
+ * @return array<string, mixed>|null
+ */
+function koto_mcp_resolve_access_token_data($raw_token)
+{
+    $token_hash = hash('sha256', $raw_token);
+
+    // 1. direct DB ストレージからの直接取得
+    $data = koto_mcp_storage_get('koto_mcp_token_' . $token_hash);
+
+    // 2. 移行期・既存レコード用 transient フォールバック
+    if (!is_array($data) || empty($data['user_id'])) {
+        $data = get_transient('koto_mcp_token_' . $token_hash);
+    }
+
+    // 3. HMAC-SHA256 自己検証署名フォールバック
+    if (!is_array($data) || empty($data['user_id'])) {
+        $verified = koto_mcp_verify_signed_token($raw_token);
+        if (is_array($verified) && ($verified['t'] ?? '') === 'at' && !empty($verified['uid'])) {
+            $family_id = (string) ($verified['fid'] ?? '');
+            $status = 'active';
+
+            // ファミリーが既に失効していないか確認
+            if ($family_id !== '') {
+                $family_opt = koto_mcp_refresh_family_option_name($family_id);
+                $family = koto_mcp_storage_get($family_opt);
+                if ($family === null) {
+                    $family = get_option($family_opt);
+                }
+                if (is_array($family) && ($family['status'] ?? 'active') !== 'active') {
+                    $status = 'revoked';
+                }
+            }
+
+            $data = [
+                'user_id'    => (int) $verified['uid'],
+                'scope'      => (string) ($verified['scp'] ?? 'validate preview'),
+                'client_id'  => (string) ($verified['cid'] ?? ''),
+                'family_id'  => $family_id,
+                'status'     => $status,
+                'issued_at'  => (int) ($verified['iat'] ?? time()),
+                'expires_at' => (int) ($verified['exp'] ?? (time() + HOUR_IN_SECONDS)),
+            ];
+            // 復元したトークン情報を direct DB へ書き戻し
+            koto_mcp_storage_put('koto_mcp_token_' . $token_hash, $data, 'no');
+        }
+    }
+
+    return is_array($data) && !empty($data['user_id']) ? $data : null;
+}
+
 function koto_mcp_current_user_from_token($request = null)
 {
     $header = koto_mcp_get_authorization_header($request);
     if (preg_match('/^Bearer\s+(.+)$/i', $header, $match)) {
         $raw_token = trim($match[1]);
-        $token_hash = hash('sha256', $raw_token);
-        $data = get_transient('koto_mcp_token_' . $token_hash);
+        $data = koto_mcp_resolve_access_token_data($raw_token);
         if (is_array($data) && !empty($data['user_id'])) {
             if (($data['status'] ?? 'active') !== 'active') {
                 return 0;
             }
-            if (!empty($data['expires_at']) && (int) $data['expires_at'] <= time()) {
+            $now = time();
+            $clock_skew = 60; // 60秒の時刻同期マージン
+            if (!empty($data['expires_at']) && ((int) $data['expires_at'] + $clock_skew) <= $now) {
                 return 0;
             }
             if (!empty($data['family_id'])) {
-                $family = get_option(koto_mcp_refresh_family_option_name((string) $data['family_id']));
+                $family_opt = koto_mcp_refresh_family_option_name((string) $data['family_id']);
+                $family = koto_mcp_storage_get($family_opt);
+                if ($family === null) {
+                    $family = get_option($family_opt);
+                }
                 if (is_array($family) && ($family['status'] ?? 'active') !== 'active') {
                     return 0;
                 }
@@ -310,10 +371,13 @@ function koto_mcp_require_scope($scope, $request = null)
 
         $token_hash = hash('sha256', $token);
         $access_id = koto_mcp_short_token_id($token_hash, true);
-        $data = get_transient('koto_mcp_token_' . $token_hash);
+        $data = koto_mcp_resolve_access_token_data($token);
+
         if (is_array($data) && !empty($data['user_id'])) {
             $family_id = (string) ($data['family_id'] ?? '');
             $now = time();
+            $clock_skew = 60; // 60秒の通信ラグ・時刻ズレ許容マージン
+
             if (($data['status'] ?? 'active') !== 'active') {
                 koto_mcp_log_token_event('mcp_auth_401', [
                     'reason_code' => 'token_revoked',
@@ -329,8 +393,13 @@ function koto_mcp_require_scope($scope, $request = null)
                     'reason_code' => 'token_revoked',
                 ]);
             }
+
             if ($family_id !== '') {
-                $family = get_option(koto_mcp_refresh_family_option_name($family_id));
+                $family_opt = koto_mcp_refresh_family_option_name($family_id);
+                $family = koto_mcp_storage_get($family_opt);
+                if ($family === null) {
+                    $family = get_option($family_opt);
+                }
                 if (is_array($family) && ($family['status'] ?? 'active') !== 'active') {
                     koto_mcp_log_token_event('mcp_auth_401', [
                         'reason_code' => 'token_revoked',
@@ -347,7 +416,8 @@ function koto_mcp_require_scope($scope, $request = null)
                     ]);
                 }
             }
-            if (!empty($data['expires_at']) && (int) $data['expires_at'] <= $now) {
+
+            if (!empty($data['expires_at']) && ((int) $data['expires_at'] + $clock_skew) <= $now) {
                 koto_mcp_log_token_event('mcp_auth_401', [
                     'reason_code' => 'token_expired',
                     'access_id' => $access_id,
@@ -438,7 +508,16 @@ function koto_mcp_require_scope($scope, $request = null)
     }
 
     if ($header === '' && is_user_logged_in()) {
-        return koto_mcp_check_user_mcp_permission(get_current_user_id());
+        // WordPress 管理画面内（非RESTまたはX-WP-Nonce明示）でのみセッション認証を許可。
+        // MCP Streamable HTTP エンドポイント宛ては OAuth Bearer または Application Password を必須とする。
+        if ($request instanceof WP_REST_Request) {
+            $nonce = $request->get_header('x_wp_nonce');
+            if ($nonce && wp_verify_nonce($nonce, 'wp_rest')) {
+                return koto_mcp_check_user_mcp_permission(get_current_user_id());
+            }
+        } else {
+            return koto_mcp_check_user_mcp_permission(get_current_user_id());
+        }
     }
 
     koto_mcp_log_token_event('mcp_auth_401', [
