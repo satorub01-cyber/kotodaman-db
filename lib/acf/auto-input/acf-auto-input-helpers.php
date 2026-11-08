@@ -824,9 +824,31 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $attr_names = preg_split('/[・\|]/u', $value); //文字なので「と」では分けない
             $attr_ids = [];
             foreach ($attr_names as $name) {
-                $term = get_term_by('name', trim($name), 'available_moji');
-                if ($term) {
-                    $attr_ids[] = $term->term_id;
+                $target_name = trim($name);
+                if ($target_name === '') continue;
+                $matched = get_terms(['taxonomy' => 'available_moji', 'name' => $target_name, 'hide_empty' => false]);
+                $tid = 0;
+                if (is_array($matched) && !empty($matched)) {
+                    foreach ($matched as $mt) {
+                        if ($mt->name === $target_name) {
+                            if (strpos((string) $mt->slug, '%') === false) {
+                                $tid = (int) $mt->term_id;
+                                break;
+                            }
+                            if ($tid === 0) $tid = (int) $mt->term_id;
+                        }
+                    }
+                    if ($tid === 0) {
+                        $tid = (int) $matched[0]->term_id;
+                    }
+                } else {
+                    $term = get_term_by('slug', $target_name, 'available_moji') ?: get_term_by('name', $target_name, 'available_moji');
+                    if ($term && !is_wp_error($term)) {
+                        $tid = (int) $term->term_id;
+                    }
+                }
+                if ($tid > 0) {
+                    $attr_ids[] = $tid;
                 }
             }
             $value = array_values(array_unique($attr_ids));

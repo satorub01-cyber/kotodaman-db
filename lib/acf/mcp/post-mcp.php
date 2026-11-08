@@ -204,6 +204,26 @@ function koto_mcp_resolve_taxonomy_term_id($item, $taxonomy)
     foreach (array_unique($candidates) as $c) {
         $matched = get_terms(['taxonomy' => $taxonomy, 'name' => $c, 'hide_empty' => false]);
         if (is_array($matched) && !empty($matched)) {
+            // PHP側で名前の完全一致（===）を最優先（MySQL照合順序による「ゆ」＝「ゅ」、「あ」＝「ぁ」等の小文字誤判定を完全防止）
+            $exact_non_pct = null;
+            $exact_any = null;
+            foreach ($matched as $mt) {
+                if ($mt->name === $c) {
+                    if (strpos((string) $mt->slug, '%') === false) {
+                        $exact_non_pct = (int) $mt->term_id;
+                        break;
+                    }
+                    if ($exact_any === null) {
+                        $exact_any = (int) $mt->term_id;
+                    }
+                }
+            }
+            if ($exact_non_pct !== null) {
+                return $exact_non_pct;
+            }
+            if ($exact_any !== null) {
+                return $exact_any;
+            }
             foreach ($matched as $mt) {
                 if (strpos((string) $mt->slug, '%') === false) {
                     return (int) $mt->term_id;
@@ -211,9 +231,13 @@ function koto_mcp_resolve_taxonomy_term_id($item, $taxonomy)
             }
             return (int) $matched[0]->term_id;
         }
-        $term = get_term_by('slug', $c, $taxonomy) ?: get_term_by('name', $c, $taxonomy);
-        if ($term && !is_wp_error($term)) {
-            return (int) $term->term_id;
+        $term_slug = get_term_by('slug', $c, $taxonomy);
+        if ($term_slug && !is_wp_error($term_slug) && (string) $term_slug->slug === (string) $c) {
+            return (int) $term_slug->term_id;
+        }
+        $term_name = get_term_by('name', $c, $taxonomy);
+        if ($term_name && !is_wp_error($term_name) && (string) $term_name->name === (string) $c) {
+            return (int) $term_name->term_id;
         }
     }
     return 0;
@@ -685,7 +709,6 @@ function koto_mcp_create_character_draft($request)
             koto_mcp_set_featured_image_from_url($post_id, $screenshot_urls[0]);
         }
     } elseif (defined('KOTO_MCP_DEFAULT_IMAGE_URL') && function_exists('koto_mcp_set_featured_image_from_url')) {
-        update_post_meta($post_id, '_koto_mcp_screenshot_urls', [KOTO_MCP_DEFAULT_IMAGE_URL]);
         koto_mcp_set_featured_image_from_url($post_id, KOTO_MCP_DEFAULT_IMAGE_URL);
     }
 

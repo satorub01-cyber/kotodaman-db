@@ -104,9 +104,10 @@ MCP接続では `initialize` の `instructions` で自動伝達されますが�
   - `rarity`: ★6通常キャラは `"なし"`、★6特殊枠は `"スペシャル"` / `"レジェンド"` / `"グランド"`、★5以下は数字（`"5"` 等）。
   - `affiliation`: 所属グループ名の配列（例: `["エヴァンゲリオン"]`）。表記が不明な場合のみ `get_terms(taxonomy: "affiliation", search: "キーワード")` で確認する。
   - `status_auto_tf`: Lv.120のキャラクターの場合は `true`。
-  - `99_hp`, `99_atk`（または `120_hp`, `120_atk`）, `plus_hp`, `plus_atk`: ステータス数値。
+  - `hp_chouka`, `atk_chouka`: 【入力要求】コエダマによるHP・ATK超化pt（画面の+〇〇表示または超化欄から読み取って指定）。
+  - `lv_99_hp`, `lv_99_atk`（または `lv_120_hp`, `lv_120_atk`）: ステータス基礎値（超化分を含まない基礎値）。
   - `max_ls_hp`, `max_ls_atk`: リーダーとくせいの最大HP・ATK倍率（%の数値）。
-  - `available_moji_loop`: 初期使用可能文字のみを `[{"available_moji": "い"}, {"available_moji": "う"}]` 形式で指定する。とくせい1・2や祝福で追加される文字は `auto_input` から自動生成されるためここには含めない。
+  - `available_moji_loop`: 初期使用可能文字のみを `[{"available_moji": "い"}, {"available_moji": "う"}]` 形式で指定する。**ア行（ぁ/ぃ/ぅ/ぇ/ぉ）やヤ行（ゃ/ゅ/ょ）の小文字は大文字と明確に区別して入力すること**。とくせい1・2や祝福で追加される文字は `auto_input` から自動生成されるためここには含めない。
 - `auto_input`:
   - `auto_input_waza_name`, `auto_input_waza`（わざ名・わざ説明文）
   - `auto_input_sugowaza_name`, `auto_input_sugowaza_condition`, `auto_input_sugowaza`（すごわざ名・発動条件・すごわざ説明文）

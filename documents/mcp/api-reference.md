@@ -112,6 +112,8 @@
       "attribute": "水",
       "species": "神",
       "rarity": "なし",
+      "hp_chouka": 500,
+      "atk_chouka": 250,
       "available_moji_loop": [
         { "available_moji": "さ", "unlock_place": "default" }
       ]
@@ -257,6 +259,8 @@ POST /wp-json/kotodaman/v1/mcp/character-draft
     "attribute": "火",
     "species": "神",
     "rarity": "なし",
+    "hp_chouka": 500,
+    "atk_chouka": 250,
     "available_moji_loop": [
       { "available_moji": "さ" }
     ]

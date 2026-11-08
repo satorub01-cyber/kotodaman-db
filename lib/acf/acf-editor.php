@@ -932,22 +932,16 @@ function koto_acf_editor_page_html()
             $mcp_needs_review = (bool) get_post_meta($edit_post_id, '_koto_mcp_needs_review', true);
             $mcp_audit = get_post_meta($edit_post_id, '_koto_mcp_audit', true);
             $mcp_audit = is_array($mcp_audit) ? $mcp_audit : [];
-            $mcp_screenshots = get_post_meta($edit_post_id, '_koto_mcp_screenshot_urls', true);
-            $mcp_screenshots = is_array($mcp_screenshots) ? $mcp_screenshots : [];
             $mcp_warnings = !empty($mcp_audit['warnings']) && is_array($mcp_audit['warnings']) ? $mcp_audit['warnings'] : [];
-            $mcp_evidence = !empty($mcp_audit['evidence']) && is_array($mcp_audit['evidence']) ? $mcp_audit['evidence'] : [];
             ?>
             <div class="koto-mcp-review-banner <?php echo $mcp_needs_review ? 'is-needs-review' : 'is-reviewed'; ?>">
                 <div class="koto-mcp-banner-header">
                     <div class="koto-mcp-banner-title-area">
                         <span class="koto-mcp-badge <?php echo $mcp_needs_review ? 'badge-warning' : 'badge-success'; ?>">
-                            <?php echo $mcp_needs_review ? '🤖 MCP自動作成（要確認）' : '🤖 MCP自動作成（確認済み）'; ?>
+                            <?php echo $mcp_needs_review ? '🤖 AIによるdraft（要確認）' : '🤖 AIによるdraft（確認済み）'; ?>
                         </span>
-                        <?php if (!empty($mcp_audit['created_at'])) : ?>
-                            <span class="koto-mcp-meta-time">作成日時: <?php echo esc_html($mcp_audit['created_at']); ?></span>
-                        <?php endif; ?>
-                        <?php if (!empty($mcp_audit['reviewed_at'])) : ?>
-                            <span class="koto-mcp-meta-time">確認日時: <?php echo esc_html($mcp_audit['reviewed_at']); ?></span>
+                        <?php if ($mcp_needs_review) : ?>
+                            <span class="koto-mcp-meta-time">AIによるdraftです。内容の確認が必要です。</span>
                         <?php endif; ?>
                     </div>
                     <?php if ($mcp_needs_review && current_user_can('edit_post', $edit_post_id)) : ?>
@@ -969,27 +963,6 @@ function koto_acf_editor_page_html()
                             <?php endforeach; ?>
                         </ul>
                     </div>
-                <?php endif; ?>
-
-                <?php if (!empty($mcp_evidence) || !empty($mcp_screenshots)) : ?>
-                    <details class="koto-mcp-evidence-details">
-                        <summary class="koto-mcp-evidence-summary">OCR根拠（evidence）およびスクリーンショットを表示</summary>
-                        <div class="koto-mcp-evidence-body">
-                            <?php if (!empty($mcp_screenshots)) : ?>
-                                <div class="koto-mcp-screenshot-links">
-                                    <strong>スクリーンショット:</strong>
-                                    <ul>
-                                        <?php foreach ($mcp_screenshots as $s_url) : ?>
-                                            <li><a href="<?php echo esc_url($s_url); ?>" target="_blank" rel="noopener"><?php echo esc_html($s_url); ?></a></li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                </div>
-                            <?php endif; ?>
-                            <?php if (!empty($mcp_evidence)) : ?>
-                                <pre class="koto-mcp-evidence-json"><?php echo esc_html(wp_json_encode($mcp_evidence, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)); ?></pre>
-                            <?php endif; ?>
-                        </div>
-                    </details>
                 <?php endif; ?>
             </div>
         <?php endif; ?>

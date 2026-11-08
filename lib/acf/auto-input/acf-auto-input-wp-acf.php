@@ -39,6 +39,19 @@ function koto_get_top_level_character_acf_field($field_name)
         'second_trait_loop'               => 'field_693981d87156a',
         'blessing_trait_loop'             => 'field_693981fe6d220',
         'blessing_ex_trait_loop'          => 'field_6a4f265165fe4',
+        'hp_chouka'                       => 'field_69578493b1fef',
+        'atk_chouka'                      => 'field_695784e7b1ff0',
+        'lv_99_hp'                        => 'field_69578484b1fee',
+        'lv_99_atk'                       => 'field_69578379b1fe9',
+        'lv_120_hp'                       => 'field_695784fcb1ff1',
+        'lv_120_atk'                      => 'field_6957850fb1ff2',
+        // 表記揺れ・旧エイリアス互換
+        'plus_hp'                         => 'field_69578493b1fef',
+        'plus_atk'                        => 'field_695784e7b1ff0',
+        '99_hp'                           => 'field_69578484b1fee',
+        '99_atk'                          => 'field_69578379b1fe9',
+        '120_hp'                          => 'field_695784fcb1ff1',
+        '120_atk'                         => 'field_6957850fb1ff2',
     ];
 
     if (strpos($field_name, 'field_') === 0) {

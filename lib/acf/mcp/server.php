@@ -740,11 +740,11 @@ function koto_mcp_instructions_text()
         '【最短・省トークン作成手順（4ステップ）】',
         'Step 1 (スキーマ確認): 不明なフィールド仕様がある場合のみ `get_field_schema` を呼ぶ（フィールド規則と `workflow_guide` が返却されます）。',
         'Step 2 (データ構築・ターム自動解決):',
-        '  - `basic_fields` には基本データ（必須: `attribute`, `species`, `rarity`）を入れる。これらは日本語名（例: `"attribute": "水"`, `"species": "神"`, `"rarity": "なし"`, `"affiliation": ["エヴァンゲリオン"]`, `"available_moji_loop": [{"available_moji": "い"}]`）で直接指定でき、サーバー側でタームIDに自動解決されるため、不要な `get_terms` の連発は避けてください（未知のグループ名等を検索する時のみ `get_terms(taxonomy: "affiliation", search: "キーワード")` を使用）。',
+        '  - `basic_fields` には基本データ（必須: `attribute`, `species`, `rarity`）を入れ、HPとATKの超化（`hp_chouka`, `atk_chouka`）およびLv.99基礎ステータス（`lv_99_hp`, `lv_99_atk`）も含めてください（画面の「+〇〇」表示または超化欄から読み取って設定）。これらは日本語名（例: `"attribute": "水"`, `"species": "神"`, `"rarity": "なし"`, `"affiliation": ["エヴァンゲリオン"]`, `"available_moji_loop": [{"available_moji": "い"}]`）で直接指定でき、サーバー側でタームIDに自動解決されるため、不要な `get_terms` の連発は避けてください（未知のグループ名等を検索する時のみ `get_terms(taxonomy: "affiliation", search: "キーワード")` を使用）。',
         '  - `name_ruby`: キャラ名のひらがな読みのみを指定し、`()` / `（）` 内の文字列は含めない（例: `シンジ(決戦)` → `"しんじ"`）。',
         '  - `rarity`: ★6通常キャラは `"なし"`、特殊枠は `"スペシャル"`, `"レジェンド"`, `"グランド"`。★5以下は `"5"` 等。',
         '  - `status_auto_tf`: Lv.120キャラの場合は `true`。',
-        '  - `available_moji_loop`: 初期使用可能文字のみを入れる（とくせい1・2や祝福の追加文字は `auto_input` 側で自動生成されるため含めない）。',
+        '  - `available_moji_loop`: 初期使用可能文字のみを入れる（とくせい1・2や祝福の追加文字は `auto_input` 側で自動生成されるため含めない）。【最重要注意】ア行（ぁ/ぃ/ぅ/ぇ/ぉ）やヤ行（ゃ/ゅ/ょ）の小文字（捨て仮名・拗音）は大文字（あ/い/う/え/お/や/ゆ/よ）と明確に区別して入力してください（コトダマンDBでは「ゆ」と「ゅ」、「あ」と「ぁ」等は別文字として扱われます）。',
         '  - `auto_input` には、わざ・すごわざ・とくせい・リーダー・祝福・コトワザのゲーム内説明文をそのまま渡す。',
         'Step 3 (`preview_draft` 一括実行): 抽出した `character_name`, `basic_fields`, `auto_input` を一度で `preview_draft` に渡し、`preview_hash` を取得する。',
         'Step 4 (`create_draft` / `update_draft` 最小引数実行): 直前の `preview_draft` 成功後、`create_draft` には `preview_hash` と `idempotency_key` の2項目のみ（`update_draft` は加えて `post_id`）を渡す。サーバー側の30分キャッシュから入力一式が自動復元されるため、`basic_fields` や `auto_input` を重複送信しないでください。',
@@ -772,7 +772,8 @@ function koto_mcp_workflow_guide_data()
             'name_ruby' => 'ひらがな読みのみ。カッコ () / （） 内の文字列は含めない（例: シンジ(決戦) -> しんじ）。',
             'rarity' => '★6通常は "なし"、★6特殊は "スペシャル" / "レジェンド" / "グランド"、★5以下は数字（"5" 等）。',
             'status_auto_tf' => 'Lv.120のキャラクターは true に設定する。',
-            'available_moji_loop' => '初期使用可能文字のみを指定する（例: [{"available_moji": "い"}]）。とくせい・祝福で追加される文字は auto_input から自動生成されるため含めない。',
+            'hp_chouka / atk_chouka' => 'HPとATKの超化（コエダマ）pt（数値）。スクリーンショットの+〇〇表示または超化欄から読み取って basic_fields に含める。',
+            'available_moji_loop' => '初期使用可能文字のみを指定する（例: [{"available_moji": "い"}]）。ア行（ぁ/ぃ/ぅ/ぇ/ぉ）やヤ行（ゃ/ゅ/ょ）の小文字は大文字と明確に区別して入力すること。とくせい・祝福で追加される文字は auto_input から自動生成されるため含めない。',
         ],
         'error_recovery' => 'VALIDATION_FAILED 時は該当項目のみ最大3回まで再確認し、解決しない場合は停止して人間に確認を求める。自動公開は行わない。',
     ];
@@ -1100,6 +1101,12 @@ function koto_mcp_extract_existing_draft_data($post_id)
     $scalar_fields = [
         'name_ruby',
         'status_auto_tf',
+        'hp_chouka',
+        'atk_chouka',
+        'lv_99_hp',
+        'lv_99_atk',
+        'lv_120_hp',
+        'lv_120_atk',
         '99_hp',
         '99_atk',
         '120_hp',
@@ -1500,8 +1507,8 @@ function koto_mcp_validate_draft(&$args)
                                 $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'unknown_term');
                             }
                         } elseif (is_string($m_item) && trim($m_item) !== '') {
-                            $term = get_term_by('name', trim($m_item), 'available_moji') ?: get_term_by('slug', trim($m_item), 'available_moji');
-                            if (!$term || is_wp_error($term)) {
+                            $resolved_tid = koto_mcp_resolve_taxonomy_term_id(trim($m_item), 'available_moji');
+                            if ($resolved_tid <= 0) {
                                 $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'unknown_term');
                             }
                         } else {
@@ -1789,10 +1796,13 @@ function koto_mcp_call_tool($name, $args, $request = null)
             return new WP_Error('CREATE_FAILED', 'Draft creation failed.', ['field' => 'post', 'reason' => 'invalid_value']);
         }
         if ($name === 'create_draft') {
-            $urls = !empty($args['screenshot_urls']) ? $args['screenshot_urls'] : [KOTO_MCP_DEFAULT_IMAGE_URL];
-            $urls = array_values(array_filter(array_map('esc_url_raw', $urls)));
-            update_post_meta($post_id, '_koto_mcp_screenshot_urls', $urls);
-            koto_mcp_set_featured_image_from_url($post_id, $urls[0] ?? '');
+            if (!empty($args['screenshot_urls'])) {
+                $urls = array_values(array_filter(array_map('esc_url_raw', (array) $args['screenshot_urls'])));
+                update_post_meta($post_id, '_koto_mcp_screenshot_urls', $urls);
+                koto_mcp_set_featured_image_from_url($post_id, $urls[0] ?? '');
+            } elseif (defined('KOTO_MCP_DEFAULT_IMAGE_URL')) {
+                koto_mcp_set_featured_image_from_url($post_id, KOTO_MCP_DEFAULT_IMAGE_URL);
+            }
         } elseif (array_key_exists('screenshot_urls', $args)) {
             $urls = array_values(array_filter(array_map('esc_url_raw', (array) $args['screenshot_urls'])));
             update_post_meta($post_id, '_koto_mcp_screenshot_urls', $urls);
