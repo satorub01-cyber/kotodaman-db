@@ -513,6 +513,29 @@ function koto_mcp_is_secure_or_loopback_transport()
     return false;
 }
 
+function koto_mcp_is_user_approved($user_id)
+{
+    $user_id = (int) $user_id;
+    if ($user_id <= 0) {
+        return false;
+    }
+    $user = get_userdata($user_id);
+    if (!$user) {
+        return false;
+    }
+    $roles = (array) $user->roles;
+    if (array_intersect(['administrator', 'editor'], $roles)) {
+        return true;
+    }
+    if (get_user_meta($user_id, '_koto_mcp_approved', true)) {
+        return true;
+    }
+    if (in_array('mcp_user', $roles, true) && !get_user_meta($user_id, '_koto_mcp_revoked', true)) {
+        return true;
+    }
+    return false;
+}
+
 function koto_mcp_check_user_mcp_permission($user_id)
 {
     $user_id = (int) $user_id;
@@ -524,8 +547,7 @@ function koto_mcp_check_user_mcp_permission($user_id)
     if (!$has_mcp_role && !user_can($user_id, 'edit_posts')) {
         return new WP_Error('mcp_forbidden', 'MCP利用者ロールまたはedit_posts権限が必要です。利用には管理者への申請が必要です。', ['status' => 403]);
     }
-    $privileged = $has_mcp_role || ($user && array_intersect(['administrator', 'editor'], (array) $user->roles));
-    if (!$privileged && !get_user_meta($user_id, '_koto_mcp_approved', true)) {
+    if (!koto_mcp_is_user_approved($user_id)) {
         return new WP_Error('mcp_pending_approval', 'MCP利用の承認が必要です。利用には管理者への申請が必要です。', ['status' => 403]);
     }
     return $user_id;
@@ -2057,6 +2079,54 @@ function koto_mcp_oauth_user_has_access($user_id)
     return in_array('mcp_user', $roles, true) || user_can((int) $user_id, 'edit_posts');
 }
 
+function koto_mcp_oauth_signon(array $credentials, $secure_cookie = '')
+{
+    global $wp_filter;
+
+    $saved_hooks = [];
+    foreach (['authenticate', 'wp_authenticate_user', 'wp_authenticate'] as $hook_name) {
+        if (isset($wp_filter[$hook_name])) {
+            $saved_hooks[$hook_name] = clone $wp_filter[$hook_name];
+        }
+    }
+
+    $on_set_auth_cookie = static function ($auth_cookie, $expire = 0, $expiration = 0, $user_id = 0, $scheme = '') {
+        $cookie_name = ($scheme === 'secure_auth') ? SECURE_AUTH_COOKIE : AUTH_COOKIE;
+        $_COOKIE[$cookie_name] = $auth_cookie;
+    };
+    $on_set_logged_in_cookie = static function ($logged_in_cookie) {
+        $_COOKIE[LOGGED_IN_COOKIE] = $logged_in_cookie;
+    };
+
+    add_action('set_auth_cookie', $on_set_auth_cookie, 10, 5);
+    add_action('set_logged_in_cookie', $on_set_logged_in_cookie, 10, 1);
+
+    try {
+        remove_all_filters('authenticate');
+        remove_all_filters('wp_authenticate_user');
+        remove_all_actions('wp_authenticate');
+
+        add_filter('authenticate', 'wp_authenticate_username_password', 20, 3);
+        add_filter('authenticate', 'wp_authenticate_email_password', 20, 3);
+        if (function_exists('wp_authenticate_application_password')) {
+            add_filter('authenticate', 'wp_authenticate_application_password', 20, 3);
+        }
+        add_filter('authenticate', 'wp_authenticate_spam_check', 99);
+
+        return wp_signon($credentials, $secure_cookie);
+    } finally {
+        remove_action('set_auth_cookie', $on_set_auth_cookie, 10);
+        remove_action('set_logged_in_cookie', $on_set_logged_in_cookie, 10);
+        foreach (['authenticate', 'wp_authenticate_user', 'wp_authenticate'] as $hook_name) {
+            if (isset($saved_hooks[$hook_name])) {
+                $wp_filter[$hook_name] = $saved_hooks[$hook_name];
+            } else {
+                unset($wp_filter[$hook_name]);
+            }
+        }
+    }
+}
+
 function koto_mcp_oauth_render_login($request_fields, $error = '')
 {
     status_header(200);
@@ -2129,16 +2199,28 @@ function koto_mcp_oauth_authorize_browser()
             if (!wp_verify_nonce((string) ($params['_wpnonce'] ?? ''), 'koto_mcp_oauth_login')) {
                 koto_mcp_oauth_render_login($request_fields, 'ログインフォームの有効期限が切れました。もう一度お試しください。');
             }
-            $username = sanitize_text_field((string) ($params['log'] ?? ''));
+            $raw_login = (isset($_POST['log']) && is_string($_POST['log']))
+                ? wp_unslash($_POST['log'])
+                : (string) ($params['log'] ?? '');
+            $username = sanitize_text_field($raw_login);
             if (koto_mcp_oauth_login_is_rate_limited($username)) {
                 koto_mcp_oauth_render_login($request_fields, 'ログイン試行が多すぎます。15分後に再試行してください。');
             }
-            $user = wp_signon([
-                'user_login' => $username,
-                'user_password' => (string) ($params['pwd'] ?? ''),
+            $raw_password = (isset($_POST['pwd']) && is_string($_POST['pwd']))
+                ? $_POST['pwd']
+                : (string) ($params['pwd'] ?? '');
+            $user = koto_mcp_oauth_signon([
+                'user_login' => $raw_login,
+                'user_password' => $raw_password,
                 'remember' => !empty($params['rememberme']),
             ], is_ssl());
             if (is_wp_error($user)) {
+                error_log(sprintf(
+                    '[Koto MCP OAuth] wp_signon failed for user "%s": code=%s message=%s',
+                    $username,
+                    (string) $user->get_error_code(),
+                    wp_strip_all_tags((string) $user->get_error_message())
+                ));
                 koto_mcp_oauth_login_record_failure($username);
                 koto_mcp_oauth_render_login($request_fields, 'ログインに失敗しました。ユーザー名またはパスワードを確認してください。');
             }

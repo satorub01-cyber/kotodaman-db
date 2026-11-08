@@ -24,8 +24,7 @@ function koto_mcp_rest_permission_check($request, $required_scope = 'validate')
         return false;
     }
     $user_id = get_current_user_id();
-    $privileged = $has_mcp_role || ($user && array_intersect(['administrator', 'editor'], (array) $user->roles));
-    if (!$privileged && !get_user_meta($user_id, '_koto_mcp_approved', true)) {
+    if (!koto_mcp_is_user_approved($user_id)) {
         return new WP_Error('mcp_pending_approval', 'MCP access approval is required.', ['status' => 403]);
     }
     return true;
