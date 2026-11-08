@@ -463,6 +463,28 @@ function koto_mcp_update_basic_fields($post_id, $basic_fields)
                 continue;
             }
         }
+        if ($field_name === 'get_place' && is_string($value)) {
+            $gp = strtolower(trim($value));
+            if ($gp === 'gatcha' || $gp === 'gacha' || $gp === 'ガチャ') {
+                $value = 'gacha';
+            } elseif ($gp === 'other' || $gp === 'その他') {
+                $value = 'other';
+            }
+        }
+        if (($field['type'] ?? '') === 'relationship') {
+            if ($value !== null && $value !== '') {
+                $raw_items = is_array($value) ? $value : [$value];
+                $rel_ids = [];
+                foreach ($raw_items as $item) {
+                    if (is_numeric($item) && (int) $item > 0) {
+                        $rel_ids[] = (int) $item;
+                    }
+                }
+                $value = array_values(array_unique($rel_ids));
+            } else {
+                $value = [];
+            }
+        }
         if ($field_name === 'available_moji_loop' && is_array($value)) {
             $value = koto_mcp_normalize_available_moji_rows($value, $default_attr_id);
         }

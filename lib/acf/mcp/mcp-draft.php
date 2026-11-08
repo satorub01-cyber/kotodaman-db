@@ -21,6 +21,26 @@ function koto_mcp_extract_existing_draft_data($post_id)
         return null;
     }
 
+    $spec_json = get_post_meta($post->ID, '_spec_json', true);
+    $spec = is_string($spec_json) ? json_decode($spec_json, true) : (is_array($spec_json) ? $spec_json : null);
+
+    $normalize_date = static function ($raw_date) {
+        if (empty($raw_date) || !is_scalar($raw_date)) {
+            return null;
+        }
+        $str = trim((string) $raw_date);
+        if (preg_match('/^(\d{4})(\d{2})(\d{2})$/', $str, $m)) {
+            return "{$m[1]}-{$m[2]}-{$m[3]}";
+        }
+        if (preg_match('/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/', $str, $m)) {
+            return sprintf('%04d-%02d-%02d', (int) $m[1], (int) $m[2], (int) $m[3]);
+        }
+        if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $str, $m)) {
+            return sprintf('%04d-%02d-%02d', (int) $m[1], (int) $m[2], (int) $m[3]);
+        }
+        return null;
+    };
+
     $basic_fields = [];
     $single_tax_fields = [
         'attribute'     => 'attribute',
@@ -44,12 +64,15 @@ function koto_mcp_extract_existing_draft_data($post_id)
         if ($tid > 0) {
             $term = get_term($tid, $tax);
             $basic_fields[$fname] = ($term && !is_wp_error($term)) ? $term->name : $tid;
+        } else {
+            $basic_fields[$fname] = null;
         }
     }
 
     $multi_tax_fields = [
         'affiliation' => 'affiliation',
         'event'       => 'event',
+        'quest'       => 'suitable_quest',
     ];
     foreach ($multi_tax_fields as $fname => $tax) {
         $fdef = function_exists('koto_get_top_level_character_acf_field') ? koto_get_top_level_character_acf_field($fname) : null;
@@ -72,51 +95,198 @@ function koto_mcp_extract_existing_draft_data($post_id)
                 $names[] = ($term && !is_wp_error($term)) ? $term->name : $tid;
             }
             $basic_fields[$fname] = $names;
+        } else {
+            $basic_fields[$fname] = [];
         }
     }
 
-    $scalar_fields = [
-        'name_ruby',
-        'status_auto_tf',
-        'hp_chouka',
-        'atk_chouka',
-        'lv_99_hp',
-        'lv_99_atk',
-        'lv_120_hp',
-        'lv_120_atk',
-        '99_hp',
-        '99_atk',
-        '120_hp',
-        '120_atk',
-        'plus_hp',
-        'plus_atk',
-        'max_ls_hp',
-        'max_ls_atk',
-        'fuku_break',
-        'get_place',
-        'implement_date',
-        'cv',
-        'acquisition_text',
-        'illust_text',
+    $scalar_defaults = [
+        'name_ruby'                 => null,
+        'status_auto_tf'            => false,
+        'magnification_estimate_tf' => true,
+        'hp_chouka'                 => null,
+        'atk_chouka'                => null,
+        'lv_99_hp'           => null,
+        'lv_99_atk'          => null,
+        'lv_120_hp'          => null,
+        'lv_120_atk'         => null,
+        '99_hp'              => null,
+        '99_atk'             => null,
+        '120_hp'             => null,
+        '120_atk'            => null,
+        'plus_hp'            => null,
+        'plus_atk'           => null,
+        'max_ls_hp'          => null,
+        'max_ls_atk'         => null,
+        'fuku_break'         => false,
+        'get_place'          => null,
+        'voice_actor'        => null,
+        'cv'                 => null,
+        'pre_evo_name'       => null,
+        'another_image_name' => null,
+        'talent_hp'          => null,
+        'talent_atk'         => null,
+        'waza_name'          => null,
+        'sugowaza_name'      => null,
+        'first_trait_name'   => null,
+        'second_trait_name'  => null,
+        'acquisition_text'   => null,
+        'illust_text'        => null,
     ];
-    foreach ($scalar_fields as $fname) {
+
+    foreach ($scalar_defaults as $fname => $default_val) {
         $fdef = function_exists('koto_get_top_level_character_acf_field') ? koto_get_top_level_character_acf_field($fname) : null;
         $val = ($fdef && !empty($fdef['key'])) ? get_field($fdef['key'], $post->ID, false) : get_post_meta($post->ID, $fname, true);
         if ($val === null || $val === '' || $val === false) {
+            $basic_fields[$fname] = $default_val;
             continue;
         }
-        if (($fdef['type'] ?? '') === 'true_false') {
+        if (($fdef['type'] ?? '') === 'true_false' || is_bool($default_val)) {
             $basic_fields[$fname] = (bool) $val;
-        } elseif (($fdef['type'] ?? '') === 'number') {
+        } elseif (($fdef['type'] ?? '') === 'number' || is_int($default_val)) {
             if (is_numeric($val)) {
                 $basic_fields[$fname] = strpos((string) $val, '.') !== false ? (float) $val : (int) $val;
+            } else {
+                $basic_fields[$fname] = $default_val;
             }
+        } elseif (is_numeric($val) && in_array($fname, ['hp_chouka', 'atk_chouka', 'lv_99_hp', 'lv_99_atk', 'lv_120_hp', 'lv_120_atk', '99_hp', '99_atk', '120_hp', '120_atk', 'plus_hp', 'plus_atk', 'max_ls_hp', 'max_ls_atk', 'talent_hp', 'talent_atk'], true)) {
+            $basic_fields[$fname] = (int) $val;
         } else {
-            $basic_fields[$fname] = $val;
+            $basic_fields[$fname] = is_string($val) ? trim($val) : $val;
+        }
+    }
+
+    // 1. 声優 (voice_actor / cv)
+    $va = $basic_fields['voice_actor'] ?? ($basic_fields['cv'] ?? null);
+    if ($va === null || $va === '') {
+        $meta_cv = get_post_meta($post->ID, 'voice_actor', true) ?: get_post_meta($post->ID, 'cv', true);
+        if ($meta_cv !== '' && $meta_cv !== null) {
+            $va = trim((string) $meta_cv);
+        } elseif (!empty($spec['cv'])) {
+            $va = trim((string) $spec['cv']);
+        }
+    }
+    $basic_fields['voice_actor'] = ($va !== '' && $va !== null) ? $va : null;
+    $basic_fields['cv'] = $basic_fields['voice_actor'];
+
+    // 2. 進化前の名前 (pre_evo_name)
+    if ($basic_fields['pre_evo_name'] === null || $basic_fields['pre_evo_name'] === '') {
+        $pe_meta = get_post_meta($post->ID, 'pre_evo_name', true);
+        if ($pe_meta !== '' && $pe_meta !== null) {
+            $basic_fields['pre_evo_name'] = trim((string) $pe_meta);
+        } elseif (!empty($spec['pre_evo_name'])) {
+            $basic_fields['pre_evo_name'] = trim((string) $spec['pre_evo_name']);
+        }
+    }
+
+    // 3. 絵違いの名前 (another_image_name)
+    if ($basic_fields['another_image_name'] === null || $basic_fields['another_image_name'] === '') {
+        $ano_meta = get_post_meta($post->ID, 'another_image_name', true);
+        if ($ano_meta !== '' && $ano_meta !== null) {
+            $basic_fields['another_image_name'] = trim((string) $ano_meta);
+        } elseif (!empty($spec['another_image_name'])) {
+            $basic_fields['another_image_name'] = trim((string) $spec['another_image_name']);
+        }
+    }
+
+    // 4. 実装日 (実装月（わかれば実装日） / implement_date)
+    $date_val = null;
+    $fdef_date = function_exists('koto_get_top_level_character_acf_field') ? koto_get_top_level_character_acf_field('実装月（わかれば実装日）') : null;
+    if ($fdef_date && !empty($fdef_date['key'])) {
+        $raw_d = get_field($fdef_date['key'], $post->ID, false);
+        $date_val = $normalize_date($raw_d);
+    }
+    if ($date_val === null) {
+        $meta_d = get_post_meta($post->ID, '実装月（わかれば実装日）', true);
+        $date_val = $normalize_date($meta_d);
+    }
+    if ($date_val === null) {
+        $impl_d = get_post_meta($post->ID, 'impl_date', true);
+        $date_val = $normalize_date($impl_d);
+    }
+    if ($date_val === null && !empty($spec['release_date'])) {
+        $date_val = $normalize_date($spec['release_date']);
+    }
+    $basic_fields['実装月（わかれば実装日）'] = $date_val;
+    $basic_fields['implement_date'] = $date_val;
+
+    // 5. わざ名 / すごわざ名
+    if ($basic_fields['waza_name'] === null || $basic_fields['waza_name'] === '') {
+        $wn = get_post_meta($post->ID, 'waza_name', true);
+        if ($wn !== '' && $wn !== null) {
+            $basic_fields['waza_name'] = trim((string) $wn);
+        } elseif (!empty($spec['waza']['name'])) {
+            $basic_fields['waza_name'] = trim((string) $spec['waza']['name']);
+        }
+    }
+    if ($basic_fields['sugowaza_name'] === null || $basic_fields['sugowaza_name'] === '') {
+        $sn = get_post_meta($post->ID, 'sugowaza_name', true);
+        if ($sn !== '' && $sn !== null) {
+            $basic_fields['sugowaza_name'] = trim((string) $sn);
+        } elseif (!empty($spec['sugowaza']['name'])) {
+            $basic_fields['sugowaza_name'] = trim((string) $spec['sugowaza']['name']);
+        }
+    }
+
+    // 6. とくせい1 / とくせい2 名
+    if ($basic_fields['first_trait_name'] === null || $basic_fields['first_trait_name'] === '') {
+        $t1n = get_post_meta($post->ID, 'first_trait_name', true);
+        if ($t1n !== '' && $t1n !== null) {
+            $basic_fields['first_trait_name'] = trim((string) $t1n);
+        } elseif (!empty($spec['traits'][0]['name'])) {
+            $basic_fields['first_trait_name'] = trim((string) $spec['traits'][0]['name']);
+        }
+    }
+    if ($basic_fields['second_trait_name'] === null || $basic_fields['second_trait_name'] === '') {
+        $t2n = get_post_meta($post->ID, 'second_trait_name', true);
+        if ($t2n !== '' && $t2n !== null) {
+            $basic_fields['second_trait_name'] = trim((string) $t2n);
+        } elseif (!empty($spec['traits'][1]['name'])) {
+            $basic_fields['second_trait_name'] = trim((string) $spec['traits'][1]['name']);
+        }
+    }
+
+    // 7. Lv.120 HP / ATK (自動計算値のフォールバック)
+    if ($basic_fields['lv_120_hp'] === null) {
+        $meta_120_hp = get_post_meta($post->ID, '120_hp', true);
+        if (is_numeric($meta_120_hp) && (int) $meta_120_hp > 0) {
+            $basic_fields['lv_120_hp'] = (int) $meta_120_hp;
+        } elseif (!empty($spec['_val_120_hp']) && is_numeric($spec['_val_120_hp'])) {
+            $basic_fields['lv_120_hp'] = (int) $spec['_val_120_hp'];
+        }
+    }
+    $basic_fields['120_hp'] = $basic_fields['lv_120_hp'];
+
+    if ($basic_fields['lv_120_atk'] === null) {
+        $meta_120_atk = get_post_meta($post->ID, '120_atk', true);
+        if (is_numeric($meta_120_atk) && (int) $meta_120_atk > 0) {
+            $basic_fields['lv_120_atk'] = (int) $meta_120_atk;
+        } elseif (!empty($spec['_val_120_atk']) && is_numeric($spec['_val_120_atk'])) {
+            $basic_fields['lv_120_atk'] = (int) $spec['_val_120_atk'];
+        }
+    }
+    $basic_fields['120_atk'] = $basic_fields['lv_120_atk'];
+
+    // 8. 才能開花 HP / ATK (自動計算値のフォールバック)
+    if ($basic_fields['talent_hp'] === null) {
+        $meta_tal_hp = get_post_meta($post->ID, 'talent_hp', true);
+        if (is_numeric($meta_tal_hp) && (int) $meta_tal_hp > 0) {
+            $basic_fields['talent_hp'] = (int) $meta_tal_hp;
+        } elseif (!empty($spec['talent_hp']) && is_numeric($spec['talent_hp'])) {
+            $basic_fields['talent_hp'] = (int) $spec['talent_hp'];
+        }
+    }
+    if ($basic_fields['talent_atk'] === null) {
+        $meta_tal_atk = get_post_meta($post->ID, 'talent_atk', true);
+        if (is_numeric($meta_tal_atk) && (int) $meta_tal_atk > 0) {
+            $basic_fields['talent_atk'] = (int) $meta_tal_atk;
+        } elseif (!empty($spec['talent_atk']) && is_numeric($spec['talent_atk'])) {
+            $basic_fields['talent_atk'] = (int) $spec['talent_atk'];
         }
     }
 
     $moji_fdef = function_exists('koto_get_top_level_character_acf_field') ? koto_get_top_level_character_acf_field('available_moji_loop') : null;
+    $basic_fields['available_moji_loop'] = [];
     if ($moji_fdef && !empty($moji_fdef['key'])) {
         $raw_rows = get_field($moji_fdef['key'], $post->ID, false);
         if (is_array($raw_rows) && !empty($raw_rows)) {
@@ -152,14 +322,29 @@ function koto_mcp_extract_existing_draft_data($post_id)
                 }
                 $moji_rows[] = $row_out;
             }
-            if (!empty($moji_rows)) {
-                $basic_fields['available_moji_loop'] = $moji_rows;
-            }
+            $basic_fields['available_moji_loop'] = $moji_rows;
         }
     }
 
+    $sc_fdef = function_exists('koto_get_top_level_character_acf_field') ? koto_get_top_level_character_acf_field('same_character') : null;
+    $raw_sc = ($sc_fdef && !empty($sc_fdef['key'])) ? get_field($sc_fdef['key'], $post->ID, false) : get_post_meta($post->ID, 'same_character', true);
+    $sc_ids = is_array($raw_sc) ? array_values(array_filter(array_map('intval', $raw_sc))) : (is_numeric($raw_sc) && (int) $raw_sc > 0 ? [(int) $raw_sc] : []);
+    $basic_fields['same_character'] = $sc_ids;
+
     $audit = get_post_meta($post->ID, '_koto_mcp_audit', true);
     $screenshots = get_post_meta($post->ID, '_koto_mcp_screenshot_urls', true);
+
+    $computed = [
+        'lv_120_hp'         => $basic_fields['lv_120_hp'],
+        'lv_120_atk'        => $basic_fields['lv_120_atk'],
+        'talent_hp'         => $basic_fields['talent_hp'],
+        'talent_atk'        => $basic_fields['talent_atk'],
+        'waza_name'         => $basic_fields['waza_name'],
+        'sugowaza_name'     => $basic_fields['sugowaza_name'],
+        'first_trait_name'  => $basic_fields['first_trait_name'],
+        'second_trait_name' => $basic_fields['second_trait_name'],
+        'release_date'      => $date_val,
+    ];
 
     return [
         'post_id'        => (int) $post->ID,
@@ -167,6 +352,7 @@ function koto_mcp_extract_existing_draft_data($post_id)
         'status'         => (string) $post->post_status,
         'edit_url'       => admin_url('admin.php?page=koto-acf-editor&edit_post_id=' . $post->ID),
         'basic_fields'   => $basic_fields,
+        'computed'       => $computed,
         'mcp_meta'       => [
             'generated'       => (bool) get_post_meta($post->ID, '_koto_mcp_generated', true),
             'needs_review'    => (bool) get_post_meta($post->ID, '_koto_mcp_needs_review', true),
@@ -305,6 +491,37 @@ function koto_mcp_validate_draft(&$args)
     }
 
     $fields = is_array($args['basic_fields'] ?? null) ? $args['basic_fields'] : [];
+
+    // エイリアス正規化（例: implement_date -> 実装月（わかれば実装日）, cv -> voice_actor）
+    $basic_field_aliases = [
+        'implement_date' => '実装月（わかれば実装日）',
+        'release_date'   => '実装月（わかれば実装日）',
+        'cv'             => 'voice_actor',
+    ];
+    foreach ($basic_field_aliases as $alias_k => $canonical_k) {
+        if (array_key_exists($alias_k, $fields)) {
+            if (!array_key_exists($canonical_k, $fields) || $fields[$canonical_k] === null || $fields[$canonical_k] === '') {
+                $fields[$canonical_k] = $fields[$alias_k];
+            }
+            unset($fields[$alias_k]);
+        }
+    }
+
+    // AIによる下書きは magnification_estimate_tf を必ず true に設定
+    $fields['magnification_estimate_tf'] = true;
+
+    // get_place の表記ゆれ正規化（gatcha / ガチャ -> gacha, その他 -> other）
+    if (isset($fields['get_place']) && is_string($fields['get_place'])) {
+        $gp = strtolower(trim($fields['get_place']));
+        if ($gp === 'gatcha' || $gp === 'gacha' || $gp === 'ガチャ') {
+            $fields['get_place'] = 'gacha';
+        } elseif ($gp === 'other' || $gp === 'その他') {
+            $fields['get_place'] = 'other';
+        }
+    }
+
+    $args['basic_fields'] = $fields;
+
     $schema = koto_mcp_field_schema();
     foreach (['attribute', 'species', 'rarity'] as $required) {
         $is_empty_array = is_array($fields[$required] ?? null) && count($fields[$required]) === 0;
@@ -422,7 +639,32 @@ function koto_mcp_validate_draft(&$args)
             continue;
         }
 
-        if (in_array($definition['type'], ['text', 'textarea', 'url', 'email', 'date_picker', 'select', 'radio'], true) && (!is_string($value) && !is_numeric($value))) {
+        if ($definition['type'] === 'date_picker') {
+            if (!is_string($value) && !is_numeric($value)) {
+                $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_type');
+            } else {
+                $raw_d = trim((string) $value);
+                if ($raw_d !== '' && !preg_match('/^(\d{4})[-\/]?(\d{1,2})[-\/]?(\d{1,2})$/', $raw_d)) {
+                    $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_date_format');
+                }
+            }
+            continue;
+        }
+
+        if ($definition['type'] === 'relationship') {
+            if ($value !== null && $value !== '') {
+                $ids = is_array($value) ? $value : [$value];
+                foreach ($ids as $rel_id) {
+                    if (!is_numeric($rel_id) || (int) $rel_id <= 0) {
+                        $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_type');
+                        break;
+                    }
+                }
+            }
+            continue;
+        }
+
+        if (in_array($definition['type'], ['text', 'textarea', 'url', 'email', 'select', 'radio'], true) && (!is_string($value) && !is_numeric($value))) {
             $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $name, 'invalid_type');
         }
     }

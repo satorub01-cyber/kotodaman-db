@@ -52,6 +52,23 @@ function koto_get_top_level_character_acf_field($field_name)
         '99_atk'                          => 'field_69578379b1fe9',
         '120_hp'                          => 'field_695784fcb1ff1',
         '120_atk'                         => 'field_6957850fb1ff2',
+        // 実装日・声優・進化前・絵違い・才能開花・基本属性
+        '実装月（わかれば実装日）'         => 'field_692f023cbff21',
+        'implement_date'                  => 'field_692f023cbff21',
+        'release_date'                    => 'field_692f023cbff21',
+        'voice_actor'                     => 'field_693fc71b89e77',
+        'cv'                              => 'field_693fc71b89e77',
+        'pre_evo_name'                    => 'field_6926bb9743002',
+        'another_image_name'              => 'field_69842163e0d08',
+        'talent_hp'                       => 'field_698c0ad84b15f',
+        'talent_atk'                      => 'field_698c0b0e4b160',
+        'talent_status_auto_tf'           => 'field_698c0a9d4b15e',
+        'no_lv120_flag'                   => 'field_6957af71eca1b',
+        'get_place'                       => 'field_693fc92789e79',
+        'fuku_break'                      => 'field_693fc7f089e78',
+        'magnification_estimate_tf'       => 'field_698994f4550a2',
+        'quest'                           => 'field_6a4b980bd2f99',
+        'same_character'                  => 'field_693ad390702b0',
     ];
 
     if (strpos($field_name, 'field_') === 0) {

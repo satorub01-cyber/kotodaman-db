@@ -35,6 +35,12 @@ AIエージェントが画像から下書きを作成する際は、往復ター
 * `basic_fields` のタクソノミー項目（`attribute`, `species`, `rarity`, `affiliation`, `available_moji_loop` 等）は、タームIDだけでなく**日本語名やスラッグでもサーバー側で自動解決**されます。
   * 例: `"attribute": "水"`, `"species": "神"`, `"rarity": "なし"`, `"affiliation": ["エヴァンゲリオン"]`, `"available_moji_loop": [{"available_moji": "い"}]`
 * そのため、毎回 `get_terms` を連発する必要はありません。未知の所属グループ（`affiliation`）やイベント（`event`）がDBに存在するか確認が必要な場合のみ、`get_terms(taxonomy: "affiliation", search: "キーワード")` で絞り込み検索してください（全件取得は避ける）。
+* **入手方法（`get_place`）と福突破（`fuku_break`）の決定**:
+  * スクリーンショットのみでは入手方法（ガチャか降臨・配布か）を確定できない場合が多いため、**基本的には `get_place` は下書き作成前にユーザーへ聞いて確認してください**。
+  * ガチャキャラなら: `"get_place": "gacha"`（`fuku_break: false`）。
+  * 降臨・配布・交換所キャラなら: `"get_place": "other"`。このとき言塊突破対象キャラであれば `"fuku_break": true` を指定します。
+* **予想倍率フラグ（`magnification_estimate_tf`）**:
+  * AIによる下書き作成時は、**必ず `"magnification_estimate_tf": true`** を指定してください（未指定時もサーバー側で自動的に `true` が適用されます）。
 
 ### ステップ3：`preview_draft` の一括実行（事前単発テストの省略）
 * 事前に `php lib/acf/test_auto_input.php` を文言ごとに個別実行してターンを消費せず、抽出した `character_name`, `basic_fields`, `auto_input` をまとめて一度で MCP ツール `preview_draft` に渡します。
@@ -74,6 +80,16 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 | `lv_99_hp` / `lv_99_atk` | 数値 (`integer`) | Lv.99時のHP・ATK基礎値（超化分を含まない基礎値）。※旧キー `99_hp` / `99_atk` もエイリアス対応。 |
 | `lv_120_hp` / `lv_120_atk` | 数値 (`integer`) | Lv.120時のHP・ATK基礎値。※旧キー `120_hp` / `120_atk` もエイリアス対応。 |
 | `max_ls_hp` / `max_ls_atk` | 数値 (`number`) | リーダーとくせいの最大HP倍率・最大ATK倍率（%の数値）。 |
+| `voice_actor` | 文字列 | 声優名（例: `"梶原岳人"`）。※旧キー `cv` もエイリアス対応。 |
+| `pre_evo_name` | 文字列 | 進化前のキャラクター名。進化前がない場合は省略。 |
+| `another_image_name` | 文字列 | 絵違いモードシフト時の名前。絵違いがない場合は省略。 |
+| `実装月（わかれば実装日）` | 文字列 (`YYYY-MM-DD`) | キャラクターの実装年月日（例: `"2026-11-08"`）。※英名エイリアス `implement_date` も指定可能。 |
+| `talent_hp` / `talent_atk` | 数値 (`integer`) | **【原則入力不要】** 才能開花HP・ATK。サーバー側でレアリティとLv.99ステータスから自動計算されます。手動で特定の値を固定したい場合を除き、基本的にクライアントからは入力・指定しないでください（未指定のままにする）。 |
+| `magnification_estimate_tf` | 真偽値 (`boolean`) | **【AI必須: 必ず true】** 予想倍率フラグ。AIによる下書き作成時は必ず `true` を指定してください（省略時もサーバー側で自動的に `true` が強制適用されます）。 |
+| `get_place` | 文字列 (`select`) | **入手方法**。**ガチャキャラなら `"gacha"`、そうでない（降臨・配布・交換所等）なら `"other"`** を指定。<br>※【重要指示】入手方法は画像だけでは判別できないことが多いため、**基本的にはユーザーに質問して確認すること**。 |
+| `fuku_break` | 真偽値 (`boolean`) | **言塊突破（福突破）の有無**。**`get_place` が `"other"` かつ言塊突破対象なら必ず `true`** に設定する。ガチャキャラの場合は通常 `false`。 |
+| `quest` | 配列（文字列 / 数値） | 適正クエスト（例: `["破滅級〇〇"]`）。該当する既存タームがある場合のみ指定（不明時は省略または空配列 `[]`）。 |
+| `same_character` | 配列（数値） | 変身前・変身後、モードシフト、絵違い、トークンなどの同一キャラクター関連投稿ID配列（例: `[1234, 5678]`）。表示順に並べる（該当なし時は省略または空配列 `[]`）。 |
 
 > [!TIP]
 > フィールドの選択肢や説明を確認したい場合は、MCPツール `get_field_schema` を呼び出してください。[documents/mcp/mcp-field-manual.json](file:///var/www/html/wp-content/themes/cocoon-child-master/documents/mcp/mcp-field-manual.json) に記載された人間向けガイドも `manual` プロパティとして一緒に返却されます。
@@ -97,6 +113,17 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 ### ④ 画像（`screenshot_urls`）の仕様
 * `screenshot_urls` を省略して `create_draft` を実行した場合、準備中画像（`https://www.kotodaman-db.com/wp-content/uploads/2026/02/無題51_20260205005357.png`）が自動的にセットされます。
 * `screenshot_urls` に `https://www.kotodaman-db.com/...`（同一ドメイン）の画像URLを指定した場合、既存メディアの検索またはダウンロードが行われ、投稿のアイキャッチ（`_thumbnail_id`）および進化後画像（`character_image`）に自動設定されます。あわせてURL一覧が投稿メタ `_koto_mcp_screenshot_urls` に記録されます。
+
+### ⑤ 下書き取得（`get_draft`）による保存内容の確認
+下書きを作成・更新した後、`get_draft(post_id: <投稿ID>)` を呼び出すことで、意図通りにデータが保存されているかを確認できます。
+
+* **「未設定」と「返ってきていない」の明確な区別**:
+  * 定義された各フィールドについて、値が未設定の場合はキーを省略せず明示的に `null`（真偽値は `false`、配列は `[]`）として返却されます。
+* **日付の正規化照合**:
+  * 実装日フィールド（`実装月（わかれば実装日）` / `implement_date`）は送信時と同じ `YYYY-MM-DD` 形式（未設定時は `null`）に正規化されて返却されます。
+* **自動計算値・解析値の確認**:
+  * `basic_fields` 内に `voice_actor`（`cv`）、`pre_evo_name`、`another_image_name`、`waza_name`、`sugowaza_name`、`first_trait_name`、`second_trait_name`、`lv_120_hp`、`lv_120_atk`、`talent_hp`、`talent_atk` が含まれます。
+  * また、トップレベルに `computed` オブジェクトが付与され、サーバー側で自動計算されたLv.120ステータスや才能開花ステータス、自動入力から抽出されたスキル名を直接確認できます。
 
 ---
 

@@ -406,7 +406,12 @@ function koto_mcp_call_tool($name, $args, $request = null)
         if ($name === 'create_draft') {
             $post_id = koto_create_character_post_from_acf(sanitize_text_field($args['character_name']), []);
             if (!is_wp_error($post_id) && $post_id) {
-                koto_mcp_update_basic_fields($post_id, $args['basic_fields'] ?? []);
+                if (!isset($args['basic_fields']) || !is_array($args['basic_fields'])) {
+                    $args['basic_fields'] = [];
+                }
+                $args['basic_fields']['magnification_estimate_tf'] = true;
+                koto_mcp_update_basic_fields($post_id, $args['basic_fields']);
+                update_field('field_698994f4550a2', 1, $post_id);
                 koto_update_character_post_with_acf($post_id, $validation['parsed_acf']);
             }
         } else {
