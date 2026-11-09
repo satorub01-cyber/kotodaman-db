@@ -1,6 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 require_once __DIR__ . '/acf-auto-input-helpers.php';
+require_once __DIR__ . '/acf-auto-input-blessing.php';
 
 /**
  * とくせい文言を解析し、条件部と効果部を結合したACF行配列を返す。
@@ -1033,16 +1034,21 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
 /**
  * 種別ごとに適切なパーサーへ振り分け、入力文言をACFデータへ変換する。
  *
- * @param string $text 入力文言。
- * @param string $type 種別名（とくせい/わざ/すごわざ条件/祝福/リーダーとくせい）。
+ * @param string|array<string, mixed> $text 入力文言または構造化配列。
+ * @param string $type 種別名（とくせい/わざ/すごわざ条件/祝福/EX祝福/リーダーとくせい）。
  * @param array<string, array<int, array<string, mixed>>> $grouped_csv 種別グループ済みCSV。
  * @param string $input_key 入力欄識別キー。
+ * @param array<string, mixed> $context 実行コンテキスト（レアリティ等）。
  * @return array<int, array<string, mixed>>|null 種別に対応した結果配列。未対応種別は null。
  */
-function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '')
+function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '', array $context = [])
 {
-    if (!is_array($text)) {
+    if ($type === '祝福' || $type === 'EX祝福') {
+        $blessing_key = $input_key !== '' ? $input_key : ($type === 'EX祝福' ? 'auto_input_ex_blessing' : 'auto_input_blessing');
+        return koto_parse_blessing($text, $grouped_csv, $blessing_key, $context);
+    }
 
+    if (!is_array($text)) {
         $text = koto_preprocess_text($text, $type);
     }
     switch ($type) {
@@ -1056,7 +1062,6 @@ function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '')
             return koto_parse_sugowaza_condition($text, $grouped_csv, $input_key);
         case 'コトわざ':
             return koto_parse_kotowaza($text, $grouped_csv, $input_key);
-        case '祝福':
         case 'リーダーとくせい':
             return koto_parse_leader_trait($text, $grouped_csv, $input_key);
         default:
@@ -1070,11 +1075,12 @@ function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '')
 /**
  * 複数入力欄の文言をまとめて解析し、入力欄キーごとのACFデータを構築する。
  *
- * @param array<string, string> $inputs 入力欄キーと文言の連想配列。
+ * @param array<string, string|array> $inputs 入力欄キーと文言/データの連想配列。
  * @param array<string, array<int, array<string, mixed>>> $grouped_csv 種別グループ済みCSV。
+ * @param array<string, mixed> $context 実行コンテキスト（'rarity', 'post_id' 等）。
  * @return array<string, array<int, array<string, mixed>>> 入力欄キーごとのACF行配列。
  */
-function koto_build_acf_data_from_inputs($inputs, $grouped_csv)
+function koto_build_acf_data_from_inputs($inputs, $grouped_csv, array $context = [])
 {
     $acf_data = [];
 
@@ -1120,7 +1126,7 @@ function koto_build_acf_data_from_inputs($inputs, $grouped_csv)
         }
 
         if ($type) {
-            $parsed = koto_parse_text_by_type($text, $type, $grouped_csv, $key);
+            $parsed = koto_parse_text_by_type($text, $type, $grouped_csv, $key, $context);
             if (!empty($parsed)) {
                 $acf_data[$key] = $parsed;
             }

@@ -262,6 +262,9 @@ function koto_update_character_post_with_acf($post_id, $acf_data, $replace_exist
             // 1. パース結果のACFキーによる仕分け
             if (isset($item['available_moji'])) {
                 $acf_field_name = 'available_moji_loop';
+            } elseif (!empty($item['_target_repeater'])) {
+                $acf_field_name = (string) $item['_target_repeater'];
+                unset($item['_target_repeater']);
             }
             // 2. 入力欄の種類による仕分け
             else {
@@ -290,6 +293,8 @@ function koto_update_character_post_with_acf($post_id, $acf_data, $replace_exist
                     }
                 } elseif ($input_key === 'auto_input_blessing') {
                     $acf_field_name = 'blessing_trait_loop';
+                } elseif ($input_key === 'auto_input_ex_blessing') {
+                    $acf_field_name = 'blessing_ex_trait_loop';
                 } elseif ($input_key === 'auto_input_sugowaza_condition') {
                     $acf_field_name = 'sugowaza_condition';
                 } elseif ($input_key === 'auto_input_leader') {
@@ -316,7 +321,7 @@ function koto_update_character_post_with_acf($post_id, $acf_data, $replace_exist
         if (array_key_exists('auto_input_trait2', $acf_data)) {
             $replaced_moji_unlock_places = array_merge($replaced_moji_unlock_places, ['second_trait', 'super_change', 'super_copy', 'super_both']);
         }
-        if (array_key_exists('auto_input_blessing', $acf_data)) {
+        if (array_key_exists('auto_input_blessing', $acf_data) || array_key_exists('auto_input_ex_blessing', $acf_data)) {
             $replaced_moji_unlock_places[] = 'blessing';
         }
         $replaced_moji_unlock_places = array_values(array_unique($replaced_moji_unlock_places));
@@ -344,6 +349,32 @@ function koto_update_character_post_with_acf($post_id, $acf_data, $replace_exist
                             $place = 'default';
                         }
                         if ($place === 'default' || (!empty($replaced_moji_unlock_places) && !in_array($place, $replaced_moji_unlock_places, true))) {
+                            $existing_data[] = $existing_row;
+                        }
+                    }
+                }
+            } elseif ($acf_field_name === 'sugowaza_condition') {
+                // 更新対象スコープ（default / blessing / ex_blessing）以外の既存すごわざ条件は保持する
+                $replaced_sugo_places = [];
+                if (array_key_exists('auto_input_sugowaza_condition', $acf_data)) {
+                    $replaced_sugo_places[] = 'default';
+                }
+                if (array_key_exists('auto_input_blessing', $acf_data)) {
+                    $replaced_sugo_places[] = 'blessing';
+                }
+                if (array_key_exists('auto_input_ex_blessing', $acf_data)) {
+                    $replaced_sugo_places[] = 'ex_blessing';
+                }
+                $raw_existing = get_field($target_selector, $post_id, false) ?: [];
+                $existing_data = [];
+                if (is_array($raw_existing)) {
+                    foreach ($raw_existing as $existing_row) {
+                        if (!is_array($existing_row)) continue;
+                        $place = $existing_row['field_695e77f85bf44'] ?? ($existing_row['get_palce'] ?? 'default');
+                        if ($place === '' || $place === null) {
+                            $place = 'default';
+                        }
+                        if (!in_array($place, $replaced_sugo_places, true)) {
                             $existing_data[] = $existing_row;
                         }
                     }

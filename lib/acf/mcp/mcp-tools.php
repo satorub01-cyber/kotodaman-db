@@ -44,6 +44,7 @@ function koto_mcp_draft_schema($hash_required = false, $update = false)
             'evidence' => ['type' => 'object'],
             'idempotency_key' => ['type' => 'string'],
             'preview_hash' => ['type' => 'string'],
+            'replace_existing' => ['type' => 'boolean'],
             'human_approved' => ['type' => 'boolean'],
             'test_mode' => ['type' => 'boolean'],
         ],
@@ -132,7 +133,20 @@ function koto_mcp_validate_tool_arguments($name, $arguments)
                 return new WP_Error('INVALID_PARAMS', 'Too many auto_input entries.', ['field' => 'auto_input', 'reason' => 'above_max', 'status' => 400]);
             }
             foreach ($arguments['auto_input'] as $input_key => $input_val) {
-                if (!is_string($input_key) || ($input_val !== null && !is_string($input_val))) {
+                if (!is_string($input_key)) {
+                    return new WP_Error('INVALID_PARAMS', 'auto_input keys must be strings.', ['field' => 'auto_input', 'reason' => 'invalid_type', 'status' => 400]);
+                }
+                if ($input_key === 'auto_input_blessing' || $input_key === 'auto_input_ex_blessing') {
+                    if ($input_val !== null && !is_string($input_val) && !is_array($input_val)) {
+                        return new WP_Error('INVALID_PARAMS', sprintf('auto_input.%s must be a string or object.', $input_key), ['field' => 'auto_input.' . $input_key, 'reason' => 'invalid_type', 'status' => 400]);
+                    }
+                    if (is_array($input_val)) {
+                        $encoded_blessing = wp_json_encode($input_val, JSON_UNESCAPED_UNICODE);
+                        if (is_string($encoded_blessing) && mb_strlen($encoded_blessing, 'UTF-8') > KOTO_MCP_MAX_AUTO_INPUT_CHARS) {
+                            return new WP_Error('INVALID_PARAMS', sprintf('auto_input.%s exceeds maximum length (4000 chars).', $input_key), ['field' => 'auto_input.' . $input_key, 'reason' => 'above_max', 'status' => 400]);
+                        }
+                    }
+                } elseif ($input_val !== null && !is_string($input_val)) {
                     return new WP_Error('INVALID_PARAMS', 'auto_input values must be strings.', ['field' => 'auto_input.' . $input_key, 'reason' => 'invalid_type', 'status' => 400]);
                 }
                 if (is_string($input_val) && mb_strlen($input_val, 'UTF-8') > KOTO_MCP_MAX_AUTO_INPUT_CHARS) {
@@ -167,6 +181,9 @@ function koto_mcp_validate_tool_arguments($name, $arguments)
         }
         if (array_key_exists('human_approved', $arguments) && !is_bool($arguments['human_approved'])) {
             return new WP_Error('INVALID_PARAMS', 'human_approved must be a boolean.', ['field' => 'human_approved', 'reason' => 'invalid_type', 'status' => 400]);
+        }
+        if (array_key_exists('replace_existing', $arguments) && !is_bool($arguments['replace_existing'])) {
+            return new WP_Error('INVALID_PARAMS', 'replace_existing must be a boolean.', ['field' => 'replace_existing', 'reason' => 'invalid_type', 'status' => 400]);
         }
     }
 
@@ -343,7 +360,7 @@ function koto_mcp_call_tool($name, $args, $request = null)
             if (!$has_explicit_payload) {
                 $cached_preview = get_transient(koto_mcp_preview_cache_key($auth, (string) $args['preview_hash']));
                 if (is_array($cached_preview)) {
-                    foreach (['character_name', 'basic_fields', 'auto_input', 'screenshot_urls', 'evidence'] as $ckey) {
+                    foreach (['character_name', 'basic_fields', 'auto_input', 'screenshot_urls', 'evidence', 'replace_existing'] as $ckey) {
                         if (!array_key_exists($ckey, $args) && array_key_exists($ckey, $cached_preview) && $cached_preview[$ckey] !== null) {
                             $args[$ckey] = $cached_preview[$ckey];
                         }
@@ -372,11 +389,12 @@ function koto_mcp_call_tool($name, $args, $request = null)
             set_transient(
                 koto_mcp_preview_cache_key($auth, $hash),
                 [
-                    'character_name'  => $args['character_name'] ?? '',
-                    'basic_fields'    => $args['basic_fields'] ?? [],
-                    'auto_input'      => $args['auto_input'] ?? [],
-                    'screenshot_urls' => $args['screenshot_urls'] ?? null,
-                    'evidence'        => $args['evidence'] ?? null,
+                    'character_name'   => $args['character_name'] ?? '',
+                    'basic_fields'     => $args['basic_fields'] ?? [],
+                    'auto_input'       => $args['auto_input'] ?? [],
+                    'screenshot_urls'  => $args['screenshot_urls'] ?? null,
+                    'evidence'         => $args['evidence'] ?? null,
+                    'replace_existing' => $args['replace_existing'] ?? null,
                 ],
                 30 * MINUTE_IN_SECONDS
             );
@@ -425,7 +443,8 @@ function koto_mcp_call_tool($name, $args, $request = null)
                 wp_update_post(['ID' => $post_id, 'post_title' => sanitize_text_field($args['character_name'])]);
             }
             koto_mcp_update_basic_fields($post_id, $args['basic_fields'] ?? []);
-            koto_update_character_post_with_acf($post_id, $validation['parsed_acf'], true);
+            $replace_existing = array_key_exists('replace_existing', $args) ? (bool) $args['replace_existing'] : true;
+            koto_update_character_post_with_acf($post_id, $validation['parsed_acf'], $replace_existing);
         }
         if (is_wp_error($post_id) || !$post_id) {
             koto_mcp_release_idempotency_key($idempotency_option);
