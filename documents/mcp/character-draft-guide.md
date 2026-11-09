@@ -106,9 +106,53 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 | `auto_input_sugowaza` | すごわざ効果文 | ゲーム内のすごわざ説明文 |
 | `auto_input_trait1` | とくせい1 | とくせい1の説明文（文字追加・ギミック耐性・各種補正を含む） |
 | `auto_input_trait2` | とくせい2 | とくせい2の説明文 |
-| `auto_input_blessing` | 祝福とくせい | 祝福画面のテキスト |
+| `auto_input_blessing` | 祝福とくせい | 祝福のデータ（下記「③-B. 祝福・EX祝福の自動入力仕様」参照） |
+| `auto_input_ex_blessing` | EX祝福とくせい | EX祝福のデータ（構造は `auto_input_blessing` と同一） |
 | `auto_input_leader` | リーダーとくせい | リーダーとくせいの説明文 |
 | `auto_input_kotowaza` | コトワザ | コトワザの説明文 |
+
+#### ③-B. 祝福（`auto_input_blessing`）・EX祝福（`auto_input_ex_blessing`）の自動入力仕様
+
+祝福の自動入力には **タイプ1（テンプレート注入：通常のガチャキャラ向け）** と **タイプ2（とくせい自動入力の流用＋ポイント個別指定：降臨キャラ・特殊祝福向け）** の2種類があり、以下の構造化オブジェクト形式（またはテキスト記法）で指定します。
+
+```json
+{
+  "template": "pattern_2",
+  "attrs": ["火", "水"],
+  "species": ["神", "魔"],
+  "rows": [
+    { "point": "20", "text": "ドロー時に味方のATKを少し強化" },
+    { "point": "50", "text": "文字変換に「あ」を追加する" }
+  ]
+}
+```
+
+* **`template`（タイプ1）**:
+  * `lib/ゲーム内文言ーACF-対応表.csv` の種別 `祝福テンプレート` に登録されたテンプレート名を指定します（使用しない場合は `""` または省略）。
+  * テンプレート定義内の属性・種族キラーや属性軽減は、何番目のパラメータを適用するか明示するため **インデックス必須（例: `attr_killer1`, `species_killer1`, `species_killer2` 等）** となっています。
+* **`attrs` / `species`（タイプ1のキラー対象配列）**:
+  * **そのキャラクター自身の属性・種族ではなく、祝福のキラー対象（および属性軽減対象）となる属性・種族を配列形式で指定**します（テンプレートの `attr_killer1`, `attr_killer2` ... の番号順に対応）。
+* **レアリティ（★5）連動によるキラー数値の自動補正**:
+  * `basic_fields.rarity` が `"5"`（星5）の場合、テンプレートのキラー効果値が自動的に **`-5` 補正** されます（属性キラー: `10~20%` → `5~15%`、種族キラー: `15~25%` → `10~20%`、属性軽減: `10~20%` → `5~15%`）。
+* **`rows`（タイプ2の個別行配列）**:
+  * 1要素につき `{"point": "<必要祝福pt>", "text": "<とくせい文言>"}` を指定します。
+  * サーバー側で自動的に `pt_pattern = "single"`（非レベル制）および `need_point` が設定され、文字追加（`available_moji_loop` の `unlock_need_point`）やすごわざ条件追加（`sugowaza_condition` の `get_palce = "blessing" | "ex_blessing"`, `need_blessing_point`）も自動で振り分けられます。
+* **保存順序**:
+  * タイプ1とタイプ2の両方を指定した場合、必ず **タイプ1 → タイプ2** の順で保存されます。
+* **タイプ1・タイプ2の判定ルールと `update_draft` での追記（`replace_existing: false`）**:
+  1. `get_place` が `"gacha"`（ガチャキャラ）の場合：原則としてタイプ1を使用します。
+  2. `get_place` が `"other"`（降臨・配布等）の場合：原則としてタイプ2（`rows`）を使用します。
+  3. **両方を持つキャラクターでユーザーから事前指定がない場合**：
+     * まず **タイプ1のみ** を `auto_input_blessing` に指定して下書きを作成（`create_draft`）し、**タイプ2の入力有無をユーザーへ確認**してください。
+     * ユーザー確認後に `update_draft` でタイプ2を追加する際は、既存のタイプ1行を上書きせず末尾に追記するため、必ず **`"replace_existing": false`** を指定してください（`preview_draft` 実行時にも `"replace_existing": false` を含めます）。
+
+##### 祝福アイコンの並び順 ↔ テンプレート種別（`template`）対応表
+<!-- //要チェック: スクリーンショットの祝福アイコン並び順とテンプレート種別の対応関係をここに記入してください -->
+| テンプレート名 (`template`) | CSV定義 (`祝福テンプレート`) | スクリーンショット上のアイコン並び順・見分け方（//要チェック） |
+|---|---|---|
+| `pattern_1` | `{attr_killer1,species_killer1}` | //要チェック: アイコン並び順・対象キャラの特徴を記入 |
+| `pattern_2` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,species_killer2}` | //要チェック: アイコン並び順（HPアップ → 属性キラー1 → 種族キラー1 → 属性軽減1 → 種族キラー2 等）を記入 |
+| `pattern_3` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,attr_killer2}` | //要チェック: アイコン並び順（HPアップ → 属性キラー1 → 種族キラー1 → 属性軽減1 → 属性キラー2 等）を記入 |
 
 ### ④ 画像（`screenshot_urls`）の仕様
 * `screenshot_urls` を省略して `create_draft` を実行した場合、準備中画像（`https://www.kotodaman-db.com/wp-content/uploads/2026/02/無題51_20260205005357.png`）が自動的にセットされます。

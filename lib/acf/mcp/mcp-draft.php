@@ -402,6 +402,15 @@ function koto_mcp_detect_auto_input_warnings($safe_auto_input, $parsed, $csv)
         if ($type === '' || $type === 'コトわざ') {
             continue;
         }
+        if ($type === '祝福') {
+            $b_meta = $GLOBALS['koto_last_blessing_parse_meta'][$input_key] ?? null;
+            if (is_array($b_meta) && !empty($b_meta['unparsed_rows'])) {
+                foreach ($b_meta['unparsed_rows'] as $unparsed_row_text) {
+                    $warnings[] = sprintf('%s の一部の文言を解析できませんでした: %s', $input_key, $unparsed_row_text);
+                }
+            }
+            continue;
+        }
 
         $prep_text = koto_preprocess_text($input_value, $type);
         if ($type === 'わざ') {
@@ -671,14 +680,34 @@ function koto_mcp_validate_draft(&$args)
     $raw_auto_input = is_array($args['auto_input'] ?? null) ? $args['auto_input'] : [];
     $safe_auto_input = [];
     foreach ($raw_auto_input as $k => $v) {
-        if (is_string($k) && is_string($v)) {
+        if (!is_string($k)) continue;
+        if (is_string($v)) {
+            $safe_auto_input[$k] = $v;
+        } elseif (is_array($v) && ($k === 'auto_input_blessing' || $k === 'auto_input_ex_blessing')) {
             $safe_auto_input[$k] = $v;
         }
     }
+    $GLOBALS['koto_last_blessing_parse_meta'] = [];
     $csv = koto_group_csv_by_type(koto_load_csv_dictionary(get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv'));
-    $parsed = koto_build_acf_data_from_inputs($safe_auto_input, $csv);
-    $requested = array_filter($raw_auto_input, static function ($value) { return $value !== null && $value !== ''; });
+    $mcp_context = [
+        'rarity'  => $args['basic_fields']['rarity'] ?? null,
+        'post_id' => $args['post_id'] ?? 0,
+    ];
+    $parsed = koto_build_acf_data_from_inputs($safe_auto_input, $csv, $mcp_context);
+    $requested = array_filter($raw_auto_input, static function ($value) {
+        if ($value === null || $value === '' || $value === []) return false;
+        if (is_array($value)) {
+            $norm = function_exists('koto_normalize_blessing_input') ? koto_normalize_blessing_input($value) : $value;
+            return !empty($norm['template']) || !empty($norm['rows']);
+        }
+        return true;
+    });
     foreach ($requested as $input_key => $input_value) {
+        $b_meta = $GLOBALS['koto_last_blessing_parse_meta'][$input_key] ?? null;
+        if (is_array($b_meta) && !empty($b_meta['unknown_template'])) {
+            $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', 'auto_input.' . $input_key, 'unknown_blessing_template', sprintf('Unknown blessing template: %s', $b_meta['unknown_template']));
+            continue;
+        }
         if (!array_key_exists($input_key, $parsed) || empty($parsed[$input_key])) {
             $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $input_key, 'unparsed_text');
         }

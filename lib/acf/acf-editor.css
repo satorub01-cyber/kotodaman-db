@@ -278,12 +278,15 @@
     font-size: 14px;
 }
 
-/* コトわざ自動入力欄のスタイル */
+/* コトわざ・EX祝福自動入力欄のスタイル */
 .kotowaza-toggle-row {
     margin-top: 10px;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
-#kotowaza_auto_input_area {
+#kotowaza_auto_input_area,
+#ex_blessing_auto_input_area {
     display: none;
     flex-direction: column;
     gap: 15px;
@@ -299,6 +302,82 @@
 }
 
 .kotowaza-input-set .acf-auto-input-text {
+    width: 100%;
+}
+
+/* 祝福・EX祝福自動入力欄のスタイル */
+.koto-blessing-outer-row {
+    align-items: flex-start !important;
+}
+
+.koto-blessing-outer-row > .acf-auto-input-label {
+    padding-top: 6px;
+}
+
+.koto-blessing-auto-input-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #ffffff;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    padding: 10px 12px;
+}
+
+.koto-blessing-type1-area {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed #dcdcde;
+}
+
+.koto-blessing-type1-row,
+.koto-blessing-type1-params,
+.koto-blessing-param-group,
+.koto-blessing-select-list {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.koto-blessing-type1-params {
+    gap: 16px;
+}
+
+.koto-blessing-sub-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #50575e;
+}
+
+.koto-blessing-type2-area {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.koto-blessing-type2-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.koto-blessing-type2-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.koto-blessing-pt-input {
+    width: 95px;
+    flex-shrink: 0;
+}
+
+.koto-blessing-text-input {
+    flex: 1;
     width: 100%;
 }
 

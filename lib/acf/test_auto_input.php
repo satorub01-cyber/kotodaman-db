@@ -51,11 +51,30 @@ $csv_path = $theme_dir . '/lib/ゲーム内文言ーACF-対応表.csv';
 $csv_data = koto_load_csv_dictionary($csv_path);
 $grouped_csv = koto_group_csv_by_type($csv_data);
 
+// 既存キャラ投稿IDから祝福テンプレートを抽出するCLIオプション
+// 例: php lib/acf/test_auto_input.php --extract-blessing 3685 pattern_2
+if (isset($cli_args[0]) && $cli_args[0] === '--extract-blessing') {
+    $extract_post_id = isset($cli_args[1]) ? (int) $cli_args[1] : 0;
+    $extract_tpl_key = isset($cli_args[2]) ? trim((string) $cli_args[2]) : 'pattern_custom';
+    if ($extract_post_id <= 0) {
+        fwrite(STDERR, "Usage: php lib/acf/test_auto_input.php --extract-blessing <POST_ID> [TEMPLATE_KEY]\n");
+        exit(1);
+    }
+    $extracted = koto_extract_blessing_template_from_post($extract_post_id, $extract_tpl_key);
+    echo "■ 抽出元 Post ID: {$extracted['post_id']} ({$extracted['post_title']})\n";
+    echo "■ CSV追記用1行:\n{$extracted['csv_line']}\n";
+    if ($test_mode) {
+        echo "■ 抽出元の生データ (pt_pattern=default):\n";
+        echo json_encode($extracted['raw_rows'], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n";
+    }
+    exit(!empty($extracted['tokens']) ? 0 : 1);
+}
+
 // 引数指定時は単発テストを実行
 if (isset($cli_args[0], $cli_args[1])) {
     $type = $cli_args[0];
     $phrase = $cli_args[1];
-    $input_key = ($type === 'とくせい') ? 'auto_input_trait1' : '';
+    $input_key = ($type === 'とくせい') ? 'auto_input_trait1' : (($type === 'EX祝福') ? 'auto_input_ex_blessing' : (($type === '祝福') ? 'auto_input_blessing' : ''));
     $parsed = koto_parse_text_by_type($phrase, $type, $grouped_csv, $input_key);
     echo "■ 種別: {$type}\n";
     echo "■ 文言: {$phrase}\n";
@@ -146,6 +165,16 @@ $tests = [
         '①あかさs4m②んいe5m③しi12c',
         // 7. 頭文字＋語尾＋文字数の3条件AND結合
         '「あ」からはじまる「ん」でおわる5文字以上',
+    ],
+    '祝福' => [
+        // 1. タイプ1（テンプレート注入：★6通常、複数キラー対象属性・種族のインデックス付き配列展開）
+        '{"template":"pattern_2","rarity":"なし","attrs":["火","水"],"species":["神","魔"],"rows":[]}',
+        // 2. タイプ1（★5キャラ：キラー値が -5 されることの確認）
+        '{"template":"pattern_1","rarity":"5","attrs":["火"],"species":["神"],"rows":[]}',
+        // 3. タイプ2（とくせい自動入力の流用＋祝福ポイント設定、trait_rate -> blessing_value 変換、文字追加・すごわざ条件追加）
+        '{"template":"","attrs":[],"species":[],"rows":[{"point":"20","text":"5文字以上の言葉を作成した時、自身の威力が50%UP"},{"point":"40","text":"文字変換に「あ・い」を追加する"},{"point":"50","text":"自身のすごわざ発動条件に「いきもののことば」を追加する"}]}',
+        // 4. タイプ1＋タイプ2の複合指定（テキスト記法での rarity=5 指定と順序確認）
+        "@template:pattern_1(rarity=5,attrs=光・闇,species=英・龍)\n20pt: ドロー時に味方のATKを少し強化を1ターン付与",
     ],
 ];
 

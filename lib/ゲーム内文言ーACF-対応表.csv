@@ -382,3 +382,6 @@
 リーダー条件,「{$affiliation}」が{$val}体いる場合、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""group"",""target_group"" : ""$affiliation""}, ""need_chara_num"" : ""$val""}]}"
 リーダー条件,「{$affiliation}」が{$val}体以上、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""group"",""target_group"" : ""$affiliation""}, ""need_chara_num"" : ""$val""}]}"
 リーダー条件,「{$affiliation}」が{$val}体、,"{""ls_cond_type"" : ""chara_num"",""ls_party_cond_loop"" : [{""target_field_group"" : {""target_type"" : ""group"",""target_group"" : ""$affiliation""}, ""need_chara_num"" : ""$val""}]}"
+祝福テンプレート,pattern_1,"{attr_killer1,species_killer1}"
+祝福テンプレート,pattern_2,"{hp_up,attr_killer1,species_killer1,attr_mitigation1,species_killer2}"
+祝福テンプレート,pattern_3,"{hp_up,attr_killer1,species_killer1,attr_mitigation1,attr_killer2}"

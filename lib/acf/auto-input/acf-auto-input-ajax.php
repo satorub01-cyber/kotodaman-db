@@ -17,13 +17,17 @@ add_action('wp_ajax_koto_create_post_from_auto_input', 'koto_ajax_create_post_fr
  */
 function koto_ajax_parse_auto_input()
 {
-    $texts = isset($_POST['texts']) ? $_POST['texts'] : [];
+    $texts = isset($_POST['texts']) ? wp_unslash($_POST['texts']) : [];
+    $context = [
+        'post_id' => isset($_POST['post_id']) ? intval($_POST['post_id']) : 0,
+        'rarity'  => isset($_POST['rarity']) ? sanitize_text_field(wp_unslash($_POST['rarity'])) : null,
+    ];
 
     $csv_path = get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv';
     $csv_data = koto_load_csv_dictionary($csv_path);
     $grouped_csv = koto_group_csv_by_type($csv_data);
 
-    $parsed_data = koto_build_acf_data_from_inputs($texts, $grouped_csv);
+    $parsed_data = koto_build_acf_data_from_inputs($texts, $grouped_csv, $context);
 
     wp_send_json_success($parsed_data);
 }
@@ -36,17 +40,22 @@ function koto_ajax_parse_auto_input()
 function koto_ajax_update_post_from_auto_input()
 {
     $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
-    $texts = isset($_POST['texts']) ? $_POST['texts'] : [];
+    $texts = isset($_POST['texts']) ? wp_unslash($_POST['texts']) : [];
 
     if (!$post_id) {
         wp_send_json_error(['message' => '対象の記事が選択されていません']);
     }
 
+    $context = [
+        'post_id' => $post_id,
+        'rarity'  => isset($_POST['rarity']) ? sanitize_text_field(wp_unslash($_POST['rarity'])) : null,
+    ];
+
     $csv_path = get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv';
     $csv_data = koto_load_csv_dictionary($csv_path);
     $grouped_csv = koto_group_csv_by_type($csv_data);
 
-    $acf_data = koto_build_acf_data_from_inputs($texts, $grouped_csv);
+    $acf_data = koto_build_acf_data_from_inputs($texts, $grouped_csv, $context);
 
     if (empty($acf_data)) {
         wp_send_json_error([
@@ -73,14 +82,17 @@ function koto_ajax_update_post_from_auto_input()
  */
 function koto_ajax_create_post_from_auto_input()
 {
-    $texts = isset($_POST['texts']) ? $_POST['texts'] : [];
+    $texts = isset($_POST['texts']) ? wp_unslash($_POST['texts']) : [];
     $character_name = isset($_POST['character_name']) ? sanitize_text_field($_POST['character_name']) : '';
+    $context = [
+        'rarity' => isset($_POST['rarity']) ? sanitize_text_field(wp_unslash($_POST['rarity'])) : null,
+    ];
 
     $csv_path = get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv';
     $csv_data = koto_load_csv_dictionary($csv_path);
     $grouped_csv = koto_group_csv_by_type($csv_data);
 
-    $acf_data = koto_build_acf_data_from_inputs($texts, $grouped_csv);
+    $acf_data = koto_build_acf_data_from_inputs($texts, $grouped_csv, $context);
 
     $post_id = koto_create_character_post_from_acf($character_name, $acf_data);
 

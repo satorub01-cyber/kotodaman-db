@@ -457,7 +457,7 @@ function koto_match_csv_template($text, $csv_rows, $input_key = '', $match_mode 
                 $matches['trait_num'] = 'first_trait';
             } elseif ($input_key === 'auto_input_trait2') {
                 $matches['trait_num'] = 'second_trait';
-            } elseif ($input_key === 'auto_input_blessing') {
+            } elseif ($input_key === 'auto_input_blessing' || $input_key === 'auto_input_ex_blessing') {
                 $matches['trait_num'] = 'blessing';
             }
 
@@ -1078,7 +1078,7 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
     } elseif (is_array($decoded)) {
         // Groupフィールドが誤って配列でラップされている場合に修正します。
         // これらはGroupフィールドであり、単一の連想配列であるべきです。
-        $group_fields = ['target_field_group', 'field_69397ce6c85cb', 'field_693981d871588', 'deck_ally_field_group'];
+        $group_fields = ['target_field_group', 'field_69397ce6c85cb', 'field_693981d871588', 'deck_ally_field_group', 'whose_trait'];
 
         foreach ($group_fields as $field_name) {
             if (isset($decoded[$field_name]) && is_array($decoded[$field_name])) {
@@ -1143,6 +1143,52 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                         'target_species' => 'field_693981d871593',
                         'target_group'   => 'field_693981d871594',
                         'target_other'   => 'field_693981d871595'
+                    ]
+                ]
+            ];
+        } elseif ($input_key === 'auto_input_blessing') {
+            $key_map = [
+                'whose_trait' => [
+                    'parent' => 'field_693981ff6d23e',
+                    'children' => [
+                        'target_type'    => 'field_693981ff6d23f',
+                        'target_attr'    => 'field_693981ff6d240',
+                        'target_species' => 'field_693981ff6d241',
+                        'target_group'   => 'field_693981ff6d242',
+                        'target_other'   => 'field_693981ff6d243'
+                    ]
+                ],
+                'deck_ally_field_group' => [
+                    'parent' => 'field_693981ff6d246',
+                    'children' => [
+                        'target_type'    => 'field_693981ff6d247',
+                        'target_attr'    => 'field_693981ff6d248',
+                        'target_species' => 'field_693981ff6d249',
+                        'target_group'   => 'field_693981ff6d24a',
+                        'target_other'   => 'field_693981ff6d24b'
+                    ]
+                ]
+            ];
+        } elseif ($input_key === 'auto_input_ex_blessing') {
+            $key_map = [
+                'whose_trait' => [
+                    'parent' => 'field_6a4f2651a3472',
+                    'children' => [
+                        'target_type'    => 'field_6a4f26544143c',
+                        'target_attr'    => 'field_6a4f265441472',
+                        'target_species' => 'field_6a4f2654414a8',
+                        'target_group'   => 'field_6a4f2654414dd',
+                        'target_other'   => 'field_6a4f265441512'
+                    ]
+                ],
+                'deck_ally_field_group' => [
+                    'parent' => 'field_6a4f2651a36a9',
+                    'children' => [
+                        'target_type'    => 'field_6a4f2658551fe',
+                        'target_attr'    => 'field_6a4f265855235',
+                        'target_species' => 'field_6a4f26585526a',
+                        'target_group'   => 'field_6a4f26585529f',
+                        'target_other'   => 'field_6a4f2658552d5'
                     ]
                 ]
             ];

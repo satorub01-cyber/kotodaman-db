@@ -883,6 +883,95 @@ function koto_acf_editor_page_html()
         </div>
         <?php
         $sugowaza_condition_guide = "実装済み(以上と「」は省略可能) \n 例：4m、ただs4m、いうi4m、いきものt \n 文字:m、コンボ:c、テーマ:t、頭文字:s、語尾:e、含む:i";
+
+        // //要チェック: エディタUIの祝福テンプレート選択肢と表示ラベル（CSVの「祝福テンプレート」と連動）
+        $blessing_template_choices = [
+            'gatcha_atkup' => 'ガチャ(ATK基礎値タイプ) ({hp_up,attr_killer,species_killer,attr_mitigation,species_killer})',
+            'pattern_3' => 'pattern_3 ({hp_up,attr_killer,species_killer,attr_mitigation,attr_killer})',
+        ];
+        $csv_path_for_tpl = get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv';
+        if (function_exists('koto_load_csv_dictionary')) {
+            foreach (koto_load_csv_dictionary($csv_path_for_tpl) as $csv_r) {
+                if (($csv_r['種別'] ?? '') === '祝福テンプレート' && !empty($csv_r['文言'])) {
+                    $tpl_k = trim((string) $csv_r['文言']);
+                    $tpl_def = trim((string) ($csv_r['ACFに入力するJSON'] ?? ''));
+                    if (!isset($blessing_template_choices[$tpl_k])) {
+                        $blessing_template_choices[$tpl_k] = $tpl_k . ($tpl_def !== '' ? " ({$tpl_def})" : '');
+                    }
+                }
+            }
+        }
+        $blessing_attr_options = ['火', '水', '木', '光', '闇', '冥', '天'];
+        $blessing_species_options = ['神', '魔', '英', '龍', '獣', '霊', '物', '妖'];
+        $is_edit_post_star5 = ($edit_post_id && function_exists('koto_is_blessing_star5_rarity')) ? koto_is_blessing_star5_rarity(null, $edit_post_id) : false;
+
+        $render_blessing_auto_input_box = static function ($prefix) use ($blessing_template_choices, $blessing_attr_options, $blessing_species_options, $is_edit_post_star5) {
+        ?>
+            <div class="koto-blessing-auto-input-box" id="<?php echo esc_attr($prefix); ?>_auto_input_box" data-prefix="<?php echo esc_attr($prefix); ?>">
+                <!-- レアリティ連動設定（★6 / ★5） -->
+                <div class="koto-blessing-rarity-row" style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                    <span class="koto-blessing-sub-label">キャラレア度：</span>
+                    <select id="<?php echo esc_attr($prefix); ?>_rarity_select" class="koto-blessing-rarity-select" style="font-size:12px; padding:2px 8px; height:auto;">
+                        <option value="" <?php selected(!$is_edit_post_star5); ?>>★6（通常：キラー10~20% / 15~25%）</option>
+                        <option value="5" <?php selected($is_edit_post_star5); ?>>★5（キラー値 -5：5~15% / 10~20%）</option>
+                    </select>
+                </div>
+
+                <!-- タイプ1: テンプレート選択 ＋ キラー対象属性・種族（配列指定対応） -->
+                <div class="koto-blessing-type1-area">
+                    <div class="koto-blessing-type1-row">
+                        <span class="koto-blessing-sub-label">テンプレート：</span>
+                        <select id="<?php echo esc_attr($prefix); ?>_template_select" class="koto-blessing-template-select">
+                            <option value="">-- 未選択（テンプレートを使用しない） --</option>
+                            <?php foreach ($blessing_template_choices as $tpl_val => $tpl_label) : ?>
+                                <option value="<?php echo esc_attr($tpl_val); ?>"><?php echo esc_html($tpl_label); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="koto-blessing-type1-params">
+                        <div class="koto-blessing-param-group" id="<?php echo esc_attr($prefix); ?>_attr_group">
+                            <span class="koto-blessing-sub-label">キラー属性：</span>
+                            <div class="koto-blessing-select-list" id="<?php echo esc_attr($prefix); ?>_attr_list">
+                                <select class="koto-blessing-attr-select">
+                                    <option value="">-- 属性 --</option>
+                                    <?php foreach ($blessing_attr_options as $a_opt) : ?>
+                                        <option value="<?php echo esc_attr($a_opt); ?>"><?php echo esc_html($a_opt); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <button type="button" class="button button-small koto-btn-add-blessing-param" data-list="<?php echo esc_attr($prefix); ?>_attr_list" data-param-type="attr">＋属性追加</button>
+                        </div>
+                        <div class="koto-blessing-param-group" id="<?php echo esc_attr($prefix); ?>_species_group">
+                            <span class="koto-blessing-sub-label">キラー種族：</span>
+                            <div class="koto-blessing-select-list" id="<?php echo esc_attr($prefix); ?>_species_list">
+                                <select class="koto-blessing-species-select">
+                                    <option value="">-- 種族 --</option>
+                                    <?php foreach ($blessing_species_options as $s_opt) : ?>
+                                        <option value="<?php echo esc_attr($s_opt); ?>"><?php echo esc_html($s_opt); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <button type="button" class="button button-small koto-btn-add-blessing-param" data-list="<?php echo esc_attr($prefix); ?>_species_list" data-param-type="species">＋種族追加</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- タイプ2: とくせい自動入力の流用（祝福ポイント＋とくせい文言） -->
+                <div class="koto-blessing-type2-area">
+                    <div class="koto-blessing-type2-rows" id="<?php echo esc_attr($prefix); ?>_type2_rows">
+                        <div class="koto-blessing-type2-row">
+                            <input type="text" class="acf-auto-input-text koto-blessing-pt-input" placeholder="pt (例:20)">
+                            <textarea class="acf-auto-input-text auto-resize koto-blessing-text-input" placeholder="とくせい文言を入力（非レベル制として自動入力）" rows="1"></textarea>
+                            <button type="button" class="button button-small koto-btn-remove-blessing-row" title="この行を削除">×</button>
+                        </div>
+                    </div>
+                    <div class="koto-blessing-type2-actions">
+                        <button type="button" class="button button-small koto-btn-add-blessing-row" data-target="<?php echo esc_attr($prefix); ?>_type2_rows">＋ 行を追加</button>
+                    </div>
+                </div>
+            </div>
+        <?php
+        };
         ?>
         <div class="acf-auto-input-container">
             <div class="acf-auto-input-header">自動入力を使用する</div>
@@ -897,9 +986,13 @@ function koto_acf_editor_page_html()
                 <div class="acf-auto-input-row"><label for="auto_input_leader" class="acf-auto-input-label">リーダーとくせい：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_leader" placeholder="実装済み" rows="2" style="width: 100%;"></textarea></div>
                 <div class="acf-auto-input-row"><label for="auto_input_trait1" class="acf-auto-input-label">とくせい１内容：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_trait1" placeholder="実装済み" rows="2" style="width: 100%;"></textarea></div>
                 <div class="acf-auto-input-row"><label for="auto_input_trait2" class="acf-auto-input-label">とくせい２内容：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_trait2" placeholder="実装済み" rows="2" style="width: 100%;"></textarea></div>
-                <div class="acf-auto-input-row"><label for="auto_input_blessing" class="acf-auto-input-label">祝福内容：</label><textarea class="acf-auto-input-text auto-resize" id="auto_input_blessing" placeholder="未実装" rows="2" style="width: 100%;"></textarea></div>
+                <div class="acf-auto-input-row koto-blessing-outer-row">
+                    <label class="acf-auto-input-label">祝福内容：</label>
+                    <?php $render_blessing_auto_input_box('blessing'); ?>
+                </div>
                 <div class="acf-auto-input-row kotowaza-toggle-row">
                     <button type="button" class="button button-secondary button-large btn-kotowaza-toggle" id="btn_toggle_kotowaza">コトわざ自動入力欄を展開</button>
+                    <button type="button" class="button button-secondary button-large btn-kotowaza-toggle" id="btn_toggle_ex_blessing">EX祝福自動入力欄を展開</button>
                 </div>
                 <div id="kotowaza_auto_input_area">
                     <?php for ($i = 0; $i <= 4; $i++): ?>
@@ -915,6 +1008,12 @@ function koto_acf_editor_page_html()
                             </div>
                         </div>
                     <?php endfor; ?>
+                </div>
+                <div id="ex_blessing_auto_input_area">
+                    <div class="acf-auto-input-row koto-blessing-outer-row">
+                        <label class="acf-auto-input-label">EX祝福内容：</label>
+                        <?php $render_blessing_auto_input_box('ex_blessing'); ?>
+                    </div>
                 </div>
                 <button type="button" class="button button-secondary" id="btn_auto_input_fill">これらの内容を自動入力</button>
                 <button type="button" class="button button-secondary" id="btn_auto_input_make">これらの内容を自動入力して記事を作成</button>
