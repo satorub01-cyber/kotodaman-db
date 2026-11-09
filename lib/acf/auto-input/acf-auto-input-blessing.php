@@ -197,6 +197,26 @@ function koto_get_blessing_token_registry()
  */
 function koto_is_blessing_star5_rarity($rarity = null, $post_id = 0)
 {
+    if (is_wp_error($rarity)) {
+        $rarity = null;
+    }
+
+    if (is_object($rarity)) {
+        if (isset($rarity->slug) || isset($rarity->name) || isset($rarity->term_id)) {
+            $slug = (string) ($rarity->slug ?? '');
+            $name = (string) ($rarity->name ?? '');
+            $tid  = (int) ($rarity->term_id ?? 0);
+            if ($slug === '5' || $name === '5' || $tid === 86) {
+                return true;
+            }
+            $rarity = $slug ?: $name;
+        } elseif (method_exists($rarity, '__toString')) {
+            $rarity = (string) $rarity;
+        } else {
+            $rarity = null;
+        }
+    }
+
     if (is_array($rarity)) {
         foreach ($rarity as $r_item) {
             if (koto_is_blessing_star5_rarity($r_item, 0)) {
@@ -220,7 +240,7 @@ function koto_is_blessing_star5_rarity($rarity = null, $post_id = 0)
         $terms = wp_get_object_terms($post_id, 'rarity');
         if (!is_wp_error($terms) && !empty($terms)) {
             foreach ($terms as $t) {
-                if ($t->slug === '5' || $t->name === '5' || (int) $t->term_id === 86) {
+                if (is_object($t) && ($t->slug === '5' || $t->name === '5' || (int) $t->term_id === 86)) {
                     return true;
                 }
             }
@@ -241,7 +261,9 @@ function koto_normalize_blessing_param_array($val)
     if (is_array($val)) {
         $out = [];
         foreach ($val as $item) {
-            if (is_scalar($item)) {
+            if (is_object($item) && $item instanceof WP_Term) {
+                $out[] = trim($item->name ?: $item->slug);
+            } elseif (is_scalar($item)) {
                 $trimmed = trim((string) $item);
                 $out[] = $trimmed;
             }
@@ -266,12 +288,18 @@ function koto_normalize_blessing_param_array($val)
 /**
  * 属性・種族の名称またはIDからタームIDを解決する。
  *
- * @param string|int $val 属性または種族の名称/ID。
+ * @param string|int|object $val 属性または種族の名称/ID/タームオブジェクト。
  * @param string $taxonomy 'attribute' または 'species'。
  * @return int 解決されたタームID（見つからない場合は 0）。
  */
 function koto_resolve_blessing_term_id($val, $taxonomy)
 {
+    if (is_object($val) && $val instanceof WP_Term) {
+        return (int) $val->term_id;
+    }
+    if (!is_scalar($val)) {
+        return 0;
+    }
     $val_str = trim((string) $val);
     if ($val_str === '') return 0;
 

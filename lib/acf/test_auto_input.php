@@ -287,6 +287,23 @@ if (count($seq_rows) === 4
     $failed_cases[] = '[祝福並び順テスト] items配列の順序パースに失敗しました（件数: ' . count($seq_rows) . '）';
 }
 
+// レアリティ判定の型安全性テスト（WP_Term, 文字列, 配列, null）
+$total_count++;
+$term_star5 = (object) ['term_id' => 86, 'name' => '5', 'slug' => '5'];
+$term_star6 = (object) ['term_id' => 87, 'name' => 'なし', 'slug' => 'none'];
+$is_safe_star5 = koto_is_blessing_star5_rarity($term_star5, 0);
+$is_safe_star6 = !koto_is_blessing_star5_rarity($term_star6, 0);
+$is_safe_arr = koto_is_blessing_star5_rarity([$term_star6, $term_star5], 0);
+$is_safe_null = !koto_is_blessing_star5_rarity(null, 0);
+if ($is_safe_star5 && $is_safe_star6 && $is_safe_arr && $is_safe_null) {
+    $passed_count++;
+    if (!$test_mode) {
+        echo sprintf("[PASS] %-18s : %d / %d passed\n", '祝福レアリティ安全性', 1, 1);
+    }
+} else {
+    $failed_cases[] = '[祝福レアリティ安全性] WP_Termオブジェクト等の型安全性判定に失敗しました';
+}
+
 if (!$test_mode) {
     echo sprintf("Total: %d / %d passed (詳細なJSON出力は --test-mode を付与)\n", $passed_count, $total_count);
     if (!empty($failed_cases)) {

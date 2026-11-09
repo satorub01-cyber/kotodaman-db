@@ -211,7 +211,7 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 
 | テンプレート名 (`template`) | CSV定義 (`祝福テンプレート`) | スクリーンショット上のアイコン並び順・見分け方 |
 |---|---|---|
-| `only_core` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1}` | **【基本4枠のみ】**<br>青ハート（HP） → 葉っぱ＋黄色ギザ（属性K1） → 種族文字＋黄色ギザ（種族K1） → 葉っぱ＋青盾（属性軽減1） の4スロット構成。 |
+| `only_core` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1}` | **【基本4枠のみ】**<br>青ハート（HP） → 葉っぱ＋黄色ギザ（属性K1） → 種族文字＋黄色ギザ（種族K1） → 葉っぱ＋青盾（属性軽減1） の4スロット構成。 合うテンプレがないときにこれをカスタムしてください。|
 | `spe2_atkup` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,species_killer2,atk_up}` | **【ガチャ標準（種族K2＋ATKUP）】**<br>基本4枠（青ハート → 属性K1 → 種族K1 → 属性軽減1） → **種族文字＋黄色ギザ（種族K2）** → **黄色剣＋赤上矢印（ATK UP）**。最もポピュラーな構成。 |
 | `attr30_atk_up` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,attr_30_killer2,atk_up}` | **【属性キラー30%＋ATKUP】**<br>基本4枠 → **葉っぱ＋黄色ギザ（属性K2/30%）** → **黄色剣＋赤上矢印（ATK UP）**。 |
 | `spe2_attr30` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,species_killer2,attr_30_killer2}` | **【種族K2＋属性キラー30%】**<br>基本4枠 → **種族文字＋黄色ギザ（種族K2）** → **葉っぱ＋黄色ギザ（属性K2/30%）**。ATK UPの代わりに属性30%キラー。 |

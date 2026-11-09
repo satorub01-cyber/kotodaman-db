@@ -1004,7 +1004,7 @@ function koto_acf_editor_page_html()
                         <span class="koto-blessing-sub-label">【テンプレートから一括セット】</span>
                     </div>
                     <div class="koto-blessing-tpl-controls">
-                        <select id="<?php echo esc_attr($prefix); ?>_template_select" class="koto-blessing-template-select" style="max-width: 100%;">
+                        <select id="<?php echo esc_attr($prefix); ?>_template_select" class="koto-blessing-template-select">
                             <option value="">-- テンプレートを選択 --</option>
                             <?php foreach ($blessing_template_choices as $tpl_val => $tpl_label) : ?>
                                 <option value="<?php echo esc_attr($tpl_val); ?>"><?php echo esc_html($tpl_label); ?></option>
@@ -1058,7 +1058,7 @@ function koto_acf_editor_page_html()
                         <span class="koto-blessing-sub-label">【トークンを追加】</span>
                     </div>
                     <div class="koto-blessing-token-controls">
-                        <select id="<?php echo esc_attr($prefix); ?>_token_select" class="koto-blessing-token-select" style="width: 250px;">
+                        <select id="<?php echo esc_attr($prefix); ?>_token_select" class="koto-blessing-token-select">
                             <option value="">-- トークンを選択 --</option>
                             <?php foreach ($token_registry as $t_key => $t_def) : ?>
                                 <option value="<?php echo esc_attr($t_key); ?>"><?php echo esc_html(($t_def['label'] ?? $t_key) . " ({$t_key})"); ?></option>
@@ -1074,7 +1074,7 @@ function koto_acf_editor_page_html()
                         <span class="koto-blessing-sub-label">【自由入力を追加】</span>
                     </div>
                     <div class="koto-blessing-free-controls">
-                        <input type="text" class="acf-auto-input-text koto-blessing-free-pt" id="<?php echo esc_attr($prefix); ?>_free_pt" placeholder="pt (例:20)" style="width: 75px;">
+                        <input type="text" class="acf-auto-input-text koto-blessing-free-pt" id="<?php echo esc_attr($prefix); ?>_free_pt" placeholder="pt (例:20)">
                         <textarea class="acf-auto-input-text auto-resize koto-blessing-free-text" id="<?php echo esc_attr($prefix); ?>_free_text" placeholder="とくせい文言を入力（非レベル制として自動入力）" rows="1"></textarea>
                         <button type="button" class="button button-small koto-btn-add-free" data-prefix="<?php echo esc_attr($prefix); ?>">＋ 自由入力を追加</button>
                     </div>

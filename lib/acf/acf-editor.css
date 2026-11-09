@@ -368,6 +368,10 @@
     gap: 6px;
 }
 
+.koto-blessing-template-select {
+    max-width: 100%;
+}
+
 .koto-blessing-tpl-presets {
     display: flex;
     align-items: center;
@@ -406,6 +410,10 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+.koto-blessing-token-select {
+    width: 250px;
 }
 
 /* 3. 自由入力セクション */
