@@ -703,10 +703,49 @@ function koto_mcp_validate_draft(&$args)
         if ($value === null || $value === '' || $value === []) return false;
         if (is_array($value)) {
             $norm = function_exists('koto_normalize_blessing_input') ? koto_normalize_blessing_input($value) : $value;
-            return !empty($norm['template']) || !empty($norm['rows']);
+            return !empty($norm['template']) || !empty($norm['rows']) || !empty($norm['items']);
         }
         return true;
     });
+    foreach (['auto_input_blessing', 'auto_input_ex_blessing'] as $b_key) {
+        if (!empty($raw_auto_input[$b_key])) {
+            $norm_b = function_exists('koto_normalize_blessing_input') ? koto_normalize_blessing_input($raw_auto_input[$b_key]) : null;
+            if ($norm_b) {
+                $item_count = 0;
+                if (!empty($norm_b['items'])) {
+                    $item_count = count($norm_b['items']);
+                } else {
+                    $item_count = count($norm_b['rows']);
+                    if (!empty($norm_b['template'])) {
+                        $tpl_csv_rows = $csv['祝福テンプレート'] ?? [];
+                        $matched_def = null;
+                        if (strpos($norm_b['template'], '{') === 0) {
+                            $matched_def = $norm_b['template'];
+                        } else {
+                            foreach ($tpl_csv_rows as $c_row) {
+                                if (trim((string) ($c_row['文言'] ?? '')) === $norm_b['template']) {
+                                    $matched_def = (string) ($c_row['ACFに入力するJSON'] ?? '');
+                                    break;
+                                }
+                            }
+                        }
+                        if ($matched_def) {
+                            $tokens = array_filter(array_map('trim', explode(',', trim($matched_def, "{} \t\n\r\0\x0B"))), 'strlen');
+                            $item_count += count($tokens);
+                        }
+                    }
+                }
+                if ($item_count > 8) {
+                    $errors['invalid_fields'][] = koto_mcp_json_error(
+                        'VALIDATION_FAILED',
+                        'auto_input.' . $b_key,
+                        'items_limit_exceeded',
+                        sprintf('%sの項目数が上限（最大8項目）を超えています（指定件数: %d件）。', $b_key === 'auto_input_ex_blessing' ? 'EX祝福' : '祝福', $item_count)
+                    );
+                }
+            }
+        }
+    }
     foreach ($requested as $input_key => $input_value) {
         $b_meta = $GLOBALS['koto_last_blessing_parse_meta'][$input_key] ?? null;
         if (is_array($b_meta) && !empty($b_meta['unknown_template'])) {

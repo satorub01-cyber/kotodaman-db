@@ -108,8 +108,81 @@ function koto_get_blessing_token_registry()
             'blessing_level_value' => 'min_max',
             'target_type'          => 'self',
             'rarity_values'        => [
-                'star6' => ['min_value' => '4', 'max_value' => '12'],
+                'star6' => ['min_value' => '1', 'max_value' => '10'],
                 'star5' => ['min_value' => '4', 'max_value' => '12'],
+            ],
+        ],
+
+        // 30%属性キラー
+        'attr_30_killer' => [
+            'label'                => '属性キラー30%',
+            'trait_type'           => 'damage_correction',
+            'damage_correction'    => 'killer',
+            'rate_type'            => 'percentage',
+            'pt_pattern'           => 'single',
+            'target_type'          => 'attr',
+            'rarity_values'        => [
+                'star6' => ['blessing_value' => '30'],
+                'star5' => ['blessing_value' => '25'],
+            ],
+        ],
+        
+        // 35%種族キラー
+        'speci_35_killer' => [
+            'label'                => '種族キラー35%',
+            'trait_type'           => 'damage_correction',
+            'damage_correction'    => 'killer',
+            'rate_type'            => 'percentage',
+            'pt_pattern'           => 'single',
+            'target_type'          => 'species',
+            'rarity_values'        => [
+                'star6' => ['blessing_value' => '35'],
+                'star5' => ['blessing_value' => '25'],
+            ],
+        ],
+
+        // グループドローバフ
+        'group_draw_buff' => [
+            'label'                => 'グループドローバフ',
+            'trait_type'           => 'draw_eff',
+            'draw_eff'             => 'atk_buff',
+            'draw_triat_turn'      => '2',
+            'rate_type'            => 'fixed',
+            'pt_pattern'           => 'single',
+            'need_point'           => '20',
+            'target_type'          => 'affiliation',
+            'rarity_values'        => [
+                'star6' => ['blessing_value' => '1', 'need_point' => '20'],
+                'star5' => ['blessing_value' => '1', 'need_point' => '20'],
+            ],
+        ],
+
+        // atk_up_per_unit
+        'atk_up_per_unit' => [
+            'label'                => 'ATKアップ（キャラ数依存）',
+            'trait_type'           => 'status_up',
+            'status_up'            => 'atk',
+            'rate_type'            => 'fixed',
+            'pt_pattern'           => 'per_unit',
+            'blessing_level_value' => 'csv',
+            'target_type'          => 'self',
+            'rarity_values'        => [
+                'star6' => ['blessing_value' => '1,2,5,10'],
+                'star5' => ['blessing_value' => '1,2,5,10'],
+            ],
+        ],
+
+        // コンボ＋
+        'comb_plus' => [
+            'label'                => 'コンボ＋',
+            'trait_type'           => 'other_traitsd',
+            'other_traits'            => 'comb_plus',
+            'rate_type'            => 'fixed',
+            'pt_pattern'           => 'single',
+            'need_point'           => '20',
+            'rarity_values'        => [
+                'star6' => ['blessing_value' => '1', 'need_point' => '20'],
+                'star5' => ['blessing_value' => '1', 'need_point' => '20'],
             ],
         ],
     ];
@@ -218,14 +291,92 @@ function koto_resolve_blessing_term_id($val, $taxonomy)
 }
 
 /**
+ * キャラクターの所属（affiliation）のタームID配列を取得・解決する。
+ *
+ * @param mixed $context 実行コンテキスト（'post_id', 'affiliations', 'affiliation' 等）または所属指定値。
+ * @param int|string|null $target_id 直接指定されたターゲットタームID/名称。
+ * @return array<int, int> 解決されたタームID配列。
+ */
+function koto_resolve_blessing_affiliations($context = [], $target_id = null)
+{
+    $candidates = [];
+
+    if (!empty($target_id)) {
+        $candidates[] = $target_id;
+    }
+
+    $post_id = 0;
+    if (is_array($context)) {
+        if (!empty($context['affiliations'])) {
+            $candidates = array_merge($candidates, (array) $context['affiliations']);
+        }
+        if (!empty($context['affiliation'])) {
+            $candidates = array_merge($candidates, (array) $context['affiliation']);
+        }
+        if (!empty($context['group'])) {
+            $candidates = array_merge($candidates, (array) $context['group']);
+        }
+        if (!empty($context['post_id'])) {
+            $post_id = (int) $context['post_id'];
+        }
+    } elseif (is_numeric($context) && (int) $context > 0) {
+        $post_id = (int) $context;
+    } elseif (is_string($context) && trim($context) !== '') {
+        $candidates[] = trim($context);
+    }
+
+    $resolved_ids = [];
+    foreach ($candidates as $c) {
+        if (is_object($c) && isset($c->term_id)) {
+            $resolved_ids[] = (int) $c->term_id;
+        } elseif (is_numeric($c) && (int) $c > 0) {
+            $resolved_ids[] = (int) $c;
+        } elseif (is_string($c) && trim($c) !== '') {
+            $name = trim($c);
+            if (function_exists('get_term_by')) {
+                $term = get_term_by('name', $name, 'affiliation') ?: get_term_by('slug', $name, 'affiliation');
+                if ($term && !is_wp_error($term)) {
+                    $resolved_ids[] = (int) $term->term_id;
+                }
+            }
+        }
+    }
+
+    // まだ解決できておらず post_id がある場合、投稿から affiliation を取得
+    if (empty($resolved_ids) && $post_id > 0) {
+        if (function_exists('wp_get_object_terms')) {
+            $terms = wp_get_object_terms($post_id, 'affiliation');
+            if (!is_wp_error($terms) && !empty($terms)) {
+                foreach ($terms as $t) {
+                    $resolved_ids[] = (int) $t->term_id;
+                }
+            }
+        }
+        if (empty($resolved_ids) && function_exists('get_field')) {
+            $acf_aff = get_field('affiliation', $post_id, false);
+            if (!empty($acf_aff)) {
+                foreach ((array) $acf_aff as $aid) {
+                    if ((int) $aid > 0) {
+                        $resolved_ids[] = (int) $aid;
+                    }
+                }
+            }
+        }
+    }
+
+    return array_values(array_unique(array_filter($resolved_ids)));
+}
+
+/**
  * 1つのトークン定義とパラメータからACF行データを構築する。
  *
  * @param string $base_token 基本トークン名（例: 'attr_killer', 'hp_up'）。
  * @param int|null $target_id ターゲットタームID（属性IDまたは種族ID）。
  * @param bool $is_star5 ★5かどうか。
+ * @param mixed $context 実行コンテキスト（所属情報や post_id など）。
  * @return array<string, mixed>|null ACF行データ（未登録トークンの場合は null）。
  */
-function koto_build_blessing_token_row($base_token, $target_id = null, $is_star5 = false)
+function koto_build_blessing_token_row($base_token, $target_id = null, $is_star5 = false, $context = [])
 {
     $registry = koto_get_blessing_token_registry();
     if (!isset($registry[$base_token])) {
@@ -244,8 +395,9 @@ function koto_build_blessing_token_row($base_token, $target_id = null, $is_star5
         'target_other'   => '',
     ];
 
+    $target_type = $def['target_type'] ?? 'self';
     $target_group = $self_target;
-    if ($def['target_type'] === 'attr') {
+    if ($target_type === 'attr') {
         $target_group = [
             'target_type'    => 'attr',
             'target_attr'    => $target_id ? [(int) $target_id] : [],
@@ -253,12 +405,21 @@ function koto_build_blessing_token_row($base_token, $target_id = null, $is_star5
             'target_group'   => [],
             'target_other'   => '',
         ];
-    } elseif ($def['target_type'] === 'species') {
+    } elseif ($target_type === 'species') {
         $target_group = [
             'target_type'    => 'species',
             'target_attr'    => [],
             'target_species' => $target_id ? [(int) $target_id] : [],
             'target_group'   => [],
+            'target_other'   => '',
+        ];
+    } elseif ($target_type === 'affiliation' || $target_type === 'group') {
+        $aff_ids = koto_resolve_blessing_affiliations($context, $target_id);
+        $target_group = [
+            'target_type'    => 'group',
+            'target_attr'    => [],
+            'target_species' => [],
+            'target_group'   => $aff_ids,
             'target_other'   => '',
         ];
     }
@@ -268,15 +429,24 @@ function koto_build_blessing_token_row($base_token, $target_id = null, $is_star5
         'target_field_group'   => $target_group,
         'trait_type'           => $def['trait_type'],
         'pt_pattern'           => $def['pt_pattern'],
-        'blessing_level_value' => $def['blessing_level_value'],
+        'blessing_level_value' => $def['blessing_level_value'] ?? '',
         'rate_type'            => $def['rate_type'],
     ];
 
+    if (!empty($def['need_point'])) {
+        $row['need_point'] = $def['need_point'];
+    }
     if (!empty($def['status_up'])) {
         $row['status_up'] = $def['status_up'];
     }
     if (!empty($def['damage_correction'])) {
         $row['damage_correction'] = $def['damage_correction'];
+    }
+    if (!empty($def['draw_eff'])) {
+        $row['draw_eff'] = $def['draw_eff'];
+    }
+    if (!empty($def['draw_triat_turn'])) {
+        $row['draw_triat_turn'] = $def['draw_triat_turn'];
     }
 
     foreach ($values as $k => $v) {
@@ -300,7 +470,7 @@ function koto_build_blessing_token_row($base_token, $target_id = null, $is_star5
  * @param array<int, string> &$warnings 属性・種族不足などの警告を格納する参照配列。
  * @return array<int, array<string, mixed>> ACFリピーター行配列。
  */
-function koto_expand_blessing_template_to_acf($template_def, array $attrs = [], array $species = [], $rarity = null, array &$warnings = [])
+function koto_expand_blessing_template_to_acf($template_def, array $attrs = [], array $species = [], $rarity = null, array &$warnings = [], array $context = [])
 {
     $template_def = trim((string) $template_def);
     if ($template_def === '') {
@@ -352,7 +522,7 @@ function koto_expand_blessing_template_to_acf($template_def, array $attrs = [], 
             if (!$target_id) {
                 $missing_attrs[$idx_num][] = $token;
             }
-            $row = koto_build_blessing_token_row('attr_killer', $target_id, $is_star5);
+            $row = koto_build_blessing_token_row('attr_killer', $target_id, $is_star5, $context);
             if ($row) $rows[] = $row;
             continue;
         }
@@ -365,7 +535,7 @@ function koto_expand_blessing_template_to_acf($template_def, array $attrs = [], 
             if (!$target_id) {
                 $missing_species[$idx_num][] = $token;
             }
-            $row = koto_build_blessing_token_row('species_killer', $target_id, $is_star5);
+            $row = koto_build_blessing_token_row('species_killer', $target_id, $is_star5, $context);
             if ($row) $rows[] = $row;
             continue;
         }
@@ -378,7 +548,7 @@ function koto_expand_blessing_template_to_acf($template_def, array $attrs = [], 
             if (!$target_id) {
                 $missing_attrs[$idx_num][] = $token;
             }
-            $row = koto_build_blessing_token_row('attr_mitigation', $target_id, $is_star5);
+            $row = koto_build_blessing_token_row('attr_mitigation', $target_id, $is_star5, $context);
             if ($row) $rows[] = $row;
             continue;
         }
@@ -386,25 +556,36 @@ function koto_expand_blessing_template_to_acf($template_def, array $attrs = [], 
         // 4. インデックスなしキラー・軽減のフォールバック警告
         if (preg_match('/^attr_killer$/i', $token)) {
             $warnings[] = '属性キラー（attr_killer）にインデックス（例: attr_killer1）が指定されていません。';
-            $row = koto_build_blessing_token_row('attr_killer', null, $is_star5);
+            $row = koto_build_blessing_token_row('attr_killer', null, $is_star5, $context);
             if ($row) $rows[] = $row;
             continue;
         }
         if (preg_match('/^species_killer$/i', $token)) {
             $warnings[] = '種族キラー（species_killer）にインデックス（例: species_killer1）が指定されていません。';
-            $row = koto_build_blessing_token_row('species_killer', null, $is_star5);
+            $row = koto_build_blessing_token_row('species_killer', null, $is_star5, $context);
             if ($row) $rows[] = $row;
             continue;
         }
         if (preg_match('/^(?:attr_)?mitigation$/i', $token)) {
             $warnings[] = '属性軽減（attr_mitigation）にインデックス（例: attr_mitigation1）が指定されていません。';
-            $row = koto_build_blessing_token_row('attr_mitigation', null, $is_star5);
+            $row = koto_build_blessing_token_row('attr_mitigation', null, $is_star5, $context);
             if ($row) $rows[] = $row;
             continue;
         }
 
-        // 5. その他の固定トークン（hp_up, atk_up, dodge 等）
-        $row = koto_build_blessing_token_row($token, null, $is_star5);
+        // 5. グループドローバフ
+        if ($token === 'group_draw_buff') {
+            $aff_ids = koto_resolve_blessing_affiliations($context);
+            if (empty($aff_ids)) {
+                $warnings[] = 'グループドローバフの対象グループ（所属）が未設定です。';
+            }
+            $row = koto_build_blessing_token_row('group_draw_buff', null, $is_star5, $context);
+            if ($row) $rows[] = $row;
+            continue;
+        }
+
+        // 6. その他の固定トークン（hp_up, atk_up, dodge 等）
+        $row = koto_build_blessing_token_row($token, null, $is_star5, $context);
         if ($row) {
             $rows[] = $row;
         }
@@ -454,14 +635,23 @@ function koto_extract_blessing_template_from_post($post_id, $template_key = 'pat
     $attr_mitigation_count = 0;
 
     foreach ($rows as $r) {
+        $tt = $r['trait_type'] ?? '';
+        $su = $r['status_up'] ?? '';
+        $dc = $r['damage_correction'] ?? '';
+        $de = $r['draw_eff'] ?? '';
+        $target_type = $r['target_field_group']['target_type'] ?? '';
+
+        // グループドローバフは pt_pattern が single
+        if ($tt === 'draw_eff' && $de === 'atk_buff' && ($target_type === 'group' || $target_type === 'affiliation')) {
+            $default_rows[] = $r;
+            $tokens[] = 'group_draw_buff';
+            continue;
+        }
+
         if (($r['pt_pattern'] ?? '') !== 'default') {
             continue;
         }
         $default_rows[] = $r;
-        $tt = $r['trait_type'] ?? '';
-        $su = $r['status_up'] ?? '';
-        $dc = $r['damage_correction'] ?? '';
-        $target_type = $r['target_field_group']['target_type'] ?? '';
 
         if ($tt === 'status_up' && $su === 'hp') {
             $tokens[] = 'hp_up';
@@ -562,11 +752,13 @@ function koto_convert_trait_row_to_blessing_rows(array $row, $point, $is_ex, arr
 function koto_normalize_blessing_input($input)
 {
     $normalized = [
-        'template' => '',
-        'attrs'    => [],
-        'species'  => [],
-        'rarity'   => null,
-        'rows'     => [],
+        'template'     => '',
+        'attrs'        => [],
+        'species'      => [],
+        'affiliations' => [],
+        'rarity'       => null,
+        'rows'         => [],
+        'items'        => [],
     ];
 
     if (is_string($input)) {
@@ -583,13 +775,43 @@ function koto_normalize_blessing_input($input)
     }
 
     if (is_array($input)) {
-        if (array_key_exists('template', $input) || array_key_exists('rows', $input) || array_key_exists('attrs', $input) || array_key_exists('attr', $input) || array_key_exists('species', $input) || array_key_exists('rarity', $input)) {
+        if (array_key_exists('items', $input) || array_key_exists('template', $input) || array_key_exists('rows', $input) || array_key_exists('attrs', $input) || array_key_exists('attr', $input) || array_key_exists('species', $input) || array_key_exists('affiliations', $input) || array_key_exists('affiliation', $input) || array_key_exists('group', $input) || array_key_exists('rarity', $input)) {
             $normalized['template'] = trim((string) ($input['template'] ?? ''));
             $raw_attrs = $input['attrs'] ?? ($input['attr'] ?? []);
             $raw_species = $input['species'] ?? [];
+            $raw_affiliations = $input['affiliations'] ?? ($input['affiliation'] ?? ($input['group'] ?? []));
             $normalized['attrs'] = koto_normalize_blessing_param_array($raw_attrs);
             $normalized['species'] = koto_normalize_blessing_param_array($raw_species);
+            $normalized['affiliations'] = koto_normalize_blessing_param_array($raw_affiliations);
             $normalized['rarity'] = $input['rarity'] ?? null;
+
+            if (!empty($input['items']) && is_array($input['items'])) {
+                foreach ($input['items'] as $it) {
+                    if (is_array($it)) {
+                        $itype = trim((string) ($it['type'] ?? ''));
+                        if ($itype === 'token') {
+                            $t_name = trim((string) ($it['token'] ?? ''));
+                            if ($t_name !== '') {
+                                $normalized['items'][] = [
+                                    'type'   => 'token',
+                                    'token'  => $t_name,
+                                    'target' => trim((string) ($it['target'] ?? '')),
+                                ];
+                            }
+                        } elseif ($itype === 'free') {
+                            $f_pt = trim((string) ($it['point'] ?? ($it['pt'] ?? ($it['need_point'] ?? ''))));
+                            $f_text = trim((string) ($it['text'] ?? ''));
+                            if ($f_text !== '') {
+                                $normalized['items'][] = [
+                                    'type'  => 'free',
+                                    'point' => $f_pt,
+                                    'text'  => $f_text,
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
 
             if (!empty($input['rows']) && is_array($input['rows'])) {
                 foreach ($input['rows'] as $r) {
@@ -626,18 +848,20 @@ function koto_normalize_blessing_input($input)
             $line = trim($line);
             if ($line === '') continue;
 
-            if (preg_match('/^@template\s*[:：]\s*([a-zA-Z0-9_\-]+)(?:\((.*?)\))?$/u', $line, $m)) {
+            if (preg_match('/^@template\s*[:：]\s*([a-zA-Z0-9_\-{}]+)(?:\((.*?)\))?$/u', $line, $m)) {
                 $normalized['template'] = trim($m[1]);
                 if (!empty($m[2])) {
                     $param_pairs = preg_split('/[,、;；]+/u', $m[2], -1, PREG_SPLIT_NO_EMPTY);
                     foreach ((array) $param_pairs as $pair) {
-                        if (preg_match('/^(attrs?|species|rarity)\s*=\s*(.+)$/u', trim($pair), $pm)) {
+                        if (preg_match('/^(attrs?|species|affiliations?|groups?|rarity)\s*=\s*(.+)$/u', trim($pair), $pm)) {
                             $pkey = strtolower($pm[1]);
                             $raw_val = trim($pm[2]);
                             if ($pkey === 'attr' || $pkey === 'attrs') {
                                 $normalized['attrs'] = array_merge($normalized['attrs'], koto_normalize_blessing_param_array($raw_val));
                             } elseif ($pkey === 'species') {
                                 $normalized['species'] = array_merge($normalized['species'], koto_normalize_blessing_param_array($raw_val));
+                            } elseif ($pkey === 'affiliation' || $pkey === 'affiliations' || $pkey === 'group' || $pkey === 'groups') {
+                                $normalized['affiliations'] = array_merge($normalized['affiliations'], koto_normalize_blessing_param_array($raw_val));
                             } elseif ($pkey === 'rarity') {
                                 $normalized['rarity'] = $raw_val;
                             }
@@ -698,26 +922,102 @@ function koto_parse_blessing($input, $grouped_csv, $input_key = 'auto_input_bles
     $type1_rows = [];
     $type2_rows = [];
 
+    // ★新方式: items 配列（トークン・自由入力混在の並び順）による処理
+    if (!empty($normalized['items'])) {
+        $ordered_rows = [];
+        $is_star5 = koto_is_blessing_star5_rarity($rarity, $post_id);
+        $reg = koto_get_blessing_token_registry();
+
+        foreach ($normalized['items'] as $it) {
+            if (($it['type'] ?? '') === 'token') {
+                $base_token = $it['token'] ?? '';
+                $def = $reg[$base_token] ?? null;
+                $target_id = null;
+                if ($def) {
+                    $ttype = $def['target_type'] ?? 'self';
+                    $raw_target = $it['target'] ?? '';
+                    if ($ttype === 'attr') {
+                        $target_id = koto_resolve_blessing_term_id($raw_target, 'attribute');
+                        if (!$target_id && $raw_target !== '') {
+                            $meta['warnings'][] = sprintf('トークン「%s」の対象属性「%s」を解決できませんでした。', $def['label'] ?? $base_token, $raw_target);
+                        }
+                    } elseif ($ttype === 'species') {
+                        $target_id = koto_resolve_blessing_term_id($raw_target, 'species');
+                        if (!$target_id && $raw_target !== '') {
+                            $meta['warnings'][] = sprintf('トークン「%s」の対象種族「%s」を解決できませんでした。', $def['label'] ?? $base_token, $raw_target);
+                        }
+                    } elseif ($ttype === 'affiliation' || $ttype === 'group') {
+                        $target_id = $raw_target !== '' ? $raw_target : null;
+                    }
+                }
+                $token_context = array_merge($context, [
+                    'post_id'      => $post_id,
+                    'affiliations' => !empty($normalized['affiliations']) ? $normalized['affiliations'] : ($context['affiliations'] ?? ($context['affiliation'] ?? [])),
+                ]);
+                $row = koto_build_blessing_token_row($base_token, $target_id, $is_star5, $token_context);
+                if ($row) {
+                    $ordered_rows[] = $row;
+                } else {
+                    $meta['warnings'][] = sprintf('未登録の祝福トークンです: %s', $base_token);
+                }
+            } elseif (($it['type'] ?? '') === 'free') {
+                $point = $it['point'] ?? '';
+                $raw_text = trim((string) ($it['text'] ?? ''));
+                if ($raw_text === '') {
+                    continue;
+                }
+
+                $preprocessed = koto_preprocess_text($raw_text, 'とくせい');
+                $parsed_traits = koto_parse_trait($preprocessed, $grouped_csv, $input_key);
+                if (empty($parsed_traits)) {
+                    $meta['unparsed_rows'][] = $raw_text;
+                    continue;
+                }
+
+                foreach ($parsed_traits as $t_row) {
+                    $converted = koto_convert_trait_row_to_blessing_rows($t_row, $point, $is_ex, $grouped_csv);
+                    foreach ($converted as $c_row) {
+                        $ordered_rows[] = $c_row;
+                    }
+                }
+            }
+        }
+
+        $meta['type1_count'] = count($ordered_rows);
+        $GLOBALS['koto_last_blessing_parse_meta'][$input_key] = $meta;
+        return $ordered_rows;
+    }
+
     // 1. タイプ1: テンプレート注入
     if ($normalized['template'] !== '') {
         $tpl_name = $normalized['template'];
         $tpl_csv_rows = $grouped_csv['祝福テンプレート'] ?? [];
         $matched_tpl_def = null;
-        foreach ($tpl_csv_rows as $csv_row) {
-            if (trim((string) ($csv_row['文言'] ?? '')) === $tpl_name) {
-                $matched_tpl_def = (string) ($csv_row['ACFに入力するJSON'] ?? '');
-                break;
+
+        if (strpos($tpl_name, '{') === 0) {
+            $matched_tpl_def = $tpl_name;
+        } else {
+            foreach ($tpl_csv_rows as $csv_row) {
+                if (trim((string) ($csv_row['文言'] ?? '')) === $tpl_name) {
+                    $matched_tpl_def = (string) ($csv_row['ACFに入力するJSON'] ?? '');
+                    break;
+                }
             }
         }
 
         if ($matched_tpl_def !== null) {
             $tpl_warnings = [];
+            $tpl_context = array_merge($context, [
+                'post_id'      => $post_id,
+                'affiliations' => !empty($normalized['affiliations']) ? $normalized['affiliations'] : ($context['affiliations'] ?? ($context['affiliation'] ?? [])),
+            ]);
             $type1_rows = koto_expand_blessing_template_to_acf(
                 $matched_tpl_def,
                 $normalized['attrs'],
                 $normalized['species'],
                 $rarity,
-                $tpl_warnings
+                $tpl_warnings,
+                $tpl_context
             );
             $meta['type1_count'] = count($type1_rows);
             if (!empty($tpl_warnings)) {

@@ -113,11 +113,52 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 
 #### ③-B. 祝福（`auto_input_blessing`）・EX祝福（`auto_input_ex_blessing`）の自動入力仕様
 
-祝福の自動入力には **タイプ1（テンプレート注入：通常のガチャキャラ向け）** と **タイプ2（とくせい自動入力の流用＋ポイント個別指定：降臨キャラ・特殊祝福向け）** の2種類があり、以下の構造化オブジェクト形式（またはテキスト記法）で指定します。
+> [!IMPORTANT]
+> **上限項目数**: 祝福・EX祝福はゲーム仕様上、それぞれ **最大8項目（MAX 8）** に制限されます。8項目を超えて指定した場合は `VALIDATION_FAILED`（`items_limit_exceeded`）となります。
+
+祝福の自動入力には、**新形式（`items` 配列形式：推奨）** と **旧形式（`template` ＋ `rows` 形式）** の2種類があり、いずれも構造化オブジェクト形式（またはテキスト記法）で指定します。
+
+##### 1. 新形式（`items` 配列：トークンと自由入力の混在並び順指定）
+トークン方式と自由入力方式をユーザーやAIが任意の順序で並べて登録できます。指定した配列の順序通りにACF行データが構築されます。
 
 ```json
 {
-  "template": "pattern_2",
+  "items": [
+    { "type": "token", "token": "hp_up" },
+    { "type": "token", "token": "attr_killer", "target": "火" },
+    { "type": "token", "token": "species_killer", "target": "神" },
+    { "type": "token", "token": "attr_mitigation", "target": "火" },
+    { "type": "free", "point": "20", "text": "ドロー時に味方のATKを少し強化" },
+    { "type": "token", "token": "atk_up" }
+  ]
+}
+```
+
+* **トークン項目（`"type": "token"`）**:
+  * `token`: トークン識別子（下表参照）。
+  * `target`: 属性・種族が必要なトークンの場合、対象となる属性名（`"火"`, `"水"` 等）または種族名（`"神"`, `"魔"` 等）を指定（サーバー側でタームIDへ自動解決）。
+* **自由入力項目（`"type": "free"`）**:
+  * `point`: 必要祝福ポイント（例: `"20"`）。
+  * `text`: ゲーム内のとくせい文言。
+
+###### 利用可能な祝福トークン一覧
+| トークン識別子 | 名称 | 対象（`target`） | 説明 |
+|---|---|---|---|
+| `hp_up` | HPアップ | 不要 | 自身のHPアップ（レベル制CSV） |
+| `atk_up` | ATKアップ | 不要 | 自身のATKアップ（レベル制CSV） |
+| `attr_killer` | 属性キラー | 属性（例: `"火"`） | 等差数列型キラー（★6: 10~20%, ★5: 5~15%） |
+| `species_killer` | 種族キラー | 種族（例: `"神"`） | 等差数列型キラー（★6: 15~25%, ★5: 10~20%） |
+| `attr_mitigation` | 属性軽減 | 属性（例: `"火"`） | 等差数列型軽減（★6: 10~20%, ★5: 5~15%） |
+| `dodge` | 回避率UP | 不要 | 回避率UP（★6: 1~10%, ★5: 4~12%） |
+| `attr_30_killer` | 属性キラー30% | 属性（例: `"木"`） | 非レベル制30%キラー |
+| `group_draw_buff` | グループドローバフ | 省略（キャラ所属連動） | グループATKバフ |
+| `atk_up_per_unit` | ATKアップ(ユニット数依存) | 不要 | ユニット数依存ATKアップ |
+| `comb_plus` | コンボ＋ | 不要 | コンボ＋1（20pt） |
+
+##### 2. 旧形式（`template` ＋ `rows` 形式：後方互換）
+```json
+{
+  "template": "spe2_atkup",
   "attrs": ["火", "水"],
   "species": ["神", "魔"],
   "rows": [
@@ -138,21 +179,48 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
   * 1要素につき `{"point": "<必要祝福pt>", "text": "<とくせい文言>"}` を指定します。
   * サーバー側で自動的に `pt_pattern = "single"`（非レベル制）および `need_point` が設定され、文字追加（`available_moji_loop` の `unlock_need_point`）やすごわざ条件追加（`sugowaza_condition` の `get_palce = "blessing" | "ex_blessing"`, `need_blessing_point`）も自動で振り分けられます。
 * **保存順序**:
-  * タイプ1とタイプ2の両方を指定した場合、必ず **タイプ1 → タイプ2** の順で保存されます。
+  * 旧形式でタイプ1とタイプ2の両方を指定した場合、必ず **タイプ1 → タイプ2** の順で保存されます。
 * **タイプ1・タイプ2の判定ルールと `update_draft` での追記（`replace_existing: false`）**:
-  1. `get_place` が `"gacha"`（ガチャキャラ）の場合：原則としてタイプ1を使用します。
-  2. `get_place` が `"other"`（降臨・配布等）の場合：原則としてタイプ2（`rows`）を使用します。
+  1. `get_place` が `"gacha"`（ガチャキャラ）の場合：原則として新形式 `items` またはタイプ1を使用します。
+  2. `get_place` が `"other"`（降臨・配布等）の場合：原則として新形式 `items` またはタイプ2（`rows`）を使用します。
   3. **両方を持つキャラクターでユーザーから事前指定がない場合**：
      * まず **タイプ1のみ** を `auto_input_blessing` に指定して下書きを作成（`create_draft`）し、**タイプ2の入力有無をユーザーへ確認**してください。
      * ユーザー確認後に `update_draft` でタイプ2を追加する際は、既存のタイプ1行を上書きせず末尾に追記するため、必ず **`"replace_existing": false`** を指定してください（`preview_draft` 実行時にも `"replace_existing": false` を含めます）。
 
-##### 祝福アイコンの並び順 ↔ テンプレート種別（`template`）対応表
-<!-- //要チェック: スクリーンショットの祝福アイコン並び順とテンプレート種別の対応関係をここに記入してください -->
-| テンプレート名 (`template`) | CSV定義 (`祝福テンプレート`) | スクリーンショット上のアイコン並び順・見分け方（//要チェック） |
+##### 祝福アイコンの視覚的識別法則（AI読み取りガイド）
+
+スクリーンショット上の祝福アイコンは、**「ベースの形状」** と **「付加マーク（左下・右下バッジ）」** の組み合わせによって正確に判別できます。
+
+| アイコン要素 | 視覚的特徴（見た目） | 判定される祝福項目 |
 |---|---|---|
-| `pattern_1` | `{attr_killer1,species_killer1}` | //要チェック: アイコン並び順・対象キャラの特徴を記入 |
-| `pattern_2` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,species_killer2}` | //要チェック: アイコン並び順（HPアップ → 属性キラー1 → 種族キラー1 → 属性軽減1 → 種族キラー2 等）を記入 |
-| `pattern_3` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,attr_killer2}` | //要チェック: アイコン並び順（HPアップ → 属性キラー1 → 種族キラー1 → 属性軽減1 → 属性キラー2 等）を記入 |
+| **属性ベース** | **葉っぱ型**（火/水/木/光/闇/冥/天の属性色・シンボル） | 属性関連効果（属性キラー・属性軽減等） |
+| **種族ベース** | **文字表記**（「神」「魔」「英」「龍」「獣」「霊」「物」「妖」） | 種族関連効果（種族キラー等） |
+| **HPアイコン** | **青いハート** | HPアップ（`hp_up`） |
+| **ATKアイコン** | **黄色い剣**（＋**赤上矢印**） | ATK基礎値UP（`atk_up` / `atk_up_per_unit`）またはグループドローバフ（`group_draw_buff`） |
+| **軽減マーク** | **左下に青いシールド（盾マーク）** | 被ダメージ軽減（葉っぱ＋左下青盾 ＝ `attr_mitigation`） |
+| **キラーマーク** | **右下に黄色いギザギザ** | キラー（葉っぱ＋右下黄色ギザ ＝ `attr_killer` / `attr_30_killer`、文字＋右下黄色ギザ ＝ `species_killer`） |
+| **コンボマーク** | **Combo +1 等のコンボ表記** | コンボ＋（`comb_plus`） |
+
+> [!TIP]
+> * **属性キラー vs 属性軽減**: いずれも葉っぱ型ですが、**右下に黄色いギザギザ**がある場合は「キラー」、**左下に青いシールド**がある場合は「軽減（mitigation）」です。
+> * **ATK基礎値UP vs グループドローバフ**: いずれも黄色い剣に赤上矢印ですが、所属アイコンの表示や「味方のATK付与」文言を伴う場合は `group_draw_buff`、自身の基礎ステータス向上の場合は `atk_up` です。
+
+##### 祝福アイコンの並び順 ↔ テンプレート種別（`template`）対応表
+
+スクリーンショット内の祝福スロットに並んでいるアイコンの形状・マーク順から、合致するテンプレート名を特定します。
+
+| テンプレート名 (`template`) | CSV定義 (`祝福テンプレート`) | スクリーンショット上のアイコン並び順・見分け方 |
+|---|---|---|
+| `only_core` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1}` | **【基本4枠のみ】**<br>青ハート（HP） → 葉っぱ＋黄色ギザ（属性K1） → 種族文字＋黄色ギザ（種族K1） → 葉っぱ＋青盾（属性軽減1） の4スロット構成。 |
+| `spe2_atkup` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,species_killer2,atk_up}` | **【ガチャ標準（種族K2＋ATKUP）】**<br>基本4枠（青ハート → 属性K1 → 種族K1 → 属性軽減1） → **種族文字＋黄色ギザ（種族K2）** → **黄色剣＋赤上矢印（ATK UP）**。最もポピュラーな構成。 |
+| `attr30_atk_up` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,attr_30_killer2,atk_up}` | **【属性キラー30%＋ATKUP】**<br>基本4枠 → **葉っぱ＋黄色ギザ（属性K2/30%）** → **黄色剣＋赤上矢印（ATK UP）**。 |
+| `spe2_attr30` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,species_killer2,attr_30_killer2}` | **【種族K2＋属性キラー30%】**<br>基本4枠 → **種族文字＋黄色ギザ（種族K2）** → **葉っぱ＋黄色ギザ（属性K2/30%）**。ATK UPの代わりに属性30%キラー。 |
+| `comb_plus` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,attr_killer2,comb_plus}` | **【属性K2＋コンボ+1】**<br>基本4枠 → **葉っぱ＋黄色ギザ（属性K2）** → **Combo+1 アイコン**。 |
+| `colab_special` | `{attr_killer1,attr_killer2,attr_killer3,species_killer1,group_draw_buff,attr_30_killer4}` | **【コラボスペシャル】**<br>**HPハート・軽減盾がなく**、葉っぱ＋黄色ギザ（属性K1〜3）×3 → 種族文字＋黄色ギザ（種族K1） → 黄色剣＋赤上矢印（グループバフ） → 葉っぱ＋黄色ギザ（属性K4/30%）。 |
+| `original_special` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,species_killer2,group_draw_buff}` | **【オリジナルスペシャル】**<br>基本4枠 → **種族文字＋黄色ギザ（種族K2）** → **黄色剣＋赤上矢印（グループドローバフ）**。 |
+| `twin_attr_atk_up` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,attr_killer2,atk_up}` | **【W属性（属性K2＋ATKUP）】**<br>基本4枠 → **葉っぱ＋黄色ギザ（属性K2）** → **黄色剣＋赤上矢印（ATK UP）**。 |
+| `twin_attr_attr30` | `{hp_up,attr_killer1,attr_killer2,species_killer1,species_killer2,attr_30_killer2}` | **【W属性・W種族】**<br>青ハート（HP） → **葉っぱ＋黄色ギザ（属性K1〜2）×2** → **種族文字＋黄色ギザ（種族K1〜2）×2** → **葉っぱ＋黄色ギザ（属性K2/30%）**。（軽減盾なし） |
+| `spe2_perunit` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,species_killer2,atk_up_per_unit}` | **【種族K2＋ユニット依存ATKUP】**<br>基本4枠 → **種族文字＋黄色ギザ（種族K2）** → **黄色剣＋赤上矢印（ユニット数依存ATK UP）**。 |
 
 ### ④ 画像（`screenshot_urls`）の仕様
 * `screenshot_urls` を省略して `create_draft` を実行した場合、準備中画像（`https://www.kotodaman-db.com/wp-content/uploads/2026/02/無題51_20260205005357.png`）が自動的にセットされます。

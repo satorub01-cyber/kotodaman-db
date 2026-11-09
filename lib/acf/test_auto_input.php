@@ -168,13 +168,15 @@ $tests = [
     ],
     '祝福' => [
         // 1. タイプ1（テンプレート注入：★6通常、複数キラー対象属性・種族のインデックス付き配列展開）
-        '{"template":"pattern_2","rarity":"なし","attrs":["火","水"],"species":["神","魔"],"rows":[]}',
+        '{"template":"spe2_atkup","rarity":"なし","attrs":["火"],"species":["神","魔"],"rows":[]}',
         // 2. タイプ1（★5キャラ：キラー値が -5 されることの確認）
-        '{"template":"pattern_1","rarity":"5","attrs":["火"],"species":["神"],"rows":[]}',
+        '{"template":"only_core","rarity":"5","attrs":["火"],"species":["神"],"rows":[]}',
         // 3. タイプ2（とくせい自動入力の流用＋祝福ポイント設定、trait_rate -> blessing_value 変換、文字追加・すごわざ条件追加）
         '{"template":"","attrs":[],"species":[],"rows":[{"point":"20","text":"5文字以上の言葉を作成した時、自身の威力が50%UP"},{"point":"40","text":"文字変換に「あ・い」を追加する"},{"point":"50","text":"自身のすごわざ発動条件に「いきもののことば」を追加する"}]}',
         // 4. タイプ1＋タイプ2の複合指定（テキスト記法での rarity=5 指定と順序確認）
-        "@template:pattern_1(rarity=5,attrs=光・闇,species=英・龍)\n20pt: ドロー時に味方のATKを少し強化を1ターン付与",
+        "@template:only_core(rarity=5,attrs=光,species=英)\n20pt: ドロー時に味方のATKを少し強化を1ターン付与",
+        // 5. グループドローバフ（affiliation自動注入）
+        '{"template":"{group_draw_buff}","affiliations":["呪術廻戦"],"rows":[]}',
     ],
 ];
 
@@ -213,25 +215,30 @@ foreach ($tests as $type => $phrases) {
 // 祝福インデックス不足時の警告テスト
 $blessing_warn_tests = [
     [
-        'label' => '祝福: pattern_3 で属性2が不足',
-        'input' => '{"template":"pattern_3","attrs":["火"],"species":["神"],"rows":[]}',
-        'expected_substr' => '属性インデックス2（attr_killer2）に対する属性が足りません。',
+        'label' => '祝福: only_core で属性1が不足',
+        'input' => '{"template":"only_core","attrs":[],"species":["神"],"rows":[]}',
+        'expected_substr' => '属性インデックス1（attr_killer1, attr_mitigation1）に対する属性が足りません。',
     ],
     [
-        'label' => '祝福: pattern_2 で種族2が不足',
-        'input' => '{"template":"pattern_2","attrs":["火"],"species":["神"],"rows":[]}',
+        'label' => '祝福: spe2_atkup で種族2が不足',
+        'input' => '{"template":"spe2_atkup","attrs":["火"],"species":["神"],"rows":[]}',
         'expected_substr' => '種族インデックス2（species_killer2）に対する種族が足りません。',
     ],
     [
-        'label' => '祝福: pattern_1 で属性1が不足',
-        'input' => '{"template":"pattern_1","attrs":[],"species":["神"],"rows":[]}',
-        'expected_substr' => '属性インデックス1（attr_killer1）に対する属性が足りません。',
+        'label' => '祝福: comb_plus で属性2が不足',
+        'input' => '{"template":"comb_plus","attrs":["火"],"species":["神"],"rows":[]}',
+        'expected_substr' => '属性インデックス2（attr_killer2）に対する属性が足りません。',
     ],
     [
-        'label' => 'EX祝福: pattern_1 で種族1が不足',
-        'input' => '{"template":"pattern_1","attrs":["火"],"species":[],"rows":[]}',
+        'label' => 'EX祝福: spe2_atkup で種族1が不足',
+        'input' => '{"template":"spe2_atkup","attrs":["火"],"species":[],"rows":[]}',
         'input_key' => 'auto_input_ex_blessing',
         'expected_substr' => 'EX祝福: 種族インデックス1（species_killer1）に対する種族が足りません。',
+    ],
+    [
+        'label' => '祝福: グループドローバフで所属が不足',
+        'input' => '{"template":"{group_draw_buff}","rows":[]}',
+        'expected_substr' => 'グループドローバフの対象グループ（所属）が未設定です。',
     ],
 ];
 
@@ -253,6 +260,31 @@ foreach ($blessing_warn_tests as $w_test) {
 }
 if (!$test_mode) {
     echo sprintf("[PASS] %-18s : %d / %d passed\n", '祝福警告テスト', $warn_passed, count($blessing_warn_tests));
+}
+
+// 祝福 items 新形式の順序パーステスト
+$items_seq_test = [
+    'items' => [
+        ['type' => 'token', 'token' => 'hp_up'],
+        ['type' => 'token', 'token' => 'attr_killer', 'target' => '火'],
+        ['type' => 'free',  'point' => '20', 'text' => 'ドロー時に味方のATKを少し強化を1ターン付与'],
+        ['type' => 'token', 'token' => 'species_killer', 'target' => '神'],
+    ]
+];
+$total_count++;
+$seq_rows = koto_parse_blessing($items_seq_test, $grouped_csv, 'auto_input_blessing');
+if (count($seq_rows) === 4
+    && ($seq_rows[0]['trait_type'] ?? '') === 'status_up'
+    && ($seq_rows[1]['trait_type'] ?? '') === 'damage_correction'
+    && ($seq_rows[2]['trait_type'] ?? '') === 'draw_eff'
+    && ($seq_rows[3]['trait_type'] ?? '') === 'damage_correction'
+) {
+    $passed_count++;
+    if (!$test_mode) {
+        echo sprintf("[PASS] %-18s : %d / %d passed\n", '祝福並び順テスト', 1, 1);
+    }
+} else {
+    $failed_cases[] = '[祝福並び順テスト] items配列の順序パースに失敗しました（件数: ' . count($seq_rows) . '）';
 }
 
 if (!$test_mode) {
