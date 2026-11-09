@@ -51,6 +51,25 @@ function koto_register_post_mcp_routes()
         ],
     ]);
 
+    register_rest_route('kotodaman/v1', '/mcp/blessing-schema', [
+        'methods'             => WP_REST_Server::READABLE,
+        'callback'            => function ($request) {
+            $include_gimmicks = !($request instanceof WP_REST_Request) || $request->get_param('include_gimmicks') === null || (bool) $request->get_param('include_gimmicks');
+            $result = koto_mcp_call_tool('get_blessing_schema', ['include_gimmicks' => $include_gimmicks], $request);
+            return is_wp_error($result) ? $result : rest_ensure_response($result);
+        },
+        'permission_callback' => function ($request) {
+            return koto_mcp_rest_permission_check($request, 'validate');
+        },
+        'args'                => [
+            'include_gimmicks' => [
+                'required' => false,
+                'default'  => true,
+                'type'     => 'boolean',
+            ],
+        ],
+    ]);
+
     register_rest_route('kotodaman/v1', '/mcp/draft/(?P<post_id>\d+)', [
         'methods'             => WP_REST_Server::READABLE,
         'callback'            => function ($request) {

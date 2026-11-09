@@ -31,7 +31,7 @@ function koto_mcp_instructions_text()
         '    - `auto_input_blessing`（通常祝福）および `auto_input_ex_blessing`（EX祝福）は、以下の2つの形式で指定できます（最大8項目まで）：',
         '      1. 【新形式（推奨）】トークン・自由入力混在の並び順配列形式（`items`）：',
         '         `{"items": [{"type": "token", "token": "hp_up"}, {"type": "token", "token": "attr_killer", "target": "火"}, {"type": "token", "token": "species_killer", "target": "神"}, {"type": "free", "point": "20", "text": "ドロー時に味方のATKを少し強化"}]}`',
-        '         ※利用可能トークン: hp_up, atk_up, attr_killer, species_killer, attr_mitigation, dodge, attr_30_killer, group_draw_buff, atk_up_per_unit, comb_plus',
+        '         ※利用可能トークン一覧、テンプレート構成、入力スキーマの詳細は `get_blessing_schema` ツール（またはリソース `kotodaman://schema/blessing`）で取得できます。',
         '      2. 【旧形式】テンプレート＋個別行形式：',
         '         `{"template": "pattern_1", "attrs": ["火", "水"], "species": ["神", "魔"], "rows": [{"point": "20", "text": "ドロー時に味方のATKを少し強化"}]}`',
         '    - `attrs` と `species` はキャラ自身の属性・種族ではなく、**キラー対象の属性・種族（配列形式、2つ以上可）** を指定します。',
@@ -89,6 +89,12 @@ function koto_mcp_resources_list()
             'description' => 'スクリーンショット上のどの箇所を根拠に各フィールドを読み取るかの定義一覧（JSON）',
             'mimeType' => 'application/json',
         ],
+        [
+            'uri' => 'kotodaman://schema/blessing',
+            'name' => '祝福・EX祝福スキーマ＆トークン辞書',
+            'description' => 'auto_input_blessing / auto_input_ex_blessing の入力スキーマ、利用可能トークン一覧、テンプレート構成一覧（JSON）',
+            'mimeType' => 'application/json',
+        ],
     ];
 }
 
@@ -114,6 +120,18 @@ function koto_mcp_read_resource($uri)
                     'uri' => $uri,
                     'mimeType' => 'application/json',
                     'text' => wp_json_encode(koto_mcp_field_manuals(), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+                ],
+            ],
+        ];
+    }
+    if ($uri === 'kotodaman://schema/blessing' || $uri === 'koto://blessing-schema') {
+        $data = function_exists('koto_mcp_blessing_schema') ? koto_mcp_blessing_schema(true) : [];
+        return [
+            'contents' => [
+                [
+                    'uri' => $uri,
+                    'mimeType' => 'application/json',
+                    'text' => wp_json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
                 ],
             ],
         ];

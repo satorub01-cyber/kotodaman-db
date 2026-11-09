@@ -116,6 +116,9 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 > [!IMPORTANT]
 > **上限項目数**: 祝福・EX祝福はゲーム仕様上、それぞれ **最大8項目（MAX 8）** に制限されます。8項目を超えて指定した場合は `VALIDATION_FAILED`（`items_limit_exceeded`）となります。
 
+> [!TIP]
+> **最新のトークン一覧・テンプレート構成の取得**: MCPツール `get_blessing_schema`（または Resource `kotodaman://schema/blessing`）を実行すると、利用可能な全トークン（ギミック耐性含む）、テンプレート定義、およびJSONスキーマを構造化データとしていつでも取得できます。
+
 祝福の自動入力には、**新形式（`items` 配列形式：推奨）** と **旧形式（`template` ＋ `rows` 形式）** の2種類があり、いずれも構造化オブジェクト形式（またはテキスト記法）で指定します。
 
 ##### 1. 新形式（`items` 配列：トークンと自由入力の混在並び順指定）
@@ -235,9 +238,10 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
   * 定義された各フィールドについて、値が未設定の場合はキーを省略せず明示的に `null`（真偽値は `false`、配列は `[]`）として返却されます。
 * **日付の正規化照合**:
   * 実装日フィールド（`実装月（わかれば実装日）` / `implement_date`）は送信時と同じ `YYYY-MM-DD` 形式（未設定時は `null`）に正規化されて返却されます。
-* **自動計算値・解析値の確認**:
+* **自動計算値・解析値・祝福の確認**:
   * `basic_fields` 内に `voice_actor`（`cv`）、`pre_evo_name`、`another_image_name`、`waza_name`、`sugowaza_name`、`first_trait_name`、`second_trait_name`、`lv_120_hp`、`lv_120_atk`、`talent_hp`、`talent_atk` が含まれます。
   * また、トップレベルに `computed` オブジェクトが付与され、サーバー側で自動計算されたLv.120ステータスや才能開花ステータス、自動入力から抽出されたスキル名を直接確認できます。
+  * トップレベルに **`blessing`（通常祝福）** および **`ex_blessing`（EX祝福）** のアイテム配列が付与されます。トークン（`type: "token"`）または自由入力（`type: "free"`）の構造化配列として返却され、`auto_input_blessing` / `auto_input_ex_blessing` にそのまま再利用できます。
 
 ---
 

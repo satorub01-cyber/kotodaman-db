@@ -20,16 +20,17 @@
 
 ---
 
-## 2. MCPツール一覧（全9ツール）
+## 2. MCPツール一覧（全10ツール）
 
 ### ツールと必要スコープの対応表
 
 | ツール名 | 必要OAuthスコープ | 概要 |
 |---|---|---|
 | `get_field_schema` | `validate` | ACFフィールド定義、必須項目、自動入力キー一覧、[documents/mcp/mcp-field-manual.json](file:///var/www/html/wp-content/themes/cocoon-child-master/documents/mcp/mcp-field-manual.json) の説明、および `workflow_guide` を取得 |
+| `get_blessing_schema` | `validate` | 祝福（`auto_input_blessing`）およびEX祝福（`auto_input_ex_blessing`）の入力スキーマ、利用可能トークン一覧、テンプレート構成一覧を取得 |
 | `get_terms` | `validate` | 指定タクソノミー（単一・カンマ区切り・`"all"`）のターム一覧（`id`, `name`, `slug`）を取得 |
 | `search_character` | `validate` | 既存のキャラクター投稿（`publish`, `draft`, `pending`, `private`）を名前で検索（最大20件、保護対象の雛型記事は自動除外） |
-| `get_draft` | `validate` | 既存下書きの基本データ（`basic_fields`）、タイトル、ステータス、エディタURL、MCPレビューメタデータを取得 |
+| `get_draft` | `validate` | 既存下書きの基本データ（`basic_fields`）、祝福（`blessing`）、EX祝福（`ex_blessing`）、タイトル、ステータス、エディタURL、MCPレビューメタデータを取得 |
 | `validate` | `validate` | 保存せずに下書きデータを検証し、`preview_hash` と `parsed_counts` を返却（30分キャッシュ保存） |
 | `preview_draft` | `preview` | 保存せずに下書きデータを検証・解析し、`preview_hash`、`parsed_counts`、`warnings` を返却（30分キャッシュ保存） |
 | `create_draft` | `create` | 新規キャラクター下書き（`draft`）を作成。直前の `preview_hash` と `idempotency_key` のみで実行可能 |
@@ -67,12 +68,58 @@
       "auto_input_trait2",
       "auto_input_leader",
       "auto_input_blessing",
+      "auto_input_ex_blessing",
       "auto_input_kotowaza"
     ]
   }
   ```
 
-#### ② `get_terms`
+#### ② `get_blessing_schema`
+* **引数**:
+  * `include_gimmicks` (`boolean`, 任意, 初期値 `true`): ギミック耐性トークン（通常・スーパー化）を含めるかどうか。
+* **レスポンス**:
+  ```json
+  {
+    "schema": {
+      "type": "object",
+      "description": "auto_input_blessing および auto_input_ex_blessing の入力形式",
+      "oneOf": [ ...新形式 items 配列 および 旧形式 template+rows のスキーマ... ]
+    },
+    "limits": {
+      "max_items": 8,
+      "default_point_for_single": 20,
+      "description": "祝福およびEX祝福はそれぞれ最大8項目（MAX 8）まで設定可能。"
+    },
+    "tokens": [
+      {
+        "key": "hp_up",
+        "label": "HPアップ",
+        "category": "status_up",
+        "target_type": "self",
+        "point_pattern": "level",
+        "description": "自身のHPアップ（★6: 200!, ★5: 100~350）"
+      },
+      {
+        "key": "attr_killer",
+        "label": "属性キラー",
+        "category": "damage_correction",
+        "target_type": "attr",
+        "point_pattern": "level",
+        "description": "属性キラー（★6: 10~20%, ★5: 5~15%）。targetに属性名を指定（例: 火）"
+      }
+    ],
+    "templates": [
+      {
+        "key": "spe2_atkup",
+        "label": "ガチャ標準（種族K2+ATKUP）",
+        "tokens": ["hp_up", "attr_killer1", "species_killer1", "attr_mitigation1", "species_killer2", "atk_up"],
+        "required_targets": { "attrs": 2, "species": 2 }
+      }
+    ]
+  }
+  ```
+
+#### ③ `get_terms`
 * **引数**:
   * `taxonomy` (`string`, **必須**): タクソノミー名。単一指定（例: `"affiliation"`）、カンマ区切り複数指定（例: `"attribute,species,rarity"`）、または `"all"`（`attribute`, `species`, `rarity`, `affiliation`, `event`, `gimmick`, `available_moji`, `suitable_quest` の8種一括）に対応。
   * `search` (`string`, 任意): ターム名・スラッグの部分一致検索キーワード。
@@ -81,7 +128,7 @@
   * 単一指定時: `{"taxonomy": "attribute", "terms": [{"id": 3, "name": "水", "slug": "water"}, ...]}`
   * 複数または `"all"` 指定時: `{"taxonomies": {"attribute": [...], "species": [...]}}`
 
-#### ③ `search_character`
+#### ④ `search_character`
 * **引数**:
   * `name` (`string`, **必須**): 検索するキャラクター名キーワード（最大200文字）。
 * **保護仕様**:
@@ -95,7 +142,7 @@
   }
   ```
 
-#### ④ `get_draft`
+#### ⑤ `get_draft`
 * **引数**:
   * `post_id` (`integer`, **必須**): 取得対象のキャラクター投稿ID。
 * **保護仕様**:
@@ -118,6 +165,24 @@
         { "available_moji": "さ", "unlock_place": "default" }
       ]
     },
+    "computed": {
+      "lv_120_hp": 2500,
+      "lv_120_atk": 1100,
+      "talent_hp": 200,
+      "talent_atk": 100,
+      "waza_name": "わざ名",
+      "sugowaza_name": "すごわざ名",
+      "first_trait_name": null,
+      "second_trait_name": null,
+      "release_date": "2026-11-08"
+    },
+    "blessing": [
+      { "type": "token", "token": "hp_up", "point": 20, "label": "HPアップ", "text": "自身のHP200!UP" },
+      { "type": "token", "token": "attr_killer", "target": "火", "point": 20, "label": "属性キラー", "text": "火属性キラー20%" }
+    ],
+    "ex_blessing": [
+      { "type": "token", "token": "atk_up", "point": 20, "label": "ATKアップ", "text": "自身のATK50!UP" }
+    ],
     "mcp_meta": {
       "generated": true,
       "needs_review": true,
@@ -131,7 +196,7 @@
   }
   ```
 
-#### ⑤ `validate` / ⑥ `preview_draft`
+#### ⑥ `validate` / ⑦ `preview_draft`
 * **引数**:
   * `character_name` (`string`, 任意 ※`post_id` 未指定の新規作成時は必須、最大200文字)
   * `post_id` (`integer`, 任意): 既存下書きの部分更新時に指定。指定時は既存の `character_name` や `attribute`, `species`, `rarity` が自動継承されます。
@@ -158,7 +223,7 @@
   }
   ```
 
-#### ⑦ `create_draft` / ⑧ `update_draft`
+#### ⑧ `create_draft` / ⑨ `update_draft`
 * **引数**:
   * `preview_hash` (`string`, **必須**): 直前の `preview_draft`（または `validate`）で返却されたハッシュ値。
   * `idempotency_key` (`string`, **必須**, 1〜255文字): 二重作成・二重更新を防ぐ一意キー。
@@ -179,7 +244,7 @@
   }
   ```
 
-#### ⑨ `trash_draft`
+#### ⑩ `trash_draft`
 * **引数**:
   * `post_id` (`integer`, **必須**): ゴミ箱へ移動するキャラクター下書きの投稿ID（`post_type === 'character'` かつ `post_status === 'draft'` かつ `delete_post` 権限がある場合のみ実行可）。
 * **レスポンス**:

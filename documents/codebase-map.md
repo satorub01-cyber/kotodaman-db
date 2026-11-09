@@ -114,7 +114,8 @@ flowchart TD
 | ファイルパス | 責務・主要関数 | 備考 |
 | :--- | :--- | :--- |
 | `server.php` | Model Context Protocol（MCP）JSON-RPC 2.0 サーバー。ツール呼び出し・リソース配信の受付。 | |
-| `mcp-tools.php` | MCPツールのディスパッチ（`preview_draft`, `create_draft`, `update_draft`, `validate`, `search_character` 等）。 | |
+| `mcp-tools.php` | MCPツールのディスパッチ（`preview_draft`, `create_draft`, `update_draft`, `validate`, `search_character`, `get_blessing_schema` 等）。 | |
+| `mcp-schema.php` | ACFフィールドスキーマ動的生成、祝福・EX祝福スキーマ＆トークン辞書生成（`koto_mcp_blessing_schema`）。 | |
 | `mcp-draft.php` | 下書き（Draft）の生成・更新・バリデーションロジック、雛型記事保護チェック。 | |
 | `mcp-resources.php` | MCPクライアント向けドキュメント・スキーマ（`kotodaman://guide/...`）の配信。 | |
 | `mcp-auth.php` / `mcp-oauth.php` | OAuth 2.1 Bearer 認証および Application Passwords 認証、権限管理。 | |

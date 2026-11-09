@@ -20,9 +20,10 @@ function koto_mcp_tools()
 {
     return [
         ['name' => 'get_field_schema', 'description' => 'Return ACF field schema and manual guidance. Set test_mode=true for full unfiltered schema.', 'inputSchema' => ['type' => 'object', 'properties' => ['test_mode' => ['type' => 'boolean']]]],
+        ['name' => 'get_blessing_schema', 'description' => 'Return blessing token dictionary, template patterns, and validation schema for auto_input_blessing and auto_input_ex_blessing.', 'inputSchema' => ['type' => 'object', 'properties' => ['include_gimmicks' => ['type' => 'boolean', 'description' => 'Whether to include gimmick tokens (default: true).']]]],
         ['name' => 'get_terms', 'description' => 'Return term dictionaries with IDs. taxonomy accepts a single name, comma-separated names, or "all". Optional search filters by name/slug.', 'inputSchema' => ['type' => 'object', 'properties' => ['taxonomy' => ['type' => 'string'], 'search' => ['type' => 'string'], 'test_mode' => ['type' => 'boolean']], 'required' => ['taxonomy']]],
         ['name' => 'search_character', 'description' => 'Search existing character posts before creating one.', 'inputSchema' => ['type' => 'object', 'properties' => ['name' => ['type' => 'string']], 'required' => ['name']]],
-        ['name' => 'get_draft', 'description' => 'Return current basic_fields, title, status, and MCP review metadata of an existing character draft.', 'inputSchema' => ['type' => 'object', 'properties' => ['post_id' => ['type' => 'integer']], 'required' => ['post_id']]],
+        ['name' => 'get_draft', 'description' => 'Return current basic_fields, blessing, ex_blessing, title, status, and MCP review metadata of an existing character draft.', 'inputSchema' => ['type' => 'object', 'properties' => ['post_id' => ['type' => 'integer']], 'required' => ['post_id']]],
         ['name' => 'validate', 'description' => 'Validate without saving. Set test_mode=true to include full parsed_acf.', 'inputSchema' => koto_mcp_draft_schema(false)],
         ['name' => 'preview_draft', 'description' => 'Parse, validate, and cache a draft without saving. Set test_mode=true to include full parsed_acf.', 'inputSchema' => koto_mcp_draft_schema(false)],
         ['name' => 'create_draft', 'description' => 'Create a draft after preview_draft. Only preview_hash and idempotency_key are required if preview_draft was just called.', 'inputSchema' => koto_mcp_draft_schema(true)],
@@ -76,6 +77,9 @@ function koto_mcp_validate_tool_arguments($name, $arguments)
 
     if (array_key_exists('test_mode', $arguments) && !is_bool($arguments['test_mode'])) {
         return new WP_Error('INVALID_PARAMS', 'test_mode must be a boolean.', ['field' => 'test_mode', 'reason' => 'invalid_type', 'status' => 400]);
+    }
+    if ($name === 'get_blessing_schema' && array_key_exists('include_gimmicks', $arguments) && !is_bool($arguments['include_gimmicks'])) {
+        return new WP_Error('INVALID_PARAMS', 'include_gimmicks must be a boolean.', ['field' => 'include_gimmicks', 'reason' => 'invalid_type', 'status' => 400]);
     }
     if ($name === 'get_terms' && array_key_exists('search', $arguments) && !is_string($arguments['search'])) {
         return new WP_Error('INVALID_PARAMS', 'search must be a string.', ['field' => 'search', 'reason' => 'invalid_type', 'status' => 400]);
@@ -213,7 +217,7 @@ function koto_mcp_call_tool($name, $args, $request = null)
     if (!in_array($name, koto_mcp_tool_names(), true)) {
         return new WP_Error('INVALID_TOOL', 'Unknown tool name.', ['field' => 'name', 'reason' => 'invalid_value', 'status' => 400]);
     }
-    $scope = in_array($name, ['get_field_schema', 'get_terms', 'search_character', 'get_draft', 'validate'], true) ? 'validate' : 'preview';
+    $scope = in_array($name, ['get_field_schema', 'get_blessing_schema', 'get_terms', 'search_character', 'get_draft', 'validate'], true) ? 'validate' : 'preview';
     if (in_array($name, ['create_draft', 'update_draft', 'trash_draft'], true)) $scope = 'create';
     $auth = koto_mcp_require_scope($scope, $request);
     if (is_wp_error($auth)) return $auth;
@@ -258,14 +262,20 @@ function koto_mcp_call_tool($name, $args, $request = null)
                     'auto_input_trait2',
                     'auto_input_leader',
                     'auto_input_blessing',
+                    'auto_input_ex_blessing',
                     'auto_input_kotowaza',
                 ],
                 'workflow_guide' => koto_mcp_workflow_guide_data(),
+                'blessing_schema_hint' => '祝福・EX祝福の入力スキーマ、トークン一覧、テンプレート構成は get_blessing_schema ツール（またはリソース koto://blessing-schema）で取得できます。',
             ];
             if ($test_mode) {
                 $resp['test_mode'] = true;
             }
             return $resp;
+        }
+        if ($name === 'get_blessing_schema') {
+            $include_gimmicks = !isset($args['include_gimmicks']) || (bool) $args['include_gimmicks'];
+            return function_exists('koto_mcp_blessing_schema') ? koto_mcp_blessing_schema($include_gimmicks) : ['error' => 'blessing_schema_unavailable'];
         }
         if ($name === 'get_terms') {
             $raw_tax = trim((string) ($args['taxonomy'] ?? ''));

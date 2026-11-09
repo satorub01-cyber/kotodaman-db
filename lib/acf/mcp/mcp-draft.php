@@ -353,6 +353,8 @@ function koto_mcp_extract_existing_draft_data($post_id)
         'edit_url'       => admin_url('admin.php?page=koto-acf-editor&edit_post_id=' . $post->ID),
         'basic_fields'   => $basic_fields,
         'computed'       => $computed,
+        'blessing'       => koto_mcp_extract_blessing_items($post->ID, false),
+        'ex_blessing'    => koto_mcp_extract_blessing_items($post->ID, true),
         'mcp_meta'       => [
             'generated'       => (bool) get_post_meta($post->ID, '_koto_mcp_generated', true),
             'needs_review'    => (bool) get_post_meta($post->ID, '_koto_mcp_needs_review', true),
@@ -360,6 +362,225 @@ function koto_mcp_extract_existing_draft_data($post_id)
             'audit'           => is_array($audit) ? $audit : null,
         ],
     ];
+}
+
+/**
+ * ACFタクソノミーまたはオブジェクト・配列値からターム名（日本語名）を抽出するヘルパー。
+ *
+ * @param mixed $raw_term タームID、WP_Termオブジェクト、配列、文字列。
+ * @param string $taxonomy タクソノミー名。
+ * @return string ターム名。取得できない場合は空文字列。
+ */
+function koto_mcp_extract_term_name($raw_term, $taxonomy = '')
+{
+    if (empty($raw_term)) {
+        return '';
+    }
+    if (is_array($raw_term)) {
+        $first = reset($raw_term);
+        return koto_mcp_extract_term_name($first, $taxonomy);
+    }
+    if (is_object($raw_term)) {
+        if (!empty($raw_term->name)) {
+            return (string) $raw_term->name;
+        }
+        if (!empty($raw_term->term_id) && $taxonomy !== '') {
+            $t = get_term((int) $raw_term->term_id, $taxonomy);
+            if ($t && !is_wp_error($t)) {
+                return (string) $t->name;
+            }
+        }
+    }
+    if (is_numeric($raw_term) && (int) $raw_term > 0 && $taxonomy !== '') {
+        $t = get_term((int) $raw_term, $taxonomy);
+        if ($t && !is_wp_error($t)) {
+            return (string) $t->name;
+        }
+    }
+    if (is_string($raw_term) && !is_numeric($raw_term)) {
+        return trim($raw_term);
+    }
+    return '';
+}
+
+/**
+ * 既存キャラクター投稿のACFフィールドから祝福またはEX祝福のアイテム配列を抽出する。
+ *
+ * @param int $post_id 投稿ID。
+ * @param bool $is_ex EX祝福かどうか（false: 通常祝福, true: EX祝福）。
+ * @return array<int, array<string, mixed>> 抽出された祝福アイテム配列。
+ */
+function koto_mcp_extract_blessing_items($post_id, $is_ex = false)
+{
+    $post_id = (int) $post_id;
+    if ($post_id <= 0 || !function_exists('get_field')) {
+        return [];
+    }
+
+    $field_name = $is_ex ? 'blessing_ex_trait_loop' : 'blessing_trait_loop';
+    $fdef = function_exists('koto_get_top_level_character_acf_field') ? koto_get_top_level_character_acf_field($field_name) : null;
+    $rows = ($fdef && !empty($fdef['key'])) ? get_field($fdef['key'], $post_id) : get_field($field_name, $post_id);
+    if (!is_array($rows) || empty($rows)) {
+        return [];
+    }
+
+    $items = [];
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+
+        $pt_pattern = $row['pt_pattern'] ?? 'default';
+        $raw_pt = $row['need_point'] ?? '';
+        $point = ($raw_pt !== '' && $raw_pt !== null) ? (is_numeric($raw_pt) ? (int) $raw_pt : $raw_pt) : 20;
+
+        $tt = $row['trait_type'] ?? '';
+        $su = $row['status_up'] ?? '';
+        $dc = $row['damage_correction'] ?? '';
+        $de = $row['draw_eff'] ?? '';
+        $other_t = $row['other_traits'] ?? '';
+        $super_h = $row['super_gimmick_healing'] ?? '';
+        $tg = is_array($row['target_field_group'] ?? null) ? $row['target_field_group'] : [];
+        $target_type = $tg['target_type'] ?? '';
+
+        $token_key = '';
+        $label = '';
+        $target_name = '';
+
+        if ($tt === 'status_up') {
+            if ($su === 'hp') {
+                $token_key = 'hp_up';
+                $label = 'HPアップ';
+            } elseif ($su === 'atk') {
+                if (!empty($row['per_unit_tf'])) {
+                    $token_key = 'atk_up_per_unit';
+                    $label = 'ATKアップ(ユニット数依存)';
+                } else {
+                    $token_key = 'atk_up';
+                    $label = 'ATKアップ';
+                }
+            } elseif ($su === 'mitigation') {
+                $token_key = 'attr_mitigation';
+                $label = '属性軽減';
+                $target_name = koto_mcp_extract_term_name($tg['target_attr'] ?? null, 'attribute');
+            } elseif ($su === 'dodge') {
+                $token_key = 'dodge';
+                $label = '回避率UP';
+            }
+        } elseif ($tt === 'damage_correction') {
+            if ($dc === 'killer') {
+                if ($target_type === 'attr') {
+                    $val = (string) ($row['blessing_value'] ?? '');
+                    if ($val === '30') {
+                        $token_key = 'attr_30_killer';
+                        $label = '属性キラー30%';
+                    } else {
+                        $token_key = 'attr_killer';
+                        $label = '属性キラー';
+                    }
+                    $target_name = koto_mcp_extract_term_name($tg['target_attr'] ?? null, 'attribute');
+                } elseif ($target_type === 'species') {
+                    $token_key = 'species_killer';
+                    $label = '種族キラー';
+                    $target_name = koto_mcp_extract_term_name($tg['target_species'] ?? null, 'species');
+                }
+            }
+        } elseif ($tt === 'draw_eff' && $de === 'atk_buff') {
+            $token_key = 'group_draw_buff';
+            $label = 'グループドローバフ';
+        } elseif (in_array($other_t, ['combo_plus', 'comb_plus'], true) || in_array($super_h, ['combo_plus', 'comb_plus'], true)) {
+            $token_key = 'comb_plus';
+            $label = 'コンボ＋';
+        } elseif ($tt === 'gimmick') {
+            $g_val = $row['gimmick'] ?? null;
+            $g_slug = '';
+            $g_name = '';
+            if (is_object($g_val)) {
+                $g_slug = $g_val->slug ?? '';
+                $g_name = $g_val->name ?? '';
+            } elseif (is_array($g_val) && !empty($g_val)) {
+                $first = reset($g_val);
+                if (is_object($first)) {
+                    $g_slug = $first->slug ?? '';
+                    $g_name = $first->name ?? '';
+                } elseif (is_numeric($first)) {
+                    $t = get_term((int) $first, 'gimmick');
+                    if ($t && !is_wp_error($t)) {
+                        $g_slug = $t->slug;
+                        $g_name = $t->name;
+                    }
+                }
+            } elseif (is_numeric($g_val)) {
+                $t = get_term((int) $g_val, 'gimmick');
+                if ($t && !is_wp_error($t)) {
+                    $g_slug = $t->slug;
+                    $g_name = $t->name;
+                }
+            }
+
+            $is_super = !empty($row['super_gimmick_moji_index'])
+                || !empty($row['super_gimmick_healing'])
+                || (($row['gimmick_super_mode'] ?? '') === 'super')
+                || (strpos((string) ($row['other_text'] ?? ''), 'スーパー化') !== false);
+
+            if ($g_slug !== '') {
+                $token_key = $is_super ? "gimmick_super_{$g_slug}" : "gimmick_{$g_slug}";
+                $label = $is_super ? ($g_name ? "{$g_name}・スーパー化" : 'スーパーギミック耐性') : ($g_name ?: 'ギミック耐性');
+            }
+        }
+
+        $text = '';
+        if (!empty($row['other_text'])) {
+            $text = trim((string) $row['other_text']);
+        }
+        if ($text === '' && function_exists('get_koto_trait_text_from_row')) {
+            $temp_row = $row;
+            $temp_row['_is_blessing'] = true;
+            if (!empty($row['blessing_value'])) {
+                $temp_row['trait_rate'] = $row['blessing_value'];
+            } elseif (!empty($row['max_value'])) {
+                $temp_row['trait_rate'] = $row['max_value'];
+            } elseif (!empty($row['min_value'])) {
+                $temp_row['trait_rate'] = $row['min_value'];
+            }
+            $gen_text = get_koto_trait_text_from_row($temp_row);
+            if ($gen_text !== '') {
+                $text = $gen_text;
+            }
+        }
+        if ($text === '' && $label !== '') {
+            $text = $target_name !== '' ? "{$target_name}{$label}" : $label;
+        }
+
+        if ($token_key !== '') {
+            $item = [
+                'type'  => 'token',
+                'token' => $token_key,
+            ];
+            if ($target_name !== '') {
+                $item['target'] = $target_name;
+            }
+            if ($point !== '' && $point !== null) {
+                $item['point'] = $point;
+            }
+            if ($label !== '') {
+                $item['label'] = $label;
+            }
+            if ($text !== '') {
+                $item['text'] = $text;
+            }
+        } else {
+            $item = [
+                'type'  => 'free',
+                'point' => $point,
+                'text'  => $text !== '' ? $text : ($row['trait_type'] ?? '祝福とくせい'),
+            ];
+        }
+
+        $items[] = $item;
+    }
+
+    return $items;
 }
 
 /**
