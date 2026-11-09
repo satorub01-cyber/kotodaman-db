@@ -69,7 +69,16 @@ function koto_ajax_update_post_from_auto_input()
         // ACFフィールドの更新後に計算用データを再生成（spec等の更新）
         do_action('acf/save_post', $post_id);
 
-        wp_send_json_success(['message' => '自動入力を反映しました。内容を保存します。']);
+        $warnings = function_exists('koto_get_blessing_auto_input_warnings') ? koto_get_blessing_auto_input_warnings() : [];
+        $message = '自動入力を反映しました。内容を保存します。';
+        if (!empty($warnings)) {
+            $message .= "\n\n【警告】\n・" . implode("\n・", $warnings);
+        }
+
+        wp_send_json_success([
+            'message'  => $message,
+            'warnings' => $warnings,
+        ]);
     } else {
         wp_send_json_error(['message' => '自動入力の反映に失敗しました']);
     }
@@ -100,9 +109,16 @@ function koto_ajax_create_post_from_auto_input()
         // ACFフィールドの更新後に計算用データを再生成（spec等の更新）
         do_action('acf/save_post', $post_id);
 
+        $warnings = function_exists('koto_get_blessing_auto_input_warnings') ? koto_get_blessing_auto_input_warnings() : [];
+        $message = '記事を作成しました';
+        if (!empty($warnings)) {
+            $message .= "\n\n【警告】\n・" . implode("\n・", $warnings);
+        }
+
         wp_send_json_success([
-            'post_id' => $post_id,
-            'message' => '記事を作成しました',
+            'post_id'  => $post_id,
+            'message'  => $message,
+            'warnings' => $warnings,
             'edit_url' => admin_url('admin.php?page=koto-acf-editor&edit_post_id=' . $post_id)
         ]);
     } else {

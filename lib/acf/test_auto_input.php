@@ -210,6 +210,51 @@ foreach ($tests as $type => $phrases) {
     }
 }
 
+// 祝福インデックス不足時の警告テスト
+$blessing_warn_tests = [
+    [
+        'label' => '祝福: pattern_3 で属性2が不足',
+        'input' => '{"template":"pattern_3","attrs":["火"],"species":["神"],"rows":[]}',
+        'expected_substr' => '属性インデックス2（attr_killer2）に対する属性が足りません。',
+    ],
+    [
+        'label' => '祝福: pattern_2 で種族2が不足',
+        'input' => '{"template":"pattern_2","attrs":["火"],"species":["神"],"rows":[]}',
+        'expected_substr' => '種族インデックス2（species_killer2）に対する種族が足りません。',
+    ],
+    [
+        'label' => '祝福: pattern_1 で属性1が不足',
+        'input' => '{"template":"pattern_1","attrs":[],"species":["神"],"rows":[]}',
+        'expected_substr' => '属性インデックス1（attr_killer1）に対する属性が足りません。',
+    ],
+    [
+        'label' => 'EX祝福: pattern_1 で種族1が不足',
+        'input' => '{"template":"pattern_1","attrs":["火"],"species":[],"rows":[]}',
+        'input_key' => 'auto_input_ex_blessing',
+        'expected_substr' => 'EX祝福: 種族インデックス1（species_killer1）に対する種族が足りません。',
+    ],
+];
+
+$warn_passed = 0;
+foreach ($blessing_warn_tests as $w_test) {
+    $total_count++;
+    $GLOBALS['koto_last_blessing_parse_meta'] = [];
+    $input_key = $w_test['input_key'] ?? 'auto_input_blessing';
+    koto_parse_blessing($w_test['input'], $grouped_csv, $input_key);
+    $warnings = function_exists('koto_get_blessing_auto_input_warnings') ? koto_get_blessing_auto_input_warnings() : [];
+    $all_warn_text = implode("\n", $warnings);
+
+    if (strpos($all_warn_text, $w_test['expected_substr']) !== false) {
+        $passed_count++;
+        $warn_passed++;
+    } else {
+        $failed_cases[] = "[祝福警告テスト] {$w_test['label']} (期待: {$w_test['expected_substr']} / 実際: {$all_warn_text})";
+    }
+}
+if (!$test_mode) {
+    echo sprintf("[PASS] %-18s : %d / %d passed\n", '祝福警告テスト', $warn_passed, count($blessing_warn_tests));
+}
+
 if (!$test_mode) {
     echo sprintf("Total: %d / %d passed (詳細なJSON出力は --test-mode を付与)\n", $passed_count, $total_count);
     if (!empty($failed_cases)) {

@@ -409,6 +409,11 @@ function koto_mcp_detect_auto_input_warnings($safe_auto_input, $parsed, $csv)
                     $warnings[] = sprintf('%s の一部の文言を解析できませんでした: %s', $input_key, $unparsed_row_text);
                 }
             }
+            if (is_array($b_meta) && !empty($b_meta['warnings'])) {
+                foreach ($b_meta['warnings'] as $b_warn) {
+                    $warnings[] = sprintf('%s: %s', $input_key, $b_warn);
+                }
+            }
             continue;
         }
 

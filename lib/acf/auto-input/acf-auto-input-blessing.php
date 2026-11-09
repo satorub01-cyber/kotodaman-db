@@ -170,10 +170,12 @@ function koto_normalize_blessing_param_array($val)
         foreach ($val as $item) {
             if (is_scalar($item)) {
                 $trimmed = trim((string) $item);
-                if ($trimmed !== '') {
-                    $out[] = $trimmed;
-                }
+                $out[] = $trimmed;
             }
+        }
+        // 末尾の連続する空文字を削除（中間のインデックス位置は保持する）
+        while (!empty($out) && end($out) === '') {
+            array_pop($out);
         }
         return $out;
     }
@@ -289,14 +291,16 @@ function koto_build_blessing_token_row($base_token, $target_id = null, $is_star5
  *
  * 属性・種族を必要とするトークン（attr_killer, species_killer, attr_mitigation）は
  * 必ずインデックス（例: attr_killer1, species_killer2）が付与されている必要があります。
+ * インデックスに対応する属性・種族が不足している場合は $warnings に警告が追加されます。
  *
  * @param string $template_def CSVに記載されたテンプレート定義文字列（例: "{hp_up,attr_killer1,species_killer1}"）。
  * @param array<int, string|int> $attrs キラー対象の属性配列（1始まりのインデックスに対応）。
  * @param array<int, string|int> $species キラー対象の種族配列（1始まりのインデックスに対応）。
  * @param mixed $rarity レアリティ値（★5の場合はキラー値が -5 される）。
+ * @param array<int, string> &$warnings 属性・種族不足などの警告を格納する参照配列。
  * @return array<int, array<string, mixed>> ACFリピーター行配列。
  */
-function koto_expand_blessing_template_to_acf($template_def, array $attrs = [], array $species = [], $rarity = null)
+function koto_expand_blessing_template_to_acf($template_def, array $attrs = [], array $species = [], $rarity = null, array &$warnings = [])
 {
     $template_def = trim((string) $template_def);
     if ($template_def === '') {
@@ -305,21 +309,17 @@ function koto_expand_blessing_template_to_acf($template_def, array $attrs = [], 
 
     $is_star5 = koto_is_blessing_star5_rarity($rarity);
 
-    // 属性・種族をタームID配列へ解決（0始まり配列、インデックス1は index 0 に対応）
+    // 属性・種族をタームID配列へ解決（0始まりキーを維持し、インデックス1は index 0 に対応）
     $attr_ids = [];
-    foreach ($attrs as $a) {
+    foreach ($attrs as $i => $a) {
         $tid = koto_resolve_blessing_term_id($a, 'attribute');
-        if ($tid > 0) {
-            $attr_ids[] = $tid;
-        }
+        $attr_ids[$i] = $tid > 0 ? $tid : 0;
     }
 
     $species_ids = [];
-    foreach ($species as $s) {
+    foreach ($species as $i => $s) {
         $tid = koto_resolve_blessing_term_id($s, 'species');
-        if ($tid > 0) {
-            $species_ids[] = $tid;
-        }
+        $species_ids[$i] = $tid > 0 ? $tid : 0;
     }
 
     // JSON形式が直接書かれていた場合のフォールバック
@@ -339,12 +339,19 @@ function koto_expand_blessing_template_to_acf($template_def, array $attrs = [], 
         return [];
     }
 
+    $missing_attrs = [];
+    $missing_species = [];
+
     $rows = [];
     foreach ($tokens as $token) {
         // 1. 属性キラー（インデックス必須: attr_killer1, attr_killer2 等）
         if (preg_match('/^attr_killer_?(\d+)$/i', $token, $m)) {
-            $idx = max(0, ((int) $m[1]) - 1);
-            $target_id = $attr_ids[$idx] ?? null;
+            $idx_num = (int) $m[1];
+            $idx = max(0, $idx_num - 1);
+            $target_id = !empty($attr_ids[$idx]) ? $attr_ids[$idx] : null;
+            if (!$target_id) {
+                $missing_attrs[$idx_num][] = $token;
+            }
             $row = koto_build_blessing_token_row('attr_killer', $target_id, $is_star5);
             if ($row) $rows[] = $row;
             continue;
@@ -352,8 +359,12 @@ function koto_expand_blessing_template_to_acf($template_def, array $attrs = [], 
 
         // 2. 種族キラー（インデックス必須: species_killer1, species_killer2 等）
         if (preg_match('/^species_killer_?(\d+)$/i', $token, $m)) {
-            $idx = max(0, ((int) $m[1]) - 1);
-            $target_id = $species_ids[$idx] ?? null;
+            $idx_num = (int) $m[1];
+            $idx = max(0, $idx_num - 1);
+            $target_id = !empty($species_ids[$idx]) ? $species_ids[$idx] : null;
+            if (!$target_id) {
+                $missing_species[$idx_num][] = $token;
+            }
             $row = koto_build_blessing_token_row('species_killer', $target_id, $is_star5);
             if ($row) $rows[] = $row;
             continue;
@@ -361,17 +372,57 @@ function koto_expand_blessing_template_to_acf($template_def, array $attrs = [], 
 
         // 3. 属性軽減（インデックス必須: attr_mitigation1, attr_mitigation2 等）
         if (preg_match('/^(?:attr_)?mitigation_?(\d+)$/i', $token, $m)) {
-            $idx = max(0, ((int) $m[1]) - 1);
-            $target_id = $attr_ids[$idx] ?? null;
+            $idx_num = (int) $m[1];
+            $idx = max(0, $idx_num - 1);
+            $target_id = !empty($attr_ids[$idx]) ? $attr_ids[$idx] : null;
+            if (!$target_id) {
+                $missing_attrs[$idx_num][] = $token;
+            }
             $row = koto_build_blessing_token_row('attr_mitigation', $target_id, $is_star5);
             if ($row) $rows[] = $row;
             continue;
         }
 
-        // 4. その他の固定トークン（hp_up, atk_up, dodge 等）
+        // 4. インデックスなしキラー・軽減のフォールバック警告
+        if (preg_match('/^attr_killer$/i', $token)) {
+            $warnings[] = '属性キラー（attr_killer）にインデックス（例: attr_killer1）が指定されていません。';
+            $row = koto_build_blessing_token_row('attr_killer', null, $is_star5);
+            if ($row) $rows[] = $row;
+            continue;
+        }
+        if (preg_match('/^species_killer$/i', $token)) {
+            $warnings[] = '種族キラー（species_killer）にインデックス（例: species_killer1）が指定されていません。';
+            $row = koto_build_blessing_token_row('species_killer', null, $is_star5);
+            if ($row) $rows[] = $row;
+            continue;
+        }
+        if (preg_match('/^(?:attr_)?mitigation$/i', $token)) {
+            $warnings[] = '属性軽減（attr_mitigation）にインデックス（例: attr_mitigation1）が指定されていません。';
+            $row = koto_build_blessing_token_row('attr_mitigation', null, $is_star5);
+            if ($row) $rows[] = $row;
+            continue;
+        }
+
+        // 5. その他の固定トークン（hp_up, atk_up, dodge 等）
         $row = koto_build_blessing_token_row($token, null, $is_star5);
         if ($row) {
             $rows[] = $row;
+        }
+    }
+
+    // //要チェック: 属性・種族不足時の警告メッセージ文面やフォーマットの調整はここで行えます。
+    if (!empty($missing_attrs)) {
+        ksort($missing_attrs);
+        foreach ($missing_attrs as $idx_num => $toks) {
+            $tok_str = implode(', ', array_unique($toks));
+            $warnings[] = sprintf('属性インデックス%d（%s）に対する属性が足りません。', $idx_num, $tok_str);
+        }
+    }
+    if (!empty($missing_species)) {
+        ksort($missing_species);
+        foreach ($missing_species as $idx_num => $toks) {
+            $tok_str = implode(', ', array_unique($toks));
+            $warnings[] = sprintf('種族インデックス%d（%s）に対する種族が足りません。', $idx_num, $tok_str);
         }
     }
 
@@ -641,6 +692,7 @@ function koto_parse_blessing($input, $grouped_csv, $input_key = 'auto_input_bles
         'unparsed_rows'    => [],
         'type1_count'      => 0,
         'type2_count'      => 0,
+        'warnings'         => [],
     ];
 
     $type1_rows = [];
@@ -659,15 +711,21 @@ function koto_parse_blessing($input, $grouped_csv, $input_key = 'auto_input_bles
         }
 
         if ($matched_tpl_def !== null) {
+            $tpl_warnings = [];
             $type1_rows = koto_expand_blessing_template_to_acf(
                 $matched_tpl_def,
                 $normalized['attrs'],
                 $normalized['species'],
-                $rarity
+                $rarity,
+                $tpl_warnings
             );
             $meta['type1_count'] = count($type1_rows);
+            if (!empty($tpl_warnings)) {
+                $meta['warnings'] = array_merge($meta['warnings'], $tpl_warnings);
+            }
         } else {
             $meta['unknown_template'] = $tpl_name;
+            $meta['warnings'][] = sprintf('未登録の祝福テンプレートです: %s', $tpl_name);
         }
     }
 
@@ -698,4 +756,25 @@ function koto_parse_blessing($input, $grouped_csv, $input_key = 'auto_input_bles
 
     // タイプ1の後ろにタイプ2を配置して返却
     return array_merge($type1_rows, $type2_rows);
+}
+
+/**
+ * 直近の祝福・EX祝福パースで発生した警告（属性・種族不足等）を取得する。
+ *
+ * @return array<int, string> 警告メッセージ一覧。
+ */
+function koto_get_blessing_auto_input_warnings()
+{
+    $warnings = [];
+    if (!empty($GLOBALS['koto_last_blessing_parse_meta']) && is_array($GLOBALS['koto_last_blessing_parse_meta'])) {
+        foreach ($GLOBALS['koto_last_blessing_parse_meta'] as $key => $meta) {
+            $prefix_label = ($key === 'auto_input_ex_blessing') ? 'EX祝福' : '祝福';
+            if (!empty($meta['warnings']) && is_array($meta['warnings'])) {
+                foreach ($meta['warnings'] as $w) {
+                    $warnings[] = sprintf('%s: %s', $prefix_label, $w);
+                }
+            }
+        }
+    }
+    return $warnings;
 }
