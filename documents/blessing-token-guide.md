@@ -123,6 +123,70 @@ flowchart LR
 ],
 ```
 
+### 例4: ギミック耐性・スーパー化トークン
+* **通常**: `（gimmick名前）`（例: `チェンジガード`）
+* **スーパー**: `(gimmick名前・スーパー化)`（例: `チェンジガード・スーパー化`）、黄色背景（ゴールド調）
+* **フォールバック**: `pt_pattern: single` のため、`need_point` が未指定・不明な場合は自動的に `'20'` がセットされます。
+
+```php
+// 通常ギミック
+'gimmick_change' => [
+    'label'         => 'チェンジガード',
+    'trait_type'    => 'gimmick',
+    'gimmick_slug'  => 'change',
+    'gimmick_id'    => 71,
+    'is_super'      => false,
+    'is_gimmick'    => true,
+    'pt_pattern'    => 'single',
+    'need_point'    => '20',
+    'target_type'   => 'self',
+    'rate_type'     => 'fixed',
+],
+
+// スーパーギミック（黄色背景）
+'gimmick_super_change' => [
+    'label'         => 'チェンジガード・スーパー化',
+    'trait_type'    => 'gimmick',
+    'gimmick_slug'  => 'super_change',
+    'gimmick_id'    => 88,
+    'is_super'      => true,
+    'is_gimmick'    => true,
+    'pt_pattern'    => 'single',
+    'need_point'    => '20',
+    'target_type'   => 'self',
+    'rate_type'     => 'fixed',
+],
+```
+
+#### 登録済みギミックトークン一覧（全25種）
+| トークン識別子 | ラベル（ゲーム内表記） | 区分 | タームID | 表記揺れエイリアス |
+|---|---|---|---|---|
+| `gimmick_change` | チェンジガード | 通常 | 71 | `change`, `チェンジガード` |
+| `gimmick_super_change` | チェンジガード・スーパー化 | 🟨 スーパー | 88 | `super_change`, `スーパーチェンジガード` |
+| `gimmick_copy` | コピーガード | 通常 | 80 | `copy`, `コピーガード` |
+| `gimmick_super_copy` | コピーガード・スーパー化 | 🟨 スーパー | 81 | `super_copy`, `スーパーコピーガード` |
+| `gimmick_needle` | トゲガード | 通常 | 41 | `needle`, `トゲガード` |
+| `gimmick_super_needle` | トゲガード・スーパー化 | 🟨 スーパー | 62 | `super_needle`, `スーパートゲガード` |
+| `gimmick_balloon` | バルーンガード | 通常 | 43 | `balloon`, `バルーンガード` |
+| `gimmick_super_balloon` | バルーンガード・スーパー化 | 🟨 スーパー | 314 | `super_balloon`, `スーパーバルーンガード` |
+| `gimmick_shock` | ビリビリガード | 通常 | 114 | `shock`, `ビリビリガード` |
+| `gimmick_super_shock` | ビリビリガード・スーパー化 | 🟨 スーパー | 92 | `super_shock`, `スーパービリビリガード` |
+| `gimmick_landmine` | 地雷ガード | 通常 | 124 | `landmine`, `地雷ガード` |
+| `gimmick_super_landmine` | 地雷ガード・スーパー化 | 🟨 スーパー | 74 | `super_landmine`, `スーパー地雷ガード` |
+| `gimmick_weakening` | 弱体ガード | 通常 | 99 | `weakening`, `弱体ガード` |
+| `gimmick_super_weakening` | 弱体ガード・スーパー化 | 🟨 スーパー | 82 | `super_weakening`, `スーパー弱体ガード` |
+| `gimmick_laser` | レーザーガード | 通常 | 305 | `laser`, `レーザーガード` |
+| `gimmick_wall` | ウォール | 通常 | 15 | `wall`, `ウォールブレイカー` |
+| `gimmick_super_wall` | ウォールブレイカー・スーパー化 | 🟨 スーパー | 199 | `super_wall`, `ウォール・スーパー化` |
+| `gimmick_shield` | シールド | 通常 | 14 | `shield`, `シールドブレイカー` |
+| `gimmick_super_shield` | シールドブレイカー・スーパー化 | 🟨 スーパー | 214 | `super_shield`, `シールド・スーパー化` |
+| `gimmick_healing` | ヒールブレイカー | 通常 | 118 | `healing`, `ヒールブレイカー` |
+| `gimmick_super_healing` | ヒールブレイカー・スーパー化 | 🟨 スーパー | 50 | `super_healing`, `スーパーヒールブレイカー` |
+| `gimmick_smash` | スマッシュブレイカー | 通常 | 57 | `smash`, `スマッシュブレイカー` |
+| `gimmick_super_smash` | スマッシュブレイカー・スーパー化 | 🟨 スーパー | 289 | `super_smash`, `スーパースマッシュブレイカー` |
+| `gimmick_freezing` | フリーズブレイカー | 通常 | 264 | `freezing`, `フリーズブレイカー` |
+| `gimmick_super_freezing` | フリーズブレイカー・スーパー化 | 🟨 スーパー | 171 | `super_freezing`, `スーパーフリーズブレイカー` |
+
 ---
 
 ## 5. 新規トークン作成の Step-by-Step

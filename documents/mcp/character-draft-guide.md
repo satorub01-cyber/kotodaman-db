@@ -154,6 +154,8 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 | `group_draw_buff` | グループドローバフ | 省略（キャラ所属連動） | グループATKバフ |
 | `atk_up_per_unit` | ATKアップ(ユニット数依存) | 不要 | ユニット数依存ATKアップ |
 | `comb_plus` | コンボ＋ | 不要 | コンボ＋1（20pt） |
+| `gimmick_{slug}` | ギミック耐性 | 不要 | ギミック耐性解放（例: `gimmick_change`, `gimmick_needle` 等。省略形 `change` や日本語名 `チェンジガード` も指定可） |
+| `gimmick_super_{slug}` | ギミック・スーパー化 | 不要 | スーパーギミック耐性解放（例: `gimmick_super_change`, `gimmick_super_needle`。省略形 `super_change` や日本語名 `チェンジガード・スーパー化` も指定可。ゲーム内では黄色背景アイコン） |
 
 ##### 2. 旧形式（`template` ＋ `rows` 形式：後方互換）
 ```json

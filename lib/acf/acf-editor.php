@@ -48,6 +48,40 @@ function koto_acf_editor_admin_bar_style()
     }
 }
 
+/**
+ * 祝福トークン一覧にアイコン画像URL・ギミック・スーパー情報を付与して取得するヘルパー。
+ *
+ * @return array<string, array<string, mixed>>
+ */
+function koto_get_blessing_tokens_with_icons()
+{
+    $token_registry = function_exists('koto_get_blessing_token_registry') ? koto_get_blessing_token_registry() : [];
+    $blessing_tokens = [];
+    foreach ($token_registry as $t_key => $t_def) {
+        $icon_url = '';
+        $is_gimmick = !empty($t_def['is_gimmick']);
+        $is_super = !empty($t_def['is_super']);
+        if ($is_gimmick && !empty($t_def['gimmick_id'])) {
+            $term = function_exists('get_term') ? get_term((int)$t_def['gimmick_id'], 'gimmick') : null;
+            if ($term && !is_wp_error($term) && function_exists('get_field')) {
+                $icon_id = get_field('term_icon', $term);
+                if ($icon_id && function_exists('wp_get_attachment_image_url')) {
+                    $icon_url = wp_get_attachment_image_url($icon_id, 'thumbnail') ?: '';
+                }
+            }
+        }
+        $blessing_tokens[$t_key] = [
+            'key'         => $t_key,
+            'label'       => $t_def['label'] ?? $t_key,
+            'target_type' => $t_def['target_type'] ?? 'self',
+            'is_gimmick'  => $is_gimmick,
+            'is_super'    => $is_super,
+            'icon_url'    => $icon_url,
+        ];
+    }
+    return $blessing_tokens;
+}
+
 add_action('admin_menu', 'koto_acf_editor_menu');
 function koto_acf_editor_menu()
 {
@@ -85,15 +119,7 @@ function koto_acf_editor_menu()
         ]);
 
         // 祝福トークン・テンプレート・属性・種族の設定データをフロントエンドへ渡す
-        $token_registry = function_exists('koto_get_blessing_token_registry') ? koto_get_blessing_token_registry() : [];
-        $blessing_tokens_for_js = [];
-        foreach ($token_registry as $t_key => $t_def) {
-            $blessing_tokens_for_js[$t_key] = [
-                'key'         => $t_key,
-                'label'       => $t_def['label'] ?? $t_key,
-                'target_type' => $t_def['target_type'] ?? 'self',
-            ];
-        }
+        $blessing_tokens_for_js = koto_get_blessing_tokens_with_icons();
         $csv_path_for_tpl = get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv';
         $blessing_template_choices = function_exists('koto_get_blessing_template_choices') ? koto_get_blessing_template_choices() : [];
         $blessing_templates_for_js = [];
@@ -982,11 +1008,12 @@ function koto_acf_editor_page_html()
         // //要チェック: エディタUIの祝福テンプレート選択肢と表示ラベル（CSVの「祝福テンプレート」と連動）
         $blessing_template_choices = function_exists('koto_get_blessing_template_choices') ? koto_get_blessing_template_choices() : [];
         $token_registry = function_exists('koto_get_blessing_token_registry') ? koto_get_blessing_token_registry() : [];
+        $blessing_tokens_for_ui = function_exists('koto_get_blessing_tokens_with_icons') ? koto_get_blessing_tokens_with_icons() : [];
         $blessing_attr_options = ['火', '水', '木', '光', '闇', '冥', '天'];
         $blessing_species_options = ['神', '魔', '英', '龍', '獣', '霊', '物', '妖'];
         $is_edit_post_star5 = ($edit_post_id && function_exists('koto_is_blessing_star5_rarity')) ? koto_is_blessing_star5_rarity(null, $edit_post_id) : false;
 
-        $render_blessing_auto_input_box = static function ($prefix) use ($blessing_template_choices, $token_registry, $blessing_attr_options, $blessing_species_options, $is_edit_post_star5) {
+        $render_blessing_auto_input_box = static function ($prefix) use ($blessing_template_choices, $token_registry, $blessing_tokens_for_ui, $blessing_attr_options, $blessing_species_options, $is_edit_post_star5) {
         ?>
             <div class="koto-blessing-auto-input-box" id="<?php echo esc_attr($prefix); ?>_auto_input_box" data-prefix="<?php echo esc_attr($prefix); ?>">
                 <!-- レアリティ連動設定（★6 / ★5） -->
@@ -1060,8 +1087,18 @@ function koto_acf_editor_page_html()
                     <div class="koto-blessing-token-controls">
                         <select id="<?php echo esc_attr($prefix); ?>_token_select" class="koto-blessing-token-select">
                             <option value="">-- トークンを選択 --</option>
-                            <?php foreach ($token_registry as $t_key => $t_def) : ?>
-                                <option value="<?php echo esc_attr($t_key); ?>"><?php echo esc_html(($t_def['label'] ?? $t_key) . " ({$t_key})"); ?></option>
+                            <?php foreach ($token_registry as $t_key => $t_def) : 
+                                $t_info       = $blessing_tokens_for_ui[$t_key] ?? [];
+                                $t_is_gimmick = !empty($t_info['is_gimmick']) ? '1' : '0';
+                                $t_is_super   = !empty($t_info['is_super']) ? '1' : '0';
+                                $t_icon_url   = $t_info['icon_url'] ?? '';
+                            ?>
+                                <option value="<?php echo esc_attr($t_key); ?>" 
+                                    data-is-gimmick="<?php echo esc_attr($t_is_gimmick); ?>" 
+                                    data-is-super="<?php echo esc_attr($t_is_super); ?>" 
+                                    data-icon="<?php echo esc_url($t_icon_url); ?>">
+                                    <?php echo esc_html(($t_def['label'] ?? $t_key) . " ({$t_key})"); ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
                         <button type="button" class="button button-small koto-btn-add-token" data-prefix="<?php echo esc_attr($prefix); ?>">＋ トークンを追加</button>

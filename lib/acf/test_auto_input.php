@@ -304,6 +304,45 @@ if ($is_safe_star5 && $is_safe_star6 && $is_safe_arr && $is_safe_null) {
     $failed_cases[] = '[祝福レアリティ安全性] WP_Termオブジェクト等の型安全性判定に失敗しました';
 }
 
+// 祝福ギミックトークン & スーパー化 & ptフォールバックテスト
+$gimmick_test_input = [
+    'items' => [
+        ['type' => 'token', 'token' => 'gimmick_change'],
+        ['type' => 'token', 'token' => 'gimmick_super_change'],
+        ['type' => 'free',  'point' => '',   'text' => 'チェンジガード・スーパー化'],
+        ['type' => 'free',  'point' => '',   'text' => 'ウォールブレイカー'],
+        ['type' => 'free',  'point' => '30', 'text' => 'シールドブレイカー・スーパー化'],
+    ]
+];
+$total_count++;
+$gimmick_rows = koto_parse_blessing($gimmick_test_input, $grouped_csv, 'auto_input_blessing');
+$g_pass = (
+    count($gimmick_rows) === 5
+    && ($gimmick_rows[0]['trait_type'] ?? '') === 'gimmick'
+    && ($gimmick_rows[0]['gimmick'] ?? []) === [71]
+    && ($gimmick_rows[0]['need_point'] ?? '') === '20'
+    && ($gimmick_rows[1]['trait_type'] ?? '') === 'gimmick'
+    && ($gimmick_rows[1]['gimmick'] ?? []) === [88]
+    && ($gimmick_rows[1]['need_point'] ?? '') === '20'
+    && ($gimmick_rows[2]['trait_type'] ?? '') === 'gimmick'
+    && ($gimmick_rows[2]['gimmick'] ?? []) === [88]
+    && ($gimmick_rows[2]['need_point'] ?? '') === '20' // point不明時に20自動セット
+    && ($gimmick_rows[3]['trait_type'] ?? '') === 'gimmick'
+    && ($gimmick_rows[3]['gimmick'] ?? []) === [15]
+    && ($gimmick_rows[3]['need_point'] ?? '') === '20' // ウォールブレイカー & 20自動セット
+    && ($gimmick_rows[4]['trait_type'] ?? '') === 'gimmick'
+    && ($gimmick_rows[4]['gimmick'] ?? []) === [214]
+    && ($gimmick_rows[4]['need_point'] ?? '') === '30' // 明示的30pt優先
+);
+if ($g_pass) {
+    $passed_count++;
+    if (!$test_mode) {
+        echo sprintf("[PASS] %-18s : %d / %d passed\n", '祝福ギミックトークン', 1, 1);
+    }
+} else {
+    $failed_cases[] = '[祝福ギミックトークン] ギミックトークン・スーパー化・ptフォールバックテストに失敗しました（取得件数: ' . count($gimmick_rows) . '）';
+}
+
 if (!$test_mode) {
     echo sprintf("Total: %d / %d passed (詳細なJSON出力は --test-mode を付与)\n", $passed_count, $total_count);
     if (!empty($failed_cases)) {

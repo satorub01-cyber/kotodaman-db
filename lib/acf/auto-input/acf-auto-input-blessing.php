@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) exit;
  */
 function koto_get_blessing_token_registry()
 {
-    return [
+    $base_tokens = [
         // HPアップ（レベル制CSV）
         'hp_up' => [
             'label'                => 'HPアップ',
@@ -175,8 +175,8 @@ function koto_get_blessing_token_registry()
         // コンボ＋
         'comb_plus' => [
             'label'                => 'コンボ＋',
-            'trait_type'           => 'other_traitsd',
-            'other_traits'            => 'comb_plus',
+            'trait_type'           => 'other_traits',
+            'other_traits'         => 'comb_plus',
             'rate_type'            => 'fixed',
             'pt_pattern'           => 'single',
             'need_point'           => '20',
@@ -186,6 +186,499 @@ function koto_get_blessing_token_registry()
             ],
         ],
     ];
+
+    $gimmick_tokens = koto_get_blessing_gimmick_token_definitions();
+    return array_merge($base_tokens, $gimmick_tokens);
+}
+
+/**
+ * ギミック（通常・スーパー化）祝福トークン定義一覧を取得する。
+ *
+ * //要チェック: 新規ギミック追加時はここへターム情報（slug, term_id, ラベル）を追記してください。
+ *
+ * @return array<string, array<string, mixed>> ギミックトークン連想配列。
+ */
+function koto_get_blessing_gimmick_token_definitions()
+{
+    return [
+        'gimmick_change' => [
+            'label'         => 'チェンジガード',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'change',
+            'gimmick_id'    => 71,
+            'is_super'      => false,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_super_change' => [
+            'label'         => 'チェンジガード・スーパー化',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'super_change',
+            'gimmick_id'    => 88,
+            'is_super'      => true,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_copy' => [
+            'label'         => 'コピーガード',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'copy',
+            'gimmick_id'    => 80,
+            'is_super'      => false,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_super_copy' => [
+            'label'         => 'コピーガード・スーパー化',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'super_copy',
+            'gimmick_id'    => 81,
+            'is_super'      => true,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_needle' => [
+            'label'         => 'トゲガード',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'needle',
+            'gimmick_id'    => 41,
+            'is_super'      => false,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_super_needle' => [
+            'label'         => 'トゲガード・スーパー化',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'super_needle',
+            'gimmick_id'    => 62,
+            'is_super'      => true,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_balloon' => [
+            'label'         => 'バルーンガード',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'balloon',
+            'gimmick_id'    => 43,
+            'is_super'      => false,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_super_balloon' => [
+            'label'         => 'バルーンガード・スーパー化',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'super_balloon',
+            'gimmick_id'    => 314,
+            'is_super'      => true,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_shock' => [
+            'label'         => 'ビリビリガード',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'shock',
+            'gimmick_id'    => 114,
+            'is_super'      => false,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_super_shock' => [
+            'label'         => 'ビリビリガード・スーパー化',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'super_shock',
+            'gimmick_id'    => 92,
+            'is_super'      => true,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_landmine' => [
+            'label'         => '地雷ガード',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'landmine',
+            'gimmick_id'    => 124,
+            'is_super'      => false,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_super_landmine' => [
+            'label'         => '地雷ガード・スーパー化',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'super_landmine',
+            'gimmick_id'    => 74,
+            'is_super'      => true,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_weakening' => [
+            'label'         => '弱体ガード',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'weakening',
+            'gimmick_id'    => 99,
+            'is_super'      => false,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_super_weakening' => [
+            'label'         => '弱体ガード・スーパー化',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'super_weakening',
+            'gimmick_id'    => 82,
+            'is_super'      => true,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_laser' => [
+            'label'         => 'レーザーガード',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'laser',
+            'gimmick_id'    => 305,
+            'is_super'      => false,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_wall' => [
+            'label'         => 'ウォール',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'wall',
+            'gimmick_id'    => 15,
+            'is_super'      => false,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_super_wall' => [
+            'label'         => 'ウォールブレイカー・スーパー化',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'super_wall',
+            'gimmick_id'    => 199,
+            'is_super'      => true,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_shield' => [
+            'label'         => 'シールド',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'shield',
+            'gimmick_id'    => 14,
+            'is_super'      => false,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_super_shield' => [
+            'label'         => 'シールドブレイカー・スーパー化',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'super_shield',
+            'gimmick_id'    => 214,
+            'is_super'      => true,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_healing' => [
+            'label'         => 'ヒールブレイカー',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'healing',
+            'gimmick_id'    => 118,
+            'is_super'      => false,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_super_healing' => [
+            'label'         => 'ヒールブレイカー・スーパー化',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'super_healing',
+            'gimmick_id'    => 50,
+            'is_super'      => true,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_smash' => [
+            'label'         => 'スマッシュブレイカー',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'smash',
+            'gimmick_id'    => 57,
+            'is_super'      => false,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_super_smash' => [
+            'label'         => 'スマッシュブレイカー・スーパー化',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'super_smash',
+            'gimmick_id'    => 289,
+            'is_super'      => true,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_freezing' => [
+            'label'         => 'フリーズブレイカー',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'freezing',
+            'gimmick_id'    => 264,
+            'is_super'      => false,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+        'gimmick_super_freezing' => [
+            'label'         => 'フリーズブレイカー・スーパー化',
+            'trait_type'    => 'gimmick',
+            'gimmick_slug'  => 'super_freezing',
+            'gimmick_id'    => 171,
+            'is_super'      => true,
+            'is_gimmick'    => true,
+            'pt_pattern'    => 'single',
+            'need_point'    => '20',
+            'target_type'   => 'self',
+            'rate_type'     => 'fixed',
+            'rarity_values' => [
+                'star6' => ['need_point' => '20'],
+                'star5' => ['need_point' => '20'],
+            ],
+        ],
+    ];
+}
+
+/**
+ * 祝福トークン識別子（スラッグ、エイリアス、日本語名）を正規トークンキーへ解決する。
+ *
+ * @param string $token 入力されたトークン文字列。
+ * @return string|null 解決されたトークンキー（見つからない場合は null）。
+ */
+function koto_resolve_blessing_token_key($token)
+{
+    $token = trim((string) $token);
+    if ($token === '') return null;
+
+    $registry = koto_get_blessing_token_registry();
+    if (isset($registry[$token])) {
+        return $token;
+    }
+
+    // 小文字化でのチェック
+    $lower = strtolower($token);
+    if (isset($registry[$lower])) {
+        return $lower;
+    }
+
+    // gimmick_ プレフィックスのフォールバック
+    if (strpos($lower, 'gimmick_') !== 0 && isset($registry['gimmick_' . $lower])) {
+        return 'gimmick_' . $lower;
+    }
+
+    // 日本語名・別名マッピング
+    $clean_label = preg_replace('/[（(]|\s+|[)）]/u', '', $token);
+    foreach ($registry as $k => $def) {
+        $reg_label = $def['label'] ?? '';
+        if ($reg_label !== '' && ($clean_label === $reg_label || $token === $reg_label)) {
+            return $k;
+        }
+    }
+
+    // ギミック特有の表記揺れ解決
+    $gimmick_aliases = [
+        'スーパーチェンジ'       => 'gimmick_super_change',
+        'スーパーコピー'         => 'gimmick_super_copy',
+        'スーパートゲ'           => 'gimmick_super_needle',
+        'スーパーバルーン'       => 'gimmick_super_balloon',
+        'スーパービリビリ'       => 'gimmick_super_shock',
+        'スーパー地雷'           => 'gimmick_super_landmine',
+        'スーパー弱体'           => 'gimmick_super_weakening',
+        'スーパーウォール'       => 'gimmick_super_wall',
+        'スーパーシールド'       => 'gimmick_super_shield',
+        'スーパーヒール'         => 'gimmick_super_healing',
+        'スーパースマッシュ'     => 'gimmick_super_smash',
+        'スーパーフリーズ'       => 'gimmick_super_freezing',
+        'ウォール・スーパー化'   => 'gimmick_super_wall',
+        'シールド・スーパー化'   => 'gimmick_super_shield',
+        'ウォールブレイカー'     => 'gimmick_wall',
+        'シールドブレイカー'     => 'gimmick_shield',
+    ];
+
+    if (isset($gimmick_aliases[$clean_label])) {
+        return $gimmick_aliases[$clean_label];
+    }
+
+    // 「◯◯・スーパー化」から「スーパー◯◯」への変換判定
+    if (preg_match('/^(.+?)[・_]スーパー化$/u', $clean_label, $m)) {
+        $base = $m[1];
+        $super_form1 = 'スーパー' . $base;
+        $super_form2 = 'スーパー' . $base . 'ブレイカー';
+        $super_form3 = 'スーパー' . $base . 'ガード';
+        foreach ([$super_form1, $super_form2, $super_form3] as $cand) {
+            foreach ($registry as $k => $def) {
+                if (($def['label'] ?? '') === $cand) return $k;
+            }
+            if (isset($gimmick_aliases[$cand])) return $gimmick_aliases[$cand];
+        }
+    }
+
+    return null;
 }
 
 /**
@@ -407,11 +900,17 @@ function koto_resolve_blessing_affiliations($context = [], $target_id = null)
 function koto_build_blessing_token_row($base_token, $target_id = null, $is_star5 = false, $context = [])
 {
     $registry = koto_get_blessing_token_registry();
-    if (!isset($registry[$base_token])) {
-        return null;
+    $token_key = $base_token;
+    if (!isset($registry[$token_key])) {
+        $resolved = koto_resolve_blessing_token_key($base_token);
+        if ($resolved && isset($registry[$resolved])) {
+            $token_key = $resolved;
+        } else {
+            return null;
+        }
     }
 
-    $def = $registry[$base_token];
+    $def = $registry[$token_key];
     $rarity_key = $is_star5 ? 'star5' : 'star6';
     $values = $def['rarity_values'][$rarity_key] ?? ($def['rarity_values']['star6'] ?? []);
 
@@ -479,6 +978,32 @@ function koto_build_blessing_token_row($base_token, $target_id = null, $is_star5
 
     foreach ($values as $k => $v) {
         $row[$k] = $v;
+    }
+
+    // ギミック対策行のタームID設定
+    if (($def['trait_type'] ?? '') === 'gimmick') {
+        $gimmick_id = $def['gimmick_id'] ?? 0;
+        if (!$gimmick_id && !empty($def['gimmick_slug']) && function_exists('get_term_by')) {
+            $t = get_term_by('slug', $def['gimmick_slug'], 'gimmick');
+            if ($t && !is_wp_error($t)) {
+                $gimmick_id = (int) $t->term_id;
+            }
+        }
+        $row['gimmick'] = $gimmick_id ? [$gimmick_id] : [];
+    }
+
+    // 明示的なポイント指定がある場合は上書き
+    if (!empty($context['need_point'])) {
+        $row['need_point'] = (string) $context['need_point'];
+    } elseif (!empty($context['point'])) {
+        $row['need_point'] = (string) $context['point'];
+    }
+
+    // pt_pattern : single の場合、need_point が不明・未指定なら 20 をセット
+    if (($row['pt_pattern'] ?? '') === 'single') {
+        if (!isset($row['need_point']) || trim((string) $row['need_point']) === '') {
+            $row['need_point'] = '20';
+        }
     }
 
     return $row;
@@ -676,6 +1201,33 @@ function koto_extract_blessing_template_from_post($post_id, $template_key = 'pat
             continue;
         }
 
+        // ギミック対策
+        if ($tt === 'gimmick') {
+            $default_rows[] = $r;
+            $gimmick_val = $r['gimmick'] ?? null;
+            $g_slug = '';
+            if (is_object($gimmick_val) && isset($gimmick_val->slug)) {
+                $g_slug = $gimmick_val->slug;
+            } elseif (is_array($gimmick_val) && !empty($gimmick_val)) {
+                $first = reset($gimmick_val);
+                if (is_object($first) && isset($first->slug)) {
+                    $g_slug = $first->slug;
+                } elseif (is_numeric($first)) {
+                    $t = function_exists('get_term') ? get_term((int)$first, 'gimmick') : null;
+                    if ($t && !is_wp_error($t)) $g_slug = $t->slug;
+                }
+            } elseif (is_numeric($gimmick_val)) {
+                $t = function_exists('get_term') ? get_term((int)$gimmick_val, 'gimmick') : null;
+                if ($t && !is_wp_error($t)) $g_slug = $t->slug;
+            }
+            if ($g_slug !== '') {
+                $tokens[] = 'gimmick_' . $g_slug;
+            } else {
+                $tokens[] = 'gimmick';
+            }
+            continue;
+        }
+
         if (($r['pt_pattern'] ?? '') !== 'default') {
             continue;
         }
@@ -760,6 +1312,9 @@ function koto_convert_trait_row_to_blessing_rows(array $row, $point, $is_ex, arr
     $row['pt_pattern'] = 'single';
     if ($point_str !== '') {
         $row['need_point'] = $point_str;
+    } else {
+        // pt_pattern : single の場合、need_pointが不明な場合20をセット
+        $row['need_point'] = '20';
     }
     if (array_key_exists('trait_rate', $row)) {
         if (!isset($row['blessing_value']) || $row['blessing_value'] === '') {
@@ -995,6 +1550,20 @@ function koto_parse_blessing($input, $grouped_csv, $input_key = 'auto_input_bles
                     continue;
                 }
 
+                // ギミック単体文言（例:「チェンジガード」「チェンジガード・スーパー化」「ウォールブレイカー」など）の直接解決
+                $gimmick_tok = koto_resolve_blessing_token_key($raw_text);
+                if ($gimmick_tok && strpos($gimmick_tok, 'gimmick_') === 0) {
+                    $row_ctx = array_merge($context, [
+                        'post_id' => $post_id,
+                        'point'   => $point !== '' ? $point : '20',
+                    ]);
+                    $g_row = koto_build_blessing_token_row($gimmick_tok, null, $is_star5, $row_ctx);
+                    if ($g_row) {
+                        $ordered_rows[] = $g_row;
+                        continue;
+                    }
+                }
+
                 $preprocessed = koto_preprocess_text($raw_text, 'とくせい');
                 $parsed_traits = koto_parse_trait($preprocessed, $grouped_csv, $input_key);
                 if (empty($parsed_traits)) {
@@ -1063,6 +1632,21 @@ function koto_parse_blessing($input, $grouped_csv, $input_key = 'auto_input_bles
         $raw_text = trim((string) ($row_item['text'] ?? ''));
         if ($raw_text === '') {
             continue;
+        }
+
+        // ギミック単体文言（例:「チェンジガード」「チェンジガード・スーパー化」「ウォールブレイカー」など）の直接解決
+        $gimmick_tok = koto_resolve_blessing_token_key($raw_text);
+        if ($gimmick_tok && strpos($gimmick_tok, 'gimmick_') === 0) {
+            $row_ctx = array_merge($context, [
+                'post_id' => $post_id,
+                'point'   => $point !== '' ? $point : '20',
+            ]);
+            $is_star5 = koto_is_blessing_star5_rarity($rarity, $post_id);
+            $g_row = koto_build_blessing_token_row($gimmick_tok, null, $is_star5, $row_ctx);
+            if ($g_row) {
+                $type2_rows[] = $g_row;
+                continue;
+            }
         }
 
         $preprocessed = koto_preprocess_text($raw_text, 'とくせい');
