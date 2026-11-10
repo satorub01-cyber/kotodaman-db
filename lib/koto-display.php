@@ -664,6 +664,9 @@ function get_koto_trait_text_from_row($row)
                 $effect_text = "黒閃：オーバークリティカルが発生するたび、自身にとくせい「ドロー時、２ターンの間自身ATK１段階UP」「ダメージ上限+500000」を付与する（累積可能）";
             } elseif ($sub === 'kyouwa') {
                 $effect_text = "協和：オーバークリティカルが発生するたび、自身にとくせい「ドロー時、２ターンの間自身のクリティカル発生率１段階UP」「弱点を突いた時のダメージ10%UP」「自身の文字が「む・お・ん」のとき威力５%UP」を付与する（累積可能）";
+            } elseif ($sub === 'weak_discover') {
+                $effect_text = "このキャラを編成すると弱点が見えるようになる";
+
             }
             break;
 
