@@ -23,7 +23,7 @@ function koto_get_blessing_token_registry()
     $base_tokens = [
         // HPアップ（レベル制CSV）
         'hp_up' => [
-            'label'                => 'HPアップ',
+            'label'                => 'HP基礎値(中)UP',
             'trait_type'           => 'status_up',
             'status_up'            => 'hp',
             'rate_type'            => 'fixed',
@@ -38,7 +38,7 @@ function koto_get_blessing_token_registry()
 
         // ATKアップ（レベル制CSV）
         'atk_up' => [
-            'label'                => 'ATKアップ',
+            'label'                => 'ATK基礎値(極大)UP',
             'trait_type'           => 'status_up',
             'status_up'            => 'atk',
             'rate_type'            => 'fixed',
@@ -54,7 +54,7 @@ function koto_get_blessing_token_registry()
         // 属性キラー（min_max制。インデックス付き attr_killer1, attr_killer2 で指定）
         // //要チェック: キラーは★5だと値が -5（★6: 10~20% -> ★5: 5~15%）
         'attr_killer' => [
-            'label'                => '属性キラー',
+            'label'                => '属性キラー(+)',
             'trait_type'           => 'damage_correction',
             'damage_correction'    => 'killer',
             'rate_type'            => 'percentage',
@@ -70,7 +70,7 @@ function koto_get_blessing_token_registry()
         // 種族キラー（min_max制。インデックス付き species_killer1, species_killer2 で指定）
         // //要チェック: キラーは★5だと値が -5（★6: 15~25% -> ★5: 10~20%）
         'species_killer' => [
-            'label'                => '種族キラー',
+            'label'                => '種族キラー(+)',
             'trait_type'           => 'damage_correction',
             'damage_correction'    => 'killer',
             'rate_type'            => 'percentage',
@@ -85,7 +85,7 @@ function koto_get_blessing_token_registry()
 
         // 属性軽減（min_max制。インデックス付き attr_mitigation1, attr_mitigation2 で指定）
         'attr_mitigation' => [
-            'label'                => '属性軽減',
+            'label'                => '属性軽減(+)',
             'trait_type'           => 'status_up',
             'status_up'            => 'mitigation',
             'rate_type'            => 'percentage',
@@ -100,7 +100,7 @@ function koto_get_blessing_token_registry()
 
         // 回避率UP（min_max制）
         'dodge' => [
-            'label'                => '回避率UP',
+            'label'                => '心眼回避',
             'trait_type'           => 'status_up',
             'status_up'            => 'dodge',
             'rate_type'            => 'percentage',
@@ -159,7 +159,7 @@ function koto_get_blessing_token_registry()
 
         // atk_up_per_unit
         'atk_up_per_unit' => [
-            'label'                => 'ATKアップ（キャラ数依存）',
+            'label'                => '属性×ATKUP',
             'trait_type'           => 'status_up',
             'status_up'            => 'atk',
             'rate_type'            => 'fixed',
