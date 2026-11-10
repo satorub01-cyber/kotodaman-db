@@ -828,6 +828,7 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
         // ----------------------------------------------------
         // パターンB: 通常の固定値等の処理（条件 → 対象 → 効果）
         // ----------------------------------------------------
+        $last_targets = [];
         while (mb_strlen($remaining_text) > 0) {
             $prev_pattern_b_len = mb_strlen($remaining_text);
             $remaining_text = preg_replace('/^[・\s、,。]+/u', '', $remaining_text);
@@ -901,6 +902,7 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
             }
 
             // 2. 対象の抽出ループ
+            $has_explicit_target = false;
             while (mb_strlen($remaining_text) > 0) {
                 $prev_len = mb_strlen($remaining_text);
                 // 【修正】先頭の「、」や「,」を削る
@@ -908,6 +910,7 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
 
                 $match = koto_match_csv_template($remaining_text, $target_rows, $input_key, 'prefix');
                 if (koto_is_csv_template_match($match)) {
+                    $has_explicit_target = true;
                     $acf_rows = koto_ensure_acf_data_list($match['acf_data']);
                     foreach ($acf_rows as $row) {
                         if (isset($row['ls_target_chara_loop'])) {
@@ -923,6 +926,13 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
                     break;
                 }
                 if (mb_strlen($remaining_text) >= $prev_len) break;
+            }
+
+            // 直前に対象が抽出されていて今回対象が省略されている場合は引き継ぐ
+            if ($has_explicit_target) {
+                $last_targets = $targets;
+            } elseif (empty($targets) && !empty($last_targets)) {
+                $targets = $last_targets;
             }
 
             // 3. 効果の抽出ループ（ls_type ごとに仕分ける）
@@ -972,13 +982,13 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
                 if (mb_strlen($remaining_text) >= $prev_len) break;
             }
 
-            // 効果が1つもヒットしなかったが条件・対象が存在する場合の救済処理
-            if (empty($effects_by_type) && (!empty($conditions) || !empty($targets))) {
+            // 効果が1つもヒットしなかったが条件・明示された対象が存在する場合の救済処理
+            if (empty($effects_by_type) && (!empty($conditions) || $has_explicit_target)) {
                 $effects_by_type['fixed'] = [];
             }
 
             // 何も抽出できなかった場合は無限ループ防止のため終了
-            if (empty($effects_by_type) && empty($conditions) && empty($targets)) {
+            if (empty($effects_by_type) && empty($conditions) && !$has_explicit_target) {
                 break;
             }
 

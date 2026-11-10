@@ -42,12 +42,13 @@ function koto_get_blessing_token_registry()
             'trait_type'           => 'status_up',
             'status_up'            => 'atk',
             'rate_type'            => 'fixed',
-            'pt_pattern'           => 'default',
-            'blessing_level_value' => 'csv',
+            'pt_pattern'           => 'csv',
+            'need_point'           => '5,10,15,20,25',
+            'blessing_level_value' => 'min_max',
             'target_type'          => 'self',
             'rarity_values'        => [
-                'star6' => ['blessing_value' => '50!'],
-                'star5' => ['blessing_value' => '25,30,35,40,45,50,55,60,65,70'],
+                'star6' => ['min_value' => '100', 'max_value' => '200'],
+                'star5' => ['min_value' => '25', 'max_value' => '70'],
             ],
         ],
 

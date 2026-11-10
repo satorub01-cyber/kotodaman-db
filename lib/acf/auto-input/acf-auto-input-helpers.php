@@ -1302,6 +1302,8 @@ function koto_preprocess_text($text, $category = '')
         $text = preg_replace('/。(?:さらに|また(?:は)?)[、,]?/u', '+', $text);
         // 残る「。」を改行（\n）に変換して文ごとのパート分割・トリムを可能にする
         $text = str_replace('。', "\n", $text);
+        // 「〇属性〇回攻撃」を「〇属性の〇回攻撃」に正規化
+        $text = preg_replace('/(属性)(各?[0-9０-９]+回攻撃)/u', '$1の$2', $text);
     }
 
     $ignore_texts = koto_get_ignore_texts_by_category($category);
