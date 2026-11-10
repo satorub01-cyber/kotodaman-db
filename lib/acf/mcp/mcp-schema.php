@@ -228,6 +228,10 @@ function koto_mcp_blessing_schema($include_gimmicks = true)
             $desc = 'ユニット数依存ATKアップ（20pt）';
         } elseif ($t_key === 'comb_plus') {
             $desc = 'コンボ＋1（20pt）';
+        } elseif ($t_key === 'first_aid') {
+            $desc = '応急手当（ドロー時HP回復。★6: 200~650, ★5: 200~650）';
+        } elseif ($t_key === 'healing_up') {
+            $desc = '回復効果アップ（★6: 10~20%, ★5: 5~15%）';
         } elseif ($is_super) {
             $desc = sprintf('%s（黄色背景アイコン、200pt）', $def['label'] ?? 'スーパーギミック耐性');
         } elseif ($is_gimmick) {

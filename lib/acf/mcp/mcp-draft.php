@@ -466,6 +466,9 @@ function koto_mcp_extract_blessing_items($post_id, $is_ex = false)
             } elseif ($su === 'dodge') {
                 $token_key = 'dodge';
                 $label = '回避率UP';
+            } elseif ($su === 'healing_effect') {
+                $token_key = 'healing_up';
+                $label = '回復効果アップ';
             }
         } elseif ($tt === 'damage_correction') {
             if ($dc === 'killer') {
@@ -488,6 +491,9 @@ function koto_mcp_extract_blessing_items($post_id, $is_ex = false)
         } elseif ($tt === 'draw_eff' && $de === 'atk_buff') {
             $token_key = 'group_draw_buff';
             $label = 'グループドローバフ';
+        } elseif ($tt === 'draw_eff' && $de === 'healing') {
+            $token_key = 'first_aid';
+            $label = '応急手当';
         } elseif (in_array($other_t, ['combo_plus', 'comb_plus'], true) || in_array($super_h, ['combo_plus', 'comb_plus'], true)) {
             $token_key = 'comb_plus';
             $label = 'コンボ＋';

@@ -63,7 +63,7 @@ flowchart LR
 
 | `target_type` | 説明 | テンプレート指定方法 | 自動解決の仕組み |
 | :--- | :--- | :--- | :--- |
-| **`self`** | 自身 | `hp_up`, `atk_up`, `dodge` | `target_type: self` のみセット |
+| **`self`** | 自身 | `hp_up`, `atk_up`, `dodge`, `healing_up` | `target_type: self` のみセット |
 | **`attr`** | 属性 | `attr_killer1`, `attr_killer2` | `attrs` 配列のインデックス（1始まり）からタームIDを自動解決 |
 | **`species`** | 種族 | `species_killer1`, `species_killer2` | `species` 配列のインデックス（1始まり）からタームIDを自動解決 |
 | **`affiliation`** | 所属グループ | `group_draw_buff` | 対象キャラの投稿（`post_id`）に設定されている `affiliation` タクソノミー（または入力引数）からタームIDを自動抽出して `target_group` に流し込み（ACF値は `group`） |

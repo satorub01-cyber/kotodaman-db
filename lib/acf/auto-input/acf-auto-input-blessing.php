@@ -186,6 +186,35 @@ function koto_get_blessing_token_registry()
                 'star5' => ['blessing_value' => '1', 'need_point' => '20'],
             ],
         ],
+
+        // 応急手当
+        'first_aid' => [
+            'label'                => '応急手当',
+            'trait_type'           => 'draw_eff',
+            'draw_eff'             => 'healing',
+            'rate_type'            => 'fixed',
+            'pt_pattern'           => 'default',
+            'blessing_level_value' => 'min_max',
+            'rarity_values'        => [
+                'star6' => ['min_value' => '200', 'max_value' => '650'],
+                'star5' => ['min_value' => '200', 'max_value' => '650'],
+            ],
+        ],
+
+        // 回復効果アップ
+        'healing_up' => [
+            'label'                => '回復効果アップ',
+            'trait_type'           => 'status_up',
+            'status_up'            => 'healing_effect',
+            'rate_type'            => 'percentage',
+            'pt_pattern'           => 'default',
+            'blessing_level_value' => 'min_max',
+            'target_type'          => 'self',
+            'rarity_values'        => [
+                'star6' => ['min_value' => '10', 'max_value' => '20'],
+                'star5' => ['min_value' => '5',  'max_value' => '15'],
+            ],
+        ],
     ];
 
     $gimmick_tokens = koto_get_blessing_gimmick_token_definitions();
