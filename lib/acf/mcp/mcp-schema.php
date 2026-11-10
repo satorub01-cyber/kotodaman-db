@@ -207,9 +207,9 @@ function koto_mcp_blessing_schema($include_gimmicks = true)
 
         $desc = '';
         if ($t_key === 'hp_up') {
-            $desc = '自身のHPアップ（★6: 200!, ★5: 100~350）';
+            $desc = '自身のHPアップ（★6: 200!, ★5: 100~350。ラベルは代表表記、ゲーム内表示はレベルで変わる）';
         } elseif ($t_key === 'atk_up') {
-            $desc = '自身のATKアップ（★6: 50!, ★5: 25~70）';
+            $desc = '自身のATKアップ（★6: 50!, ★5: 25~70。ラベルは代表表記、ゲーム内表示はレベルで変わる）';
         } elseif ($t_key === 'attr_killer') {
             $desc = '属性キラー（★6: 10~20%, ★5: 5~15%）。targetに属性名を指定';
         } elseif ($t_key === 'species_killer') {
@@ -220,6 +220,8 @@ function koto_mcp_blessing_schema($include_gimmicks = true)
             $desc = '回避率UP（★6: 1~10%, ★5: 4~12%）';
         } elseif ($t_key === 'attr_30_killer') {
             $desc = '非レベル制30%キラー（20pt）。targetに属性名を指定';
+        } elseif ($t_key === 'speci_35_killer') {
+            $desc = '非レベル制35%キラー（20pt）。targetに種族名を指定';
         } elseif ($t_key === 'group_draw_buff') {
             $desc = '所属グループATKドローバフ（キャラ所属連動、20pt）';
         } elseif ($t_key === 'atk_up_per_unit') {
