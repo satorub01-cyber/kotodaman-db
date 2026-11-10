@@ -1350,7 +1350,7 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                             $effect_text = "{$target_name}に1回ダメージを無効化するバリアを展開";
                             break;
                         case 'status_barrier':
-                            $effect_text = "{$target_name}に{$st_name}を無効化するバリアを展開";
+                            $effect_text = "{$target_name}に{$turn_text}{$st_name}を無効化するバリアを展開";
                             break;
                         case 'battle_field':
                             $field_text = [];
