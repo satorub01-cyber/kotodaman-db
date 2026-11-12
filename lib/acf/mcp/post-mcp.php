@@ -18,13 +18,8 @@ function koto_mcp_rest_permission_check($request, $required_scope = 'validate')
         }
         return true;
     }
-    $user = get_userdata(get_current_user_id());
-    $has_mcp_role = $user && in_array('mcp_user', (array) $user->roles, true);
-    if (!$has_mcp_role && !current_user_can('edit_posts')) {
-        return false;
-    }
     $user_id = get_current_user_id();
-    if (!koto_mcp_is_user_approved($user_id)) {
+    if ($user_id <= 0 || !koto_mcp_is_user_approved($user_id)) {
         return new WP_Error('mcp_pending_approval', 'MCP access approval is required.', ['status' => 403]);
     }
     return true;

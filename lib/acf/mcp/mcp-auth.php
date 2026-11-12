@@ -107,21 +107,7 @@ function koto_mcp_is_user_approved($user_id)
     if ($user_id <= 0) {
         return false;
     }
-    $user = get_userdata($user_id);
-    if (!$user) {
-        return false;
-    }
-    $roles = (array) $user->roles;
-    if (array_intersect(['administrator', 'editor'], $roles)) {
-        return true;
-    }
-    if (get_user_meta($user_id, '_koto_mcp_approved', true)) {
-        return true;
-    }
-    if (in_array('mcp_user', $roles, true) && !get_user_meta($user_id, '_koto_mcp_revoked', true)) {
-        return true;
-    }
-    return false;
+    return (string) get_user_meta($user_id, '_koto_mcp_approved', true) === '1';
 }
 
 function koto_mcp_check_user_mcp_permission($user_id)
@@ -129,11 +115,6 @@ function koto_mcp_check_user_mcp_permission($user_id)
     $user_id = (int) $user_id;
     if ($user_id <= 0) {
         return new WP_Error('mcp_unauthorized', 'Authentication is required.', ['status' => 401, 'oauth_error' => 'invalid_token']);
-    }
-    $user = get_userdata($user_id);
-    $has_mcp_role = $user && in_array('mcp_user', (array) $user->roles, true);
-    if (!$has_mcp_role && !user_can($user_id, 'edit_posts')) {
-        return new WP_Error('mcp_forbidden', 'MCP利用者ロールまたはedit_posts権限が必要です。利用には管理者への申請が必要です。', ['status' => 403]);
     }
     if (!koto_mcp_is_user_approved($user_id)) {
         return new WP_Error('mcp_pending_approval', 'MCP利用の承認が必要です。利用には管理者への申請が必要です。', ['status' => 403]);
