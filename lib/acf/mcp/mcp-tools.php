@@ -19,16 +19,16 @@ function koto_mcp_tool_names()
 function koto_mcp_tools()
 {
     return [
-        ['name' => 'get_field_schema', 'description' => 'Return ACF field schema and manual guidance. Set test_mode=true for full unfiltered schema.', 'inputSchema' => ['type' => 'object', 'properties' => ['test_mode' => ['type' => 'boolean']]]],
+        ['name' => 'get_field_schema', 'description' => 'Return ACF field schema, required fields, and manual guidance. Set test_mode=true (debug only) for full unfiltered schema.', 'inputSchema' => ['type' => 'object', 'properties' => ['test_mode' => ['type' => 'boolean', 'description' => 'Debug only: return all unfiltered ACF fields.']]]],
         ['name' => 'get_blessing_schema', 'description' => 'Return blessing token dictionary, template patterns, and validation schema for auto_input_blessing and auto_input_ex_blessing.', 'inputSchema' => ['type' => 'object', 'properties' => ['include_gimmicks' => ['type' => 'boolean', 'description' => 'Whether to include gimmick tokens (default: true).']]]],
         ['name' => 'get_terms', 'description' => 'Return term dictionaries with IDs. taxonomy accepts a single name, comma-separated names, or "all". Optional search filters by name/slug.', 'inputSchema' => ['type' => 'object', 'properties' => ['taxonomy' => ['type' => 'string'], 'search' => ['type' => 'string'], 'test_mode' => ['type' => 'boolean']], 'required' => ['taxonomy']]],
-        ['name' => 'search_character', 'description' => 'Search existing character posts before creating one.', 'inputSchema' => ['type' => 'object', 'properties' => ['name' => ['type' => 'string']], 'required' => ['name']]],
-        ['name' => 'get_draft', 'description' => 'Return current basic_fields, blessing, ex_blessing, title, status, and MCP review metadata of an existing character draft.', 'inputSchema' => ['type' => 'object', 'properties' => ['post_id' => ['type' => 'integer']], 'required' => ['post_id']]],
-        ['name' => 'validate', 'description' => 'Validate without saving. Set test_mode=true to include full parsed_acf.', 'inputSchema' => koto_mcp_draft_schema(false)],
-        ['name' => 'preview_draft', 'description' => 'Parse, validate, and cache a draft without saving. Set test_mode=true to include full parsed_acf.', 'inputSchema' => koto_mcp_draft_schema(false)],
-        ['name' => 'create_draft', 'description' => 'Create a draft after preview_draft. Only preview_hash and idempotency_key are required if preview_draft was just called.', 'inputSchema' => koto_mcp_draft_schema(true)],
-        ['name' => 'update_draft', 'description' => 'Update an existing draft after preview_draft.', 'inputSchema' => koto_mcp_draft_schema(true, true)],
-        ['name' => 'trash_draft', 'description' => 'Move an existing draft to trash.', 'inputSchema' => ['type' => 'object', 'properties' => ['post_id' => ['type' => 'integer']], 'required' => ['post_id']]],
+        ['name' => 'search_character', 'description' => 'Search existing character posts to verify duplication before creating a draft.', 'inputSchema' => ['type' => 'object', 'properties' => ['name' => ['type' => 'string', 'description' => 'Character name keyword to search.']], 'required' => ['name']]],
+        ['name' => 'get_draft', 'description' => 'Return current basic_fields, blessing, ex_blessing, title, status, and MCP review metadata of an existing character draft.', 'inputSchema' => ['type' => 'object', 'properties' => ['post_id' => ['type' => 'integer', 'description' => 'Post ID of the character draft.']], 'required' => ['post_id']]],
+        ['name' => 'validate', 'description' => 'Validate draft payload without saving or caching (use preview_draft when preparing to create/update). Set test_mode=true (debug only) to include full parsed_acf.', 'inputSchema' => koto_mcp_draft_schema(false)],
+        ['name' => 'preview_draft', 'description' => 'Parse, validate, and cache draft payload for 30 minutes. Returns preview_hash needed for create_draft/update_draft. Set test_mode=true (debug only) for full parsed_acf.', 'inputSchema' => koto_mcp_draft_schema(false)],
+        ['name' => 'create_draft', 'description' => 'Create a character draft using preview_hash and idempotency_key. WARNING: test_mode is for debugging only and does NOT prevent creation (not a dry run; use preview_draft/validate for dry run).', 'inputSchema' => koto_mcp_draft_schema(true)],
+        ['name' => 'update_draft', 'description' => 'Update an existing character draft using preview_hash, idempotency_key, and post_id. WARNING: test_mode is for debugging only and does NOT prevent update (not a dry run).', 'inputSchema' => koto_mcp_draft_schema(true, true)],
+        ['name' => 'trash_draft', 'description' => 'Move an existing draft to trash.', 'inputSchema' => ['type' => 'object', 'properties' => ['post_id' => ['type' => 'integer', 'description' => 'Post ID of the draft to trash.']], 'required' => ['post_id']]],
     ];
 }
 
@@ -37,17 +37,17 @@ function koto_mcp_draft_schema($hash_required = false, $update = false)
     $schema = [
         'type' => 'object',
         'properties' => [
-            'post_id' => ['type' => 'integer'],
-            'character_name' => ['type' => 'string'],
-            'basic_fields' => ['type' => 'object'],
-            'auto_input' => ['type' => 'object'],
-            'screenshot_urls' => ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'uri']],
-            'evidence' => ['type' => 'object'],
-            'idempotency_key' => ['type' => 'string'],
-            'preview_hash' => ['type' => 'string'],
-            'replace_existing' => ['type' => 'boolean'],
-            'human_approved' => ['type' => 'boolean'],
-            'test_mode' => ['type' => 'boolean'],
+            'post_id' => ['type' => 'integer', 'description' => 'Target post ID (required for update_draft).'],
+            'character_name' => ['type' => 'string', 'description' => 'Character name (becomes post title).'],
+            'basic_fields' => ['type' => 'object', 'description' => 'Top-level ACF fields. Creation requires name_ruby, attribute, species, rarity.'],
+            'auto_input' => ['type' => 'object', 'description' => 'Raw in-game texts for skills, traits, leader, kotowaza, and blessings.'],
+            'screenshot_urls' => ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'uri'], 'description' => 'List of screenshot URLs to attach and set featured image.'],
+            'evidence' => ['type' => 'object', 'description' => 'Optional OCR extraction evidence and reasoning metadata (stored in _koto_mcp_audit, max 16KB). Pass during preview_draft or create_draft.'],
+            'idempotency_key' => ['type' => 'string', 'description' => 'Unique idempotency key for draft creation or update.'],
+            'preview_hash' => ['type' => 'string', 'description' => '30-minute cache hash returned from preview_draft.'],
+            'replace_existing' => ['type' => 'boolean', 'description' => 'For update_draft: true (default) replaces existing skill/blessing rows; false appends new rows.'],
+            'human_approved' => ['type' => 'boolean', 'description' => 'Flag indicating that ambiguous values (e.g. get_place) have been confirmed and approved by a human.'],
+            'test_mode' => ['type' => 'boolean', 'description' => 'Debug only: returns verbose parsed_acf structure. CAUTION: Does NOT prevent saving in create_draft/update_draft (not a dry run; use preview_draft/validate for dry run).'],
         ],
         'required' => $update ? ['post_id', 'idempotency_key', 'preview_hash'] : ($hash_required ? ['idempotency_key', 'preview_hash'] : []),
     ];
@@ -251,7 +251,7 @@ function koto_mcp_call_tool($name, $args, $request = null)
         if ($name === 'get_field_schema') {
             $resp = [
                 'fields' => koto_mcp_field_schema(!$test_mode),
-                'required_for_create' => ['attribute', 'species', 'rarity'],
+                'required_for_create' => ['name_ruby', 'attribute', 'species', 'rarity'],
                 'auto_input_keys' => [
                     'auto_input_waza_name',
                     'auto_input_waza',

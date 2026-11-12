@@ -129,13 +129,13 @@ function koto_mcp_blessing_schema($include_gimmicks = true)
                                     ],
                                 ],
                                 [
-                                    'title' => '自由入力（非レベル制とくせい文言）',
+                                    'title' => '自由入力（非レベル制専用）',
                                     'type' => 'object',
                                     'required' => ['type', 'text'],
                                     'properties' => [
                                         'type'  => ['type' => 'string', 'enum' => ['free']],
-                                        'point' => ['type' => ['integer', 'string'], 'default' => 20, 'description' => '必要祝福ポイント（未指定時20）'],
-                                        'text'  => ['type' => 'string', 'description' => 'とくせい説明文（文字追加や追加すごわざ条件も自動解決）'],
+                                        'point' => ['type' => ['integer', 'string'], 'default' => 20, 'description' => '必要祝福ポイント（未指定時20）。freeでpoint省略時は非レベル制（single/20pt）になります。'],
+                                        'text'  => ['type' => 'string', 'description' => 'とくせい説明文（非レベル制専用）。【重要】HP/ATK UPやキラー、属性軽減などのレベル制とくせいは必ずtokenまたはtemplateを使用し、freeで入れてはいけません（非レベル制20pt固定になるため禁止）。文字追加やすごわざ条件追加は自動解決されます。'],
                                     ],
                                 ],
                             ],
@@ -153,13 +153,13 @@ function koto_mcp_blessing_schema($include_gimmicks = true)
                     'affiliations' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => '所属グループ名リスト'],
                     'rows'         => [
                         'type' => 'array',
-                        'description' => '追加の自由入力行',
+                        'description' => '追加の自由入力行（非レベル制専用。レベル制とくせいはtemplate側で指定し、ここに入れてはいけません）',
                         'items' => [
                             'type' => 'object',
                             'required' => ['text'],
                             'properties' => [
-                                'point' => ['type' => ['integer', 'string'], 'default' => 20],
-                                'text'  => ['type' => 'string'],
+                                'point' => ['type' => ['integer', 'string'], 'default' => 20, 'description' => '必要祝福ポイント（未指定時20。非レベル制single扱い）'],
+                                'text'  => ['type' => 'string', 'description' => '非レベル制とくせい文言'],
                             ],
                         ],
                     ],
@@ -171,7 +171,8 @@ function koto_mcp_blessing_schema($include_gimmicks = true)
     $limits = [
         'max_items'                => 8,
         'default_point_for_single' => 20,
-        'description'              => '祝福（通常祝福）およびEX祝福はそれぞれ最大8項目（MAX 8）まで設定可能です。8項目を超えるとVALIDATION_FAILEDとなります。',
+        'description'              => '祝福（通常祝福）およびEX祝福はそれぞれ最大8項目（MAX 8）まで設定可能です。8項目を超えるとVALIDATION_FAILEDとなります。【注意】free形式は非レベル制専用であり、レベル制とくせいに使用してはいけません。またupdate_draftでの更新時、入れ直し（置換）は replace_existing: true（デフォルト）、末尾追記は replace_existing: false を指定します。',
+        'update_replace_rules'     => 'update_draft 時の使い分け: 既存行をすべて置き換える場合は replace_existing: true（省略時デフォルト）、既存行を残して末尾に追加する場合は replace_existing: false。',
     ];
 
     // トークン一覧の収集

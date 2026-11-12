@@ -721,7 +721,7 @@ function koto_mcp_validate_draft(&$args)
                 if (!isset($args['basic_fields']) || !is_array($args['basic_fields'])) {
                     $args['basic_fields'] = [];
                 }
-                foreach (['attribute', 'species', 'rarity'] as $req_k) {
+                foreach (['name_ruby', 'attribute', 'species', 'rarity'] as $req_k) {
                     $is_empty_field = !array_key_exists($req_k, $args['basic_fields']) || $args['basic_fields'][$req_k] === null || $args['basic_fields'][$req_k] === '' || (is_array($args['basic_fields'][$req_k]) && count($args['basic_fields'][$req_k]) === 0);
                     if ($is_empty_field && array_key_exists($req_k, $existing_bf)) {
                         $args['basic_fields'][$req_k] = $existing_bf[$req_k];
@@ -764,7 +764,7 @@ function koto_mcp_validate_draft(&$args)
     $args['basic_fields'] = $fields;
 
     $schema = koto_mcp_field_schema();
-    foreach (['attribute', 'species', 'rarity'] as $required) {
+    foreach (['name_ruby', 'attribute', 'species', 'rarity'] as $required) {
         $is_empty_array = is_array($fields[$required] ?? null) && count($fields[$required]) === 0;
         if (!array_key_exists($required, $fields) || $fields[$required] === null || $fields[$required] === '' || $is_empty_array) {
             $errors['missing_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $required, 'required_empty');
