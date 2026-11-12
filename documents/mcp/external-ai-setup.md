@@ -64,7 +64,7 @@
 
 1. ChatGPTの「**GPTを作成する（Explore GPTs > Create）**」を開く。
 2. **「指示（Instructions）」** 欄に、本ページ末尾の「[外部AI用システムプロンプト（コピペ用）](#4-外部ai用システムプロンプトコピペ用)」を貼り付ける。
-3. 下部の「**アクションを作成する（Create new action）**」を開き、**スキーマ（Schema）** 欄に [documents/mcp/openapi.json](file:///var/www/html/wp-content/themes/cocoon-child-master/documents/mcp/openapi.json) の内容をそのまま貼り付ける。
+3. 下部の「**アクションを作成する（Create new action）**」を開き、**スキーマ（Schema）** 欄に [documents/mcp/openapi.json](openapi.json) の内容をそのまま貼り付ける。
 4. **「認証（Authentication）」** をクリックし、「**APIキー（API Key）**」を選択：
    * **認証タイプ（Auth Type）**: `Bearer`（または `Basic`）
    * **APIキー**: `Bearer` を選んだ場合は `<WordPressユーザー名>:<アプリケーションパスワード>` を入力して保存する。

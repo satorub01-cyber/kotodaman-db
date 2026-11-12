@@ -1,4 +1,6 @@
-README.md
+/README.md
+!/lib/acf/mcp/README.md
+
 acf-stubs.php
 search-moc.html
 *.pdf
@@ -12,5 +14,3 @@ search-moc.html
 .devcontainer/xdebug.ini
 .vscode/
 /.devcontainer/acf-pro-stubs-master
-AGENTS.md
-AUTO_INPUT_GUIDELINES.md

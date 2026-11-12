@@ -37,7 +37,7 @@ flowchart TD
     subgraph DisplayLayer ["4. フロント表示レイヤー"]
         SingleChara["single-character.php<br/>(キャラ詳細個別ページ)"]
         KotoDisplay["lib/koto-display.php<br/>(カード・すごわざ・祝福HTML生成)"]
-        ModalDisplay["lib/koto-modal-displayer.php<br/>(すごわざ・文字モーダル)"]
+        ModalDisplay["lib/koto-modal-displayer.php<br/>(協力者募集モーダル)"]
         DBTop["page-db-top.php<br/>(DBトップページ)"]
     end
 
@@ -64,7 +64,6 @@ flowchart TD
     SpecJSON --> SingleChara
     SpecJSON --> KotoDisplay
     KotoDisplay --> SingleChara
-    ModalDisplay --> SingleChara
 ```
 
 ---
@@ -126,7 +125,7 @@ flowchart TD
 | :--- | :--- | :--- |
 | `single-character.php` | キャラクター個別詳細ページ。基本情報、わざ・すごわざ・とくせい・祝福カードのレイアウト。 | |
 | `lib/koto-display.php` | `_spec_json` を元にすごわざHTML（`get_koto_sugowaza_html`）や祝福カードHTML（`get_koto_blessing_card_html`）を生成。 | 表示系マークアップの集約先 |
-| `lib/koto-modal-displayer.php` | コトワザ詳細や文字追加モーダル等のポップアップHTML生成。 | |
+| `lib/koto-modal-displayer.php` | 未ログイン閲覧者向けに情報提供・作業協力のお願い（未入力一覧・Discord参加）モーダルをフッター（`wp_footer`）に出力。 | 協力者募集専用モーダル |
 | `style-character-detail.css` | キャラクター詳細ページの専用スタイルシート（インラインスタイル禁止）。 | |
 | `style-character-search.css` | キャラクター検索画面の専用スタイルシート。 | |
 
@@ -190,18 +189,62 @@ flowchart LR
 
 ---
 
-### 【タスクC】ACF自動入力に新規効果や文言パターンを追加する場合
+### 【タスクC】検索結果一覧テーブルに新規列・ソート項目を追加／表示制御する場合
+連動するファイルは **3箇所** です：
+
+1. **検索テーブル列定義（`lib/character-search/chara-list-functions.php`）**:
+   - `koto_get_column_config()` に列定義を追加（`label`, `class`, `related_filters => ['tx_xxx', ...]`, `show => false` 等）。
+   - 必要に応じて表示項目切り替え用チェックボックスの初期状態を設定。
+2. **検索エンジン＆テーブル描画（`lib/character-search/search-engine.js`）**:
+   - `createCharacterRowHtml` の `<td>` に出力（列の出力順序を `koto_get_column_config()` の定義順と厳密一致させる）。
+   - ソート対象にする場合は `sortData()` の比較ロジックに対象キーを追加。
+   - `updateDynamicColumns()` による自動列表示連動を確認。
+3. **スタイルシート（`style-character-search.css`）**:
+   - 追加した列の幅（`width` / `min-width`）、文字揃え（`text-align`）、レスポンシブ時の折り返しをスタイル定義。
+
+---
+
+### 【タスクD】キャラクター詳細ページに新規UIコンポーネント・カードを追加・改修する場合
 連動するファイルは **4箇所** です：
 
-1. **対応表（`lib/ゲーム内文言ーACF-対応表.csv`）**:
-   - 文言パターンとACF選択肢値のマッピング行を追加。
-2. **文言パーサー（`lib/acf/auto-input/acf-auto-input-parsers.php` または `-blessing.php`）**:
-   - 正規表現や分割ロジックを追記。
-3. **ガイドライン（`lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md`）**:
-   - 仕様やパース優先順位を追記・更新。
-4. **テスト検証（必須）**:
-   - `php lib/acf/test_auto_input.php "<種別>" "<追加文言>"` で単発検証。
-   - `php lib/acf/test_auto_input.php` で全件回帰テストを実行し、パスすることを確認。
+1. **スペック生成・データパース（`lib/koto-calc.php`）**:
+   - ACFから値を取得し、構造化して `_spec_json` に含める（必要に応じて）。
+2. **HTML生成コンポーネント（`lib/koto-display.php`）**:
+   - 表示用マークアップを生成するヘルパー関数（例: `get_koto_xxx_html()`）を実装。
+3. **詳細ページテンプレート（`single-character.php`）**:
+   - 適切なセクション（基本情報、わざ・すごわざ、とくせい、祝福等）に配置。未設定時の `if (!empty($val)):` ガードを徹底。
+4. **専用スタイルシート（`style-character-detail.css`）**:
+   - カードや要素のスタイルを定義（**インラインスタイル `style="..."` や `<style>` の直接記述は禁止**）。
+
+---
+
+### 【タスクE】火力指数の計算ロジック（新キラー・倍率・バフ）を修正・拡張する場合
+連動するファイルは **4箇所** です：
+
+1. **火力計算エンジン（`lib/koto-damage-rate-calc.php`）**:
+   - `calculate_character_firepower()` やキラー倍率・バフ計算ロジックに新しい係数や判定を追加。
+2. **スペック生成・データ渡し（`lib/koto-calc.php`）**:
+   - わざ・すごわざの解析結果から火力計算に必要なパラメータ（属性、キラー、ATK倍率等）を抽出し、計算エンジンに渡す。
+   - 結果を `_spec_json` の `"firepower"` キーに格納。
+3. **検索用JSON反映（`lib/character-search/koto-json-reformer.php`）**:
+   - 検索テーブルで火力指数を表示・ソートする場合は、行データに火力値を平坦化して格納。
+4. **詳細画面表示（`lib/koto-display.php` または `single-character.php`）**:
+   - 火力指数バッジや詳細内訳の表示を更新。
+
+---
+
+### 【タスクF】管理・補助系ツール（画像紐付け・ターム一括設定等）を改修・新設する場合
+連動するファイル・注意点：
+
+1. **Ajaxエンドポイント（`lib/image-setter/image-setter-ajax.php` 等）**:
+   - **PHPメモリ上限（256MB）枯渇対策**: `get_posts(['posts_per_page' => -1])` による全件取得は厳禁。SQLの `LIMIT 60` を設けた分割取得と、Ajaxによる追加読み込み（ページネーション）を徹底。
+2. **メディア・メタ連動（`lib/media-functions.php`）**:
+   - 進化後画像設定時は `_thumbnail_id`（アイキャッチ）も連動更新する。
+3. **UI / CSS**:
+   - サイト基本色（背景 `#f7ede3`、アクセント `#135e96`）に準拠し、インラインスタイルを避けて専用CSSに記述。
+
+> [!NOTE]
+> 文言自動入力（auto-input）の追加・改修は [lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md](lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md)、祝福トークン仕様は [documents/blessing-token-guide.md](documents/blessing-token-guide.md)、MCP下書き運用の拡張は [documents/mcp/character-draft-guide.md](documents/mcp/character-draft-guide.md) を参照してください。
 
 ---
 
@@ -254,23 +297,8 @@ ACFフィールド定義の歴史的経緯により、以下のキー名タイ�
 | **通常祝福** | `blessing` | `blessing_trait_loop` | `need_blessing_point` |
 | **EX祝福** | `ex_blessing`（※ハイフン `ex-blessing` も許容） | `blessing_ex_trait_loop` | `need_blessing_point`（**共通**） |
 
-### ④ 祝福自動入力（トークン・自由入力ハイブリッド並び替えUIとMAX8項目制限）
-* **上限項目数**: ゲーム仕様上、祝福・EX祝福はそれぞれ **最大8項目（MAX 8）** に制限（UIのカウンター・追加制御およびMCPバリデーションで強制）。
-* **データ構造 (`items`)**:
-  * トークン方式（`{"type": "token", "token": "...", "target": "..."}`）と自由入力方式（`{"type": "free", "point": "...", "text": "..."}`）の混在並び順指定配列。
-  * `koto_parse_blessing()` により、ユーザーが並び替えた配列の順番通りにACFリピーター行が生成される。
-  * 旧形式（`template` ＋ `rows`）も完全な後方互換性を維持。
-* **ギミックトークン & スーパー化（黄色背景・アイコン表示）**:
-  * 全25種類のギミック耐性をトークン化（`gimmick_{slug}`）。通常は「（gimmick名前）」、スーパーは「(gimmick名前・スーパー化)」。
-  * エディタUI（Select2およびアイテムカード）でギミックアイコン画像（`term_icon`）を表示し、スーパーの場合はゴールド調の黄色背景（`.is-super-gimmick`）を適用。
-  * `pt_pattern: single`（非レベル制）の祝福行は、`need_point` が未指定・不明な場合自動的に `'20'` を補完。
-* **テンプレート展開**:
-  * テンプレート（CSVの「祝福テンプレート」）を選択して「展開してセット」すると、定義されたトークン群が一気に並びへ展開される。
-  * エディタUI上の表示ラベルは `koto_get_blessing_template_choices()`（`lib/acf/acf-editor.php`）で人間向け名称（例: 「ガチャ標準（種族K2+ATKUP）」）と定義トークンを合成して管理。
-  * 属性1/2・種族1/2のプリセット値が `attr_killer1` や `species_killer1` などの行内ドロップダウン初期値に自動反映される。
-* **UI操作**:
-  * `jquery-ui-sortable`（ドラッグハンドル `⋮⋮`）および「▲」「▼」ボタンによるハイブリッド並び替え。
-  * トークン選択は Select2 によるインクリメンタル検索に対応。
+> [!NOTE]
+> 祝福トークンの構造・定義一覧やテンプレート連携仕様は [documents/blessing-token-guide.md](documents/blessing-token-guide.md) を参照してください。
 
 ---
 

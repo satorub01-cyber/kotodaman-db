@@ -107,7 +107,7 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 | `same_character` | 配列（数値） | 変身前・変身後、モードシフト、絵違い、トークンなどの同一キャラクター関連投稿ID配列（例: `[1234, 5678]`）。表示順に並べる（該当なし時は省略または空配列 `[]`）。 |
 
 > [!TIP]
-> フィールドの選択肢や説明を確認したい場合は、MCPツール `get_field_schema` を呼び出してください。[documents/mcp/mcp-field-manual.json](file:///var/www/html/wp-content/themes/cocoon-child-master/documents/mcp/mcp-field-manual.json) に記載された人間向けガイドも `manual` プロパティとして一緒に返却されます。
+> フィールドの選択肢や説明を確認したい場合は、MCPツール `get_field_schema` を呼び出してください。[documents/mcp/mcp-field-manual.json](mcp-field-manual.json) に記載された人間向けガイドも `manual` プロパティとして一緒に返却されます。
 
 ### ③ `auto_input`（ゲーム内文言の自動変換）
 ゲーム内のスキル・とくせい説明文をそのまま文字列として渡します。

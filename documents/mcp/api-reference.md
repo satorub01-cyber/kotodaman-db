@@ -1,6 +1,6 @@
 # MCPサーバー・OAuth 2.1・REST API 開発者リファレンス
 
-本書は、コトダマンDBのMCPサーバー（[lib/acf/mcp/server.php](file:///var/www/html/wp-content/themes/cocoon-child-master/lib/acf/mcp/server.php)）および直接呼び出し用REST API（[lib/acf/mcp/post-mcp.php](file:///var/www/html/wp-content/themes/cocoon-child-master/lib/acf/mcp/post-mcp.php)）の技術仕様書です。
+本書は、コトダマンDBのMCPサーバー（[lib/acf/mcp/server.php](../../lib/acf/mcp/server.php)）および直接呼び出し用REST API（[lib/acf/mcp/post-mcp.php](../../lib/acf/mcp/post-mcp.php)）の技術仕様書です。
 
 ---
 
@@ -26,7 +26,7 @@
 
 | ツール名 | 必要OAuthスコープ | 概要 |
 |---|---|---|
-| `get_field_schema` | `validate` | ACFフィールド定義、必須項目、自動入力キー一覧、[documents/mcp/mcp-field-manual.json](file:///var/www/html/wp-content/themes/cocoon-child-master/documents/mcp/mcp-field-manual.json) の説明、および `workflow_guide` を取得 |
+| `get_field_schema` | `validate` | ACFフィールド定義、必須項目、自動入力キー一覧、[documents/mcp/mcp-field-manual.json](mcp-field-manual.json) の説明、および `workflow_guide` を取得 |
 | `get_blessing_schema` | `validate` | 祝福（`auto_input_blessing`）およびEX祝福（`auto_input_ex_blessing`）の入力スキーマ、利用可能トークン一覧、テンプレート構成一覧を取得 |
 | `get_terms` | `validate` | 指定タクソノミー（単一・カンマ区切り・`"all"`）のターム一覧（`id`, `name`, `slug`）を取得 |
 | `search_character` | `validate` | 既存のキャラクター投稿（`publish`, `draft`, `pending`, `private`）を名前で検索（最大20件、保護対象の雛型記事は自動除外） |
@@ -310,7 +310,7 @@
 
 ## 4. WordPress REST API 直接呼び出し仕様
 
-MCPクライアントを介さず、WordPress標準のREST API認証（Application Passwords等）で直接下書きを作成するエンドポイントです（実装: [lib/acf/mcp/post-mcp.php](file:///var/www/html/wp-content/themes/cocoon-child-master/lib/acf/mcp/post-mcp.php)）。
+MCPクライアントを介さず、WordPress標準のREST API認証（Application Passwords等）で直接下書きを作成するエンドポイントです（実装: [lib/acf/mcp/post-mcp.php](../../lib/acf/mcp/post-mcp.php)）。
 
 ### エンドポイント
 ```text

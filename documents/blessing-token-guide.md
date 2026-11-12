@@ -15,7 +15,7 @@ flowchart LR
     C --> D["ACF行データ生成<br>blessing_trait_loop"]
 ```
 
-* **定義場所**: [lib/acf/auto-input/acf-auto-input-blessing.php](file:///var/www/html/wp-content/themes/cocoon-child-master/lib/acf/auto-input/acf-auto-input-blessing.php) の `koto_get_blessing_token_registry()`
+* **定義場所**: [lib/acf/auto-input/acf-auto-input-blessing.php](../lib/acf/auto-input/acf-auto-input-blessing.php) の `koto_get_blessing_token_registry()`
 * **対応ACFグループ**: `group_693971a11a6b2.json`（キャラクター祝福とくせい）
 
 ---
@@ -194,10 +194,10 @@ flowchart LR
 新しい祝福トークンを追加する際の手順です。
 
 ### Step 1: ACF JSON でフィールド名と選択肢を確認
-* [acf-json/group_693971a11a6b2.json](file:///var/www/html/wp-content/themes/cocoon-child-master/acf-json/group_693971a11a6b2.json) を確認し、`trait_type`、サブ選択肢（`choices`）、および必要なサブフィールドのキー名を確認します。
+* [acf-json/group_693971a11a6b2.json](../acf-json/group_693971a11a6b2.json) を確認し、`trait_type`、サブ選択肢（`choices`）、および必要なサブフィールドのキー名を確認します。
 
 ### Step 2: `koto_get_blessing_token_registry()` に定義を追加
-* [lib/acf/auto-input/acf-auto-input-blessing.php](file:///var/www/html/wp-content/themes/cocoon-child-master/lib/acf/auto-input/acf-auto-input-blessing.php) の `koto_get_blessing_token_registry()` 配列へ新規トークンを定義します。
+* [lib/acf/auto-input/acf-auto-input-blessing.php](../lib/acf/auto-input/acf-auto-input-blessing.php) の `koto_get_blessing_token_registry()` 配列へ新規トークンを定義します。
 
 ### Step 3: `koto_build_blessing_token_row()` への反映確認
 * 新規トークンで使用する特殊なフィールドがある場合、`koto_build_blessing_token_row()` がそのキーを保持して行配列に代入しているか確認します。
@@ -206,7 +206,7 @@ flowchart LR
 * 既存キャラのデータから逆抽出する際、該当するトークン名として認識されるよう `koto_extract_blessing_template_from_post()` の条件分岐に追加します。
 
 ### Step 5: CSV の「祝福テンプレート」に組み込む
-* [lib/ゲーム内文言ーACF-対応表.csv](file:///var/www/html/wp-content/themes/cocoon-child-master/lib/ゲーム内文言ーACF-対応表.csv) の最下部「祝福テンプレート」セクションに、登録したトークンを含むパターン（例: `{hp_up,attr_killer1,group_draw_buff}`）を追加します。
+* [lib/ゲーム内文言ーACF-対応表.csv](../lib/ゲーム内文言ーACF-対応表.csv) の最下部「祝福テンプレート」セクションに、登録したトークンを含むパターン（例: `{hp_up,attr_killer1,group_draw_buff}`）を追加します。
 
 ### Step 6: 動作検証と回帰テスト
 * 構文チェック: `php -l lib/acf/auto-input/acf-auto-input-blessing.php`
