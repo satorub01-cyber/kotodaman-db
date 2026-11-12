@@ -221,24 +221,23 @@ function koto_mcp_approval_page()
 
     // 3. 停止中・未許可ユーザーへの手動付与（再開）
     echo '<h2 style="margin-top:30px;">ユーザーへのMCP利用許可（再開・手動付与）</h2>';
-    if (empty($non_approved_users)) {
-        echo '<p>すべてのユーザーがすでにMCP利用許可を持っています。</p>';
-    } else {
-        echo '<form method="post" style="display:flex; align-items:center; gap:10px;">';
-        wp_nonce_field('koto_mcp_grant_user_action');
-        echo '<label for="koto_mcp_grant_user_id">ユーザーを選択:</label>';
-        echo '<select id="koto_mcp_grant_user_id" name="koto_mcp_grant_user_id" required>';
-        echo '<option value="">-- ユーザーを選択してください --</option>';
-        foreach ($non_approved_users as $u) {
-            $is_revoked = get_user_meta($u->ID, '_koto_mcp_revoked', true);
-            $suffix = $is_revoked ? ' (※利用停止中)' : '';
-            echo '<option value="' . esc_attr($u->ID) . '">' . esc_html($u->user_login . ' (' . ($u->display_name ?: '名前なし') . ' / ' . implode(',', (array) $u->roles) . ')' . $suffix) . '</option>';
-        }
-        echo '</select>';
-        echo '<button type="submit" class="button button-primary">MCP利用タグを付与（再開）</button>';
-        echo '</form>';
-        echo '<p class="description">※管理画面からタグを付与すると、停止中フラグは解除され、対象ユーザーに再接続案内メールが自動送信されます。</p>';
+    echo '<form method="post" style="display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-bottom:10px;">';
+    wp_nonce_field('koto_mcp_grant_user_action');
+    echo '<label for="koto_mcp_grant_user_id">ユーザーを選択:</label>';
+    echo '<select id="koto_mcp_grant_user_id" name="koto_mcp_grant_user_id">';
+    echo '<option value="">-- 一覧から選択 --</option>';
+    foreach ($non_approved_users as $u) {
+        $is_revoked = get_user_meta($u->ID, '_koto_mcp_revoked', true);
+        $suffix = $is_revoked ? ' (※利用停止中)' : '';
+        echo '<option value="' . esc_attr($u->ID) . '">' . esc_html($u->user_login . ' (' . ($u->display_name ?: '名前なし') . ' / ' . implode(',', (array) $u->roles) . ')' . $suffix) . '</option>';
     }
+    echo '</select>';
+    echo '<span>または</span>';
+    echo '<label for="koto_mcp_grant_user_identifier">直接指定 (ID / ログイン名 / メール):</label>';
+    echo '<input type="text" id="koto_mcp_grant_user_identifier" name="koto_mcp_grant_user_identifier" placeholder="例: 123 または username" style="width:220px;">';
+    echo '<button type="submit" class="button button-primary">MCP利用タグを付与（再開）</button>';
+    echo '</form>';
+    echo '<p class="description">※管理画面からタグを付与すると、停止中フラグは解除され、対象ユーザーに再接続案内メールが自動送信されます。一覧に表示されない場合も直接指定欄から付与可能です。</p>';
 
     echo '</div>';
 }
@@ -294,11 +293,27 @@ function koto_mcp_handle_approval_action()
     }
 
     // 4. 再開・手動付与アクション
-    if (!empty($_POST['koto_mcp_grant_user_id'])) {
+    if (!empty($_POST['koto_mcp_grant_user_id']) || !empty($_POST['koto_mcp_grant_user_identifier'])) {
         check_admin_referer('koto_mcp_grant_user_action');
-        $user_id = (int) $_POST['koto_mcp_grant_user_id'];
-        $user = get_userdata($user_id);
-        if ($user) {
+        $user = null;
+        $user_id = 0;
+
+        if (!empty($_POST['koto_mcp_grant_user_identifier'])) {
+            $identifier = sanitize_text_field(wp_unslash($_POST['koto_mcp_grant_user_identifier']));
+            if (ctype_digit($identifier)) {
+                $user = get_userdata((int) $identifier);
+            } else {
+                $user = get_user_by('login', $identifier) ?: get_user_by('email', $identifier);
+            }
+            if ($user) {
+                $user_id = (int) $user->ID;
+            }
+        } elseif (!empty($_POST['koto_mcp_grant_user_id'])) {
+            $user_id = (int) $_POST['koto_mcp_grant_user_id'];
+            $user = get_userdata($user_id);
+        }
+
+        if ($user && $user_id > 0) {
             $was_revoked = (bool) get_user_meta($user_id, '_koto_mcp_revoked', true);
             update_user_meta($user_id, '_koto_mcp_approved', 1);
             delete_user_meta($user_id, '_koto_mcp_revoked');

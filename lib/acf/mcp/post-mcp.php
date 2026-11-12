@@ -117,10 +117,6 @@ function koto_register_post_mcp_routes()
             if (is_wp_error($perm) || !$perm) {
                 return $perm;
             }
-            $screenshots = $request instanceof WP_REST_Request ? $request->get_param('screenshots') : null;
-            if (is_array($screenshots) && !empty($screenshots) && !current_user_can('upload_files')) {
-                return new WP_Error('forbidden_upload_files', 'screenshots を指定する場合は upload_files 権限が必要です。', ['status' => 403]);
-            }
             return true;
         },
         'args'                => [
@@ -533,7 +529,12 @@ function koto_mcp_create_character_draft($request)
     $GLOBALS['koto_auto_input_test_mode'] = $test_mode;
     $user_id = get_current_user_id();
 
-    if ($user_id > 0) {
+    $cap_filter = function_exists('koto_mcp_setup_dynamic_capabilities')
+        ? koto_mcp_setup_dynamic_capabilities($user_id, !$dry_run)
+        : null;
+
+    try {
+        if ($user_id > 0) {
         $rate_key = 'koto_mcp_rate_' . $user_id;
         $now = time();
         $rate_state = get_transient($rate_key);
@@ -624,7 +625,7 @@ function koto_mcp_create_character_draft($request)
     if (!is_array($auto_input)) {
         $auto_input = [];
     }
-    if (!empty($screenshots) && !current_user_can('upload_files')) {
+    if (!$dry_run && !empty($screenshots) && !current_user_can('upload_files')) {
         $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
         return new WP_Error('forbidden_upload_files', 'screenshots を指定する場合は upload_files 権限が必要です。', ['status' => 403]);
     }
@@ -777,4 +778,12 @@ function koto_mcp_create_character_draft($request)
         koto_mcp_complete_idempotency_key($idempotency_option, $resp, $fingerprint);
     }
     return rest_ensure_response($resp);
+    } finally {
+        if (function_exists('koto_mcp_remove_dynamic_capabilities')) {
+            koto_mcp_remove_dynamic_capabilities($cap_filter);
+        } elseif ($cap_filter !== null) {
+            remove_filter('user_has_cap', $cap_filter, 999);
+        }
+        $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+    }
 }

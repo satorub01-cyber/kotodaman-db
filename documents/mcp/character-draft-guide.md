@@ -402,6 +402,26 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 ### 開発者チェックリスト
 - [ ] PHP構文チェック（`php -l`）を実行した
 - [ ] 自動入力ロジックやCSV対応表を変更した場合、`php lib/acf/test_auto_input.php` で全件回帰テストがPASSすることを確認した
+- [ ] MCP認可・権限まわりを変更した場合、`php lib/acf/mcp/test-mcp-permissions.php` で包括検証テスト（39項目）が全件PASSすることを確認した
 - [ ] 基本データ（`basic_fields`）と自動入力データ（`auto_input`）の責務を分離している
 - [ ] 権限チェック（OAuthスコープ、`edit_posts`、管理者承認）を維持している
 - [ ] 投稿を意図せず `publish` にしていない
+
+---
+
+## 8. MCP認可・権限構造とスコープ分離仕様
+
+### ① ユーザー承認管理（タグ制）
+- 利用可否はユーザーメタ `_koto_mcp_approved = 1`（タグ）の有無のみで判定されます（ロール依存を完全排除）。
+- 管理者が利用停止（剥奪）を行うと、`_koto_mcp_approved` が削除され、`_koto_mcp_revoked = 1` が記録され、発行済み全トークンが即時失効します。
+- `_koto_mcp_revoked = 1` のユーザーは、同意画面で「許可」を押下しても自己復活できず、管理画面からの再開操作（`_koto_mcp_revoked` 削除）によってのみ利用を再開できます。
+
+### ② 動的ケイパビリティ付与（一時権限のスコープ分離）
+`koto_mcp_setup_dynamic_capabilities($user_id, $has_create_scope)` により、ツールおよびREST API実行中限定で以下の通り一時権限が付与されます:
+- **`validate` / `preview` 要求時（`get_draft`, `search_character` 等）**:
+  - `edit_posts` や `upload_files` の全体権限は一切付与されません。
+  - 対象投稿が「自身が作成した下書き（`post_author === $user_id && post_status === 'draft'`）」である場合のみ、局所的に `edit_post` / `read_post` が許可されます。これにより低権限ユーザーでも自作下書きの読み返し・重複照合が可能となり、他人の下書きや非公開記事は確実に保護されます。
+- **`create` 要求時（`create_draft`, `update_draft`, REST作成 等）**:
+  - `edit_posts` および `upload_files` を動的付与し、下書き作成および画像添付を許可します。
+  - `delete_post`（完全削除）は一切付与されません。
+- 実行終了時は `finally` ブロックで確実に `remove_filter` されます。

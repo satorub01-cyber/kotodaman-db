@@ -122,6 +122,63 @@ function koto_mcp_check_user_mcp_permission($user_id)
     return $user_id;
 }
 
+/**
+ * MCPツール・REST実行中の動的ケイパビリティ制御ヘルパー
+ *
+ * スコープに応じた厳格な一時権限付与を行います:
+ * - 承認済みユーザーのみ適用
+ * - validate/preview スコープ: 自身が作成した下書きに限り edit_post/read_post を許可（全体権限は付与しない）
+ * - create スコープ: edit_posts および upload_files を一時付与し、自身が作成した下書きの edit_post/read_post を許可
+ * - delete_post（完全削除）は一切付与しない
+ *
+ * @param int  $user_id ユーザーID
+ * @param bool $has_create_scope createスコープを所持しているか
+ * @return callable|null 解除用フィルタコールバック
+ */
+function koto_mcp_setup_dynamic_capabilities($user_id, $has_create_scope = false)
+{
+    $user_id = (int) $user_id;
+    if ($user_id <= 0 || !koto_mcp_is_user_approved($user_id)) {
+        return null;
+    }
+
+    $filter = static function ($allcaps, $caps, $cap_args, $user) use ($user_id, $has_create_scope) {
+        if ((int) ($user->ID ?? 0) !== $user_id) {
+            return $allcaps;
+        }
+
+        // create スコープ所持時のみ新規作成・ファイルアップロードを一時付与
+        if ($has_create_scope) {
+            $allcaps['edit_posts'] = true;
+            $allcaps['upload_files'] = true;
+        }
+
+        // 自身の作成した下書きに対する編集・閲覧のみ許可（delete_post は絶対に含めない）
+        if (isset($cap_args[0]) && in_array($cap_args[0], ['edit_post', 'read_post'], true)) {
+            $post_id = isset($cap_args[2]) ? (int) $cap_args[2] : 0;
+            if ($post_id > 0) {
+                $post = get_post($post_id);
+                if ($post && (int) $post->post_author === $user_id && $post->post_status === 'draft') {
+                    foreach ((array) $caps as $c) {
+                        $allcaps[$c] = true;
+                    }
+                }
+            }
+        }
+        return $allcaps;
+    };
+
+    add_filter('user_has_cap', $filter, 999, 4);
+    return $filter;
+}
+
+function koto_mcp_remove_dynamic_capabilities($filter)
+{
+    if (is_callable($filter)) {
+        remove_filter('user_has_cap', $filter, 999);
+    }
+}
+
 function koto_mcp_authenticate_app_password_header($header)
 {
     if (!is_string($header) || trim($header) === '' || !function_exists('wp_authenticate_application_password')) {

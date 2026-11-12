@@ -249,30 +249,13 @@ function koto_mcp_call_tool($name, $args, $request = null)
     $GLOBALS['koto_auto_input_test_mode'] = $test_mode;
 
     // 【MCP権限の厳格なスコープ分離】
-    // スコープが 'create' かつ承認済みユーザーの場合のみ、ツール実行中限定でケイパビリティを一時付与。
-    // delete_post（削除）は付与せず、MCP外の経路や validate/preview では一切効かない。
-    $cap_filter = null;
-    if ($scope === 'create' && koto_mcp_is_user_approved($auth)) {
-        $cap_filter = static function ($allcaps, $caps, $cap_args, $user) use ($auth) {
-            if ((int) ($user->ID ?? 0) !== $auth) {
-                return $allcaps;
-            }
-            $allcaps['edit_posts'] = true;
-            $allcaps['upload_files'] = true;
-            // 自身の作成した下書きに対する編集・閲覧のみ許可（delete_post は絶対に含めない）
-            if (isset($cap_args[0]) && in_array($cap_args[0], ['edit_post', 'read_post'], true)) {
-                $post_id = isset($cap_args[2]) ? (int) $cap_args[2] : 0;
-                if ($post_id > 0) {
-                    $post = get_post($post_id);
-                    if ($post && (int) $post->post_author === $auth && $post->post_status === 'draft') {
-                        $allcaps[$caps[0]] = true;
-                    }
-                }
-            }
-            return $allcaps;
-        };
-        add_filter('user_has_cap', $cap_filter, 999, 4);
-    }
+    // 承認済みユーザーに対し、ツール実行中限定で動的ケイパビリティを適用。
+    // - create スコープ時: edit_posts / upload_files を付与し、自作下書きの編集・閲覧を許可
+    // - validate / preview スコープ時: 自作下書きの編集・閲覧のみ許可（全体権限は一切付与せず、下書き読み返し・重複確認を可能に）
+    // - delete_post（完全削除）は一切付与しない
+    $cap_filter = function_exists('koto_mcp_setup_dynamic_capabilities')
+        ? koto_mcp_setup_dynamic_capabilities($auth, $scope === 'create')
+        : null;
 
     try {
         if ($name === 'get_field_schema') {
@@ -522,7 +505,9 @@ function koto_mcp_call_tool($name, $args, $request = null)
         koto_mcp_maybe_cleanup_expired_options();
         return $result;
     } finally {
-        if ($cap_filter !== null) {
+        if (function_exists('koto_mcp_remove_dynamic_capabilities')) {
+            koto_mcp_remove_dynamic_capabilities($cap_filter);
+        } elseif ($cap_filter !== null) {
             remove_filter('user_has_cap', $cap_filter, 999);
         }
         $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
