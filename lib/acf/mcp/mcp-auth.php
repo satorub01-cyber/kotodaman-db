@@ -107,21 +107,7 @@ function koto_mcp_is_user_approved($user_id)
     if ($user_id <= 0) {
         return false;
     }
-    $user = get_userdata($user_id);
-    if (!$user) {
-        return false;
-    }
-    $roles = (array) $user->roles;
-    if (array_intersect(['administrator', 'editor'], $roles)) {
-        return true;
-    }
-    if (get_user_meta($user_id, '_koto_mcp_approved', true)) {
-        return true;
-    }
-    if (in_array('mcp_user', $roles, true) && !get_user_meta($user_id, '_koto_mcp_revoked', true)) {
-        return true;
-    }
-    return false;
+    return (string) get_user_meta($user_id, '_koto_mcp_approved', true) === '1';
 }
 
 function koto_mcp_check_user_mcp_permission($user_id)
@@ -130,15 +116,67 @@ function koto_mcp_check_user_mcp_permission($user_id)
     if ($user_id <= 0) {
         return new WP_Error('mcp_unauthorized', 'Authentication is required.', ['status' => 401, 'oauth_error' => 'invalid_token']);
     }
-    $user = get_userdata($user_id);
-    $has_mcp_role = $user && in_array('mcp_user', (array) $user->roles, true);
-    if (!$has_mcp_role && !user_can($user_id, 'edit_posts')) {
-        return new WP_Error('mcp_forbidden', 'MCP利用者ロールまたはedit_posts権限が必要です。利用には管理者への申請が必要です。', ['status' => 403]);
-    }
     if (!koto_mcp_is_user_approved($user_id)) {
         return new WP_Error('mcp_pending_approval', 'MCP利用の承認が必要です。利用には管理者への申請が必要です。', ['status' => 403]);
     }
     return $user_id;
+}
+
+/**
+ * MCPツール・REST実行中の動的ケイパビリティ制御ヘルパー
+ *
+ * スコープに応じた厳格な一時権限付与を行います:
+ * - 承認済みユーザーのみ適用
+ * - validate/preview スコープ: 自身が作成した下書きに限り edit_post/read_post を許可（全体権限は付与しない）
+ * - create スコープ: edit_posts および upload_files を一時付与し、自身が作成した下書きの edit_post/read_post を許可
+ * - delete_post（完全削除）は一切付与しない
+ *
+ * @param int  $user_id ユーザーID
+ * @param bool $has_create_scope createスコープを所持しているか
+ * @return callable|null 解除用フィルタコールバック
+ */
+function koto_mcp_setup_dynamic_capabilities($user_id, $has_create_scope = false)
+{
+    $user_id = (int) $user_id;
+    if ($user_id <= 0 || !koto_mcp_is_user_approved($user_id)) {
+        return null;
+    }
+
+    $filter = static function ($allcaps, $caps, $cap_args, $user) use ($user_id, $has_create_scope) {
+        if ((int) ($user->ID ?? 0) !== $user_id) {
+            return $allcaps;
+        }
+
+        // create スコープ所持時のみ新規作成・ファイルアップロードを一時付与
+        if ($has_create_scope) {
+            $allcaps['edit_posts'] = true;
+            $allcaps['upload_files'] = true;
+        }
+
+        // 自身の作成した下書きに対する編集・閲覧のみ許可（delete_post は絶対に含めない）
+        if (isset($cap_args[0]) && in_array($cap_args[0], ['edit_post', 'read_post'], true)) {
+            $post_id = isset($cap_args[2]) ? (int) $cap_args[2] : 0;
+            if ($post_id > 0) {
+                $post = get_post($post_id);
+                if ($post && (int) $post->post_author === $user_id && $post->post_status === 'draft') {
+                    foreach ((array) $caps as $c) {
+                        $allcaps[$c] = true;
+                    }
+                }
+            }
+        }
+        return $allcaps;
+    };
+
+    add_filter('user_has_cap', $filter, 999, 4);
+    return $filter;
+}
+
+function koto_mcp_remove_dynamic_capabilities($filter)
+{
+    if (is_callable($filter)) {
+        remove_filter('user_has_cap', $filter, 999);
+    }
 }
 
 function koto_mcp_authenticate_app_password_header($header)

@@ -67,6 +67,84 @@ add_action('init', function () {
     add_rewrite_tag('%koto_mcp_oauth_authorize%', '([0-1])');
 }, 1);
 
+/**
+ * 申請メタ（フラグと日時）のライフサイクル管理ヘルパー
+ */
+function koto_mcp_record_request_meta($user_id)
+{
+    $user_id = (int) $user_id;
+    if ($user_id <= 0) return;
+    update_user_meta($user_id, '_koto_mcp_requested', 1);
+    update_user_meta($user_id, '_koto_mcp_requested_at', time());
+}
+
+function koto_mcp_clear_request_meta($user_id)
+{
+    $user_id = (int) $user_id;
+    if ($user_id <= 0) return;
+    delete_user_meta($user_id, '_koto_mcp_requested');
+    delete_user_meta($user_id, '_koto_mcp_requested_at');
+}
+
+/**
+ * 無停止切り替えマイグレーション:
+ * - 未剥奪の管理者・編集者・mcp_user へのタグ自動付与
+ * - 既存の全リフレッシュトークンからユーザーメタ _koto_mcp_family_ids の構築
+ */
+function koto_mcp_migrate_existing_users_to_tag()
+{
+    if (get_option('koto_mcp_tag_migration_v3_done')) {
+        return;
+    }
+
+    // 1. 未剥奪の管理者・編集者・mcp_user へのタグ付与
+    $roles_to_migrate = ['administrator', 'editor', 'mcp_user'];
+    $users = get_users(['role__in' => $roles_to_migrate]);
+    foreach ($users as $u) {
+        if (!get_user_meta($u->ID, '_koto_mcp_revoked', true)) {
+            update_user_meta($u->ID, '_koto_mcp_approved', 1);
+        }
+    }
+
+    // 2. 既存の全リフレッシュトークンレコードを走査し、ユーザーメタ _koto_mcp_family_ids を構築
+    global $wpdb;
+    $like = $wpdb->esc_like('koto_mcp_refresh_') . '%';
+    $results = $wpdb->get_results($wpdb->prepare(
+        "SELECT option_value FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name NOT LIKE %s AND option_name NOT LIKE %s",
+        $like,
+        $wpdb->esc_like('koto_mcp_refresh_family_') . '%',
+        $wpdb->esc_like('koto_mcp_refresh_lock_') . '%'
+    ));
+
+    $user_families_map = [];
+    if (is_array($results)) {
+        foreach ($results as $row) {
+            $val = maybe_unserialize($row->option_value);
+            if (!is_array($val)) continue;
+            $uid = (int) ($val['user_id'] ?? 0);
+            $fid = (string) ($val['family_id'] ?? '');
+            if ($uid > 0 && $fid !== '') {
+                if (!isset($user_families_map[$uid])) {
+                    $user_families_map[$uid] = [];
+                }
+                if (!in_array($fid, $user_families_map[$uid], true)) {
+                    $user_families_map[$uid][] = $fid;
+                }
+                if (!get_user_meta($uid, '_koto_mcp_revoked', true)) {
+                    update_user_meta($uid, '_koto_mcp_approved', 1);
+                }
+            }
+        }
+    }
+
+    foreach ($user_families_map as $uid => $fids) {
+        update_user_meta($uid, '_koto_mcp_family_ids', $fids);
+    }
+
+    update_option('koto_mcp_tag_migration_v3_done', 1, false);
+}
+add_action('init', 'koto_mcp_migrate_existing_users_to_tag', 0);
+
 add_filter('query_vars', function ($vars) {
     $vars[] = 'koto_mcp_meta';
     $vars[] = 'koto_mcp_oauth_authorize';
@@ -313,9 +391,8 @@ function koto_mcp_oauth_login_clear_rate_limits($username)
 
 function koto_mcp_oauth_user_has_access($user_id)
 {
-    $user = get_userdata((int) $user_id);
-    $roles = $user ? (array) $user->roles : [];
-    return in_array('mcp_user', $roles, true) || user_can((int) $user_id, 'edit_posts');
+    // 全てのWordPressログインユーザーが認可画面および申請フォームへアクセス可能
+    return (int) $user_id > 0;
 }
 
 function koto_mcp_oauth_signon(array $credentials, $secure_cookie = '')
@@ -390,6 +467,52 @@ function koto_mcp_oauth_render_login($request_fields, $error = '')
     echo '<button type="submit" name="koto_mcp_login_action" value="login">ログインして続行</button>';
     echo '</form></body></html>';
     exit;
+}
+
+/**
+ * 同意画面での「許可」アクション時の承認・申請判定処理
+ *
+ * @param int $user_id ユーザーID
+ * @return array{approved: bool, is_revoked?: bool, message_title?: string, message_body?: string}
+ */
+function koto_mcp_oauth_process_consent_approval($user_id)
+{
+    $user_id = (int) $user_id;
+    if ($user_id <= 0) {
+        return ['approved' => false];
+    }
+
+    if (koto_mcp_is_user_approved($user_id)) {
+        return ['approved' => true];
+    }
+
+    $user = get_userdata($user_id);
+    if (!$user) {
+        return ['approved' => false];
+    }
+
+    $is_revoked = (bool) get_user_meta($user_id, '_koto_mcp_revoked', true);
+    $is_admin_or_editor = (bool) array_intersect(['administrator', 'editor'], (array) $user->roles);
+
+    // 未剥奪の管理者・編集者のみ即時タグ付与して承認
+    if (!$is_revoked && $is_admin_or_editor) {
+        update_user_meta($user_id, '_koto_mcp_approved', 1);
+        koto_mcp_clear_request_meta($user_id);
+        return ['approved' => true];
+    }
+
+    // 剥奪済みの編集者・管理者（自己復活禁止）、または一般ユーザー:
+    // 申請メタ（フラグ＋日時）を保存し、承認待ち状態を返す
+    koto_mcp_record_request_meta($user_id);
+
+    return [
+        'approved'      => false,
+        'is_revoked'    => $is_revoked,
+        'message_title' => $is_revoked ? 'MCP利用再開の申請を受け付けました' : 'MCP利用申請を受け付けました',
+        'message_body'  => $is_revoked
+            ? 'このアカウントのMCP利用は現在停止されています。再開には管理者による承認が必要です。'
+            : 'MCPの利用申請を受け付けました。現在、管理者の承認待ちです。',
+    ];
 }
 
 function koto_mcp_oauth_authorize_browser()
@@ -474,48 +597,60 @@ function koto_mcp_oauth_authorize_browser()
         }
     }
 
-    if (!koto_mcp_oauth_user_has_access(get_current_user_id())) {
-        wp_die('MCP利用権限がありません。利用には管理者への申請が必要です。', 'permission_denied', ['response' => 403]);
-    }
-
+    // 同意画面（許可 / 拒否）の表示および送信処理
+    // 申請の入り口はAIクライアントからのフォームのみとし、許可ボタン押下が申請アクションを兼ねる
     $user = wp_get_current_user();
-    $privileged = array_intersect(['administrator', 'editor', 'mcp_user'], (array) $user->roles);
-    if (!$privileged && !get_user_meta(get_current_user_id(), '_koto_mcp_approved', true)) {
-        update_user_meta(get_current_user_id(), '_koto_mcp_requested', 1);
-        wp_die('MCP利用の承認が必要です。利用には管理者への申請が必要です。', 'approval_required', ['response' => 403]);
+    $user_id = (int) $user->ID;
+
+    $nonce_action = 'koto_mcp_oauth_consent|' . $user_id . '|' . $client_id . '|' . $redirect . '|' . $scope . '|' . $challenge . '|' . $state . '|' . ($request_fields['resource'] ?? '');
+    $is_consent_post = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST'
+        && isset($params['koto_mcp_consent_action']);
+
+    if (!$is_consent_post) {
+        status_header(200);
+        header('Content-Type: text/html; charset=' . get_bloginfo('charset'));
+        header('X-Frame-Options: DENY');
+        header("Content-Security-Policy: frame-ancestors 'none'");
+        echo '<!doctype html><html><head><meta charset="utf-8"><title>MCP クライアント接続の確認</title></head><body>';
+        echo '<h1>MCP クライアント接続の確認</h1>';
+        echo '<p>ログインユーザー: ' . esc_html($user->user_login) . '</p>';
+        echo '<p>クライアント: ' . esc_html((string) ($client['name'] ?? $client_id)) . '</p>';
+        echo '<p>リダイレクトURI: ' . esc_html($redirect) . '</p>';
+        echo '<p>要求スコープ: ' . esc_html($scope) . '</p>';
+        echo '<p>※MCP経由の投稿作成は常に下書きとなり、作者はあなたになります。公開権限はAIには引き継がれません。</p>';
+        echo '<form method="post">';
+        foreach ($request_fields as $field => $value) {
+            echo '<input type="hidden" name="' . esc_attr($field) . '" value="' . esc_attr($value) . '">';
+        }
+        wp_nonce_field($nonce_action);
+        echo '<button type="submit" name="koto_mcp_consent_action" value="approve">許可</button> ';
+        echo '<button type="submit" name="koto_mcp_consent_action" value="deny">拒否</button>';
+        echo '</form></body></html>';
+        exit;
     }
 
-    if (koto_mcp_has_scope($scope, 'create')) {
-        $nonce_action = 'koto_mcp_oauth_consent|' . get_current_user_id() . '|' . $client_id . '|' . $redirect . '|' . $scope . '|' . $challenge . '|' . $state . '|' . ($request_fields['resource'] ?? '');
-        $is_consent_post = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST'
-            && isset($params['koto_mcp_consent_action']);
-        if (!$is_consent_post) {
-            status_header(200);
-            header('Content-Type: text/html; charset=' . get_bloginfo('charset'));
-            header('X-Frame-Options: DENY');
-            header("Content-Security-Policy: frame-ancestors 'none'");
-            echo '<!doctype html><html><head><meta charset="utf-8"><title>MCP Consent</title></head><body>';
-            echo '<h1>MCP クライアント同意</h1>';
-            echo '<p>ログインユーザー: ' . esc_html($user->user_login) . '</p>';
-            echo '<p>クライアント: ' . esc_html((string) ($client['name'] ?? $client_id)) . '</p>';
-            echo '<p>リダイレクトURI: ' . esc_html($redirect) . '</p>';
-            echo '<p>要求スコープ: ' . esc_html($scope) . '</p>';
-            echo '<form method="post">';
-            foreach ($request_fields as $field => $value) {
-                echo '<input type="hidden" name="' . esc_attr($field) . '" value="' . esc_attr($value) . '">';
-            }
-            wp_nonce_field($nonce_action);
-            echo '<button type="submit" name="koto_mcp_consent_action" value="approve">許可</button> ';
-            echo '<button type="submit" name="koto_mcp_consent_action" value="deny">拒否</button>';
-            echo '</form></body></html>';
-            exit;
-        }
-        if (!wp_verify_nonce((string) ($params['_wpnonce'] ?? ''), $nonce_action)) {
-            wp_die('Invalid consent nonce.', 'invalid_request', ['response' => 400]);
-        }
-        if (($params['koto_mcp_consent_action'] ?? '') !== 'approve') {
-            koto_mcp_oauth_redirect_error($redirect, 'access_denied', 'Resource owner denied the request.', $state);
-        }
+    if (!wp_verify_nonce((string) ($params['_wpnonce'] ?? ''), $nonce_action)) {
+        wp_die('Invalid consent nonce.', 'invalid_request', ['response' => 400]);
+    }
+    if (($params['koto_mcp_consent_action'] ?? '') !== 'approve') {
+        koto_mcp_oauth_redirect_error($redirect, 'access_denied', 'Resource owner denied the request.', $state);
+    }
+
+    // 許可ボタン押下後の判定フロー
+    $consent_result = koto_mcp_oauth_process_consent_approval($user_id);
+    if (empty($consent_result['approved'])) {
+        $message_title = $consent_result['message_title'] ?? 'MCP利用申請を受け付けました';
+        $message_body  = $consent_result['message_body'] ?? 'MCPの利用申請を受け付けました。現在、管理者の承認待ちです。';
+
+        status_header(200);
+        header('Content-Type: text/html; charset=' . get_bloginfo('charset'));
+        echo '<!doctype html><html><head><meta charset="utf-8"><title>' . esc_html($message_title) . '</title></head><body>';
+        echo '<h1>' . esc_html($message_title) . '</h1>';
+        echo '<p>' . esc_html($message_body) . '</p>';
+        echo '<p>承認が完了しましたらご登録のメールアドレス（' . esc_html($user->user_email) . '）宛てに通知が届きます。通知確認後、再度お使いのAIクライアントから接続を行ってください。</p>';
+        echo '<p><button onclick="window.close();">画面を閉じる</button></p>';
+        echo '</body></html>';
+        exit;
     }
 
     $code = wp_generate_password(48, false, false);
@@ -620,6 +755,11 @@ function koto_mcp_revoke_refresh_family($family_id, $reason = 'manual')
 
 function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null)
 {
+    $user_id = (int) $user_id;
+    if ($user_id <= 0 || !koto_mcp_is_user_approved($user_id)) {
+        return koto_mcp_oauth_token_error('invalid_grant', 'The WordPress user is not approved for MCP access.', 400);
+    }
+
     $family_id = $family_id ?: wp_generate_password(32, false, false);
     $access_ttl = defined('KOTO_MCP_ACCESS_TOKEN_TTL') ? (int) KOTO_MCP_ACCESS_TOKEN_TTL : HOUR_IN_SECONDS;
     $refresh_ttl = defined('KOTO_MCP_REFRESH_TOKEN_TTL') ? (int) KOTO_MCP_REFRESH_TOKEN_TTL : (30 * DAY_IN_SECONDS);
@@ -642,6 +782,16 @@ function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null)
         'iat' => $now,
         'exp' => $now + $refresh_ttl,
     ]);
+
+    // ユーザーメタ _koto_mcp_family_ids にインデックスを追加
+    $user_families = get_user_meta((int) $user_id, '_koto_mcp_family_ids', true);
+    if (!is_array($user_families)) {
+        $user_families = [];
+    }
+    if (!in_array((string) $family_id, $user_families, true)) {
+        $user_families[] = (string) $family_id;
+        update_user_meta((int) $user_id, '_koto_mcp_family_ids', $user_families);
+    }
 
     $access_hash = hash('sha256', $access);
     $refresh_hash = hash('sha256', $refresh);
@@ -857,6 +1007,22 @@ function koto_mcp_oauth_token($request)
                 return koto_mcp_oauth_token_error('invalid_grant', 'Refresh token family is revoked.', 400);
             }
 
+            // ユーザーの存在および承認状態の最優先検証
+            // 剥奪済みユーザーにはデバウンス返却も行わず、即座にファミリーを失効させて拒否する
+            $refresh_user_id = (int) ($refresh['user_id'] ?? 0);
+            $refresh_user = get_userdata($refresh_user_id);
+            if (!$refresh_user || !koto_mcp_is_user_approved($refresh_user_id)) {
+                koto_mcp_log_token_event('token_request', [
+                    'grant_type' => 'refresh_token',
+                    'refresh_id' => $refresh_id,
+                    'family_id' => $family_id,
+                    'result' => 'refresh_failed',
+                    'reason' => 'user_unauthorized',
+                ]);
+                koto_mcp_revoke_refresh_family($family_id, 'user_unauthorized');
+                return koto_mcp_oauth_token_error('invalid_grant', 'The WordPress user is no longer authorized for MCP access.', 400);
+            }
+
             // 【15秒デバウンスウィンドウ】
             // 直近 15 秒以内に同ファミリーでローテーションが行われ、最新トークンペアが保持されている場合、
             // 並行ワーカーやクライアントの再試行と判定。
@@ -892,22 +1058,6 @@ function koto_mcp_oauth_token($request)
             // ファミリーが active であり、トークンの発行期限内（30日以内）であれば、
             // replay_detected でファミリーを道連れ即死させず、安全に最新セッションへ再発行して継続させる。
             $is_already_rotated = (($refresh['status'] ?? '') === 'rotated');
-
-            $refresh_user_id = (int) ($refresh['user_id'] ?? 0);
-            $refresh_user = get_userdata($refresh_user_id);
-            $has_mcp_role = $refresh_user && in_array('mcp_user', (array) $refresh_user->roles, true);
-            $privileged = $has_mcp_role || ($refresh_user && array_intersect(['administrator', 'editor'], (array) $refresh_user->roles));
-            if (!$refresh_user || (!$has_mcp_role && !user_can($refresh_user_id, 'edit_posts')) || (!$privileged && !koto_mcp_is_user_approved($refresh_user_id))) {
-                koto_mcp_log_token_event('token_request', [
-                    'grant_type' => 'refresh_token',
-                    'refresh_id' => $refresh_id,
-                    'family_id' => $family_id,
-                    'result' => 'refresh_failed',
-                    'reason' => 'user_unauthorized',
-                ]);
-                koto_mcp_revoke_refresh_family($family_id, 'user_unauthorized');
-                return koto_mcp_oauth_token_error('invalid_grant', 'The WordPress user is no longer authorized for MCP access.', 400);
-            }
 
             // スコープの解決（指定があれば元のスコープ内で絞り込み、なければ元のスコープを維持）
             $requested_scope = sanitize_text_field((string) ($body['scope'] ?? ''));
@@ -994,7 +1144,20 @@ function koto_mcp_oauth_token($request)
         if (empty($data['challenge']) || !$verifier || !hash_equals((string) $data['challenge'], $challenge)) {
             return koto_mcp_oauth_token_error('invalid_grant', 'PKCE verification failed.', 400);
         }
-        return koto_mcp_issue_token((int) $data['user_id'], (string) $data['scope'], $client_id, (string) ($data['family_id'] ?? ''));
+
+        $code_user_id = (int) ($data['user_id'] ?? 0);
+        if ($code_user_id <= 0 || !koto_mcp_is_user_approved($code_user_id)) {
+            koto_mcp_log_token_event('token_request', [
+                'grant_type' => 'authorization_code',
+                'client_id'  => $client_id,
+                'user_id'    => $code_user_id,
+                'result'     => 'code_exchange_failed',
+                'reason'     => 'user_unauthorized',
+            ]);
+            return koto_mcp_oauth_token_error('invalid_grant', 'The WordPress user is no longer authorized for MCP access.', 400);
+        }
+
+        return koto_mcp_issue_token($code_user_id, (string) $data['scope'], $client_id, (string) ($data['family_id'] ?? ''));
     } finally {
         koto_mcp_release_atomic_lock($code_lock);
     }
@@ -1092,22 +1255,36 @@ function koto_mcp_revoke_user_tokens($user_id)
     $user_id = (int) $user_id;
     if ($user_id <= 0) return;
 
+    $revoked_families = [];
+
+    // 1. ユーザーメタ _koto_mcp_family_ids に登録された全ファミリーを失効
+    $user_families = get_user_meta($user_id, '_koto_mcp_family_ids', true);
+    if (is_array($user_families)) {
+        foreach ($user_families as $fid) {
+            $fid = (string) $fid;
+            if ($fid !== '' && !isset($revoked_families[$fid])) {
+                koto_mcp_revoke_refresh_family($fid, 'admin_revoked');
+                $revoked_families[$fid] = true;
+            }
+        }
+    }
+
+    // 2. 移行前データや未インデックス分のフォールバック走査（全件確実に無効化）
     $like = $wpdb->esc_like('koto_mcp_refresh_') . '%';
     $results = $wpdb->get_results($wpdb->prepare(
-        "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name NOT LIKE %s AND option_name NOT LIKE %s LIMIT 500",
+        "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name NOT LIKE %s AND option_name NOT LIKE %s",
         $like,
         $wpdb->esc_like('koto_mcp_refresh_family_') . '%',
         $wpdb->esc_like('koto_mcp_refresh_lock_') . '%'
     ));
 
-    $revoked_families = [];
     if (is_array($results)) {
         foreach ($results as $row) {
             $val = maybe_unserialize($row->option_value);
             if (is_array($val) && (int) ($val['user_id'] ?? 0) === $user_id) {
                 $family_id = (string) ($val['family_id'] ?? '');
                 if ($family_id !== '' && !isset($revoked_families[$family_id])) {
-                    koto_mcp_revoke_refresh_family($family_id);
+                    koto_mcp_revoke_refresh_family($family_id, 'admin_revoked');
                     $revoked_families[$family_id] = true;
                 }
             }
