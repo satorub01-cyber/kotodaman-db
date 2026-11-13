@@ -15,7 +15,7 @@
   * `ping`: 空オブジェクト `{}` を返却
   * `tools/list`: 利用可能な全10ツールのスキーマ定義および MCP Tool `annotations`（`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`）を返却
   * `tools/call`: 指定されたツールを実行（要 `Authorization: Bearer` または `Basic` 認証）。入力・バリデーション・保護対象等のドメインエラー時は JSON-RPC `result.isError: true` で返却し、AIが自動リトライ・自己修復しやすい形式で応答
-  * `resources/list` / `resources/read`: 運用ガイド（`kotodaman://guide/character-draft`）およびフィールド読み取り定義（`kotodaman://guide/field-manual`）を取得（`resources/read` は要認証）
+  * `resources/list` / `resources/read`: 運用ガイド（`kotodaman://guide/character-draft`）、コトワザガイド（`kotodaman://guide/kotowaza`）、フィールド読み取り定義（`kotodaman://guide/field-manual`）、および祝福スキーマ（`kotodaman://schema/blessing`）を取得（`resources/read` は要認証）
   * `prompts/list` / `prompts/get`: 下書き作成用プロンプトテンプレート（`character_draft_from_screenshots`）を取得
 * **レート制限**: 認証ユーザー単位で **1分あたり60リクエスト** まで（超過時はエラーコード `RATE_LIMITED` / HTTP `429`）。認証失敗時はIP単位でブルートフォース制限を実施。
 
@@ -204,7 +204,7 @@
   * `character_name` (`string`, 任意 ※`post_id` 未指定の新規作成時は必須、最大200文字)
   * `post_id` (`integer`, 任意): 既存下書きの部分更新時に指定。指定時は既存の `character_name` や `attribute`, `species`, `rarity` が自動継承されます。
   * `basic_fields` (`object`, 任意): 各文字列値は最大2,000文字。新規作成時は `attribute`, `species`, `rarity` が必須。
-  * `auto_input` (`object`, 任意): 各自動入力キーとゲーム内文言の文字列マップ（各値最大4,000文字）。
+  * `auto_input` (`object`, 任意): 各自動入力キーとゲーム内文言のマップ（各値・シリアライズ長最大4,000文字）。`auto_input_blessing` / `auto_input_ex_blessing` は構造化オブジェクト可、`auto_input_kotowaza` は `0凸〜4凸` の `[{"condition": "...", "effect": "..."}]` 配列（最大5件、JSON文字列・`{"levels": [...]}` 等も可。詳細: [kotowaza-guide.md](kotowaza-guide.md)）。
   * `screenshot_urls` (`array<string>`, 任意, 最大20件)
   * `evidence` (`object`, 任意, 最大16KB): 読み取り根拠等の監査メタデータ。
   * `test_mode` (`boolean`, 任意, 初期値 `false`): `true` の場合のみ `parsed_acf` 全構造をレスポンスに含める。

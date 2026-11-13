@@ -124,7 +124,7 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 | `auto_input_blessing` | 祝福とくせい | 祝福のデータ（下記「③-B. 祝福・EX祝福の自動入力仕様」参照） |
 | `auto_input_ex_blessing` | EX祝福とくせい | EX祝福のデータ（構造は `auto_input_blessing` と同一） |
 | `auto_input_leader` | リーダーとくせい | リーダーとくせいの説明文 |
-| `auto_input_kotowaza` | コトワザ | コトワザの説明文 |
+| `auto_input_kotowaza` | コトワザ | `[{"condition": "...", "effect": "..."}, ...]`（0凸〜4凸・最大5件、下記「③-C. コトワザの自動入力仕様」参照） |
 
 #### ③-B. 祝福（`auto_input_blessing`）・EX祝福（`auto_input_ex_blessing`）の自動入力仕様
 
@@ -313,6 +313,24 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 | `twin_attr_atk_up` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,attr_killer2,atk_up}` | **【W属性（属性K2＋ATKUP）】**<br>基本4枠 → **葉っぱ＋黄色ギザ（属性K2）** → **黄色剣＋赤上矢印（ATK UP）**。 |
 | `twin_attr_attr30` | `{hp_up,attr_killer1,attr_killer2,species_killer1,species_killer2,attr_30_killer2}` | **【W属性・W種族】**<br>青ハート（HP） → **葉っぱ＋黄色ギザ（属性K1〜2）×2** → **種族文字＋黄色ギザ（種族K1〜2）×2** → **葉っぱ＋黄色ギザ（属性K2/30%）**。（軽減盾なし） |
 | `spe2_perunit` | `{hp_up,attr_killer1,species_killer1,attr_mitigation1,species_killer2,atk_up_per_unit}` | **【種族K2＋ユニット依存ATKUP】**<br>基本4枠 → **種族文字＋黄色ギザ（種族K2）** → **黄色剣＋赤上矢印（ユニット数依存ATK UP）**。 |
+
+#### ③-C. コトワザ（`auto_input_kotowaza`）の自動入力仕様
+
+> [!TIP]
+> **詳細ガイドとサンプルJSON**: コトワザ自動入力の詳細仕様・複数条件/効果の書式・実戦JSONサンプルは **[kotowaza-guide.md](kotowaza-guide.md)**（MCP Resource: **`kotodaman://guide/kotowaza`**）を参照してください。
+
+* **入力形式（0凸〜4凸・最大5件）**:
+  ```json
+  "auto_input_kotowaza": [
+    { "condition": "「あ,い」を含む5文字以上のことば", "effect": "敵全体に超絶強力な火属性攻撃" },
+    { "condition": "「あ,い」を含む4文字以上のことば", "effect": "敵全体に超絶強力な火属性攻撃" }
+  ]
+  ```
+  * 互換形式として `{"levels": [...]}`・`{"0": {...}, ...}`・単一オブジェクト・JSON文字列もサーバー側で正規化されます。
+* **【重要】0凸から連番入力（飛び番禁止）**:
+  * 現行パーサーは条件・効果ともに空の行を詰めて保存し、表示側はインデックス `0〜4` を `0凸〜4凸` として参照します。途中の凸だけ空にして先頭詰めさせないよう、必ず `0凸` から途切れなく連番で渡してください。
+* **要推定フラグ（`koto_magnification_estimate_tf`）**:
+  * スクショの文言等のみで実倍率が未確定な場合は、`basic_fields.koto_magnification_estimate_tf: true` を設定してください（通常の `magnification_estimate_tf` と異なり自動強制されません）。
 
 ### ④ 画像（`screenshot_urls`）の仕様
 * `screenshot_urls` を省略して `create_draft` を実行した場合、準備中画像（`https://www.kotodaman-db.com/wp-content/uploads/2026/02/無題51_20260205005357.png`）が自動的にセットされます。

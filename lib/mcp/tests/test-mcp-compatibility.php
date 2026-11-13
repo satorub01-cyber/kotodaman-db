@@ -530,6 +530,149 @@ wp_delete_post($pub_pid, true);
 koto_compat_assert(koto_user_can_hide_ads($sub_uid) === false, '公開投稿削除後は広告非表示=falseに戻る');
 wp_set_current_user(0);
 
+// ------------------------------------------------------------
+// シナリオ 8: コトワザ自動入力（auto_input_kotowaza）& ガイドリソース検証
+// ------------------------------------------------------------
+echo "\n=== シナリオ 8: auto_input_kotowaza MCP/REST & ガイドリソース ===\n";
+
+$koto_res_list = koto_mcp_resources_list();
+$has_koto_guide_res = false;
+foreach ($koto_res_list as $r_item) {
+    if (($r_item['uri'] ?? '') === 'kotodaman://guide/kotowaza') {
+        $has_koto_guide_res = true;
+        break;
+    }
+}
+$koto_guide_read = koto_mcp_read_resource('kotodaman://guide/kotowaza');
+$koto_guide_text = (!is_wp_error($koto_guide_read) && !empty($koto_guide_read['contents'][0]['text']))
+    ? (string) $koto_guide_read['contents'][0]['text']
+    : '';
+koto_compat_assert(
+    $has_koto_guide_res && strpos($koto_guide_text, 'auto_input_kotowaza') !== false && strpos($koto_guide_text, 'koto_magnification_estimate_tf') !== false,
+    'MCP Resource kotodaman://guide/kotowaza が一覧公開・取得でき、ガイド本文を含む'
+);
+
+$koto_req = new WP_REST_Request('POST', '/kotodaman/v1/mcp');
+$koto_req->set_header('Authorization', 'Bearer ' . $full_token);
+$_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . $full_token;
+wp_set_current_user($admin_uid);
+
+// 1. validate / preview_draft / create_draft / get_draft の一連フロー
+$koto_payload = [
+    'character_name' => 'コトワザテストキャラ_' . $suffix,
+    'basic_fields'   => [
+        'name_ruby'                      => 'ことわざてすと',
+        'attribute'                      => '火',
+        'species'                        => '神',
+        'rarity'                         => 'スペシャル',
+        'koto_magnification_estimate_tf' => true,
+    ],
+    'auto_input'     => [
+        'auto_input_kotowaza' => [
+            ['condition' => '①4文字以上②10コンボ以上', 'effect' => '敵単体に超絶強力な木属性攻撃'],
+            ['condition' => '「し」を含む12コンボ以上', 'effect' => 'HPを大きく回復'],
+        ],
+    ],
+];
+$koto_arg_valid = koto_mcp_validate_tool_arguments('preview_draft', $koto_payload);
+$koto_preview = !is_wp_error($koto_arg_valid)
+    ? koto_mcp_call_tool('preview_draft', $koto_payload, $koto_req)
+    : $koto_arg_valid;
+koto_compat_assert(
+    !is_wp_error($koto_preview)
+    && !empty($koto_preview['valid'])
+    && !empty($koto_preview['preview_hash'])
+    && ($koto_preview['parsed_counts']['auto_input_kotowaza'] ?? 0) === 2
+    && empty($koto_preview['warnings']),
+    'preview_draft が auto_input_kotowaza (0〜1凸配列) を正常解析し警告なしで preview_hash を返す'
+);
+
+$koto_created = koto_mcp_call_tool('create_draft', [
+    'preview_hash'    => (string) ($koto_preview['preview_hash'] ?? ''),
+    'idempotency_key' => 'koto_test_' . $suffix,
+], $koto_req);
+$koto_post_id = !is_wp_error($koto_created) ? (int) ($koto_created['post_id'] ?? 0) : 0;
+if ($koto_post_id > 0) {
+    $cleanup_posts[] = $koto_post_id;
+}
+$koto_draft = $koto_post_id > 0 ? koto_mcp_call_tool('get_draft', ['post_id' => $koto_post_id], $koto_req) : null;
+koto_compat_assert(
+    $koto_post_id > 0
+    && is_array($koto_draft)
+    && ($koto_draft['basic_fields']['koto_magnification_estimate_tf'] ?? false) === true,
+    'create_draft 後に get_draft で koto_magnification_estimate_tf=true が取得できる'
+);
+
+// 2. 件数上限超過 (>5凸) および全件未解析テキストの拒否確認
+$too_many_koto = array_fill(0, 6, ['condition' => '①4文字以上②10コンボ以上', 'effect' => 'HPを大きく回復']);
+$too_many_err = koto_mcp_validate_tool_arguments('preview_draft', [
+    'character_name' => '上限超過テスト_' . $suffix,
+    'basic_fields'   => ['name_ruby' => 'てすと', 'attribute' => '火', 'species' => '神', 'rarity' => 'なし'],
+    'auto_input'     => ['auto_input_kotowaza' => $too_many_koto],
+]);
+koto_compat_assert(
+    is_wp_error($too_many_err) && $too_many_err->get_error_code() === 'INVALID_PARAMS',
+    'auto_input_kotowaza が 6件超の場合は INVALID_PARAMS で拒否される'
+);
+
+$unparsed_koto_res = koto_mcp_call_tool('validate', [
+    'character_name' => '未解析コトワザ_' . $suffix,
+    'basic_fields'   => ['name_ruby' => 'みかいせき', 'attribute' => '火', 'species' => '神', 'rarity' => 'なし'],
+    'auto_input'     => [
+        'auto_input_kotowaza' => [
+            ['condition' => '未知の条件テキストABC', 'effect' => '未知の効果テキストABC'],
+        ],
+    ],
+], $koto_req);
+koto_compat_assert(
+    is_wp_error($unparsed_koto_res) && $unparsed_koto_res->get_error_code() === 'VALIDATION_FAILED',
+    '全凸が未解析の auto_input_kotowaza は VALIDATION_FAILED (unparsed_text) になる'
+);
+
+// 3. 部分未解析時の警告検出 (warnings)
+$partial_koto_preview = koto_mcp_call_tool('preview_draft', [
+    'character_name' => '部分未解析コトワザ_' . $suffix,
+    'basic_fields'   => ['name_ruby' => 'ぶぶん', 'attribute' => '火', 'species' => '神', 'rarity' => 'なし'],
+    'auto_input'     => [
+        'auto_input_kotowaza' => [
+            ['condition' => '①4文字以上②10コンボ以上', 'effect' => '敵単体に超絶強力な木属性攻撃'],
+            ['condition' => '未知の条件フレーズXYZ', 'effect' => '①HPを大きく回復②未知の効果フレーズXYZ'],
+        ],
+    ],
+], $koto_req);
+$partial_warn_str = implode("\n", (array) ($partial_koto_preview['warnings'] ?? []));
+koto_compat_assert(
+    !is_wp_error($partial_koto_preview)
+    && !empty($partial_koto_preview['valid'])
+    && strpos($partial_warn_str, '(1凸).condition') !== false
+    && strpos($partial_warn_str, '(1凸).effect') !== false,
+    '部分未解析の auto_input_kotowaza で 1凸.condition / 1凸.effect の警告(warnings)が返る'
+);
+
+// 4. REST エンドポイント (/mcp/character-draft dry_run) でも配列入力を受理できる
+$rest_koto_req = new WP_REST_Request('POST', '/kotodaman/v1/mcp/character-draft');
+$rest_koto_req->set_header('Authorization', 'Bearer ' . $full_token);
+$rest_koto_req->set_header('Content-Type', 'application/json');
+$rest_koto_req->set_body(wp_json_encode([
+    'character_name' => 'RESTコトワザ_' . $suffix,
+    'dry_run'        => true,
+    'basic_fields'   => ['name_ruby' => 'れすと', 'attribute' => '水', 'species' => '神', 'rarity' => 'なし'],
+    'auto_input'     => [
+        'auto_input_kotowaza' => [
+            ['condition' => '①4文字以上②10コンボ以上', 'effect' => 'HPを大きく回復'],
+        ],
+    ],
+]));
+$rest_koto_res = $rest_server->dispatch($rest_koto_req);
+$rest_koto_data = $rest_koto_res->get_data();
+koto_compat_assert(
+    $rest_koto_res->get_status() === 200 && ($rest_koto_data['parsed_counts']['auto_input_kotowaza'] ?? 0) === 1,
+    'POST /mcp/character-draft (dry_run) でも auto_input_kotowaza 配列入力を受理できる'
+);
+
+unset($_SERVER['HTTP_AUTHORIZATION']);
+wp_set_current_user(0);
+
 echo "\n========================================================\n";
 echo "テスト結果サマリー: 合格={$pass_count}, 失敗={$fail_count}\n";
 echo "========================================================\n";

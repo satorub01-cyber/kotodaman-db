@@ -774,13 +774,32 @@ function koto_mcp_create_character_draft($request)
     }
     if (is_array($auto_input)) {
         foreach ($auto_input as $input_key => $input_val) {
-            if (!is_string($input_key) || ($input_val !== null && !is_string($input_val))) {
+            $allows_structured = in_array($input_key, ['auto_input_blessing', 'auto_input_ex_blessing', 'auto_input_kotowaza'], true);
+            if (!is_string($input_key) || ($input_val !== null && !is_string($input_val) && !($allows_structured && is_array($input_val)))) {
                 $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
-                return new WP_Error('invalid_auto_input_value', 'auto_input の各値は文字列で指定してください。', ['status' => 400]);
+                return new WP_Error('invalid_auto_input_value', 'auto_input の各値は文字列（祝福・EX祝福・コトワザは配列/オブジェクト可）で指定してください。', ['status' => 400]);
             }
             if (is_string($input_val) && mb_strlen($input_val, 'UTF-8') > 4000) {
                 $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
                 return new WP_Error('invalid_auto_input_value', sprintf('auto_input.%s が最大長（4000文字）を超えています。', $input_key), ['status' => 400]);
+            }
+            if (is_array($input_val)) {
+                $encoded_val = wp_json_encode($input_val, JSON_UNESCAPED_UNICODE);
+                if (is_string($encoded_val) && mb_strlen($encoded_val, 'UTF-8') > 4000) {
+                    $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+                    return new WP_Error('invalid_auto_input_value', sprintf('auto_input.%s が最大長（4000文字）を超えています。', $input_key), ['status' => 400]);
+                }
+            }
+            if ($input_key === 'auto_input_kotowaza' && $input_val !== null && $input_val !== '' && function_exists('koto_normalize_kotowaza_input')) {
+                $norm_koto = koto_normalize_kotowaza_input($input_val);
+                if ($norm_koto === null) {
+                    $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+                    return new WP_Error('invalid_auto_input_value', 'auto_input.auto_input_kotowaza は 0〜4凸分の {condition, effect} 配列（最大5件）で指定してください。', ['status' => 400]);
+                }
+                if (count($norm_koto) > 5) {
+                    $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+                    return new WP_Error('invalid_auto_input_value', 'auto_input.auto_input_kotowaza は最大5件（0凸〜4凸）まで指定できます。', ['status' => 400]);
+                }
             }
         }
     }

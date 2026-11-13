@@ -29,7 +29,11 @@ function koto_mcp_instructions_text()
         '  - `status_auto_tf`: ★6昇華キャラでLv.120ステータスを自動計算する場合は `true`。',
         '  - `event` / `sub_event` / `guerilla_root`: 【ユーザー指定により付与】推測や画像単体で勝手に付与せず、原則としてユーザーからの指定があった場合のみ付与してください（指定がない場合は省略または空配列 `[]`）。付与時は日本語名（例: `["エヴァンゲリオンコラボ第3弾"]`）で指定可能。既存確認は `get_terms(taxonomy: "event", search: "キーワード")` を使用。',
         '  - `available_moji_loop`: 初期使用可能文字のみを入れる（とくせい1・2や祝福の追加文字は `auto_input` 側で自動生成されるため含めない）。【最重要注意】ア行（ぁ/ぃ/ぅ/ぇ/ぉ）やヤ行（ゃ/ゅ/ょ）の小文字（捨て仮名・拗音）は大文字と、濁音・半濁音（「か」と「が」、「は」と「ば」と「ぱ」など）も清音と明確に区別して入力してください（コトダマンDBではそれぞれ独立した別文字タームとして扱われます）。',
-        '  - `auto_input` には、わざ・すごわざ・とくせい・リーダー・祝福（`auto_input_blessing` / `auto_input_ex_blessing`）・コトワザのゲーム内説明文を渡す。',
+        '  - `auto_input` には、わざ・すごわざ・とくせい・リーダー・祝福（`auto_input_blessing` / `auto_input_ex_blessing`）・コトワザ（`auto_input_kotowaza`）のゲーム内説明文を渡す。',
+        '  - 【コトワザ自動入力（`auto_input_kotowaza`）のルール（最大5件: 0凸〜4凸）】:',
+        '    - **0凸〜4凸の発動条件・効果を連番の配列形式** `[{"condition": "...", "effect": "..."}, ...]` で指定します（オブジェクト `{"levels": [...]}` / `{"0": {...}}` / JSON文字列も許容）。',
+        '    - **重要**: インデックス `0〜4` がそのまま `0凸〜4凸` に対応し、条件・効果ともに空の行は詰められるため、必ず `0凸` から途切れなく連番で入力してください（飛び番にしないこと）。',
+        '    - 倍率が推測値の場合は `basic_fields.koto_magnification_estimate_tf: true` を明示してください。詳細はリソース `kotodaman://guide/kotowaza`（`documents/mcp/kotowaza-guide.md`）を参照してください。',
         '  - 【祝福・EX祝福の自動入力ルール（重要: 上限最大8項目）】:',
         '    - `auto_input_blessing`（通常祝福）および `auto_input_ex_blessing`（EX祝福）は、以下の2つの形式で指定できます（最大8項目まで）：',
         '      1. 【新形式（推奨）】トークン・自由入力混在の並び順配列形式（`items`）：',
@@ -84,6 +88,7 @@ function koto_mcp_workflow_guide_data()
             'available_moji_loop' => '初期使用可能文字のみを指定する（例: [{"available_moji": "い"}]）。ア行・ヤ行の小文字は大文字と、濁音・半濁音（か≠が、は≠ば≠ぱ）も清音と明確に区別して入力すること。とくせい・祝福の追加文字は含めない。',
             'event / sub_event / guerilla_root' => '【ユーザー指定により付与】推測で付与せずユーザー指定時のみ付与する（指定なし時は省略または空配列 []）。',
             'auto_input_blessing / auto_input_ex_blessing' => '【上限最大8項目】新形式 {"items": [...]} または旧形式 {"template": "...", "attrs": [...], "species": [...], "rows": [...]}。重要: freeは非レベル制専用（レベル制とくせいに使用不可）。update_draft時の入れ直しは replace_existing: true（デフォルト）、追記は replace_existing: false。',
+            'auto_input_kotowaza' => '【最大5件: 0凸〜4凸】配列 [{"condition": "...", "effect": "..."}, ...]（{"levels": [...]} や JSON文字列も許容）。配列インデックス 0〜4 が 0凸〜4凸 に対応するため必ず 0凸から連番で入力すること（飛び番禁止）。倍率未確定時は basic_fields.koto_magnification_estimate_tf: true を指定。詳細: kotodaman://guide/kotowaza。',
             'evidence / human_approved' => 'evidence: OCR抽出根拠オブジェクト（16KB上限、preview_draftで渡す）。human_approved: 入手方法など人間確認承認済みフラグ。',
         ],
         'error_recovery' => 'VALIDATION_FAILED 時は該当項目のみ最大3回まで再確認し、解決しない場合は停止して人間に確認を求める。自動公開は行わない。',
@@ -97,6 +102,12 @@ function koto_mcp_resources_list()
             'uri' => 'kotodaman://guide/character-draft',
             'name' => 'コトダマンDB キャラクター下書き作成・運用ガイド',
             'description' => 'スクリーンショットの読み取り方法、basic_fields / auto_input の分類、最短4ステップ手順、禁止事項の完全ガイド（Markdown）',
+            'mimeType' => 'text/markdown',
+        ],
+        [
+            'uri' => 'kotodaman://guide/kotowaza',
+            'name' => 'コトワザ自動入力（auto_input_kotowaza）ガイド',
+            'description' => 'コトワザ（0凸〜4凸）の入力スキーマ、発動条件・効果文言ルール、koto_magnification_estimate_tf の扱い、実戦JSONサンプル（Markdown）',
             'mimeType' => 'text/markdown',
         ],
         [
@@ -119,6 +130,19 @@ function koto_mcp_read_resource($uri)
     if ($uri === 'kotodaman://guide/character-draft') {
         $guide_path = get_stylesheet_directory() . '/documents/mcp/character-draft-guide.md';
         $text = file_exists($guide_path) ? (string) file_get_contents($guide_path) : koto_mcp_instructions_text();
+        return [
+            'contents' => [
+                [
+                    'uri' => $uri,
+                    'mimeType' => 'text/markdown',
+                    'text' => $text,
+                ],
+            ],
+        ];
+    }
+    if ($uri === 'kotodaman://guide/kotowaza') {
+        $guide_path = get_stylesheet_directory() . '/documents/mcp/kotowaza-guide.md';
+        $text = file_exists($guide_path) ? (string) file_get_contents($guide_path) : 'コトワザ自動入力（auto_input_kotowaza）は 0凸〜4凸 の {"condition": "...", "effect": "..."} 配列（最大5件）で指定してください。';
         return [
             'contents' => [
                 [

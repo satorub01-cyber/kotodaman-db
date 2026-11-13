@@ -67,6 +67,7 @@ function koto_get_top_level_character_acf_field($field_name)
         'get_place'                       => 'field_693fc92789e79',
         'fuku_break'                      => 'field_693fc7f089e78',
         'magnification_estimate_tf'       => 'field_698994f4550a2',
+        'koto_magnification_estimate_tf'  => 'field_698c7802a780b',
         'quest'                           => 'field_6a4b980bd2f99',
         'same_character'                  => 'field_693ad390702b0',
     ];

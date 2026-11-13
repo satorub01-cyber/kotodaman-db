@@ -182,6 +182,15 @@ $tests = [
         // 5. グループドローバフ（affiliation自動注入）
         '{"template":"{group_draw_buff}","affiliations":["呪術廻戦"],"rows":[]}',
     ],
+    'コトわざ' => [
+        // 1. 0凸〜1凸 配列形式（OR発動条件＋複数効果）
+        [
+            ['condition' => '①4文字以上②10コンボ以上', 'effect' => '敵単体に超絶強力な木属性攻撃'],
+            ['condition' => '「し」を含む12コンボ以上', 'effect' => '6文字以上、または15コンボ以上の場合、追加でこのターン自身のクリティカル発生率を上昇＋敵単体に超強力な水属性攻撃'],
+        ],
+        // 2. JSON文字列ラッパー（{"levels": [...]}）形式
+        '{"levels":[{"condition":"①いきもののことば②「あかさ」からはじまる4文字以上","effect":"HPを大きく回復"}]}',
+    ],
 ];
 
 $total_count = 0;
@@ -200,14 +209,15 @@ foreach ($tests as $type => $phrases) {
         $num = $i + 1;
         $total_count++;
         $parsed = koto_parse_text_by_type($phrase, $type, $grouped_csv, $input_key);
+        $phrase_label = is_array($phrase) ? json_encode($phrase, JSON_UNESCAPED_UNICODE) : (string) $phrase;
         if (!empty($parsed)) {
             $passed_count++;
             $cat_passed++;
         } else {
-            $failed_cases[] = "[{$type} #{$num}] {$phrase}";
+            $failed_cases[] = "[{$type} #{$num}] {$phrase_label}";
         }
         if ($test_mode) {
-            echo "[Test {$num}] {$phrase}\n";
+            echo "[Test {$num}] {$phrase_label}\n";
             echo json_encode($parsed, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n\n";
         }
     }
@@ -345,6 +355,36 @@ if ($g_pass) {
     }
 } else {
     $failed_cases[] = '[祝福ギミックトークン] ギミックトークン・スーパー化・ptフォールバックテストに失敗しました（取得件数: ' . count($gimmick_rows) . '）';
+}
+
+// コトわざ未解析行の空振り抑止 & 互換形式正規化テスト
+$koto_guard_total = 2;
+$koto_guard_passed = 0;
+
+$total_count++;
+$koto_unparsed_res = koto_parse_kotowaza([
+    ['condition' => '完全に未知の条件テキストXYZ', 'effect' => '完全に未知の効果テキストXYZ'],
+], $grouped_csv, 'auto_input_kotowaza');
+if ($koto_unparsed_res === []) {
+    $passed_count++;
+    $koto_guard_passed++;
+} else {
+    $failed_cases[] = '[コトわざガード] 未解析テキストのみで空のダミー行が返却されました';
+}
+
+$total_count++;
+$koto_map_norm = koto_normalize_kotowaza_input([
+    '0凸' => ['condition' => '①4文字以上②10コンボ以上', 'effect' => '敵単体に超絶強力な木属性攻撃'],
+    '1凸' => ['condition' => '「し」を含む12コンボ以上', 'effect' => 'HPを大きく回復'],
+]);
+if (is_array($koto_map_norm) && count($koto_map_norm) === 2 && ($koto_map_norm[0]['condition'] ?? '') === '①4文字以上②10コンボ以上') {
+    $passed_count++;
+    $koto_guard_passed++;
+} else {
+    $failed_cases[] = '[コトわざガード] インデックスマップ形式（0凸/1凸）の正規化に失敗しました';
+}
+if (!$test_mode && $koto_guard_passed === $koto_guard_total) {
+    echo sprintf("[PASS] %-18s : %d / %d passed\n", 'コトわざガード', $koto_guard_passed, $koto_guard_total);
 }
 
 if (!$test_mode) {

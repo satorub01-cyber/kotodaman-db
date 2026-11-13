@@ -100,7 +100,7 @@ function koto_mcp_draft_schema($hash_required = false, $update = false)
             'post_id' => ['type' => 'integer', 'description' => 'Target post ID (required for update_draft).'],
             'character_name' => ['type' => 'string', 'description' => 'Character name (becomes post title).'],
             'basic_fields' => ['type' => 'object', 'description' => 'Top-level ACF fields. Creation requires name_ruby, attribute, species, rarity.'],
-            'auto_input' => ['type' => 'object', 'description' => 'Raw in-game texts for skills, traits, leader, kotowaza, and blessings.'],
+            'auto_input' => ['type' => 'object', 'description' => 'Raw in-game texts for skills, traits, leader, kotowaza (0-4凸 array of {condition, effect}), and blessings.'],
             'screenshot_urls' => ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'uri'], 'description' => 'List of screenshot URLs to attach and set featured image.'],
             'evidence' => ['type' => 'object', 'description' => 'Optional OCR extraction evidence and reasoning metadata (stored in _koto_mcp_audit, max 16KB). Pass during preview_draft or create_draft.'],
             'idempotency_key' => ['type' => 'string', 'description' => 'Unique idempotency key for draft creation or update.'],
@@ -225,6 +225,25 @@ function koto_mcp_validate_tool_arguments($name, $arguments)
                         $encoded_blessing = wp_json_encode($input_val, JSON_UNESCAPED_UNICODE);
                         if (is_string($encoded_blessing) && mb_strlen($encoded_blessing, 'UTF-8') > KOTO_MCP_MAX_AUTO_INPUT_CHARS) {
                             return new WP_Error('INVALID_PARAMS', sprintf('auto_input.%s exceeds maximum length (4000 chars).', $input_key), ['field' => 'auto_input.' . $input_key, 'reason' => 'above_max', 'status' => 400]);
+                        }
+                    }
+                } elseif ($input_key === 'auto_input_kotowaza') {
+                    if ($input_val !== null && !is_string($input_val) && !is_array($input_val)) {
+                        return new WP_Error('INVALID_PARAMS', 'auto_input.auto_input_kotowaza must be an array of {condition, effect} objects (or JSON string).', ['field' => 'auto_input.auto_input_kotowaza', 'reason' => 'invalid_type', 'status' => 400]);
+                    }
+                    if (is_array($input_val)) {
+                        $encoded_koto = wp_json_encode($input_val, JSON_UNESCAPED_UNICODE);
+                        if (is_string($encoded_koto) && mb_strlen($encoded_koto, 'UTF-8') > KOTO_MCP_MAX_AUTO_INPUT_CHARS) {
+                            return new WP_Error('INVALID_PARAMS', 'auto_input.auto_input_kotowaza exceeds maximum length (4000 chars).', ['field' => 'auto_input.auto_input_kotowaza', 'reason' => 'above_max', 'status' => 400]);
+                        }
+                    }
+                    if ($input_val !== null && $input_val !== '' && function_exists('koto_normalize_kotowaza_input')) {
+                        $norm_koto = koto_normalize_kotowaza_input($input_val);
+                        if ($norm_koto === null) {
+                            return new WP_Error('INVALID_PARAMS', 'auto_input.auto_input_kotowaza must be an array of {condition, effect} objects for 0-4凸 (e.g. [{"condition":"...","effect":"..."}]).', ['field' => 'auto_input.auto_input_kotowaza', 'reason' => 'invalid_type', 'status' => 400]);
+                        }
+                        if (count($norm_koto) > 5) {
+                            return new WP_Error('INVALID_PARAMS', 'auto_input.auto_input_kotowaza exceeds maximum count (5 levels: 0凸〜4凸).', ['field' => 'auto_input.auto_input_kotowaza', 'reason' => 'above_max', 'status' => 400]);
                         }
                     }
                 } elseif ($input_val !== null && !is_string($input_val)) {
@@ -354,6 +373,7 @@ function koto_mcp_call_tool($name, $args, $request = null)
                 ],
                 'workflow_guide' => koto_mcp_workflow_guide_data(),
                 'blessing_schema_hint' => '祝福・EX祝福の入力スキーマ、トークン一覧、テンプレート構成は get_blessing_schema ツール（またはリソース koto://blessing-schema）で取得できます。',
+                'kotowaza_guide_hint' => 'コトワザ自動入力（auto_input_kotowaza: 0凸〜4凸の {condition, effect} 配列）の仕様・記述例・koto_magnification_estimate_tf の使い方はリソース kotodaman://guide/kotowaza で取得できます。',
             ];
             if ($test_mode) {
                 $resp['test_mode'] = true;

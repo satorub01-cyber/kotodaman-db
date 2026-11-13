@@ -103,7 +103,8 @@ function koto_mcp_extract_existing_draft_data($post_id)
     $scalar_defaults = [
         'name_ruby'                 => null,
         'status_auto_tf'            => false,
-        'magnification_estimate_tf' => true,
+        'magnification_estimate_tf'      => true,
+        'koto_magnification_estimate_tf' => false,
         'hp_chouka'                 => null,
         'atk_chouka'                => null,
         'lv_99_hp'           => null,
@@ -590,9 +591,76 @@ function koto_mcp_extract_blessing_items($post_id, $is_ex = false)
 }
 
 /**
+ * 前処理済みのわざ系文言から未解析の効果文言を抽出し、警告メッセージ配列を返す。
+ *
+ * @param string $prep_text 前処理済み効果テキスト。
+ * @param array<string, array<int, array<string, mixed>>> $csv 種別グループ済みCSV辞書。
+ * @param string $input_key 元の入力キー（auto_input_waza 等）。
+ * @param string $label_prefix 警告メッセージ先頭に付与するラベル（省略時は $input_key）。
+ * @return array<int, string>
+ */
+function koto_mcp_collect_waza_effect_warnings($prep_text, $csv, $input_key, $label_prefix = '')
+{
+    $warnings = [];
+    $label = $label_prefix !== '' ? $label_prefix : $input_key;
+    $waza_rows = $csv['わざ'] ?? [];
+    $waza_condition_rows = $csv['わざ条件'] ?? [];
+    $waza_shift_rows = $csv['わざシフトタイプ'] ?? [];
+
+    $shift_type = koto_match_csv_template($prep_text, $waza_shift_rows, $input_key, 'prefix');
+    if (koto_is_csv_template_match($shift_type)) {
+        $prep_text = trim(mb_substr($prep_text, mb_strlen($shift_type['matched_text'])));
+    }
+    $parent_parts = koto_split_by_circled_numbers($prep_text);
+    foreach ($parent_parts as $part) {
+        $remaining_text = trim((string) $part);
+        if ($remaining_text === '') {
+            continue;
+        }
+        $has_cond = false;
+        while (mb_strlen($remaining_text, 'UTF-8') > 0) {
+            $prev_len = mb_strlen($remaining_text, 'UTF-8');
+            $remaining_text = preg_replace('/^(?:[・\s、,]+|(?:または|もしくは)[・\s、,]*)+/u', '', $remaining_text);
+            if ($remaining_text === '') {
+                break;
+            }
+            $match = koto_match_csv_template($remaining_text, $waza_condition_rows, $input_key, 'prefix');
+            if (!koto_is_csv_template_match($match)) {
+                break;
+            }
+            $has_cond = true;
+            $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
+            if (mb_strlen($remaining_text, 'UTF-8') >= $prev_len) {
+                break;
+            }
+        }
+        if ($has_cond) {
+            $remaining_text = preg_replace('/^(?:の場合|の時|のとき|場合|時|とき|で)?[・\s、,]+/u', '', $remaining_text);
+        }
+        $child_parts = preg_split('/(?:\+|、さらに)/u', $remaining_text);
+        if (!is_array($child_parts)) {
+            continue;
+        }
+        foreach ($child_parts as $child_part) {
+            $child_part = preg_replace('/^[、,\s]+/u', '', (string) $child_part);
+            $child_part = preg_replace('/[、,\s]+$/u', '', $child_part);
+            if ($child_part === '') {
+                continue;
+            }
+            $match = koto_match_csv_template($child_part, $waza_rows, $input_key);
+            if (!koto_is_csv_template_match($match)) {
+                $warnings[] = sprintf('%s の一部の効果文言を解析できませんでした: %s', $label, $child_part);
+            }
+        }
+    }
+
+    return $warnings;
+}
+
+/**
  * auto_input の部分未解析（丸数字区分や＋区切りの一部脱落）を検出して警告配列を返す。
  *
- * @param array<string, string> $safe_auto_input 入力文言連想配列。
+ * @param array<string, string|array> $safe_auto_input 入力文言連想配列。
  * @param array<string, mixed> $parsed 解析結果連想配列。
  * @param array<string, array<int, array<string, mixed>>> $csv 種別グループ済みCSV辞書。
  * @return array<int, string> 警告メッセージ配列。
@@ -605,7 +673,7 @@ function koto_mcp_detect_auto_input_warnings($safe_auto_input, $parsed, $csv)
     }
 
     foreach ($safe_auto_input as $input_key => $input_value) {
-        if ($input_value === '' || !isset($parsed[$input_key]) || empty($parsed[$input_key])) {
+        if ($input_value === '' || $input_value === [] || $input_value === null || !isset($parsed[$input_key]) || empty($parsed[$input_key])) {
             continue;
         }
         if (in_array($input_key, ['auto_input_waza_name', 'auto_input_sugowaza_name'], true)) {
@@ -626,7 +694,42 @@ function koto_mcp_detect_auto_input_warnings($safe_auto_input, $parsed, $csv)
         } elseif (strpos($input_key, 'leader') !== false) {
             $type = 'リーダーとくせい';
         }
-        if ($type === '' || $type === 'コトわざ') {
+        if ($type === '') {
+            continue;
+        }
+        if ($type === 'コトわざ') {
+            $koto_rows = function_exists('koto_normalize_kotowaza_input') ? koto_normalize_kotowaza_input($input_value) : null;
+            if (!is_array($koto_rows)) {
+                continue;
+            }
+            foreach ($koto_rows as $k_idx => $k_row) {
+                $cond_text = trim((string) ($k_row['condition'] ?? ''));
+                if ($cond_text !== '') {
+                    $prep_cond = koto_preprocess_text($cond_text, 'すごわざ発動条件');
+                    $cond_parts = koto_split_by_circled_numbers($prep_cond);
+                    if (empty($cond_parts)) {
+                        $cond_parts = [$prep_cond];
+                    }
+                    foreach ($cond_parts as $c_part) {
+                        $trimmed_c = trim((string) $c_part);
+                        if ($trimmed_c === '') {
+                            continue;
+                        }
+                        $sub_parsed = koto_parse_text_by_type($trimmed_c, 'すごわざ発動条件', $csv, $input_key);
+                        if (empty($sub_parsed) || empty($sub_parsed[0]['sugo_cond_loop'])) {
+                            $warnings[] = sprintf('%s[%d](%d凸).condition の一部の文言を解析できませんでした: %s', $input_key, $k_idx, $k_idx, $trimmed_c);
+                        }
+                    }
+                }
+                $eff_text = trim((string) ($k_row['effect'] ?? ''));
+                if ($eff_text !== '') {
+                    $prep_eff = koto_preprocess_text($eff_text, 'わざ');
+                    $eff_label = sprintf('%s[%d](%d凸).effect', $input_key, $k_idx, $k_idx);
+                    foreach (koto_mcp_collect_waza_effect_warnings($prep_eff, $csv, $input_key, $eff_label) as $w_msg) {
+                        $warnings[] = $w_msg;
+                    }
+                }
+            }
             continue;
         }
         if ($type === '祝福') {
@@ -646,42 +749,8 @@ function koto_mcp_detect_auto_input_warnings($safe_auto_input, $parsed, $csv)
 
         $prep_text = koto_preprocess_text($input_value, $type);
         if ($type === 'わざ') {
-            $waza_rows = $csv['わざ'] ?? [];
-            $waza_condition_rows = $csv['わざ条件'] ?? [];
-            $waza_shift_rows = $csv['わざシフトタイプ'] ?? [];
-            $shift_type = koto_match_csv_template($prep_text, $waza_shift_rows, $input_key, 'prefix');
-            if (koto_is_csv_template_match($shift_type)) {
-                $prep_text = trim(mb_substr($prep_text, mb_strlen($shift_type['matched_text'])));
-            }
-            $parent_parts = koto_split_by_circled_numbers($prep_text);
-            foreach ($parent_parts as $part_idx => $part) {
-                $remaining_text = trim((string) $part);
-                if ($remaining_text === '') continue;
-                $has_cond = false;
-                while (mb_strlen($remaining_text, 'UTF-8') > 0) {
-                    $prev_len = mb_strlen($remaining_text, 'UTF-8');
-                    $remaining_text = preg_replace('/^(?:[・\s、,]+|(?:または|もしくは)[・\s、,]*)+/u', '', $remaining_text);
-                    if ($remaining_text === '') break;
-                    $match = koto_match_csv_template($remaining_text, $waza_condition_rows, $input_key, 'prefix');
-                    if (!koto_is_csv_template_match($match)) break;
-                    $has_cond = true;
-                    $remaining_text = trim(mb_substr($remaining_text, mb_strlen($match['matched_text'])));
-                    if (mb_strlen($remaining_text, 'UTF-8') >= $prev_len) break;
-                }
-                if ($has_cond) {
-                    $remaining_text = preg_replace('/^(?:の場合|の時|のとき|場合|時|とき|で)?[・\s、,]+/u', '', $remaining_text);
-                }
-                $child_parts = preg_split('/(?:\+|、さらに)/u', $remaining_text);
-                if (!is_array($child_parts)) continue;
-                foreach ($child_parts as $child_part) {
-                    $child_part = preg_replace('/^[、,\s]+/u', '', (string) $child_part);
-                    $child_part = preg_replace('/[、,\s]+$/u', '', $child_part);
-                    if ($child_part === '') continue;
-                    $match = koto_match_csv_template($child_part, $waza_rows, $input_key);
-                    if (!koto_is_csv_template_match($match)) {
-                        $warnings[] = sprintf('%s の一部の効果文言を解析できませんでした: %s', $input_key, $child_part);
-                    }
-                }
+            foreach (koto_mcp_collect_waza_effect_warnings($prep_text, $csv, $input_key, $input_key) as $w_msg) {
+                $warnings[] = $w_msg;
             }
             continue;
         }
@@ -915,7 +984,7 @@ function koto_mcp_validate_draft(&$args)
         if (!is_string($k)) continue;
         if (is_string($v)) {
             $safe_auto_input[$k] = $v;
-        } elseif (is_array($v) && ($k === 'auto_input_blessing' || $k === 'auto_input_ex_blessing')) {
+        } elseif (is_array($v) && in_array($k, ['auto_input_blessing', 'auto_input_ex_blessing', 'auto_input_kotowaza'], true)) {
             $safe_auto_input[$k] = $v;
         }
     }
@@ -926,14 +995,26 @@ function koto_mcp_validate_draft(&$args)
         'post_id' => $args['post_id'] ?? 0,
     ];
     $parsed = koto_build_acf_data_from_inputs($safe_auto_input, $csv, $mcp_context);
-    $requested = array_filter($raw_auto_input, static function ($value) {
+    $requested = array_filter($raw_auto_input, static function ($value, $key) {
         if ($value === null || $value === '' || $value === []) return false;
+        if ($key === 'auto_input_kotowaza') {
+            $norm_k = function_exists('koto_normalize_kotowaza_input') ? koto_normalize_kotowaza_input($value) : null;
+            if (!is_array($norm_k)) {
+                return true;
+            }
+            foreach ($norm_k as $k_row) {
+                if (($k_row['condition'] ?? '') !== '' || ($k_row['effect'] ?? '') !== '') {
+                    return true;
+                }
+            }
+            return false;
+        }
         if (is_array($value)) {
             $norm = function_exists('koto_normalize_blessing_input') ? koto_normalize_blessing_input($value) : $value;
             return !empty($norm['template']) || !empty($norm['rows']) || !empty($norm['items']);
         }
         return true;
-    });
+    }, ARRAY_FILTER_USE_BOTH);
     foreach (['auto_input_blessing', 'auto_input_ex_blessing'] as $b_key) {
         if (!empty($raw_auto_input[$b_key])) {
             $norm_b = function_exists('koto_normalize_blessing_input') ? koto_normalize_blessing_input($raw_auto_input[$b_key]) : null;
@@ -973,7 +1054,31 @@ function koto_mcp_validate_draft(&$args)
             }
         }
     }
+    $kotowaza_handled_error = false;
+    if (!empty($requested['auto_input_kotowaza'])) {
+        $norm_koto = function_exists('koto_normalize_kotowaza_input') ? koto_normalize_kotowaza_input($raw_auto_input['auto_input_kotowaza']) : null;
+        if ($norm_koto === null) {
+            $errors['invalid_fields'][] = koto_mcp_json_error(
+                'VALIDATION_FAILED',
+                'auto_input.auto_input_kotowaza',
+                'invalid_type',
+                'auto_input.auto_input_kotowaza は 0凸〜4凸の {condition, effect} 配列（最大5件）で指定してください。'
+            );
+            $kotowaza_handled_error = true;
+        } elseif (count($norm_koto) > 5) {
+            $errors['invalid_fields'][] = koto_mcp_json_error(
+                'VALIDATION_FAILED',
+                'auto_input.auto_input_kotowaza',
+                'items_limit_exceeded',
+                sprintf('コトワザの項目数が上限（0凸〜4凸の最大5件）を超えています（指定件数: %d件）。', count($norm_koto))
+            );
+            $kotowaza_handled_error = true;
+        }
+    }
     foreach ($requested as $input_key => $input_value) {
+        if ($input_key === 'auto_input_kotowaza' && $kotowaza_handled_error) {
+            continue;
+        }
         $b_meta = $GLOBALS['koto_last_blessing_parse_meta'][$input_key] ?? null;
         if (is_array($b_meta) && !empty($b_meta['unknown_template'])) {
             $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', 'auto_input.' . $input_key, 'unknown_blessing_template', sprintf('Unknown blessing template: %s', $b_meta['unknown_template']));

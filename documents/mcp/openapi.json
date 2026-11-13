@@ -76,6 +76,7 @@
           "max_ls_hp": { "type": "number" },
           "max_ls_atk": { "type": "number" },
           "fuku_break": { "type": "boolean" },
+          "koto_magnification_estimate_tf": { "type": "boolean", "description": "コトワザ予想倍率フラグ（確定していない倍率がある場合は true）" },
           "available_moji_loop": {
             "type": "array",
             "items": {
@@ -101,7 +102,24 @@
           "auto_input_leader": { "type": "string" },
           "auto_input_blessing": { "type": ["string", "object"] },
           "auto_input_ex_blessing": { "type": ["string", "object"] },
-          "auto_input_kotowaza": { "type": "string" }
+          "auto_input_kotowaza": {
+            "description": "コトワザ自動入力（0凸〜4凸の最大5件）。各要素は condition / effect を持つオブジェクト。配列・{levels:[...]}・JSON文字列に対応",
+            "oneOf": [
+              {
+                "type": "array",
+                "maxItems": 5,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "condition": { "type": "string", "description": "発動条件（例: 「い,う」を含む4文字以上）" },
+                    "effect": { "type": "string", "description": "効果文言（例: 敵全体に超絶強力な火属性攻撃）" }
+                  }
+                }
+              },
+              { "type": "object" },
+              { "type": "string" }
+            ]
+          }
         }
       },
       "DraftPayload": {

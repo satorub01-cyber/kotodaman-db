@@ -341,9 +341,10 @@ function koto_parse_waza($text, $grouped_csv, $input_key = '')
     if ($shift_type_value === 'attr') {
         $results = koto_duplicate_results_for_shift_attrs($results, $shift_attr_ids);
         if (empty($temp_shift_row)) {
+            $shift_field_key = ($input_key === 'kotowaza') ? 'koto_shift_type' : 'sugo_shift_type';
             $temp_shift_row = [
                 'is_normal_field' => true,
-                'sugo_shift_type' => 'attr',
+                $shift_field_key  => 'attr',
             ];
         }
     }
@@ -510,10 +511,98 @@ function koto_get_maltiplyer_table($type = 'default')
 }
 
 /**
- * コトわざの入力データ（配列）を解析し、ACF行配列を返す。
+ * コトわざ自動入力データを正規化された配列（0〜4凸の condition / effect の連想配列リスト）に変換する。
+ *
+ * 許容形式:
+ * - 正規配列: [ ['condition' => '...', 'effect' => '...'], ... ]
+ * - オブジェクトラッパー: ['levels' => [...]] / ['kotowaza' => [...]]
+ * - インデックスマップ: ['0' => [...], '1' => [...]] / ['0凸' => [...], ...]
+ * - 上記いずれかの JSON 文字列
+ *
+ * @param mixed $input 入力データ。
+ * @return array<int, array{condition: string, effect: string}>|null 正規化後の配列。解釈不能な形式は null。
+ */
+function koto_normalize_kotowaza_input($input)
+{
+    if (is_string($input)) {
+        $trimmed = trim($input);
+        if ($trimmed === '') {
+            return [];
+        }
+        if ($trimmed[0] !== '[' && $trimmed[0] !== '{') {
+            return null;
+        }
+        $decoded = json_decode($trimmed, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
+            return null;
+        }
+        $input = $decoded;
+    }
+
+    if (!is_array($input)) {
+        return null;
+    }
+
+    if (array_key_exists('levels', $input)) {
+        if (!is_array($input['levels'])) {
+            return null;
+        }
+        $input = $input['levels'];
+    } elseif (array_key_exists('kotowaza', $input)) {
+        if (!is_array($input['kotowaza'])) {
+            return null;
+        }
+        $input = $input['kotowaza'];
+    }
+
+    if (empty($input)) {
+        return [];
+    }
+
+    $is_list = array_keys($input) === range(0, count($input) - 1);
+    $ordered_rows = [];
+    if ($is_list) {
+        $ordered_rows = $input;
+    } elseif (array_key_exists('condition', $input) || array_key_exists('effect', $input)) {
+        $ordered_rows = [$input];
+    } else {
+        $indexed = [];
+        foreach ($input as $k => $v) {
+            $ks = (string) $k;
+            if (preg_match('/^([0-4])(?:凸)?$/u', $ks, $m)) {
+                $indexed[(int) $m[1]] = $v;
+            } else {
+                return null;
+            }
+        }
+        ksort($indexed, SORT_NUMERIC);
+        $ordered_rows = array_values($indexed);
+    }
+
+    $normalized = [];
+    foreach ($ordered_rows as $row) {
+        if (!is_array($row)) {
+            return null;
+        }
+        $cond = $row['condition'] ?? '';
+        $eff = $row['effect'] ?? '';
+        if ((!is_string($cond) && !is_numeric($cond) && $cond !== null) || (!is_string($eff) && !is_numeric($eff) && $eff !== null)) {
+            return null;
+        }
+        $normalized[] = [
+            'condition' => trim((string) ($cond ?? '')),
+            'effect'    => trim((string) ($eff ?? '')),
+        ];
+    }
+
+    return $normalized;
+}
+
+/**
+ * コトわざの入力データ（配列または互換形式）を解析し、ACF行配列を返す。
  * koto_parse_waza および koto_parse_sugowaza_condition を内部で呼び出して処理を行います。
  *
- * @param array $texts コトわざ入力データ（0〜4凸のcondition, effectを含む連想配列の配列）。
+ * @param array|string $texts コトわざ入力データ（0〜4凸のcondition, effectを含む連想配列の配列、またはJSON文字列等）。
  * @param array<string, array<int, array<string, mixed>>> $grouped_csv 種別グループ済みCSV。
  * @param string $input_key 入力欄識別キー。
  * @return array<int, array<string, mixed>> コトわざフィールドへ投入する行配列。
@@ -524,36 +613,39 @@ function koto_parse_kotowaza($texts, $grouped_csv, $input_key = '')
     $malti_table = [];
     $temp_shift_row = [];
 
-    // JSから配列として渡ってこない場合は空配列を返す
-    if (!is_array($texts)) {
+    $normalized_texts = koto_normalize_kotowaza_input($texts);
+    if (!is_array($normalized_texts) || empty($normalized_texts)) {
         return [];
     }
 
-    foreach ($texts as $index => $data) {
+    foreach ($normalized_texts as $index => $data) {
         $condition_text = $data['condition'] ?? '';
         $effect_text = $data['effect'] ?? '';
 
         // 条件・効果ともに空の凸数（未入力の行）はスキップ
-        if (empty($condition_text) && empty($effect_text)) {
+        if ($condition_text === '' && $effect_text === '') {
             continue;
         }
 
         $parsed_condition = [];
         $parsed_effect = [];
 
-        // 1. 条件のパース
-        if (!empty($condition_text)) {
-            // 文字列として前処理を実施
+        // 1. 条件のパース（sugo_cond_loop が空の空振りグループは除外）
+        if ($condition_text !== '') {
             $preprocessed_cond = koto_preprocess_text($condition_text, 'すごわざ発動条件');
-            // 'kotowaza' をキーとして渡し、内部で処理させる
-            $parsed_condition = koto_parse_sugowaza_condition($preprocessed_cond, $grouped_csv, 'kotowaza');
+            $raw_parsed_cond = koto_parse_sugowaza_condition($preprocessed_cond, $grouped_csv, 'kotowaza');
+            if (is_array($raw_parsed_cond)) {
+                foreach ($raw_parsed_cond as $cond_group) {
+                    if (is_array($cond_group) && !empty($cond_group['sugo_cond_loop'])) {
+                        $parsed_condition[] = $cond_group;
+                    }
+                }
+            }
         }
 
         // 2. 効果のパース
-        if (!empty($effect_text)) {
-            // 文字列として前処理を実施
+        if ($effect_text !== '') {
             $preprocessed_effect = koto_preprocess_text($effect_text, 'わざ');
-            // 'kotowaza' をキーとして渡し、内部で処理させる
             $waza_result = koto_parse_waza($preprocessed_effect, $grouped_csv, 'kotowaza');
 
             if (!empty($waza_result)) {
@@ -571,6 +663,12 @@ function koto_parse_kotowaza($texts, $grouped_csv, $input_key = '')
                 }
             }
         }
+
+        // 条件・効果のいずれも有効にパースできなかった場合は空行を追加しない
+        if (empty($parsed_condition) && empty($parsed_effect)) {
+            continue;
+        }
+
         // 3. 要求された形式で配列にまとめる
         $results[] = [
             'kotowaza_condition'  => $parsed_condition,
@@ -1056,6 +1154,9 @@ function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '', ar
     if ($type === '祝福' || $type === 'EX祝福') {
         $blessing_key = $input_key !== '' ? $input_key : ($type === 'EX祝福' ? 'auto_input_ex_blessing' : 'auto_input_blessing');
         return koto_parse_blessing($text, $grouped_csv, $blessing_key, $context);
+    }
+    if ($type === 'コトわざ') {
+        return koto_parse_kotowaza($text, $grouped_csv, $input_key);
     }
 
     if (!is_array($text)) {
