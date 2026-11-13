@@ -12,6 +12,7 @@
 | **[external-ai-setup.md](external-ai-setup.md)** | 外部AI利用者 | ChatGPT / Claude / Gemini / Muse / Copilot / Cursor 等からの接続手順、協力者登録、コピペ用プロンプト |
 | **[ai-compatibility.md](ai-compatibility.md)** | 全員 | 各AIツール（ChatGPT / Claude / Gemini / Muse / Copilot / Cursor 等）の現在の対応状況一覧 |
 | **[character-draft-guide.md](character-draft-guide.md)** | AIエージェント / 運用者 | スクリーンショットからの下書き作成最短4ステップ（省トークン手順）、フィールド入力規則、禁止事項、運用チェックリスト |
+| **[character-entry-guide.md](character-entry-guide.md)** | AIエージェント / 運用者 | イベント・コラボの基準（ガチャ/降臨/大討伐/配布/モードシフト/コラボパック）、周年紐付けストーリー対応表、ひらがな（`name_ruby`）表記ルール、雛形タイトル規約（MCP Resource: `kotodaman://guide/character-entry`） |
 | **[kotowaza-guide.md](kotowaza-guide.md)** | AIエージェント / 運用者 | `auto_input_kotowaza`（0凸〜4凸配列）の入力形式、発動条件・効果の記述ルール、`koto_magnification_estimate_tf` の扱い、実戦JSONサンプル |
 | **[api-reference.md](api-reference.md)** | 開発者 | MCP Streamable HTTP 全10ツール＋Resources/Promptsの詳細仕様、OAuth 2.1（CIMD / Static / DCR）認証、REST API仕様 |
 | **[openapi.json](openapi.json)** | ChatGPT Actions 等 | ChatGPTの「Custom GPTs（マイGPT）」のActionsにそのまま貼り付けられるOpenAPI 3.1.0スキーマ |

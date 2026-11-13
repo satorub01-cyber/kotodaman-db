@@ -361,6 +361,7 @@ tail -n 30 /tmp/xdebug.log
 | **`AGENTS.md`** | **絶対規範・基本原則（核のみ）**<br>※常時参照・15KB以内厳守 | 作業スコープ厳守、Gitコミット自律実行禁止、256MBメモリ枯渇対策クエリ原則、ACF操作の鉄則（`field_xxxxxx` キー更新）、テスト報告義務など、**違反すると即座に障害・クラッシュ・手戻りにつながる最重要ルール**のみ。 |
 | **`documents/codebase-map.md`**（本書） | **システム地図・アーキテクチャ・運用索引** | 全体データフロー図、ディレクトリ・ファイル責務マップ、機能追加時の変更連動チェックリスト、クイック逆引きコマンド集、**本ドキュメント整理方針**。 |
 | **`documents/mcp/character-draft-guide.md`** | **MCP・AIキャラクター下書き作成運用** | スクリーンショット合成・1枚読み取り手順、`basic_fields`/`auto_input` 入力スキーマ、**祝福の設定優先度（テンプレ ➔ トークン ➔ 並べ替え ➔ 自由入力）**、バリデーションとエラー復旧手順。 |
+| **`documents/mcp/character-entry-guide.md`** | **キャラクター登録基準（イベント・ひらがな・雛形）** | イベント・コラボ階層の組み立て基準（ガチャ/降臨/大討伐/配布/モードシフト/コラボパック）、周年紐付けストーリー対応表、`name_ruby`（全角`＆`・伸ばし棒`ー`・カタカナ`ヴ`）、雛形タイトル規約（MCP Resource: `kotodaman://guide/character-entry`）。 |
 | **`documents/mcp/kotowaza-guide.md`** | **MCP コトワザ自動入力リファレンス** | `auto_input_kotowaza`（0凸〜4凸 `[{condition, effect}]` 配列）の入力仕様、0凸連番・飛び番禁止ルール、条件/効果文言、`koto_magnification_estimate_tf` の扱い、JSON実例。 |
 | **`documents/blessing-token-guide.md`** | **祝福トークン開発・仕様リファレンス** | `koto_get_blessing_token_registry()` のトークン構造定義、**ゲーム内テキスト準拠の `label` 仕様**、新規トークン追加手順、全25種類のギミック耐性（通常・スーパー化）トークン一覧。 |
 | **`lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md`** | **文言自動入力アルゴリズム・パース規則** | ゲーム内文言自動入力（auto-input）の分割規則、パーサー処理フロー、`lib/ゲーム内文言ーACF-対応表.csv` のカラム仕様、回帰テスト手順。 |

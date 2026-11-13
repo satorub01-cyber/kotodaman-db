@@ -374,6 +374,7 @@ function koto_mcp_call_tool($name, $args, $request = null)
                 'workflow_guide' => koto_mcp_workflow_guide_data(),
                 'blessing_schema_hint' => '祝福・EX祝福の入力スキーマ、トークン一覧、テンプレート構成は get_blessing_schema ツール（またはリソース koto://blessing-schema）で取得できます。',
                 'kotowaza_guide_hint' => 'コトワザ自動入力（auto_input_kotowaza: 0凸〜4凸の {condition, effect} 配列）の仕様・記述例・koto_magnification_estimate_tf の使い方はリソース kotodaman://guide/kotowaza で取得できます。',
+                'character_entry_guide_hint' => 'イベント・コラボの階層基準、周年紐付けストーリー対応表、キャラ名（ひらがな）表記ルール（全角＆・伸ばし棒ー・カタカナヴ）、雛形タイトル規約はリソース kotodaman://guide/character-entry で取得できます。',
             ];
             if ($test_mode) {
                 $resp['test_mode'] = true;

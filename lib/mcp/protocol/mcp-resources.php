@@ -23,11 +23,11 @@ function koto_mcp_instructions_text()
         'Step 1 (スキーマ確認): 不明なフィールド仕様がある場合のみ `get_field_schema` を呼ぶ（フィールド規則と `workflow_guide` が返却されます）。',
         'Step 2 (データ構築・ターム自動解決):',
         '  - `basic_fields` には基本データ（必須: `name_ruby`, `attribute`, `species`, `rarity`）を入れ、HPとATKの超化（`hp_chouka`, `atk_chouka`）およびLv.99基礎ステータス（`lv_99_hp`, `lv_99_atk`）も含めてください（画面の「+〇〇」表示または超化欄から読み取って設定）。これらは日本語名（例: `"attribute": "水"`, `"species": "神"`, `"rarity": "なし"`, `"affiliation": ["エヴァンゲリオン"]`, `"available_moji_loop": [{"available_moji": "い"}]`）で直接指定でき、サーバー側でタームIDに自動解決されるため、不要な `get_terms` の連発は避けてください（未知のグループ名等を検索する時のみ `get_terms(taxonomy: "affiliation", search: "キーワード")` を使用）。',
-        '  - `name_ruby`【必須】: キャラ名のひらがな読みのみを指定し、`()` / `（）` 内の文字列は含めない（例: `シンジ(決戦)` → `"しんじ"`）。',
+        '  - `name_ruby`【必須】: キャラ名のひらがな読みのみを指定し、`()` / `（）` 内の文字列は含めない（例: `シンジ(決戦)` → `"しんじ"`）。`&` は全角 `＆`、伸ばし棒 `ー` はそのまま、`ヴ` はカタカナで入力する（例: `アルセーヌ&ソロモン` → `"あるせーぬ＆そろもん"`、`ヴェルドラ` → `"ヴぇるどら"`）。',
         '  - `rarity`【必須】: ★6通常キャラは `"なし"`、特殊枠は `"スペシャル"`, `"レジェンド"`, `"グランド"`。★5以下は `"5"` 等。',
         '  - ★5以下キャラクターのステータス運用ルール: コトダマンの★5以下は最大レベルがLv.90等のため、画面表示の最大レベル時（Lv.90等）の基礎HP・基礎ATKを `lv_99_hp` / `lv_99_atk` に入力してください。また昇華が存在しないため必ず `no_lv120_flag: true` を指定してください（`status_auto_tf: false`、Lv.120ステータスは省略）。',
         '  - `status_auto_tf`: ★6昇華キャラでLv.120ステータスを自動計算する場合は `true`。',
-        '  - `event` / `sub_event` / `guerilla_root`: 【ユーザー指定により付与】推測や画像単体で勝手に付与せず、原則としてユーザーからの指定があった場合のみ付与してください（指定がない場合は省略または空配列 `[]`）。付与時は日本語名（例: `["エヴァンゲリオンコラボ第3弾"]`）で指定可能。既存確認は `get_terms(taxonomy: "event", search: "キーワード")` を使用。',
+        '  - `event` / `sub_event` / `guerilla_root`: 【ユーザー指定により付与】推測や画像単体で勝手に付与せず、原則としてユーザーからの指定があった場合のみ付与してください（指定がない場合は省略または空配列 `[]`）。付与時は日本語名（例: `["エヴァンゲリオンコラボ第3弾"]`）で指定可能。既存確認は `get_terms(taxonomy: "event", search: "キーワード")` を使用。入手区分別のイベント階層基準・周年紐付けストーリー・雛形作成ルール（タイトルに「雛形」の2文字を含める）はリソース `kotodaman://guide/character-entry`（`documents/mcp/character-entry-guide.md`）を参照してください。',
         '  - `available_moji_loop`: 初期使用可能文字のみを入れる（とくせい1・2や祝福の追加文字は `auto_input` 側で自動生成されるため含めない）。【最重要注意】ア行（ぁ/ぃ/ぅ/ぇ/ぉ）やヤ行（ゃ/ゅ/ょ）の小文字（捨て仮名・拗音）は大文字と、濁音・半濁音（「か」と「が」、「は」と「ば」と「ぱ」など）も清音と明確に区別して入力してください（コトダマンDBではそれぞれ独立した別文字タームとして扱われます）。',
         '  - `auto_input` には、わざ・すごわざ・とくせい・リーダー・祝福（`auto_input_blessing` / `auto_input_ex_blessing`）・コトワザ（`auto_input_kotowaza`）のゲーム内説明文を渡す。',
         '  - 【コトワザ自動入力（`auto_input_kotowaza`）のルール（最大5件: 0凸〜4凸）】:',
@@ -80,13 +80,13 @@ function koto_mcp_workflow_guide_data()
             '4_create_or_update' => 'create_draft には preview_hash と idempotency_key のみ（update_draft は加えて post_id）を渡す。30分キャッシュから自動復元されるため basic_fields / auto_input の再送は不要。',
         ],
         'key_field_rules' => [
-            'name_ruby' => '【必須】ひらがな読みのみ。カッコ () / （） 内の文字列は含めない（例: シンジ(決戦) -> しんじ）。',
+            'name_ruby' => '【必須】ひらがな読みのみ。カッコ () / （） 内の文字列は含めない（例: シンジ(決戦) -> しんじ）。& は全角 ＆、伸ばし棒 ー は維持、ヴ はカタカナで入力（例: アルセーヌ&ソロモン -> あるせーぬ＆そろもん、ヴェルドラ -> ヴぇるどら）。',
             'attribute / species / rarity' => '【必須】属性・種族・レアリティ。★6通常は "なし"、特殊枠は "スペシャル" / "レジェンド" / "グランド"、★5以下は数字（"5" 等）。',
             'lv_99_hp / lv_99_atk' => 'Lv.99時点のHP/ATK基礎値。★5以下のキャラクターは画面表示の最大レベル時（Lv.90等）の基礎値をここに入力する（運用ルール）。',
             'status_auto_tf / no_lv120_flag' => '★6昇華キャラでLv.120ステータス自動計算は status_auto_tf: true。★5以下やトークンなど昇華のないキャラは必ず no_lv120_flag: true（status_auto_tf: false）。',
             'hp_chouka / atk_chouka' => 'HPとATKの超化（コエダマ）pt（数値）。スクリーンショットの+〇〇表示または超化欄から読み取って basic_fields に含める。',
             'available_moji_loop' => '初期使用可能文字のみを指定する（例: [{"available_moji": "い"}]）。ア行・ヤ行の小文字は大文字と、濁音・半濁音（か≠が、は≠ば≠ぱ）も清音と明確に区別して入力すること。とくせい・祝福の追加文字は含めない。',
-            'event / sub_event / guerilla_root' => '【ユーザー指定により付与】推測で付与せずユーザー指定時のみ付与する（指定なし時は省略または空配列 []）。',
+            'event / sub_event / guerilla_root' => '【ユーザー指定により付与】推測で付与せずユーザー指定時のみ付与する（指定なし時は省略または空配列 []）。イベント・コラボの階層基準、周年紐付けストーリー対応表、雛形タイトル規約（タイトルに「雛形」を含める）の詳細は kotodaman://guide/character-entry を参照。',
             'auto_input_blessing / auto_input_ex_blessing' => '【上限最大8項目】新形式 {"items": [...]} または旧形式 {"template": "...", "attrs": [...], "species": [...], "rows": [...]}。重要: freeは非レベル制専用（レベル制とくせいに使用不可）。update_draft時の入れ直しは replace_existing: true（デフォルト）、追記は replace_existing: false。',
             'auto_input_kotowaza' => '【最大5件: 0凸〜4凸】配列 [{"condition": "...", "effect": "..."}, ...]（{"levels": [...]} や JSON文字列も許容）。配列インデックス 0〜4 が 0凸〜4凸 に対応するため必ず 0凸から連番で入力すること（飛び番禁止）。倍率未確定時は basic_fields.koto_magnification_estimate_tf: true を指定。詳細: kotodaman://guide/kotowaza。',
             'evidence / human_approved' => 'evidence: OCR抽出根拠オブジェクト（16KB上限、preview_draftで渡す）。human_approved: 入手方法など人間確認承認済みフラグ。',
@@ -102,6 +102,12 @@ function koto_mcp_resources_list()
             'uri' => 'kotodaman://guide/character-draft',
             'name' => 'コトダマンDB キャラクター下書き作成・運用ガイド',
             'description' => 'スクリーンショットの読み取り方法、basic_fields / auto_input の分類、最短4ステップ手順、禁止事項の完全ガイド（Markdown）',
+            'mimeType' => 'text/markdown',
+        ],
+        [
+            'uri' => 'kotodaman://guide/character-entry',
+            'name' => 'キャラクター登録基準ガイド（イベント・コラボ・紐付けストーリー・ひらがな・雛形）',
+            'description' => 'イベント・コラボの階層基準（ガチャ/降臨/大討伐等）、周年紐付けストーリー対応表、name_ruby表記ルール（＆/ー/ヴ）、雛形タイトル規約（Markdown）',
             'mimeType' => 'text/markdown',
         ],
         [
@@ -130,6 +136,21 @@ function koto_mcp_read_resource($uri)
     if ($uri === 'kotodaman://guide/character-draft') {
         $guide_path = get_stylesheet_directory() . '/documents/mcp/character-draft-guide.md';
         $text = file_exists($guide_path) ? (string) file_get_contents($guide_path) : koto_mcp_instructions_text();
+        return [
+            'contents' => [
+                [
+                    'uri' => $uri,
+                    'mimeType' => 'text/markdown',
+                    'text' => $text,
+                ],
+            ],
+        ];
+    }
+    if ($uri === 'kotodaman://guide/character-entry') {
+        $guide_path = get_stylesheet_directory() . '/documents/mcp/character-entry-guide.md';
+        $text = file_exists($guide_path)
+            ? (string) file_get_contents($guide_path)
+            : 'イベント・コラボの基準、周年紐付けストーリー、キャラ名（ひらがな: 全角＆・伸ばし棒ー・カタカナヴ）、雛形タイトル規約（タイトルに「雛形」の2文字を含める）のガイドファイルが未配置です。';
         return [
             'contents' => [
                 [

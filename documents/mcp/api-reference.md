@@ -15,7 +15,7 @@
   * `ping`: 空オブジェクト `{}` を返却
   * `tools/list`: 利用可能な全10ツールのスキーマ定義および MCP Tool `annotations`（`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`）を返却
   * `tools/call`: 指定されたツールを実行（要 `Authorization: Bearer` または `Basic` 認証）。入力・バリデーション・保護対象等のドメインエラー時は JSON-RPC `result.isError: true` で返却し、AIが自動リトライ・自己修復しやすい形式で応答
-  * `resources/list` / `resources/read`: 運用ガイド（`kotodaman://guide/character-draft`）、コトワザガイド（`kotodaman://guide/kotowaza`）、フィールド読み取り定義（`kotodaman://guide/field-manual`）、および祝福スキーマ（`kotodaman://schema/blessing`）を取得（`resources/read` は要認証）
+  * `resources/list` / `resources/read`: 運用ガイド（`kotodaman://guide/character-draft`）、キャラ登録基準ガイド（`kotodaman://guide/character-entry`）、コトワザガイド（`kotodaman://guide/kotowaza`）、フィールド読み取り定義（`kotodaman://guide/field-manual`）、および祝福スキーマ（`kotodaman://schema/blessing`）を取得（`resources/read` は要認証）
   * `prompts/list` / `prompts/get`: 下書き作成用プロンプトテンプレート（`character_draft_from_screenshots`）を取得
 * **レート制限**: 認証ユーザー単位で **1分あたり60リクエスト** まで（超過時はエラーコード `RATE_LIMITED` / HTTP `429`）。認証失敗時はIP単位でブルートフォース制限を実施。
 

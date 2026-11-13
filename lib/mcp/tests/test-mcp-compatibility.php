@@ -537,10 +537,13 @@ echo "\n=== シナリオ 8: auto_input_kotowaza MCP/REST & ガイドリソース
 
 $koto_res_list = koto_mcp_resources_list();
 $has_koto_guide_res = false;
+$has_entry_guide_res = false;
 foreach ($koto_res_list as $r_item) {
     if (($r_item['uri'] ?? '') === 'kotodaman://guide/kotowaza') {
         $has_koto_guide_res = true;
-        break;
+    }
+    if (($r_item['uri'] ?? '') === 'kotodaman://guide/character-entry') {
+        $has_entry_guide_res = true;
     }
 }
 $koto_guide_read = koto_mcp_read_resource('kotodaman://guide/kotowaza');
@@ -550,6 +553,19 @@ $koto_guide_text = (!is_wp_error($koto_guide_read) && !empty($koto_guide_read['c
 koto_compat_assert(
     $has_koto_guide_res && strpos($koto_guide_text, 'auto_input_kotowaza') !== false && strpos($koto_guide_text, 'koto_magnification_estimate_tf') !== false,
     'MCP Resource kotodaman://guide/kotowaza が一覧公開・取得でき、ガイド本文を含む'
+);
+
+$entry_guide_read = koto_mcp_read_resource('kotodaman://guide/character-entry');
+$entry_guide_text = (!is_wp_error($entry_guide_read) && !empty($entry_guide_read['contents'][0]['text']))
+    ? (string) $entry_guide_read['contents'][0]['text']
+    : '';
+koto_compat_assert(
+    $has_entry_guide_res
+    && strpos($entry_guide_text, 'イベント・コラボの基準') !== false
+    && strpos($entry_guide_text, 'あるせーぬ＆そろもん') !== false
+    && strpos($entry_guide_text, 'ヴぇるどら') !== false
+    && strpos($entry_guide_text, '雛形') !== false,
+    'MCP Resource kotodaman://guide/character-entry が一覧公開・取得でき、ガイド本文を含む'
 );
 
 $koto_req = new WP_REST_Request('POST', '/kotodaman/v1/mcp');

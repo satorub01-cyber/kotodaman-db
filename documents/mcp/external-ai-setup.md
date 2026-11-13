@@ -27,7 +27,7 @@
 |---|---|---|
 | **① MCP `initialize` の `instructions`** | 全MCPクライアント | 接続確立時に、スクリーンショットの読み取りルール・最短4ステップ手順・主要フィールド規則・禁止事項がAIのシステムコンテキストへ自動注入されます。 |
 | **② `get_field_schema`（および `GET /mcp/schema`）の `workflow_guide` & `manual`** | 全MCPクライアント ＋ REST/OpenAPIクライアント | ツール呼び出し1回で、各ACFフィールドの型・必須項目・画面上の読み取り根拠（`manual`）に加え、`workflow_guide` がJSONで返却されます。 |
-| **③ MCP Resources（`resources/list`, `resources/read`）** | リソース参照対応のMCPクライアント | `kotodaman://guide/character-draft`（運用ガイド全文Markdown）および `kotodaman://guide/field-manual`（フィールド定義JSON）を参照できます。 |
+| **③ MCP Resources（`resources/list`, `resources/read`）** | リソース参照対応のMCPクライアント | `kotodaman://guide/character-draft`（運用ガイド全文Markdown）、`kotodaman://guide/character-entry`（イベント・コラボ・紐付けストーリー・ひらがな・雛形基準）、`kotodaman://guide/kotowaza`（コトワザガイド）、`kotodaman://guide/field-manual`（フィールド定義JSON）を参照できます。 |
 | **④ MCP Prompts（`prompts/list`, `prompts/get`）** | プロンプトメニュー対応のMCPクライアント | `character_draft_from_screenshots` プロンプトを選択するだけで、下書き作成用の指示文がチャット欄に自動セットされます。 |
 
 さらに、全10ツールに MCP `annotations`（`readOnlyHint` / `destructiveHint` / `idempotentHint` 等）が付与されているため、ChatGPT / Claude / Cursor 等で参照系ツール（`get_field_schema`, `search_character`, `validate` 等）と更新系ツール（`create_draft`, `update_draft`, `trash_draft`）をクライアント側で適切に区別できます。

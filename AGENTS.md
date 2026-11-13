@@ -127,6 +127,7 @@
 * 自動入力の文言解析仕様は [lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md](lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md) を参照。
 * 自動入力ロジックや対応表の変更時は、必ず `php lib/acf/test_auto_input.php` による回帰テストを実施してください。
 * MCPによるスクショ読み取り手順は [documents/mcp/character-draft-guide.md](documents/mcp/character-draft-guide.md) を参照（`prepare_screenshots.php` で1枚化して読み取る原則）。
+* イベント・コラボ階層基準、周年紐付けストーリー、ひらがな（`name_ruby`：`＆`/`ー`/`ヴ`）、雛形タイトル規約（タイトルに「雛形」を含める）は [documents/mcp/character-entry-guide.md](documents/mcp/character-entry-guide.md) を参照。
 
 ---
 
