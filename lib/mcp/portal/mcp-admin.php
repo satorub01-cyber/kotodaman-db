@@ -149,6 +149,9 @@ function koto_mcp_send_approval_email($user, $is_resume = false)
         "【ご利用開始の手順】\n" .
         "ご利用を開始するには、お使いのAIクライアントから再度接続（認可）を行ってください。\n" .
         "ブラウザで認可画面が表示されましたら、「許可」ボタンを押すことで接続が完了します。\n\n" .
+        "【Discordサーバーへのご参加のお願い】\n" .
+        "投稿キャラクターの重複防止や連絡・質問対応のため、ぜひ以下のDiscordサーバーにもご参加ください。\n" .
+        "https://discord.gg/cmjGCXe6u5\n\n" .
         "※本メールは送信専用です。",
         $user->display_name ?: $user->user_login,
         $action_label

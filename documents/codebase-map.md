@@ -121,7 +121,7 @@ flowchart TD
 | `protocol/mcp-resources.php` | MCPクライアント向けドキュメント・スキーマ（`kotodaman://guide/...`）の配信。 | |
 | `protocol/post-mcp.php` | REST API 全8ルート（`/mcp/openapi.json`, `/mcp/schema`, `/mcp/terms`, `/mcp/characters/search`, `/mcp/draft/preview`, `/mcp/character-draft`, `/mcp/draft/{id}`）。 | |
 | `portal/mcp-admin.php` | 管理画面「ユーザー > MCP利用申請」（承認時 `subscriber`→`mcp_user` 昇格・取消時降格、Static Client発行管理）。 | |
-| `portal/mcp-collaboration-page.php` | 協力者ポータル共通描画（`collaboration-page.php` テンプレートおよび `[koto_collaborate_portal]` ショートコード）、メール認証付き登録、AI別ガイドJSON（`.css` / `.js`）。 | `functions.php` の `koto_user_can_hide_ads()` で広告表示制御と連動 |
+| `portal/mcp-collaboration-page.php` | 協力者ポータル共通描画（`collaboration-page.php` テンプレートおよび `[koto_collaborate_portal]` ショートコード）、メール認証付き登録、AI別ガイドJSON（`.css` / `.js`）。 | **一時非公開中**: `collaboration-page.php`（404応答化）およびショートコード・登録受付フック・導線リンクをコメントアウト中（処理本体は残置）。詳細は [documents/mcp/README.md](mcp/README.md) 参照 |
 | `tools/prepare_screenshots.php` | スクショ画像の一括トリミング・タイル結合スクリプト（`contact_sheet.jpg` 生成）。 | |
 | `tests/test-mcp-*.php` | 権限・OAuthリフレッシュ・互換拡張テストスクリプト群。 | |
 

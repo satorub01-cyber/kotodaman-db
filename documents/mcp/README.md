@@ -23,6 +23,15 @@
 
 ## 1. 現在のMCP実装状況（ステータス総覧）
 
+> [!NOTE]
+> **【一時非公開メモ（2026-11-13）】MCPを使った協力者募集・`collaborate` ポータルの一時非公開化**:
+> MCPサーバー本体・OAuth 2.1・管理画面機能（処理基盤）は維持したまま、一般ユーザーから閲覧・申請できる協力者募集UI・導線・登録受付を一時的に非公開（コメントアウト / 404応答）にしています。
+> - [collaboration-page.php](../../collaboration-page.php): 直接アクセス時に 404 を返却し、テンプレート描画処理をコメントアウト。
+> - [lib/mcp/portal/mcp-collaboration-page.php](../../lib/mcp/portal/mcp-collaboration-page.php): `wp_enqueue_scripts` / `template_redirect`（登録・メール認証受付）/ `[koto_collaborate_portal]` ショートコード出力をコメントアウト（登録・検証・描画関数本体は残置）。
+> - [lib/koto-modal-displayer.php](../../lib/koto-modal-displayer.php): モーダル内の「協力者登録・AI連携ガイドを見る」ボタンをコメントアウト。
+> - [lib/mcp/auth/mcp-oauth.php](../../lib/mcp/auth/mcp-oauth.php): OAuthログイン画面の「アカウントをお持ちでない方・協力登録はこちら」リンクをコメントアウト。
+> - WordPress管理画面側の固定ページ（`collaborate`）のステータスも「非公開」または「下書き」にすることを推奨。
+
 ゲームのスクリーンショットからAIが情報を読み取り、WordPress上にキャラクターの下書き（`draft`）を安全・高速・省トークンで作成・更新するための基盤が実装済みです。
 
 ### 実装済み機能

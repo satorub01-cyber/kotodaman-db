@@ -43,6 +43,9 @@ function koto_mcp_collab_enqueue_assets(): void {
     );
 }
 
+// 【一時非公開メモ】MCP協力者募集ページ（/collaborate/）一時非公開化に伴いアセット読み込みフックをコメントアウト（処理自体は残す）。
+// 再公開時は下のコメントアウトを解除すること。
+/*
 add_action('wp_enqueue_scripts', function (): void {
     if (is_page_template('collaboration-page.php')) {
         koto_mcp_collab_enqueue_assets();
@@ -58,6 +61,7 @@ add_action('wp_enqueue_scripts', function (): void {
         }
     }
 }, 20);
+*/
 
 /**
  * ユーザー登録用システムプロンプト（AIクライアント向けコピー用）
@@ -361,7 +365,12 @@ function koto_mcp_collab_store_notice(string $type, string $message): string {
 
 /**
  * template_redirect でフォーム送信とメール認証GETを受け付ける
+ *
+ * 【一時非公開メモ】MCP協力者募集の一時非公開化に伴い、公開ページからの登録・認証受付フックをコメントアウト中。
+ * 関数本体（koto_mcp_collab_submit_registration / koto_mcp_collab_verify_registration）は残している。
+ * 再公開時は下のコメントアウトを解除すること。
  */
+/*
 add_action('template_redirect', function (): void {
     // 1. メール認証GET (?koto_reg_verify=...)
     if (isset($_GET['koto_reg_verify'])) {
@@ -420,6 +429,7 @@ add_action('template_redirect', function (): void {
         exit;
     }
 });
+*/
 
 /**
  * AIクライアント別の接続ガイド定義（JSに渡すJSONデータ）
@@ -1013,7 +1023,10 @@ function koto_mcp_render_collaboration_portal(array $args = []): string {
  * ショートコード [koto_collaborate_portal] レンダリング（後方互換維持）
  */
 add_shortcode('koto_collaborate_portal', function (): string {
-    return koto_mcp_render_collaboration_portal([
-        'is_template' => false,
-    ]);
+    // 【一時非公開メモ】MCP協力者募集の一時非公開化に伴いショートコード描画をコメントアウト（処理自体は残す）。
+    // 再公開時は下のコメントアウトを解除し、return ''; を削除すること。
+    // return koto_mcp_render_collaboration_portal([
+    //     'is_template' => false,
+    // ]);
+    return '';
 });

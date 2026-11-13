@@ -851,8 +851,10 @@ function koto_mcp_oauth_render_login($request_fields, $error = '')
     echo '<label><input type="checkbox" name="rememberme" value="forever"> ログイン状態を保持</label><br>';
     echo '<button type="submit" name="koto_mcp_login_action" value="login">ログインして続行</button>';
     echo '</form>';
-    $collab_url = function_exists('koto_mcp_collaborate_page_url') ? koto_mcp_collaborate_page_url() : home_url('/collaborate/');
-    echo '<p><a href="' . esc_url($collab_url) . '" target="_blank" rel="noopener">アカウントをお持ちでない方・協力登録はこちら</a></p>';
+    // 【一時非公開メモ】MCPを使った協力者募集・登録ページ（/collaborate/）への導線リンクを一時非表示化（処理自体は残す）。
+    // 再公開時は以下の2行のコメントアウトを解除すること。
+    // $collab_url = function_exists('koto_mcp_collaborate_page_url') ? koto_mcp_collaborate_page_url() : home_url('/collaborate/');
+    // echo '<p><a href="' . esc_url($collab_url) . '" target="_blank" rel="noopener">アカウントをお持ちでない方・協力登録はこちら</a></p>';
     echo '</body></html>';
     exit;
 }

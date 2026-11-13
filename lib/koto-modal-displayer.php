@@ -23,13 +23,16 @@ function add_contribution_modal_script()
                 </a>
 
                 <?php
+                // 【一時非公開メモ】MCPを使った協力者募集・連携ガイドページ（/collaborate/）への導線を一時非公開化。
+                // 処理自体は残し、公開画面に表示されるボタンのみコメントアウトしている。
+                // 再公開時は下のコメントアウトを解除すること。
+                /*
                 $collab_page_url = function_exists('koto_mcp_collaborate_page_url')
                     ? koto_mcp_collaborate_page_url()
                     : home_url('/collaborate/'); // //要チェック 本番の協力案内ページURL確認
+                echo '<a href="' . esc_url($collab_page_url) . '" class="collab-btn btn-register">📝 協力者登録・AI連携ガイドを見る</a>';
+                */
                 ?>
-                <a href="<?php echo esc_url($collab_page_url); ?>" class="collab-btn btn-register">
-                    📝 協力者登録・AI連携ガイドを見る
-                </a>
 
                 <a href="https://discord.gg/cmjGCXe6u5" target="_blank" class="collab-btn btn-discord">
                     💬 Discordに参加する
