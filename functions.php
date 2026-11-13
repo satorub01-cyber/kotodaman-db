@@ -39,6 +39,9 @@ require_once $theme_dir . '/lib/koto-calc.php';
 require_once $theme_dir . '/editor.php';
 require_once $theme_dir . '/lib/acf/acf-editor.php';
 
+// MCPサーバー・OAuth 2.1・REST・協力者ポータル
+require_once $theme_dir . '/lib/mcp/loader.php';
+
 // 各種専用機能
 require_once $theme_dir . '/lib/missing-info-characters.php';
 require_once $theme_dir . '/lib/term-setter/term-setter-ajax.php';
@@ -218,8 +221,113 @@ if (str_ends_with($current_domain, 'kotodaman-db.com')) {
 }
 
 // =================================================================
-// 8. 外部プラグイン制御 (Site Kit)
+// 8. 外部プラグイン・広告表示制御 (Site Kit / Cocoon)
 // =================================================================
+/**
+ * ユーザーが広告非表示権限を持つか判定する。
+ * 管理者・編集者、または公開済み投稿を1件以上所有しているログインユーザーのみ true。
+ *
+ * @param int $user_id ユーザーID（省略時は現在ログイン中のユーザー）。
+ * @return bool
+ */
+function koto_user_can_hide_ads($user_id = 0)
+{
+    $user_id = (int) $user_id;
+    if ($user_id <= 0) {
+        if (!is_user_logged_in()) {
+            return false;
+        }
+        $user_id = get_current_user_id();
+    }
+    if ($user_id <= 0) {
+        return false;
+    }
+
+    $user = get_userdata($user_id);
+    if (!$user instanceof WP_User) {
+        return false;
+    }
+
+    if (user_can($user, 'manage_options') || user_can($user, 'edit_others_posts')) {
+        return true;
+    }
+
+    $cached = get_user_meta($user_id, '_koto_has_published_post', true);
+    if ($cached === '1' || $cached === 1) {
+        return true;
+    }
+    if ($cached === '0' || $cached === 0) {
+        return false;
+    }
+
+    global $wpdb;
+    $has_published = (bool) $wpdb->get_var($wpdb->prepare(
+        "SELECT ID FROM {$wpdb->posts} WHERE post_author = %d AND post_status = 'publish' AND post_type IN ('character', 'post') LIMIT 1",
+        $user_id
+    ));
+    update_user_meta($user_id, '_koto_has_published_post', $has_published ? '1' : '0');
+    return $has_published;
+}
+
+add_action('transition_post_status', function ($new_status, $old_status, $post) {
+    if (!$post instanceof WP_Post || (int) $post->post_author <= 0) {
+        return;
+    }
+    if (!in_array($post->post_type, ['character', 'post'], true)) {
+        return;
+    }
+    $author_id = (int) $post->post_author;
+    if ($new_status === 'publish') {
+        update_user_meta($author_id, '_koto_has_published_post', '1');
+    } elseif ($old_status === 'publish' && $new_status !== 'publish') {
+        delete_user_meta($author_id, '_koto_has_published_post');
+    }
+}, 10, 3);
+
+add_action('deleted_post', function ($post_id, $post = null) {
+    if (!$post instanceof WP_Post || (int) $post->post_author <= 0) {
+        return;
+    }
+    if (!in_array($post->post_type, ['character', 'post'], true)) {
+        return;
+    }
+    delete_user_meta((int) $post->post_author, '_koto_has_published_post');
+}, 10, 2);
+
+/**
+ * Cocoon 広告表示判定のオーバーライド（公開済み投稿1件以上または管理者・編集者のみ非表示）。
+ *
+ * @return bool
+ */
+if (!function_exists('is_ads_visible')) {
+    function is_ads_visible()
+    {
+        if (koto_user_can_hide_ads()) {
+            return false;
+        }
+        $tmp_post_ids = function_exists('get_ad_exclude_post_ids') ? get_ad_exclude_post_ids() : '';
+        $post_ids = explode(',', (string) $tmp_post_ids);
+        $post_ids_empty = empty($tmp_post_ids);
+
+        $category_ids = function_exists('get_ad_exclude_category_ids') ? get_ad_exclude_category_ids() : '';
+        $category_ids_empty = empty($category_ids);
+
+        $is_exclude_ids = (
+            (!$post_ids_empty && is_single($post_ids))
+            || (!$post_ids_empty && is_page($post_ids))
+            || (!$category_ids_empty && is_single() && in_category($category_ids))
+            || (!$category_ids_empty && is_category($category_ids))
+        );
+
+        return (function_exists('is_all_ads_visible') ? is_all_ads_visible() : true)
+            && !$is_exclude_ids
+            && (function_exists('is_the_page_ads_visible') ? is_the_page_ads_visible() : true)
+            && !is_attachment()
+            && !is_404()
+            && !is_search();
+    }
+}
+
 /**
  * ログイン中ユーザーに対してSite KitのGA4タグ出力を抑止
  */
@@ -228,4 +336,12 @@ add_filter('googlesitekit_analytics-4_tag_blocked', function ($is_blocked) {
         return true;
     }
     return $is_blocked;
+}, 100);
+
+/**
+ * Google Site Kit AdSense タグ出力の制御（公開済み投稿1件以上または管理者・編集者のみ非表示）
+ */
+add_filter('googlesitekit_adsense_tag_blocked', function ($is_blocked) {
+    // //要チェック 本番の Google Site Kit 設定側で「ログイン中のユーザーを広告表示から除外」が有効な場合はオフにすること
+    return koto_user_can_hide_ads();
 }, 100);

@@ -1,41 +1,42 @@
 # MCPサーバー・OAuth 2.1・REST API 開発者リファレンス
 
-本書は、コトダマンDBのMCPサーバー（[lib/acf/mcp/server.php](../../lib/acf/mcp/server.php)）および直接呼び出し用REST API（[lib/acf/mcp/post-mcp.php](../../lib/acf/mcp/post-mcp.php)）の技術仕様書です。
+本書は、コトダマンDBのMCPサーバー（[lib/mcp/protocol/server.php](../../lib/mcp/protocol/server.php)）および直接呼び出し用REST API（[lib/mcp/protocol/post-mcp.php](../../lib/mcp/protocol/post-mcp.php)）の技術仕様書です。
 
 ---
 
 ## 1. MCP Streamable HTTP サーバー仕様
 
-* **エンドポイント**: `POST /wp-json/kotodaman/v1/mcp`
-* **プロトコル**: JSON-RPC 2.0 / MCP Protocol Version `2025-03-26`
+* **エンドポイント**: `POST /wp-json/kotodaman/v1/mcp`（`OPTIONS` CORSプリフライト、未認証 `GET` の `401` + `WWW-Authenticate` 返却、認証済み `GET` の `405` 応答にも対応）
+* **プロトコル**: JSON-RPC 2.0（単一リクエストおよび配列バッチリクエスト対応） / MCP Protocol Version `2025-11-25`（ネゴシエーション対応: `2025-11-25`, `2025-06-18`, `2025-03-26`、`MCP-Protocol-Version` ヘッダー対応）
+* **CORS / Origin 検証**: ブラウザ系MCPクライアント向けに `Access-Control-Allow-Origin` / `Access-Control-Allow-Methods` / `Access-Control-Allow-Headers`（`MCP-Protocol-Version`, `Mcp-Session-Id` 等）・`Access-Control-Expose-Headers`（`WWW-Authenticate`, `Mcp-Session-Id`, `MCP-Protocol-Version`）を返却。不正な `Origin` によるリクエストは HTTP `403` で拒否。
 * **対応メソッド**:
-  * `initialize`: サーバー情報（`name: "kotodaman-db"`, `version: "1.1.0"`）、`capabilities`（`tools`, `resources`, `prompts`）、およびAIへ自動注入される運用手順（`instructions`）を返却
+  * `initialize`: サーバー情報（`name: "kotodaman-db"`, `version: "1.1.0"`）、`capabilities`（`tools`, `resources`, `prompts`）、ネゴシエーション済み `protocolVersion`、およびAIへ自動注入される運用手順（`instructions`）を返却
   * `notifications/initialized`（および `notifications/*`）: HTTP `202 Accepted` を返却
   * `ping`: 空オブジェクト `{}` を返却
-  * `tools/list`: 利用可能な全8ツールのスキーマ定義を返却
-  * `tools/call`: 指定されたツールを実行（要 `Authorization: Bearer` または `Basic` 認証）
+  * `tools/list`: 利用可能な全10ツールのスキーマ定義および MCP Tool `annotations`（`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`）を返却
+  * `tools/call`: 指定されたツールを実行（要 `Authorization: Bearer` または `Basic` 認証）。入力・バリデーション・保護対象等のドメインエラー時は JSON-RPC `result.isError: true` で返却し、AIが自動リトライ・自己修復しやすい形式で応答
   * `resources/list` / `resources/read`: 運用ガイド（`kotodaman://guide/character-draft`）およびフィールド読み取り定義（`kotodaman://guide/field-manual`）を取得（`resources/read` は要認証）
   * `prompts/list` / `prompts/get`: 下書き作成用プロンプトテンプレート（`character_draft_from_screenshots`）を取得
-* **レート制限**: 認証ユーザー単位で **1分あたり60リクエスト** まで（超過時はエラーコード `RATE_LIMITED` / HTTP `429`）。認証失敗時はIP単位で **5分間に10回まで**（ブルートフォース防止）。
+* **レート制限**: 認証ユーザー単位で **1分あたり60リクエスト** まで（超過時はエラーコード `RATE_LIMITED` / HTTP `429`）。認証失敗時はIP単位でブルートフォース制限を実施。
 
 ---
 
 ## 2. MCPツール一覧（全10ツール）
 
-### ツールと必要スコープの対応表
+### ツールと必要スコープ・Annotations対応表
 
-| ツール名 | 必要OAuthスコープ | 概要 |
-|---|---|---|
-| `get_field_schema` | `validate` | ACFフィールド定義、必須項目、自動入力キー一覧、[documents/mcp/mcp-field-manual.json](mcp-field-manual.json) の説明、および `workflow_guide` を取得 |
-| `get_blessing_schema` | `validate` | 祝福（`auto_input_blessing`）およびEX祝福（`auto_input_ex_blessing`）の入力スキーマ、利用可能トークン一覧、テンプレート構成一覧を取得 |
-| `get_terms` | `validate` | 指定タクソノミー（単一・カンマ区切り・`"all"`）のターム一覧（`id`, `name`, `slug`）を取得 |
-| `search_character` | `validate` | 既存のキャラクター投稿（`publish`, `draft`, `pending`, `private`）を名前で検索（最大20件、保護対象の雛型記事は自動除外） |
-| `get_draft` | `validate` | 既存下書きの基本データ（`basic_fields`）、祝福（`blessing`）、EX祝福（`ex_blessing`）、タイトル、ステータス、エディタURL、MCPレビューメタデータを取得 |
-| `validate` | `validate` | 保存せずに下書きデータを検証し、`preview_hash` と `parsed_counts` を返却（30分キャッシュ保存） |
-| `preview_draft` | `preview` | 保存せずに下書きデータを検証・解析し、`preview_hash`、`parsed_counts`、`warnings` を返却（30分キャッシュ保存） |
-| `create_draft` | `create` | 新規キャラクター下書き（`draft`）を作成。直前の `preview_hash` と `idempotency_key` のみで実行可能 |
-| `update_draft` | `create` | 既存のキャラクター下書き（`draft` のみ）を更新。`post_id`, `preview_hash`, `idempotency_key` で実行可能（一部フィールドの部分更新にも対応） |
-| `trash_draft` | `create` | 既存のキャラクター下書き（`draft` のみ）をゴミ箱へ移動（保護対象雛型は除外） |
+| ツール名 | 必要OAuthスコープ | Annotations (`readOnly` / `destructive` / `idempotent`) | 概要 |
+|---|---|---|---|
+| `get_field_schema` | `validate` | `true` / `false` / `true` | ACFフィールド定義、必須項目、自動入力キー一覧、[documents/mcp/mcp-field-manual.json](mcp-field-manual.json) の説明、および `workflow_guide` を取得 |
+| `get_blessing_schema` | `validate` | `true` / `false` / `true` | 祝福（`auto_input_blessing`）およびEX祝福（`auto_input_ex_blessing`）の入力スキーマ、利用可能トークン一覧、テンプレート構成一覧を取得 |
+| `get_terms` | `validate` | `true` / `false` / `true` | 指定タクソノミー（単一・カンマ区切り・`"all"`）のターム一覧（`id`, `name`, `slug`）をページネーション付き（`limit`, `offset`）で取得 |
+| `search_character` | `validate` | `true` / `false` / `true` | 既存のキャラクター投稿（`publish`, `draft`, `pending`, `private`）を名前で検索（最大20件、保護対象の雛型記事は自動除外） |
+| `get_draft` | `validate` | `true` / `false` / `true` | 既存下書きの基本データ（`basic_fields`）、祝福（`blessing`）、EX祝福（`ex_blessing`）、タイトル、ステータス、エディタURL、MCPレビューメタデータを取得 |
+| `validate` | `validate` | `true` / `false` / `true` | 保存せずに下書きデータを検証し、`preview_hash` と `parsed_counts` を返却（30分キャッシュ保存） |
+| `preview_draft` | `preview` | `true` / `false` / `true` | 保存せずに下書きデータを検証・解析し、`preview_hash`、`parsed_counts`、`warnings` を返却（30分キャッシュ保存） |
+| `create_draft` | `create` | `false` / `false` / `true` | 新規キャラクター下書き（`draft`）を作成。直前の `preview_hash` と `idempotency_key` のみで実行可能 |
+| `update_draft` | `create` | `false` / `false` / `true` | 既存のキャラクター下書き（`draft` のみ）を更新。`post_id`, `preview_hash`, `idempotency_key` で実行可能（一部フィールドの部分更新にも対応） |
+| `trash_draft` | `create` | `false` / `true` / `true` | 既存のキャラクター下書き（`draft` のみ）をゴミ箱へ移動（保護対象雛型は除外） |
 
 ---
 
@@ -123,10 +124,12 @@
 * **引数**:
   * `taxonomy` (`string`, **必須**): タクソノミー名。単一指定（例: `"affiliation"`）、カンマ区切り複数指定（例: `"attribute,species,rarity"`）、または `"all"`（`attribute`, `species`, `rarity`, `affiliation`, `event`, `gimmick`, `available_moji`, `suitable_quest` の8種一括）に対応。
   * `search` (`string`, 任意): ターム名・スラッグの部分一致検索キーワード。
+  * `limit` (`integer`, 任意, 初期値 `200`, 最大 `500`): 各タクソノミーで返す最大件数。
+  * `offset` (`integer`, 任意, 初期値 `0`): ページネーション開始位置。
   * `test_mode` (`boolean`, 任意)
 * **レスポンス**:
-  * 単一指定時: `{"taxonomy": "attribute", "terms": [{"id": 3, "name": "水", "slug": "water"}, ...]}`
-  * 複数または `"all"` 指定時: `{"taxonomies": {"attribute": [...], "species": [...]}}`
+  * 単一指定時: `{"taxonomy": "attribute", "terms": [...], "total": 6, "limit": 200, "offset": 0, "has_more": false, "next_offset": null}`
+  * 複数または `"all"` 指定時: `{"taxonomies": {"attribute": [...], ...}, "pagination": {"attribute": {"total": 6, "returned": 6, "has_more": false, "next_offset": null}, ...}, "limit": 200, "offset": 0}`
 
 #### ④ `search_character`
 * **引数**:
@@ -272,87 +275,61 @@
 
 ---
 
-## 3. OAuth 2.1 / PKCE 認可・セキュリティ仕様
+## 3. OAuth 2.1 / PKCE・CIMD・Static Confidential Client・サイト登録仕様
 
 ### エンドポイント一覧
 
 | 用途 | メソッド & パス | 説明 |
 |---|---|---|
-| 保護リソースメタデータ | `GET /.well-known/oauth-protected-resource` | リソースURI（`/wp-json/kotodaman/v1/mcp`）、認可サーバーURL、対応スコープ（`validate`, `preview`, `create`）を返却 |
-| 認可サーバーメタデータ | `GET /.well-known/oauth-authorization-server` | issuer、各OAuthエンドポイントURL、PKCE (`S256`) 対応情報を返却 |
-| 動的クライアント登録 | `POST /wp-json/kotodaman/v1/mcp/oauth/register` | `client_name`, `redirect_uris` を受け取り `client_id`（`koto_...`、有効期限1年）を発行。IPあたり30回/分のレート制限あり |
-| ブラウザ認可エンドポイント | `GET / POST /mcp/oauth/authorize` | 未ログイン時は認可ページ内でWordPressログインを行い、ログイン後もOAuthパラメータを保持。PKCE（`code_challenge` + `code_challenge_method=S256`）必須。認可コード（有効期限5分）を発行 |
-| トークンエンドポイント | `POST /wp-json/kotodaman/v1/mcp/oauth/token` | `authorization_code` または `refresh_token` グラントでトークンを発行 |
+| 保護リソースメタデータ | `GET /.well-known/oauth-protected-resource` | リソースURI（`/wp-json/kotodaman/v1/mcp`）、認可サーバーURL、対応スコープ（`validate`, `preview`, `create`）を返却（CORS対応） |
+| 認可サーバーメタデータ | `GET /.well-known/oauth-authorization-server` | issuer、各OAuthエンドポイント、`client_id_metadata_document_supported: true`、`client_secret_basic` / `client_secret_post` / `none`、PKCE (`S256`) 対応情報を返却 |
+| 動的クライアント登録 (DCR) | `POST /wp-json/kotodaman/v1/mcp/oauth/register` | `client_name`, `redirect_uris` を受け取り Public Client `client_id`（`koto_...`、有効期限1年）を発行。IPあたり30回/分のレート制限あり |
+| CIMD (SEP-991) | — | HTTPS URL形式の `client_id` を自動的にフェッチ・検証（SSRF防止・64KB上限・5秒タイムアウト・短時間キャッシュ）しクライアント登録不要で認可 |
+| Static Confidential Clients | WordPress管理画面 UI | 管理画面「ユーザー > MCP利用申請」から `client_id` (`koto_sc_...`) ＋ `client_secret` を事前発行（ChatGPT Actions / Copilot Studio / Gemini Enterprise / Dify 向け、`allow_no_pkce` オプトイン可） |
+| ブラウザ認可エンドポイント | `GET / POST /mcp/oauth/authorize`（および `/wp-json/kotodaman/v1/mcp/oauth/authorize`） | 未ログイン時は認可ページ内でWordPressログイン（協力者登録ページへの導線リンク付き）。Public ClientはPKCE (`S256`) 必須、Static Confidential Clientのみ `allow_no_pkce` オプトイン可。RFC 8707 `resource`（`aud`）を認可コードに束縛 |
+| トークンエンドポイント | `POST /wp-json/kotodaman/v1/mcp/oauth/token` | `authorization_code` または `refresh_token` グラントでトークンを発行。Confidential Clientの `client_secret_basic` / `client_secret_post` 検証および `resource` (`aud`) 検証（`invalid_target`）を実施 |
 | トークン失効エンドポイント | `POST /wp-json/kotodaman/v1/mcp/oauth/revoke` | アクセストークンまたはリフレッシュトークン（および紐づくトークンファミリー全体）を即時失効 |
 
 ### セキュリティ設計のポイント
-1. **`redirect_uri` の厳格検証**:
-   * フラグメント（`#`）を含むURIは拒否。
-   * スキームは `https`、またはローカル開発環境（`localhost`, `127.0.0.1`, `[::1]`, サイト自身のホスト）の `http` のみ許可。
-   * 認可時・トークン交換時ともに、クライアント登録時の `redirect_uris` と完全一致しない限り認可コード・トークンを発行しません。
-2. **ユーザー権限と管理画面承認フロー**:
-   * `MCP利用者`（`mcp_user`）ロールまたは `edit_posts` 権限を持たないユーザーは利用不可（`403 Forbidden`）。
-   * `administrator`（管理者）、`editor`（編集者）、`MCP利用者`ロールは即時認可可能。
-   * それ以外のロール（投稿者 `author` 等）が認可画面へアクセスすると、ユーザーメタ `_koto_mcp_requested = 1` が記録され保留状態となります。管理者がWordPress管理画面「**ユーザー > MCP利用申請**（`users.php?page=koto-mcp-approvals`）」で承認すると `_koto_mcp_approved = 1` が付与され、利用可能になります。
-3. **`create` スコープの明示同意画面（CSRF / クリックジャッキング対策）**:
-   * 下書きの作成・更新・削除が可能な `create` スコープを含む認可リクエスト時は、`X-Frame-Options: DENY` / `Content-Security-Policy: frame-ancestors 'none'` およびパラメータ束縛済みWordPress Nonce付きの同意確認画面を表示し、ユーザーの明示的な「許可」POSTを必須としています。
-4. **未ログイン時の保護**:
-   * 認可ページ内のログインフォームは、既存の `wp-login.php` 専用CAPTCHAを自動移植せず、`client_id` / `redirect_uri` / PKCE検証およびCSRF Nonce検証を通過した認可リクエストに限り、WordPressコアの標準認証フィルターのみで `wp_signon()` を実行します（外部ログイン保護プラグインの `authenticate` / `wp_authenticate_user` フック干渉を回避）。パスワード文字列（`$_POST['pwd']`）の受け渡し方式もWordPressコアの `wp-login.php` と統一し、認証失敗時は画面に汎用エラーを表示しつつサーバーログへ `get_error_code()` / `get_error_message()` を記録します。代替保護として、ログイン試行をIP単位とユーザー名単位でそれぞれ5回・15分に制限し、成功時は両方のカウンターを消去します。
-5. **リフレッシュトークン・ローテーションと永続化・安全救済**:
-   * **有効期限**: アクセストークンは有効期限1時間（3,600秒、`expires_in: 3600`）、リフレッシュトークンは有効期限30日（2,592,000秒）。
-   * **direct DB ストレージ ＆ HMAC自己検証署名の多重保護**: トークン、クライアント情報、認可コードは `wp_options` へ直接永続化され、さらに WordPress の `wp_salt('auth')` による HMAC-SHA256 署名が付与されています。デプロイやオブジェクトキャッシュの消去時でもトークンが不意に失われません。
-   * **真の SQL アトミック排他ロック**: リフレッシュ処理時は MySQL の `INSERT IGNORE` を用いたファミリー単位のアトミック排他ロックにより、並行リクエストが完全直列化され、キャッシュ汚染や 503 エラーが発生しません。
-   * **15秒デバウンスウィンドウ**: 並行ワーカーやクライアントのリトライにより直近15秒以内に同一ファミリーのリフレッシュ要求が連続した場合、最新の有効なトークンペアを安全に即時返却します。
-   * **非破壊安全ローテーション**: ローテーション済みの古いリフレッシュトークンが再提示された場合でも、そのファミリーがアクティブで30日以内であれば、ファミリー全体を道連れ即死（`replay_detected`）させず、正当な最新トークンペアを安全に再発行して接続を救済します。
-   * **明示的失効（RFC 7009）**: コネクタの切断や管理者によるユーザー承認取り消し、または `/mcp/oauth/revoke` への明示的な失効リクエスト時は、即座にファミリー全体および配下トークンを無効化（401）します。
+1. **`redirect_uri` & `resource`（RFC 8707 `aud`）の厳格検証**:
+   * `redirect_uri` はフラグメント（`#`）を拒否し、`https` またはローカルループバック `http` のみ許可。登録済みURIと完全一致必須。
+   * トークンの `aud` クレームにサーバー正規リソースURI（`koto_mcp_server_url()`）またはRESTベースURIを束縛し、不一致リソース用トークンは `401 token_audience_mismatch` で拒否。
+2. **CIMD（SEP-991）のSSRF防御**:
+   * `client_id` がHTTPS URLの場合、`localhost` / プライベートIP / リンクローカルIP（`169.254.169.254` 等）への解決を拒否し、メタデータJSON内の `client_id` とリクエスト `client_id` の完全一致、`redirect_uris` の妥当性を検証します。
+3. **SEP-835 `insufficient_scope` 対応**:
+   * 認可済みトークンでも必要スコープ（例: `create`）が不足している場合、HTTP `403` と共に `WWW-Authenticate: Bearer realm="...", error="insufficient_scope", scope="<required>"` を返却し、クライアント側の段階的スコープ再認可を促します。
+4. **サイト協力者登録とロール昇格・降格 / 広告表示ルール**:
+   * `[koto_collaborate_portal]`（[lib/mcp/portal/mcp-collaboration-page.php](../../lib/mcp/portal/mcp-collaboration-page.php)）でのセルフ登録は、ハニーポット＋IPレート制限（5回/10分）＋24時間有効メール認証リンクを経て最小権限の `subscriber` として作成されます。
+   * 管理画面で承認すると `subscriber` → `mcp_user` ロールへ自動昇格し、権限取消・無効化時は `mcp_user` → `subscriber` へ自動降格（`administrator`/`editor` 等は保護）＋トークン即時失効となります。
+   * 広告非表示制御（[functions.php](../../functions.php)）は `administrator` / `editor` または「公開済み記事・キャラクター投稿が1件以上あるユーザー」にのみ適用され、新規 `subscriber` や公開実績のない `mcp_user` には通常通り広告が表示されます。
+5. **`scope` 省略時の安全フォールバックとクライアント既定値**:
+   * OAuthリクエストで `scope` が省略された場合は安全な既定値 `validate preview`（読み取り・検証のみ）、またはクライアント個別設定（`default_scope`）を適用します。
+6. **リフレッシュトークン・ローテーションと永続化・安全救済**:
+   * **有効期限**: アクセストークン 1時間（3,600秒）、リフレッシュトークン 30日（2,592,000秒）。
+   * **direct DB ストレージ ＆ HMAC署名 ＋ SQLアトミック排他ロック ＋ 15秒デバウンス ＋ 非破壊安全ローテーション** により、複数クライアントからの並行実行でも接続切れを起こしません。
 
 ---
 
-## 4. WordPress REST API 直接呼び出し仕様
+## 4. WordPress REST API & OpenAPI 3.1.0 仕様
 
-MCPクライアントを介さず、WordPress標準のREST API認証（Application Passwords等）で直接下書きを作成するエンドポイントです（実装: [lib/acf/mcp/post-mcp.php](../../lib/acf/mcp/post-mcp.php)）。
+MCPクライアントを介さず、OpenAPI 3.1.0（[documents/mcp/openapi.json](openapi.json)）や REST API（OAuth 2.1 Bearer / Application Passwords Basic）で直接呼び出せるエンドポイント群です（実装: [lib/mcp/protocol/post-mcp.php](../../lib/mcp/protocol/post-mcp.php)）。すべての権限不足レスポンスには `WWW-Authenticate` ヘッダーが付与されます。
 
-### エンドポイント
-```text
-POST /wp-json/kotodaman/v1/mcp/character-draft
-```
-* **必要権限**: `edit_posts`（`screenshots` 配列でBase64画像を添付する場合は加えて `upload_files` 権限が必要）。
+### エンドポイント一覧（全8ルート・OpenAPI 7パス）
 
-### リクエストボディ例
-```json
-{
-  "character_name": "サンプルキャラ",
-  "basic_fields": {
-    "name_ruby": "さんぷるきゃら",
-    "attribute": "火",
-    "species": "神",
-    "rarity": "なし",
-    "hp_chouka": 500,
-    "atk_chouka": 250,
-    "available_moji_loop": [
-      { "available_moji": "さ" }
-    ]
-  },
-  "auto_input": {
-    "auto_input_waza_name": "サンプルアタック",
-    "auto_input_waza": "敵単体に強力な火属性攻撃",
-    "auto_input_trait1": "火属性の敵に対して攻撃力が上昇"
-  },
-  "screenshots": [
-    {
-      "name": "基本情報",
-      "data": "data:image/png;base64,..."
-    }
-  ],
-  "screenshot_urls": [
-    "https://www.kotodaman-db.com/wp-content/uploads/2026/02/sample.png"
-  ],
-  "dry_run": false,
-  "test_mode": false
-}
-```
+| メソッド & パス | 必要スコープ | 対応MCPツール | 主な用途 |
+|---|---|---|---|
+| `GET /wp-json/kotodaman/v1/mcp/openapi.json` | 公開（不要） | — | サーバー実URLを動的注入した OpenAPI 3.1.0 スキーマJSONを返却 |
+| `GET /wp-json/kotodaman/v1/mcp/schema` | `validate` | `get_field_schema` | フィールド定義・手動読取ルール・`workflow_guide` を取得 |
+| `GET /wp-json/kotodaman/v1/mcp/blessing-schema` | `validate` | `get_blessing_schema` | 祝福・EX祝福スキーマと利用可能トークン一覧を取得 |
+| `GET /wp-json/kotodaman/v1/mcp/terms` | `validate` | `get_terms` | タクソノミーターム一覧を取得（`taxonomy`, `search`, `limit`, `offset` 対応） |
+| `GET /wp-json/kotodaman/v1/mcp/characters/search` | `validate` | `search_character` | 既存キャラクターを名前で検索（`name`, 雛型自動除外） |
+| `GET /wp-json/kotodaman/v1/mcp/draft/{post_id}` | `validate` | `get_draft` | 既存下書きデータを取得 |
+| `POST /wp-json/kotodaman/v1/mcp/draft/preview` | `preview` | `preview_draft` | 保存せずバリデーション＆自動入力解析し `preview_hash` と `warnings` を返却 |
+| `POST /wp-json/kotodaman/v1/mcp/character-draft` | `create` | `create_draft` 等 | 新規キャラクター下書き（`draft`）を作成（`dry_run: true`, `screenshots` Base64画像添付対応） |
+| `PATCH / PUT /wp-json/kotodaman/v1/mcp/draft/{post_id}` | `create` | `update_draft` | 既存の下書き（`draft`）を更新（`preview_hash` 検証＋雛型保護） |
+| `DELETE /wp-json/kotodaman/v1/mcp/draft/{post_id}` | `create` | `trash_draft` | 既存の下書き（`draft`）をゴミ箱へ移動（雛型保護） |
 
-* **`screenshots`**: PNG / JPEG / WebP の Base64 Data URI 配列（1枚最大10MB、最大20枚）。アップロード途中でエラーが発生した場合は、作成途中の添付ファイルと下書き投稿をすべてロールバック削除します。
+* **`screenshots`**（`POST /mcp/character-draft`）: PNG / JPEG / WebP の Base64 Data URI 配列（1枚最大10MB、最大20枚）。途中でエラーが発生した場合は作成途中の添付ファイルと下書き投稿をロールバック削除します。
 * **`dry_run`**: `true` の場合、投稿を作成せずに自動入力パーサーの解析のみを実行し、`parsed_counts`（`test_mode: true` 時は `parsed_acf`）を返します。
 
 ---

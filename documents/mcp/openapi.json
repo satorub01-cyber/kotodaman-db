@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "コトダマンDB キャラクター下書き作成 API",
-    "version": "1.1.0",
-    "description": "スクリーンショットから読み取ったキャラクター情報（basic_fields と auto_input）を検証し、WordPress上にキャラクター下書き（draft）を作成するAPIです。最初に getFieldSchema を呼び出して workflow_guide と各フィールドの入力規則（manual）を確認してください。"
+    "version": "1.2.0",
+    "description": "スクリーンショットから読み取ったキャラクター情報（basic_fields と auto_input）を検証し、WordPress上にキャラクター下書き（draft）を作成・更新するAPIです。最初に getFieldSchema を呼び出して workflow_guide と各フィールドの入力規則（manual）を確認してください。"
   },
   "servers": [
     {
@@ -13,6 +13,20 @@
   ],
   "components": {
     "securitySchemes": {
+      "oauth2": {
+        "type": "oauth2",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://www.kotodaman-db.com/mcp/oauth/authorize",
+            "tokenUrl": "https://www.kotodaman-db.com/wp-json/kotodaman/v1/mcp/oauth/token",
+            "scopes": {
+              "validate": "スキーマ・ターム・検索・下書き取得・検証",
+              "preview": "プレビュー検証（preview_hash生成）",
+              "create": "下書きの作成・更新・ゴミ箱移動"
+            }
+          }
+        }
+      },
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
@@ -23,9 +37,93 @@
         "scheme": "basic",
         "description": "WordPress ユーザー名とアプリケーションパスワード"
       }
+    },
+    "schemas": {
+      "BasicFields": {
+        "type": "object",
+        "description": "基本ACFフィールド。作成時は attribute, species, rarity が必須。name_ruby にはカッコ内の文字列を含めない。available_moji_loop には初期文字のみを指定する。",
+        "properties": {
+          "name_ruby": { "type": "string" },
+          "attribute": { "type": "string" },
+          "sub_attribute": { "type": "array", "items": { "type": "string" } },
+          "species": { "type": "string" },
+          "rarity": { "type": "string" },
+          "affiliation": { "type": "array", "items": { "type": "string" } },
+          "event": { "type": "string" },
+          "sub_event": { "type": "array", "items": { "type": "string" } },
+          "get_place": { "type": "string", "description": "入手場所（gacha / other 等）" },
+          "guerilla_root": { "type": "string" },
+          "quest": { "type": "array", "items": { "type": "string" } },
+          "same_character": { "type": "array", "items": { "type": "integer" } },
+          "voice_actor": { "type": "string" },
+          "pre_evo_name": { "type": "string" },
+          "another_image_name": { "type": "string" },
+          "implement_date": { "type": "string", "description": "実装日 (YYYY-MM-DD または YYYYMMDD)" },
+          "status_auto_tf": { "type": "boolean" },
+          "no_lv120_flag": { "type": "boolean" },
+          "hp_chouka": { "type": "integer", "description": "HP超化pt" },
+          "atk_chouka": { "type": "integer", "description": "ATK超化pt" },
+          "lv_99_hp": { "type": "integer", "description": "Lv.99基礎HP" },
+          "lv_99_atk": { "type": "integer", "description": "Lv.99基礎ATK" },
+          "lv_120_hp": { "type": "integer", "description": "Lv.120基礎HP" },
+          "lv_120_atk": { "type": "integer", "description": "Lv.120基礎ATK" },
+          "99_hp": { "type": "integer" },
+          "99_atk": { "type": "integer" },
+          "120_hp": { "type": "integer" },
+          "120_atk": { "type": "integer" },
+          "plus_hp": { "type": "integer" },
+          "plus_atk": { "type": "integer" },
+          "max_ls_hp": { "type": "number" },
+          "max_ls_atk": { "type": "number" },
+          "fuku_break": { "type": "boolean" },
+          "available_moji_loop": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "available_moji": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "AutoInput": {
+        "type": "object",
+        "description": "わざ・すごわざ・とくせい・リーダー・祝福・EX祝福・コトワザのゲーム内説明文",
+        "properties": {
+          "auto_input_waza_name": { "type": "string" },
+          "auto_input_waza": { "type": "string" },
+          "auto_input_sugowaza_name": { "type": "string" },
+          "auto_input_sugowaza_condition": { "type": "string" },
+          "auto_input_sugowaza": { "type": "string" },
+          "auto_input_trait1": { "type": "string" },
+          "auto_input_trait2": { "type": "string" },
+          "auto_input_leader": { "type": "string" },
+          "auto_input_blessing": { "type": ["string", "object"] },
+          "auto_input_ex_blessing": { "type": ["string", "object"] },
+          "auto_input_kotowaza": { "type": "string" }
+        }
+      },
+      "DraftPayload": {
+        "type": "object",
+        "properties": {
+          "post_id": { "type": "integer", "description": "既存下書きを更新・検証する際の投稿ID" },
+          "character_name": { "type": "string", "description": "キャラクター名" },
+          "basic_fields": { "$ref": "#/components/schemas/BasicFields" },
+          "auto_input": { "$ref": "#/components/schemas/AutoInput" },
+          "screenshot_urls": { "type": "array", "items": { "type": "string" } },
+          "evidence": { "type": "object", "description": "OCR抽出根拠・判断メタデータ（最大16KB）" },
+          "human_approved": { "type": "boolean", "description": "曖昧値の人間確認済みフラグ" },
+          "replace_existing": { "type": "boolean", "default": true },
+          "preview_hash": { "type": "string", "description": "直前のプレビュー検証で取得したハッシュ値" },
+          "idempotency_key": { "type": "string", "description": "二重作成・二重更新防止キー" },
+          "test_mode": { "type": "boolean", "default": false }
+        }
+      }
     }
   },
   "security": [
+    { "oauth2": ["validate", "preview", "create"] },
     { "bearerAuth": [] },
     { "basicAuth": [] }
   ],
@@ -34,31 +132,42 @@
       "get": {
         "operationId": "getFieldSchema",
         "summary": "ACFフィールド定義・必須項目・自動入力キー・運用ガイド（workflow_guide）を取得する",
+        "x-openai-isConsequential": false,
         "parameters": [
           {
             "name": "test_mode",
             "in": "query",
             "required": false,
             "schema": { "type": "boolean", "default": false },
-            "description": "通常は false（コンパクト定義）。全67フィールドを取得する場合のみ true。"
+            "description": "通常は false（コンパクト定義）。全フィールド定義を取得する場合のみ true。"
           }
         ],
         "responses": {
           "200": {
             "description": "フィールドスキーマと workflow_guide",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "fields": { "type": "object" },
-                    "required_for_create": { "type": "array", "items": { "type": "string" } },
-                    "auto_input_keys": { "type": "array", "items": { "type": "string" } },
-                    "workflow_guide": { "type": "object" }
-                  }
-                }
-              }
-            }
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/mcp/blessing-schema": {
+      "get": {
+        "operationId": "getBlessingSchema",
+        "summary": "祝福・EX祝福のトークン辞書・テンプレート構成・バリデーションスキーマを取得する",
+        "x-openai-isConsequential": false,
+        "parameters": [
+          {
+            "name": "include_gimmicks",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean", "default": true },
+            "description": "ギミック耐性トークンを含めるかどうか"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "祝福・EX祝福スキーマ",
+            "content": { "application/json": { "schema": { "type": "object" } } }
           }
         }
       }
@@ -67,6 +176,7 @@
       "get": {
         "operationId": "getTerms",
         "summary": "タクソノミー（所属グループ・イベント等）の既存ターム一覧を検索・取得する",
+        "x-openai-isConsequential": false,
         "parameters": [
           {
             "name": "taxonomy",
@@ -81,16 +191,70 @@
             "required": false,
             "schema": { "type": "string" },
             "description": "ターム名・スラッグの部分一致検索キーワード"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "default": 200, "minimum": 1, "maximum": 500 },
+            "description": "1タクソノミーあたりの最大取得件数（初期値200、上限500）"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "default": 0, "minimum": 0 },
+            "description": "ページネーション開始位置"
           }
         ],
         "responses": {
           "200": {
-            "description": "ターム一覧",
-            "content": {
-              "application/json": {
-                "schema": { "type": "object" }
-              }
+            "description": "ターム一覧（ページネーション付き）",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/mcp/characters/search": {
+      "get": {
+        "operationId": "searchCharacter",
+        "summary": "既存キャラクター投稿を名前で検索し重複を確認する",
+        "x-openai-isConsequential": false,
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "検索するキャラクター名キーワード"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "一致したキャラクター一覧",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/mcp/draft/preview": {
+      "post": {
+        "operationId": "previewCharacterDraft",
+        "summary": "キャラクター下書きを保存せずに検証・解析し preview_hash を発行する",
+        "description": "データを30分間キャッシュし preview_hash と parsed_counts を返します。続けて createOrPreviewCharacterDraft や updateCharacterDraft に渡してください。",
+        "x-openai-isConsequential": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DraftPayload" }
             }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "プレビュー検証結果（preview_hash, parsed_counts, warnings）",
+            "content": { "application/json": { "schema": { "type": "object" } } }
           }
         }
       }
@@ -98,7 +262,8 @@
     "/mcp/draft/{post_id}": {
       "get": {
         "operationId": "getCharacterDraft",
-        "summary": "既存キャラクター下書きのデータ（basic_fields、ステータス、レビュー状況）を取得する",
+        "summary": "既存キャラクター下書きのデータ（basic_fields、祝福、ステータス等）を取得する",
+        "x-openai-isConsequential": false,
         "parameters": [
           {
             "name": "post_id",
@@ -111,14 +276,59 @@
         "responses": {
           "200": {
             "description": "キャラクター下書き情報",
-            "content": {
-              "application/json": {
-                "schema": { "type": "object" }
-              }
-            }
+            "content": { "application/json": { "schema": { "type": "object" } } }
           },
           "404": { "description": "下書きが見つかりません" },
           "403": { "description": "権限不足または保護対象テンプレート" }
+        }
+      },
+      "patch": {
+        "operationId": "updateCharacterDraft",
+        "summary": "既存のキャラクター下書き（draft）を更新する",
+        "description": "直前の previewCharacterDraft で取得した preview_hash と一意の idempotency_key を指定して既存下書きを更新します。",
+        "x-openai-isConsequential": true,
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" },
+            "description": "更新対象のキャラクター下書きID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DraftPayload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新後の下書き情報",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "trashCharacterDraft",
+        "summary": "既存のキャラクター下書き（draft）をゴミ箱へ移動する",
+        "x-openai-isConsequential": true,
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" },
+            "description": "ゴミ箱へ移動するキャラクター下書きID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "削除（ゴミ箱移動）結果",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
         }
       }
     },
@@ -126,90 +336,31 @@
       "post": {
         "operationId": "createOrPreviewCharacterDraft",
         "summary": "キャラクター下書きのプレビュー検証（dry_run: true）または本作成（dry_run: false）を行う",
-        "description": "まず dry_run: true で呼び出して解析結果（parsed_counts）と preview_hash を確認し、続けて dry_run: false で preview_hash と idempotency_key を渡して下書きを作成します。",
+        "description": "まず dry_run: true（または previewCharacterDraft）で解析結果と preview_hash を確認し、続けて dry_run: false で preview_hash と idempotency_key を渡して下書きを作成します。",
+        "x-openai-isConsequential": true,
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "character_name": {
-                    "type": "string",
-                    "description": "キャラクター名（preview_hash のみでキャッシュ復元作成する場合は省略可）"
-                  },
-                  "basic_fields": {
+                "allOf": [
+                  { "$ref": "#/components/schemas/DraftPayload" },
+                  {
                     "type": "object",
-                    "description": "基本ACFフィールド。作成時は attribute, species, rarity が必須。name_ruby にはカッコ内の文字列を含めない。available_moji_loop には初期文字のみを指定する。",
                     "properties": {
-                      "name_ruby": { "type": "string" },
-                      "attribute": { "type": "string" },
-                      "sub_attribute": { "type": "array", "items": { "type": "string" } },
-                      "species": { "type": "string" },
-                      "rarity": { "type": "string" },
-                      "affiliation": { "type": "array", "items": { "type": "string" } },
-                      "status_auto_tf": { "type": "boolean" },
-                      "hp_chouka": { "type": "integer", "description": "HP超化pt" },
-                      "atk_chouka": { "type": "integer", "description": "ATK超化pt" },
-                      "lv_99_hp": { "type": "integer", "description": "Lv.99基礎HP" },
-                      "lv_99_atk": { "type": "integer", "description": "Lv.99基礎ATK" },
-                      "lv_120_hp": { "type": "integer", "description": "Lv.120基礎HP" },
-                      "lv_120_atk": { "type": "integer", "description": "Lv.120基礎ATK" },
-                      "99_hp": { "type": "integer" },
-                      "99_atk": { "type": "integer" },
-                      "120_hp": { "type": "integer" },
-                      "120_atk": { "type": "integer" },
-                      "plus_hp": { "type": "integer" },
-                      "plus_atk": { "type": "integer" },
-                      "max_ls_hp": { "type": "number" },
-                      "max_ls_atk": { "type": "number" },
-                      "fuku_break": { "type": "boolean" },
-                      "available_moji_loop": {
+                      "screenshots": {
                         "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "available_moji": { "type": "string" }
-                          }
-                        }
+                        "items": { "type": "object" },
+                        "description": "Base64 data URI画像配列"
+                      },
+                      "dry_run": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "true でプレビューのみ、false で下書き作成"
                       }
                     }
-                  },
-                  "auto_input": {
-                    "type": "object",
-                    "description": "わざ・すごわざ・とくせい・リーダー・祝福・コトワザのゲーム内説明文",
-                    "properties": {
-                      "auto_input_waza_name": { "type": "string" },
-                      "auto_input_waza": { "type": "string" },
-                      "auto_input_sugowaza_name": { "type": "string" },
-                      "auto_input_sugowaza_condition": { "type": "string" },
-                      "auto_input_sugowaza": { "type": "string" },
-                      "auto_input_trait1": { "type": "string" },
-                      "auto_input_trait2": { "type": "string" },
-                      "auto_input_leader": { "type": "string" },
-                      "auto_input_blessing": { "type": "string" },
-                      "auto_input_kotowaza": { "type": "string" }
-                    }
-                  },
-                  "screenshot_urls": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "www.kotodaman-db.com 上の画像URL（省略時は準備中画像が自動設定される）"
-                  },
-                  "preview_hash": {
-                    "type": "string",
-                    "description": "直前の dry_run: true で返却された preview_hash。これを指定すると30分キャッシュから入力データが自動復元される。"
-                  },
-                  "idempotency_key": {
-                    "type": "string",
-                    "description": "二重作成防止用の一意キー（例: char-draft-20261107-001）"
-                  },
-                  "dry_run": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "true の場合は投稿を作成せず検証と preview_hash 発行のみを行う。false で下書きを作成する。"
                   }
-                }
+                ]
               }
             }
           }
@@ -217,11 +368,7 @@
         "responses": {
           "200": {
             "description": "プレビュー結果または作成された下書き情報（post_id, edit_url, warnings 等）",
-            "content": {
-              "application/json": {
-                "schema": { "type": "object" }
-              }
-            }
+            "content": { "application/json": { "schema": { "type": "object" } } }
           }
         }
       }

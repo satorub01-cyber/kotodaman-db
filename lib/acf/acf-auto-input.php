@@ -2,5 +2,3 @@
 if (!defined('ABSPATH')) exit;
 
 require_once __DIR__ . '/auto-input/acf-auto-input-ajax.php';
-require_once __DIR__ . '/mcp/post-mcp.php';
-require_once __DIR__ . '/mcp/server.php';

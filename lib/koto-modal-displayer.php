@@ -22,6 +22,15 @@ function add_contribution_modal_script()
                     📋 未入力リストを見る
                 </a>
 
+                <?php
+                $collab_page_url = function_exists('koto_mcp_collaborate_page_url')
+                    ? koto_mcp_collaborate_page_url()
+                    : home_url('/collaborate/'); // //要チェック 本番の協力案内ページURL確認
+                ?>
+                <a href="<?php echo esc_url($collab_page_url); ?>" class="collab-btn btn-register">
+                    📝 協力者登録・AI連携ガイドを見る
+                </a>
+
                 <a href="https://discord.gg/cmjGCXe6u5" target="_blank" class="collab-btn btn-discord">
                     💬 Discordに参加する
                 </a>
@@ -98,6 +107,11 @@ function add_contribution_modal_script()
         /* リストボタン色 */
         .btn-check {
             background-color: #e67e22;
+        }
+
+        /* 登録・AI連携ガイドボタン色 */
+        .btn-register {
+            background-color: #135e96;
         }
 
         /* Discordボタン色 */

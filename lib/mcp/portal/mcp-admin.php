@@ -100,6 +100,34 @@ function koto_mcp_get_user_tokens_summary($user_id)
 }
 
 /**
+ * 承認時に購読者（subscriber）を mcp_user ロールへ昇格する（上位ロールは維持）。
+ *
+ * @param WP_User $user
+ */
+function koto_mcp_promote_subscriber_to_mcp_user($user)
+{
+    if (!$user instanceof WP_User) return;
+    $roles = (array) $user->roles;
+    if (in_array('subscriber', $roles, true) && !array_intersect(['administrator', 'editor', 'author', 'mcp_user'], $roles)) {
+        $user->set_role('mcp_user');
+    }
+}
+
+/**
+ * 利用停止（剥奪）時に mcp_user ロールを購読者（subscriber）へ降格する（上位ロールは維持）。
+ *
+ * @param WP_User $user
+ */
+function koto_mcp_demote_mcp_user_to_subscriber($user)
+{
+    if (!$user instanceof WP_User) return;
+    $roles = (array) $user->roles;
+    if (in_array('mcp_user', $roles, true) && !array_intersect(['administrator', 'editor', 'author'], $roles)) {
+        $user->set_role('subscriber');
+    }
+}
+
+/**
  * 承認・再開通知メール送信（AIクライアント固有名は含めない）
  *
  * @param WP_User $user
@@ -146,6 +174,22 @@ function koto_mcp_approval_page()
 
     echo '<div class="wrap">';
     echo '<h1>コトダマンDB MCP 利用者管理</h1>';
+
+    $new_client_notice = get_transient('koto_mcp_new_static_client_' . get_current_user_id());
+    if (is_array($new_client_notice) && !empty($new_client_notice['client_id'])) {
+        delete_transient('koto_mcp_new_static_client_' . get_current_user_id());
+        echo '<div class="notice notice-success is-dismissible">';
+        echo '<p><strong>静的 OAuth クライアントを発行しました（<code>client_secret</code> は今回のみ表示されます。必ず控えてください）：</strong></p>';
+        echo '<p>クライアント名: <strong>' . esc_html((string) ($new_client_notice['name'] ?? '')) . '</strong><br>';
+        echo 'Client ID: <code>' . esc_html((string) $new_client_notice['client_id']) . '</code><br>';
+        echo 'Client Secret: <code>' . esc_html((string) ($new_client_notice['client_secret'] ?? '')) . '</code></p>';
+        echo '</div>';
+    }
+    $client_err = get_transient('koto_mcp_static_client_err_' . get_current_user_id());
+    if (is_string($client_err) && $client_err !== '') {
+        delete_transient('koto_mcp_static_client_err_' . get_current_user_id());
+        echo '<div class="notice notice-error is-dismissible"><p>' . esc_html($client_err) . '</p></div>';
+    }
 
     // 1. 承認待ちの申請一覧
     echo '<h2>承認待ちの申請一覧</h2>';
@@ -237,7 +281,62 @@ function koto_mcp_approval_page()
     echo '<input type="text" id="koto_mcp_grant_user_identifier" name="koto_mcp_grant_user_identifier" placeholder="例: 123 または username" style="width:220px;">';
     echo '<button type="submit" class="button button-primary">MCP利用タグを付与（再開）</button>';
     echo '</form>';
-    echo '<p class="description">※管理画面からタグを付与すると、停止中フラグは解除され、対象ユーザーに再接続案内メールが自動送信されます。一覧に表示されない場合も直接指定欄から付与可能です。</p>';
+    echo '<p class="description">※管理画面からタグを付与すると、停止中フラグは解除され、購読者は <code>mcp_user</code> に昇格して対象ユーザーに再接続案内メールが自動送信されます。一覧に表示されない場合も直接指定欄から付与可能です。</p>';
+
+    // 4. 静的 OAuth クライアント管理（ChatGPT Actions / Gemini 事前登録等向け）
+    $static_clients = function_exists('koto_mcp_list_static_oauth_clients') ? koto_mcp_list_static_oauth_clients() : [];
+    echo '<hr>';
+    echo '<h2>静的 OAuth クライアント管理（ChatGPT Actions / Gemini 等）</h2>';
+    echo '<p class="description">動的クライアント登録（DCR）や PKCE に対応しない事前登録型 OAuth クライアント向けに、<code>client_id</code> と <code>client_secret</code> を発行します。</p>';
+
+    if (!empty($static_clients)) {
+        echo '<table class="widefat striped">';
+        echo '<thead><tr><th>クライアント名</th><th>Client ID</th><th>Redirect URIs</th><th>PKCE省略</th><th>初期スコープ</th><th>状態</th><th>操作</th></tr></thead>';
+        echo '<tbody>';
+        foreach ($static_clients as $cid => $cdata) {
+            $is_disabled = !empty($cdata['disabled']);
+            $toggle_url = wp_nonce_url(
+                admin_url('users.php?page=koto-mcp-approvals&koto_mcp_toggle_static_client=' . urlencode($cid)),
+                'koto_mcp_toggle_static_client_' . $cid
+            );
+            $delete_url = wp_nonce_url(
+                admin_url('users.php?page=koto-mcp-approvals&koto_mcp_delete_static_client=' . urlencode($cid)),
+                'koto_mcp_delete_static_client_' . $cid
+            );
+            echo '<tr>';
+            echo '<td><strong>' . esc_html((string) ($cdata['name'] ?? '')) . '</strong></td>';
+            echo '<td><code>' . esc_html((string) $cid) . '</code></td>';
+            echo '<td><code>' . esc_html(implode(', ', (array) ($cdata['redirect_uris'] ?? []))) . '</code></td>';
+            echo '<td>' . (!empty($cdata['allow_no_pkce']) ? '許容' : '必須') . '</td>';
+            echo '<td><code>' . esc_html((string) ($cdata['default_scope'] ?? 'validate preview')) . '</code></td>';
+            echo '<td>' . ($is_disabled ? '停止中' : '有効') . '</td>';
+            echo '<td>';
+            echo '<a class="button button-secondary" href="' . esc_url($toggle_url) . '">' . ($is_disabled ? '有効化' : '停止') . '</a> ';
+            echo '<a class="button button-link-delete" href="' . esc_url($delete_url) . '" onclick="return confirm(\'この静的クライアントを完全に削除しますか？\');">削除</a>';
+            echo '</td>';
+            echo '</tr>';
+        }
+        echo '</tbody></table>';
+    } else {
+        echo '<p>登録済みの静的 OAuth クライアントはありません。</p>';
+    }
+
+    echo '<h3>新規静的クライアントを発行</h3>';
+    echo '<form method="post">';
+    wp_nonce_field('koto_mcp_create_static_client_action');
+    echo '<input type="hidden" name="koto_mcp_create_static_client" value="1">';
+    echo '<table class="form-table">';
+    echo '<tr><th scope="row"><label for="koto_static_client_name">クライアント名</label></th>';
+    echo '<td><input type="text" id="koto_static_client_name" name="koto_static_client_name" class="regular-text" placeholder="例: ChatGPT Custom GPT Actions" required></td></tr>';
+    echo '<tr><th scope="row"><label for="koto_static_redirect_uris">Redirect URIs（1行に1つ）</label></th>';
+    echo '<td><textarea id="koto_static_redirect_uris" name="koto_static_redirect_uris" class="large-text code" rows="3" placeholder="https://chat.openai.com/aip/g-xxxxxx/oauth/callback" required></textarea></td></tr>';
+    echo '<tr><th scope="row">PKCE 要件</th>';
+    echo '<td><label><input type="checkbox" name="koto_static_allow_no_pkce" value="1" checked> Confidential Client 認証（<code>client_secret</code>）時に PKCE 省略を許可する</label></td></tr>';
+    echo '<tr><th scope="row"><label for="koto_static_default_scope">デフォルトスコープ</label></th>';
+    echo '<td><input type="text" id="koto_static_default_scope" name="koto_static_default_scope" class="regular-text" value="validate preview create"></td></tr>';
+    echo '</table>';
+    echo '<p><button type="submit" class="button button-primary">静的 OAuth クライアントを発行</button></p>';
+    echo '</form>';
 
     echo '</div>';
 }
@@ -253,6 +352,7 @@ function koto_mcp_handle_approval_action()
         $user = get_userdata($user_id);
         if ($user) {
             $was_revoked = (bool) get_user_meta($user_id, '_koto_mcp_revoked', true);
+            koto_mcp_promote_subscriber_to_mcp_user($user);
             update_user_meta($user_id, '_koto_mcp_approved', 1);
             delete_user_meta($user_id, '_koto_mcp_revoked');
             koto_mcp_clear_request_meta($user_id); // 申請メタ完全消去
@@ -282,7 +382,9 @@ function koto_mcp_handle_approval_action()
     if (!empty($_GET['koto_mcp_revoke_user'])) {
         $user_id = (int) $_GET['koto_mcp_revoke_user'];
         check_admin_referer('koto_mcp_revoke_user_' . $user_id);
-        if (get_userdata($user_id)) {
+        $user = get_userdata($user_id);
+        if ($user) {
+            koto_mcp_demote_mcp_user_to_subscriber($user);
             delete_user_meta($user_id, '_koto_mcp_approved');
             update_user_meta($user_id, '_koto_mcp_revoked', 1); // 剥奪履歴フラグを記録
             koto_mcp_clear_request_meta($user_id); // 申請メタ完全消去
@@ -315,10 +417,58 @@ function koto_mcp_handle_approval_action()
 
         if ($user && $user_id > 0) {
             $was_revoked = (bool) get_user_meta($user_id, '_koto_mcp_revoked', true);
+            koto_mcp_promote_subscriber_to_mcp_user($user);
             update_user_meta($user_id, '_koto_mcp_approved', 1);
             delete_user_meta($user_id, '_koto_mcp_revoked');
             koto_mcp_clear_request_meta($user_id); // 申請メタ完全消去
             koto_mcp_send_approval_email($user, $was_revoked);
+        }
+        wp_safe_redirect(admin_url('users.php?page=koto-mcp-approvals'));
+        exit;
+    }
+
+    // 5. 静的 OAuth クライアント発行
+    if (!empty($_POST['koto_mcp_create_static_client'])) {
+        check_admin_referer('koto_mcp_create_static_client_action');
+        $name = sanitize_text_field(wp_unslash($_POST['koto_static_client_name'] ?? ''));
+        $raw_uris = (string) wp_unslash($_POST['koto_static_redirect_uris'] ?? '');
+        $uris = preg_split('/\r\n|\r|\n/', $raw_uris) ?: [];
+        $allow_no_pkce = !empty($_POST['koto_static_allow_no_pkce']);
+        $default_scope = sanitize_text_field(wp_unslash($_POST['koto_static_default_scope'] ?? 'validate preview create'));
+        if (function_exists('koto_mcp_create_static_oauth_client')) {
+            $created = koto_mcp_create_static_oauth_client($name, $uris, $allow_no_pkce, $default_scope);
+            if (is_wp_error($created)) {
+                set_transient('koto_mcp_static_client_err_' . get_current_user_id(), $created->get_error_message(), 120);
+            } else {
+                set_transient('koto_mcp_new_static_client_' . get_current_user_id(), [
+                    'name' => $name,
+                    'client_id' => $created['client_id'],
+                    'client_secret' => $created['client_secret'],
+                ], 120);
+            }
+        }
+        wp_safe_redirect(admin_url('users.php?page=koto-mcp-approvals'));
+        exit;
+    }
+
+    // 6. 静的 OAuth クライアント停止／再開
+    if (!empty($_GET['koto_mcp_toggle_static_client'])) {
+        $cid = sanitize_text_field(wp_unslash($_GET['koto_mcp_toggle_static_client']));
+        check_admin_referer('koto_mcp_toggle_static_client_' . $cid);
+        $rec = koto_mcp_storage_get('koto_mcp_client_' . $cid);
+        if (is_array($rec) && function_exists('koto_mcp_set_static_oauth_client_disabled')) {
+            koto_mcp_set_static_oauth_client_disabled($cid, empty($rec['disabled']));
+        }
+        wp_safe_redirect(admin_url('users.php?page=koto-mcp-approvals'));
+        exit;
+    }
+
+    // 7. 静的 OAuth クライアント削除
+    if (!empty($_GET['koto_mcp_delete_static_client'])) {
+        $cid = sanitize_text_field(wp_unslash($_GET['koto_mcp_delete_static_client']));
+        check_admin_referer('koto_mcp_delete_static_client_' . $cid);
+        if (function_exists('koto_mcp_delete_static_oauth_client')) {
+            koto_mcp_delete_static_oauth_client($cid);
         }
         wp_safe_redirect(admin_url('users.php?page=koto-mcp-approvals'));
         exit;

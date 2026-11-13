@@ -8,12 +8,15 @@
  * 本番環境での実行は推奨されません。
  *
  * 実行方法:
- *   php lib/acf/mcp/test-mcp-permissions.php
+ *   php lib/mcp/tests/test-mcp-permissions.php
  */
+if (php_sapi_name() !== 'cli') {
+    exit("CLI only.\n");
+}
 
 $wp_load_candidates = [
-    __DIR__ . '/../../../../wp-load.php',
-    dirname(__DIR__, 4) . '/wp-load.php',
+    dirname(__DIR__, 6) . '/wp-load.php',
+    dirname(__DIR__, 5) . '/wp-load.php',
     '/var/www/html/wp-load.php',
 ];
 

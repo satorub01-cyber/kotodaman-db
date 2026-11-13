@@ -123,7 +123,7 @@
 * **専用エディタ（`acf-editor.js`）の `beforeunload` 自動保存との排他制御**:
   * Ajax自動入力やリロード・遷移時は、`window.kotoSkipBeforeUnloadSave = true` をセットして古いDOMによる上書き競合を防止してください。
 
-### ③ 自動入力（`lib/acf/auto-input/`）とMCP（`lib/acf/mcp/`）
+### ③ 自動入力（`lib/acf/auto-input/`）とMCP（`lib/mcp/`）
 * 自動入力の文言解析仕様は [lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md](lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md) を参照。
 * 自動入力ロジックや対応表の変更時は、必ず `php lib/acf/test_auto_input.php` による回帰テストを実施してください。
 * MCPによるスクショ読み取り手順は [documents/mcp/character-draft-guide.md](documents/mcp/character-draft-guide.md) を参照（`prepare_screenshots.php` で1枚化して読み取る原則）。

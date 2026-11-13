@@ -8,7 +8,8 @@ if (!defined('ABSPATH')) exit;
  * Idempotency（冪等性）管理、ガベージコレクション、ロール初期化を提供します。
  */
 
-const KOTO_MCP_PROTOCOL_VERSION = '2025-03-26';
+const KOTO_MCP_PROTOCOL_VERSION = '2025-11-25';
+const KOTO_MCP_SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 const KOTO_MCP_DEFAULT_IMAGE_URL = 'https://www.kotodaman-db.com/wp-content/uploads/2026/02/無題51_20260205005357.png';
 const KOTO_MCP_MAX_BODY_BYTES = 262144;
 const KOTO_MCP_MAX_NAME_CHARS = 200;
@@ -137,6 +138,70 @@ function koto_mcp_protected_resource_metadata_url()
 function koto_mcp_server_url()
 {
     return koto_mcp_base_url() . '/mcp';
+}
+
+/**
+ * リクエストされた MCP プロトコルバージョンをネゴシエーションする。
+ *
+ * @param string $requested クライアントが提示した protocolVersion。
+ * @return string ネゴシエーション後のバージョン。
+ */
+function koto_mcp_negotiate_protocol_version($requested = '')
+{
+    $requested = is_string($requested) ? trim($requested) : '';
+    if ($requested !== '' && in_array($requested, KOTO_MCP_SUPPORTED_PROTOCOL_VERSIONS, true)) {
+        return $requested;
+    }
+    return KOTO_MCP_PROTOCOL_VERSION;
+}
+
+/**
+ * 協力案内・新規登録ページのURLを返す。
+ *
+ * @return string
+ */
+function koto_mcp_collaborate_page_url()
+{
+    static $resolved_template_url = null;
+
+    $default = defined('KOTO_MCP_COLLABORATE_PAGE_URL')
+        ? (string) KOTO_MCP_COLLABORATE_PAGE_URL
+        : '';
+
+    $option_url = get_option('koto_mcp_collaborate_page_url', '');
+    if ($default === '' && is_string($option_url) && trim($option_url) !== '') {
+        $default = trim($option_url);
+    }
+
+    if ($default === '') {
+        if ($resolved_template_url === null) {
+            $resolved_template_url = '';
+            global $wpdb;
+            if ($wpdb instanceof wpdb) {
+                $page_id = (int) $wpdb->get_var(
+                    "SELECT p.ID
+                     FROM {$wpdb->posts} p
+                     INNER JOIN {$wpdb->postmeta} pm ON (p.ID = pm.post_id AND pm.meta_key = '_wp_page_template')
+                     WHERE p.post_type = 'page'
+                       AND p.post_status = 'publish'
+                       AND pm.meta_value = 'collaboration-page.php'
+                     ORDER BY p.ID ASC
+                     LIMIT 1"
+                );
+                if ($page_id > 0) {
+                    $permalink = get_permalink($page_id);
+                    if (is_string($permalink) && $permalink !== '') {
+                        $resolved_template_url = $permalink;
+                    }
+                }
+            }
+        }
+        $default = $resolved_template_url !== ''
+            ? $resolved_template_url
+            : home_url('/collaborate/'); // //要チェック 本番固定ページを作成しテンプレート「collaboration-page」を指定後にURL確認
+    }
+
+    return (string) apply_filters('koto_mcp_collaborate_page_url', $default);
 }
 
 function koto_mcp_is_object_like_array($value)
@@ -331,6 +396,21 @@ function koto_mcp_maybe_cleanup_expired_options()
         foreach ($new_lock_rows as $row) {
             $val = maybe_unserialize($row->option_value);
             if (is_array($val) && !empty($val['created_at']) && ((int) $val['created_at'] + 300) < $now) {
+                delete_option($row->option_name);
+            }
+        }
+    }
+
+    // 7. 期限切れの koto_mcp_pending_reg_% (24時間経過した仮登録) (LIMIT 100)
+    $pending_like = $wpdb->esc_like('koto_mcp_pending_reg_') . '%';
+    $pending_rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT 100",
+        $pending_like
+    ));
+    if (is_array($pending_rows)) {
+        foreach ($pending_rows as $row) {
+            $val = maybe_unserialize($row->option_value);
+            if (is_array($val) && !empty($val['expires_at']) && (int) $val['expires_at'] < $now) {
                 delete_option($row->option_name);
             }
         }

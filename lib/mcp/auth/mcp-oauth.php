@@ -9,6 +9,45 @@ if (!defined('ABSPATH')) exit;
  * Grace Period、リプレイ攻撃防止、並行ロックポーリング）、トークン失効（RFC 7009）を提供します。
  */
 
+/**
+ * Protected Resource Metadata (RFC 9728) 配列を生成する。
+ *
+ * @return array<string, mixed>
+ */
+function koto_mcp_oauth_protected_resource_metadata()
+{
+    return [
+        'resource' => koto_mcp_server_url(),
+        'authorization_servers' => [koto_mcp_issuer_url()],
+        'scopes_supported' => ['validate', 'preview', 'create'],
+        'bearer_methods_supported' => ['header'],
+    ];
+}
+
+/**
+ * Authorization Server Metadata (RFC 8414) 配列を生成する。
+ *
+ * @return array<string, mixed>
+ */
+function koto_mcp_oauth_authorization_server_metadata()
+{
+    $base = koto_mcp_base_url();
+    $issuer = koto_mcp_issuer_url();
+    return [
+        'issuer' => $issuer,
+        'authorization_endpoint' => koto_mcp_authorization_endpoint_url(),
+        'token_endpoint' => $base . '/mcp/oauth/token',
+        'registration_endpoint' => $base . '/mcp/oauth/register',
+        'revocation_endpoint' => $base . '/mcp/oauth/revoke',
+        'response_types_supported' => ['code'],
+        'grant_types_supported' => ['authorization_code', 'refresh_token'],
+        'token_endpoint_auth_methods_supported' => ['none', 'client_secret_post', 'client_secret_basic'],
+        'code_challenge_methods_supported' => ['S256'],
+        'scopes_supported' => ['validate', 'preview', 'create'],
+        'client_id_metadata_document_supported' => true,
+    ];
+}
+
 // RFC 8414 / RFC 9728 パス型ディスカバリおよび OAuth エンドポイントの早期捕捉（リライトルール状態に依存せず常時動作）
 add_action('init', function () {
     $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
@@ -16,40 +55,19 @@ add_action('init', function () {
 
     // 1. Protected Resource Metadata ディスカバリ (RFC 9728)
     if (strpos($path, '/.well-known/oauth-protected-resource') === 0) {
-        $issuer = koto_mcp_issuer_url();
-        $response = [
-            'resource' => koto_mcp_server_url(),
-            'authorization_servers' => [$issuer],
-            'scopes_supported' => ['validate', 'preview', 'create'],
-            'bearer_methods_supported' => ['header'],
-        ];
         status_header(200);
         header('Content-Type: application/json; charset=' . get_bloginfo('charset'));
         header('Access-Control-Allow-Origin: *');
-        echo wp_json_encode($response);
+        echo wp_json_encode(koto_mcp_oauth_protected_resource_metadata());
         exit;
     }
 
     // 2. Authorization Server Metadata ディスカバリ (RFC 8414) / OpenID Configuration
     if (strpos($path, '/.well-known/oauth-authorization-server') === 0 || strpos($path, '/.well-known/openid-configuration') === 0) {
-        $base = koto_mcp_base_url();
-        $issuer = koto_mcp_issuer_url();
-        $response = [
-            'issuer' => $issuer,
-            'authorization_endpoint' => koto_mcp_authorization_endpoint_url(),
-            'token_endpoint' => $base . '/mcp/oauth/token',
-            'registration_endpoint' => $base . '/mcp/oauth/register',
-            'revocation_endpoint' => $base . '/mcp/oauth/revoke',
-            'response_types_supported' => ['code'],
-            'grant_types_supported' => ['authorization_code', 'refresh_token'],
-            'token_endpoint_auth_methods_supported' => ['none', 'client_secret_post', 'client_secret_basic'],
-            'code_challenge_methods_supported' => ['S256'],
-            'scopes_supported' => ['validate', 'preview', 'create'],
-        ];
         status_header(200);
         header('Content-Type: application/json; charset=' . get_bloginfo('charset'));
         header('Access-Control-Allow-Origin: *');
-        echo wp_json_encode($response);
+        echo wp_json_encode(koto_mcp_oauth_authorization_server_metadata());
         exit;
     }
 
@@ -158,42 +176,19 @@ add_action('template_redirect', function () {
     }
     $meta = get_query_var('koto_mcp_meta');
     if (!$meta) return;
-    $base = koto_mcp_base_url();
-    $issuer = koto_mcp_issuer_url();
     $response = $meta === 'protected'
-        ? [
-            'resource' => koto_mcp_server_url(),
-            'authorization_servers' => [$issuer],
-            'scopes_supported' => ['validate', 'preview', 'create'],
-            'bearer_methods_supported' => ['header'],
-        ]
-        : [
-            'issuer' => $issuer,
-            'authorization_endpoint' => koto_mcp_authorization_endpoint_url(),
-            'token_endpoint' => $base . '/mcp/oauth/token',
-            'registration_endpoint' => $base . '/mcp/oauth/register',
-            'revocation_endpoint' => $base . '/mcp/oauth/revoke',
-            'response_types_supported' => ['code'],
-            'grant_types_supported' => ['authorization_code', 'refresh_token'],
-            'token_endpoint_auth_methods_supported' => ['none', 'client_secret_post', 'client_secret_basic'],
-            'code_challenge_methods_supported' => ['S256'],
-            'scopes_supported' => ['validate', 'preview', 'create'],
-        ];
+        ? koto_mcp_oauth_protected_resource_metadata()
+        : koto_mcp_oauth_authorization_server_metadata();
     status_header(200);
     header('Content-Type: application/json; charset=' . get_bloginfo('charset'));
+    header('Access-Control-Allow-Origin: *');
     echo wp_json_encode($response);
     exit;
 });
 
 function koto_mcp_metadata_response($request)
 {
-    $server = koto_mcp_server_url();
-    return rest_ensure_response([
-        'resource' => $server,
-        'authorization_servers' => [koto_mcp_issuer_url()],
-        'scopes_supported' => ['validate', 'preview', 'create'],
-        'bearer_methods_supported' => ['header'],
-    ]);
+    return rest_ensure_response(koto_mcp_oauth_protected_resource_metadata());
 }
 
 function koto_mcp_oauth_is_valid_redirect_uri($uri)
@@ -308,10 +303,400 @@ function koto_mcp_oauth_register_client($request)
 
     $id = 'koto_' . wp_generate_password(24, false, false);
     $client_name = sanitize_text_field($body['client_name'] ?? 'MCP client');
-    $client_record = ['redirect_uris' => $redirect_uris, 'name' => $client_name];
+    $client_record = [
+        'client_id' => $id,
+        'client_type' => 'public',
+        'allow_no_pkce' => false,
+        'redirect_uris' => $redirect_uris,
+        'name' => $client_name,
+    ];
     koto_mcp_storage_put('koto_mcp_client_' . $id, $client_record, 'no');
     set_transient('koto_mcp_client_' . $id, $client_record, YEAR_IN_SECONDS);
-    return rest_ensure_response(['client_id' => $id, 'client_name' => $client_name, 'redirect_uris' => $redirect_uris, 'grant_types' => ['authorization_code', 'refresh_token'], 'response_types' => ['code'], 'token_endpoint_auth_method' => 'none']);
+    $resp = rest_ensure_response(['client_id' => $id, 'client_name' => $client_name, 'redirect_uris' => $redirect_uris, 'grant_types' => ['authorization_code', 'refresh_token'], 'response_types' => ['code'], 'token_endpoint_auth_method' => 'none']);
+    if ($resp instanceof WP_REST_Response) {
+        $resp->header('Access-Control-Allow-Origin', '*');
+    }
+    return $resp;
+}
+
+/**
+ * RFC 8707 resource URI を比較用に正規化する。
+ *
+ * @param string $url
+ * @return string
+ */
+function koto_mcp_oauth_canonical_resource_uri($url)
+{
+    $url = is_string($url) ? trim($url) : '';
+    if ($url === '' || strpos($url, '#') !== false) {
+        return '';
+    }
+    $parsed = wp_parse_url($url);
+    if (!is_array($parsed) || empty($parsed['scheme']) || empty($parsed['host'])) {
+        return '';
+    }
+    $scheme = strtolower((string) $parsed['scheme']);
+    if (!in_array($scheme, ['http', 'https'], true)) {
+        return '';
+    }
+    $host = strtolower((string) $parsed['host']);
+    $port = isset($parsed['port']) ? (int) $parsed['port'] : 0;
+    $default_port = $scheme === 'https' ? 443 : 80;
+    $port_part = ($port > 0 && $port !== $default_port) ? (':' . $port) : '';
+    $path = isset($parsed['path']) ? untrailingslashit((string) $parsed['path']) : '';
+    return $scheme . '://' . $host . $port_part . $path;
+}
+
+/**
+ * 要求された RFC 8707 resource / aud が本MCPサーバーを指しているか検証する。
+ *
+ * @param string $resource
+ * @return bool
+ */
+function koto_mcp_oauth_is_valid_resource($resource)
+{
+    $resource = is_string($resource) ? trim($resource) : '';
+    if ($resource === '') {
+        return true;
+    }
+    $canon = koto_mcp_oauth_canonical_resource_uri($resource);
+    if ($canon === '') {
+        return false;
+    }
+    $allowed = array_filter([
+        koto_mcp_oauth_canonical_resource_uri(koto_mcp_server_url()),
+        koto_mcp_oauth_canonical_resource_uri(koto_mcp_base_url()),
+    ]);
+    return in_array($canon, $allowed, true);
+}
+
+/**
+ * IPアドレスがプライベート／ループバック／リンクローカル等の予約領域か判定する（SSRF防御）。
+ *
+ * @param string $ip
+ * @return bool
+ */
+function koto_mcp_oauth_is_private_or_reserved_ip($ip)
+{
+    if (!is_string($ip) || $ip === '') {
+        return true;
+    }
+    return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+}
+
+/**
+ * client_id が CIMD (SEP-991) 対象の HTTPS URL か判定する。
+ *
+ * @param string $client_id
+ * @return bool
+ */
+function koto_mcp_oauth_is_cimd_url($client_id)
+{
+    if (!is_string($client_id) || stripos($client_id, 'https://') !== 0) {
+        return false;
+    }
+    if (strlen($client_id) > 2048 || strpos($client_id, '#') !== false) {
+        return false;
+    }
+    $parsed = wp_parse_url($client_id);
+    if (!is_array($parsed) || empty($parsed['host'])) {
+        return false;
+    }
+    if (!empty($parsed['user']) || !empty($parsed['pass'])) {
+        return false;
+    }
+    $path = (string) ($parsed['path'] ?? '');
+    if ($path === '' || $path === '/') {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * CIMD URL からクライアントメタデータJSONを取得・検証し、1時間キャッシュして返す（SEP-991）。
+ *
+ * @param string $client_id
+ * @return array<string, mixed>|null
+ */
+function koto_mcp_oauth_resolve_cimd_client($client_id)
+{
+    if (!koto_mcp_oauth_is_cimd_url($client_id)) {
+        return null;
+    }
+
+    $cache_key = 'koto_mcp_cimd_' . hash('sha256', $client_id);
+    $cached = get_transient($cache_key);
+    if (is_array($cached) && !empty($cached['client']) && is_array($cached['client'])) {
+        return $cached['client'];
+    }
+
+    $parsed = wp_parse_url($client_id);
+    $host = strtolower(trim((string) ($parsed['host'] ?? ''), '[]'));
+    if ($host === '' || $host === 'localhost' || substr($host, -6) === '.local' || substr($host, -5) === '.test') {
+        return null;
+    }
+    if (filter_var($host, FILTER_VALIDATE_IP)) {
+        if (koto_mcp_oauth_is_private_or_reserved_ip($host)) {
+            return null;
+        }
+    }
+
+    // テスト差し替えや追加検証用フック（通常運用時は null を返し wp_safe_remote_get を使用）
+    $custom_response = apply_filters('koto_mcp_cimd_http_fetcher', null, $client_id);
+    if ($custom_response === null) {
+        if (filter_var($host, FILTER_VALIDATE_IP) === false && function_exists('gethostbynamel')) {
+            $ips = @gethostbynamel($host);
+            if (!is_array($ips) || empty($ips)) {
+                return null;
+            }
+            foreach ($ips as $ip) {
+                if (koto_mcp_oauth_is_private_or_reserved_ip($ip)) {
+                    return null;
+                }
+            }
+        }
+        $custom_response = wp_safe_remote_get($client_id, [
+            'timeout' => 5,
+            'redirection' => 0,
+            'limit_response_size' => 65536,
+            'headers' => ['Accept' => 'application/json'],
+        ]);
+    }
+
+    if (is_wp_error($custom_response) || !is_array($custom_response)) {
+        return null;
+    }
+    $code = (int) wp_remote_retrieve_response_code($custom_response);
+    if ($code !== 200) {
+        return null;
+    }
+    $raw_body = (string) wp_remote_retrieve_body($custom_response);
+    if ($raw_body === '' || strlen($raw_body) > 65536) {
+        return null;
+    }
+    $doc = json_decode($raw_body, true);
+    if (!is_array($doc)) {
+        return null;
+    }
+    if (($doc['client_id'] ?? null) !== $client_id) {
+        return null;
+    }
+    $auth_method = (string) ($doc['token_endpoint_auth_method'] ?? 'none');
+    if ($auth_method !== 'none') {
+        return null;
+    }
+    $valid_uris = koto_mcp_oauth_registered_redirect_uris($doc);
+    if (empty($valid_uris)) {
+        return null;
+    }
+
+    $client_record = [
+        'client_id' => $client_id,
+        'client_type' => 'public',
+        'is_cimd' => true,
+        'allow_no_pkce' => false,
+        'name' => sanitize_text_field((string) ($doc['client_name'] ?? $host)),
+        'redirect_uris' => $valid_uris,
+        'token_endpoint_auth_method' => 'none',
+    ];
+    if (!empty($doc['scope']) && is_string($doc['scope'])) {
+        $norm_scope = koto_mcp_normalize_scope($doc['scope']);
+        if (!is_wp_error($norm_scope)) {
+            $client_record['default_scope'] = $norm_scope;
+        }
+    }
+
+    set_transient($cache_key, ['client' => $client_record, 'cached_at' => time()], HOUR_IN_SECONDS);
+    return $client_record;
+}
+
+/**
+ * client_id からローカル登録（DCR / 静的クライアント）または CIMD クライアントを解決する。
+ *
+ * @param string $client_id
+ * @return array<string, mixed>|null
+ */
+function koto_mcp_oauth_resolve_client($client_id)
+{
+    $client_id = trim((string) $client_id);
+    if ($client_id === '') {
+        return null;
+    }
+    $client = koto_mcp_storage_get('koto_mcp_client_' . $client_id);
+    if (!is_array($client)) {
+        $client = get_transient('koto_mcp_client_' . $client_id);
+    }
+    if (is_array($client)) {
+        if (!empty($client['disabled'])) {
+            return null;
+        }
+        return $client;
+    }
+    if (koto_mcp_oauth_is_cimd_url($client_id)) {
+        return koto_mcp_oauth_resolve_cimd_client($client_id);
+    }
+    return null;
+}
+
+function koto_mcp_hash_client_secret($secret)
+{
+    return hash_hmac('sha256', (string) $secret, wp_salt('auth'));
+}
+
+function koto_mcp_verify_client_secret($client, $secret)
+{
+    if (!is_array($client) || !is_string($secret) || $secret === '') {
+        return false;
+    }
+    $stored_hash = (string) ($client['client_secret_hash'] ?? '');
+    if ($stored_hash === '') {
+        return false;
+    }
+    return hash_equals($stored_hash, koto_mcp_hash_client_secret($secret));
+}
+
+/**
+ * 管理者向けの静的 Confidential OAuth クライアントを作成する。
+ *
+ * @param string $name
+ * @param array<int, string> $redirect_uris
+ * @param bool $allow_no_pkce
+ * @param string $default_scope
+ * @return array<string, mixed>|WP_Error
+ */
+function koto_mcp_create_static_oauth_client($name, array $redirect_uris, $allow_no_pkce = true, $default_scope = 'validate preview create')
+{
+    $name = sanitize_text_field((string) $name);
+    if ($name === '') {
+        return new WP_Error('invalid_client_name', 'クライアント名を入力してください。');
+    }
+    $valid_uris = [];
+    foreach ($redirect_uris as $uri) {
+        $trimmed = trim((string) $uri);
+        if ($trimmed === '') continue;
+        if (!koto_mcp_oauth_is_valid_redirect_uri($trimmed)) {
+            return new WP_Error('invalid_redirect_uri', '無効なリダイレクトURIが含まれています: ' . $trimmed);
+        }
+        $valid_uris[] = esc_url_raw($trimmed);
+    }
+    $valid_uris = array_values(array_unique(array_filter($valid_uris)));
+    if (empty($valid_uris)) {
+        return new WP_Error('missing_redirect_uri', '有効なHTTPSリダイレクトURIを1つ以上入力してください。');
+    }
+    $norm_scope = koto_mcp_normalize_scope($default_scope);
+    if (is_wp_error($norm_scope)) {
+        return $norm_scope;
+    }
+
+    $client_id = 'koto_static_' . wp_generate_password(20, false, false);
+    $client_secret = 'koto_sec_' . wp_generate_password(40, false, false);
+    $record = [
+        'client_id' => $client_id,
+        'client_type' => 'confidential',
+        'is_static' => true,
+        'disabled' => false,
+        'allow_no_pkce' => (bool) $allow_no_pkce,
+        'default_scope' => $norm_scope,
+        'name' => $name,
+        'redirect_uris' => $valid_uris,
+        'client_secret_hash' => koto_mcp_hash_client_secret($client_secret),
+        'created_at' => time(),
+    ];
+    koto_mcp_storage_put('koto_mcp_client_' . $client_id, $record, 'no');
+
+    $index = get_option('koto_mcp_static_clients', []);
+    if (!is_array($index)) $index = [];
+    $index[$client_id] = 1;
+    update_option('koto_mcp_static_clients', $index, false);
+
+    return [
+        'client_id' => $client_id,
+        'client_secret' => $client_secret,
+        'client' => $record,
+    ];
+}
+
+function koto_mcp_list_static_oauth_clients()
+{
+    $index = get_option('koto_mcp_static_clients', []);
+    if (!is_array($index) || empty($index)) {
+        return [];
+    }
+    $clients = [];
+    foreach (array_keys($index) as $client_id) {
+        $record = koto_mcp_storage_get('koto_mcp_client_' . $client_id);
+        if (is_array($record)) {
+            $clients[$client_id] = $record;
+        }
+    }
+    return $clients;
+}
+
+function koto_mcp_set_static_oauth_client_disabled($client_id, $disabled)
+{
+    $record = koto_mcp_storage_get('koto_mcp_client_' . $client_id);
+    if (!is_array($record) || empty($record['is_static'])) {
+        return false;
+    }
+    $record['disabled'] = (bool) $disabled;
+    koto_mcp_storage_put('koto_mcp_client_' . $client_id, $record, 'no');
+    return true;
+}
+
+function koto_mcp_delete_static_oauth_client($client_id)
+{
+    $client_id = sanitize_text_field((string) $client_id);
+    $index = get_option('koto_mcp_static_clients', []);
+    if (is_array($index) && isset($index[$client_id])) {
+        unset($index[$client_id]);
+        update_option('koto_mcp_static_clients', $index, false);
+    }
+    koto_mcp_storage_delete('koto_mcp_client_' . $client_id);
+    delete_transient('koto_mcp_client_' . $client_id);
+    return true;
+}
+
+/**
+ * トークンリクエストから client_id および client_secret（Basic または POST）を抽出する。
+ *
+ * @param WP_REST_Request $request
+ * @param array<string, mixed> $body
+ * @return array{client_id: string, client_secret: string}|WP_Error
+ */
+function koto_mcp_oauth_extract_client_credentials($request, array $body)
+{
+    $body_id = sanitize_text_field((string) ($body['client_id'] ?? ''));
+    $body_secret = isset($body['client_secret']) && is_string($body['client_secret']) ? $body['client_secret'] : '';
+
+    $basic_id = '';
+    $basic_secret = '';
+    $has_basic = false;
+    $auth_header = koto_mcp_get_authorization_header($request);
+    if (stripos($auth_header, 'Basic ') === 0) {
+        $decoded = base64_decode(substr(trim($auth_header), 6), true);
+        if ($decoded !== false && strpos($decoded, ':') !== false) {
+            list($raw_id, $raw_secret) = explode(':', $decoded, 2);
+            $basic_id = sanitize_text_field(rawurldecode($raw_id));
+            $basic_secret = rawurldecode($raw_secret);
+            $has_basic = true;
+        }
+    } elseif (!empty($_SERVER['PHP_AUTH_USER'])) {
+        $basic_id = sanitize_text_field(rawurldecode((string) $_SERVER['PHP_AUTH_USER']));
+        $basic_secret = isset($_SERVER['PHP_AUTH_PW']) ? rawurldecode((string) $_SERVER['PHP_AUTH_PW']) : '';
+        $has_basic = true;
+    }
+
+    if ($has_basic && $body_secret !== '') {
+        return new WP_Error('invalid_request', 'Multiple client authentication methods were used.', ['status' => 400]);
+    }
+    if ($has_basic && $body_id !== '' && $basic_id !== '' && $body_id !== $basic_id) {
+        return new WP_Error('invalid_request', 'client_id mismatch between authorization header and request body.', ['status' => 400]);
+    }
+
+    return [
+        'client_id' => $basic_id !== '' ? $basic_id : $body_id,
+        'client_secret' => $has_basic ? $basic_secret : $body_secret,
+    ];
 }
 
 function koto_mcp_oauth_authorize_rest($request)
@@ -465,7 +850,10 @@ function koto_mcp_oauth_render_login($request_fields, $error = '')
     echo '<label>パスワード <input type="password" name="pwd" required autocomplete="current-password"></label><br>';
     echo '<label><input type="checkbox" name="rememberme" value="forever"> ログイン状態を保持</label><br>';
     echo '<button type="submit" name="koto_mcp_login_action" value="login">ログインして続行</button>';
-    echo '</form></body></html>';
+    echo '</form>';
+    $collab_url = function_exists('koto_mcp_collaborate_page_url') ? koto_mcp_collaborate_page_url() : home_url('/collaborate/');
+    echo '<p><a href="' . esc_url($collab_url) . '" target="_blank" rel="noopener">アカウントをお持ちでない方・協力登録はこちら</a></p>';
+    echo '</body></html>';
     exit;
 }
 
@@ -519,12 +907,9 @@ function koto_mcp_oauth_authorize_browser()
 {
     $params = wp_unslash($_REQUEST);
     $client_id = sanitize_text_field($params['client_id'] ?? '');
-    $client = koto_mcp_storage_get('koto_mcp_client_' . $client_id);
+    $client = koto_mcp_oauth_resolve_client($client_id);
     if (!is_array($client)) {
-        $client = get_transient('koto_mcp_client_' . $client_id);
-    }
-    if (!is_array($client)) {
-        koto_mcp_oauth_browser_error('invalid_client', 'Unknown OAuth client.', 400);
+        koto_mcp_oauth_browser_error('invalid_client', 'Unknown or disabled OAuth client.', 400);
     }
 
     $registered_uris = koto_mcp_oauth_registered_redirect_uris($client);
@@ -539,14 +924,26 @@ function koto_mcp_oauth_authorize_browser()
         koto_mcp_oauth_redirect_error($redirect, 'unsupported_response_type', 'Only response_type=code is supported.', $state);
     }
 
-    $scope = koto_mcp_normalize_scope($params['scope'] ?? '');
+    $default_scope = (string) ($client['default_scope'] ?? 'validate preview');
+    $scope = koto_mcp_normalize_scope($params['scope'] ?? '', $default_scope);
     if (is_wp_error($scope)) {
         koto_mcp_oauth_redirect_error($redirect, 'invalid_scope', $scope->get_error_message(), $state);
     }
 
+    $requested_resource = isset($params['resource']) && is_string($params['resource']) ? trim($params['resource']) : '';
+    if (!koto_mcp_oauth_is_valid_resource($requested_resource)) {
+        koto_mcp_oauth_redirect_error($redirect, 'invalid_target', 'Requested resource indicator does not match this MCP server.', $state);
+    }
+    $resolved_resource = $requested_resource !== '' ? koto_mcp_oauth_canonical_resource_uri($requested_resource) : koto_mcp_server_url();
+
     $challenge = sanitize_text_field($params['code_challenge'] ?? '');
-    $challenge_method = sanitize_text_field($params['code_challenge_method'] ?? 'S256');
-    if ($challenge === '' || $challenge_method !== 'S256') {
+    $challenge_method = sanitize_text_field($params['code_challenge_method'] ?? ($challenge !== '' ? 'S256' : ''));
+    $allow_no_pkce = (($client['client_type'] ?? 'public') === 'confidential') && !empty($client['allow_no_pkce']);
+    if ($challenge !== '') {
+        if ($challenge_method !== 'S256') {
+            koto_mcp_oauth_redirect_error($redirect, 'invalid_request', 'code_challenge_method=S256 is required.', $state);
+        }
+    } elseif (!$allow_no_pkce) {
         koto_mcp_oauth_redirect_error($redirect, 'invalid_request', 'code_challenge and code_challenge_method=S256 are required.', $state);
     }
 
@@ -555,9 +952,10 @@ function koto_mcp_oauth_authorize_browser()
     $request_fields['client_id'] = $client_id;
     $request_fields['redirect_uri'] = $redirect;
     $request_fields['code_challenge'] = $challenge;
-    $request_fields['code_challenge_method'] = 'S256';
+    $request_fields['code_challenge_method'] = $challenge !== '' ? 'S256' : '';
     $request_fields['scope'] = $scope;
     $request_fields['state'] = $state;
+    $request_fields['resource'] = $requested_resource;
 
     if (!is_user_logged_in()) {
         if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST' && ($params['koto_mcp_login_action'] ?? '') === 'login') {
@@ -659,7 +1057,7 @@ function koto_mcp_oauth_authorize_browser()
         'client_id' => $client_id,
         'redirect_uri' => $redirect,
         'challenge' => $challenge,
-        'resource' => $request_fields['resource'] ?? '',
+        'resource' => $resolved_resource,
         'scope' => $scope,
         'family_id' => wp_generate_password(32, false, false),
         'expires_at' => time() + 300,
@@ -753,7 +1151,7 @@ function koto_mcp_revoke_refresh_family($family_id, $reason = 'manual')
     update_option($family_option, $family, false);
 }
 
-function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null)
+function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null, $aud = '')
 {
     $user_id = (int) $user_id;
     if ($user_id <= 0 || !koto_mcp_is_user_approved($user_id)) {
@@ -761,6 +1159,7 @@ function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null)
     }
 
     $family_id = $family_id ?: wp_generate_password(32, false, false);
+    $aud = $aud !== '' ? koto_mcp_oauth_canonical_resource_uri($aud) : koto_mcp_oauth_canonical_resource_uri(koto_mcp_server_url());
     $access_ttl = defined('KOTO_MCP_ACCESS_TOKEN_TTL') ? (int) KOTO_MCP_ACCESS_TOKEN_TTL : HOUR_IN_SECONDS;
     $refresh_ttl = defined('KOTO_MCP_REFRESH_TOKEN_TTL') ? (int) KOTO_MCP_REFRESH_TOKEN_TTL : (30 * DAY_IN_SECONDS);
     $now = time();
@@ -771,6 +1170,7 @@ function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null)
         'scp' => $scope,
         'cid' => (string) $client_id,
         'fid' => (string) $family_id,
+        'aud' => $aud,
         'iat' => $now,
         'exp' => $now + $access_ttl,
     ]);
@@ -779,6 +1179,7 @@ function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null)
         'scp' => $scope,
         'cid' => (string) $client_id,
         'fid' => (string) $family_id,
+        'aud' => $aud,
         'iat' => $now,
         'exp' => $now + $refresh_ttl,
     ]);
@@ -801,6 +1202,7 @@ function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null)
         'scope'      => $scope,
         'client_id'  => $client_id,
         'family_id'  => $family_id,
+        'aud'        => $aud,
         'status'     => 'active',
         'issued_at'  => $now,
         'expires_at' => $now + $access_ttl,
@@ -815,6 +1217,7 @@ function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null)
         'scope'      => $scope,
         'client_id'  => $client_id,
         'family_id'  => $family_id,
+        'aud'        => $aud,
         'status'     => 'active',
         'issued_at'  => $now,
         'expires_at' => $now + $refresh_ttl,
@@ -871,6 +1274,7 @@ function koto_mcp_issue_token($user_id, $scope, $client_id, $family_id = null)
     if ($response instanceof WP_REST_Response) {
         $response->header('Cache-Control', 'no-store');
         $response->header('Pragma', 'no-cache');
+        $response->header('Access-Control-Allow-Origin', '*');
     }
     koto_mcp_maybe_cleanup_expired_options();
     return $response;
@@ -881,19 +1285,16 @@ function koto_mcp_oauth_token($request)
     $body = koto_mcp_oauth_body_params($request);
     $grant_type = sanitize_text_field((string) ($body['grant_type'] ?? ''));
 
-    // client_id の解決: リクエストボディ -> HTTP Basic認証ヘッダー -> $_SERVER['PHP_AUTH_USER']
-    $client_id = sanitize_text_field((string) ($body['client_id'] ?? ''));
-    if ($client_id === '') {
-        $auth_header = koto_mcp_get_authorization_header($request);
-        if (stripos($auth_header, 'Basic ') === 0) {
-            $decoded = base64_decode(substr(trim($auth_header), 6));
-            if ($decoded !== false && strpos($decoded, ':') !== false) {
-                list($basic_id) = explode(':', $decoded, 2);
-                $client_id = sanitize_text_field(rawurldecode($basic_id));
-            }
-        } elseif (!empty($_SERVER['PHP_AUTH_USER'])) {
-            $client_id = sanitize_text_field(rawurldecode((string) $_SERVER['PHP_AUTH_USER']));
-        }
+    $creds = koto_mcp_oauth_extract_client_credentials($request, $body);
+    if (is_wp_error($creds)) {
+        return koto_mcp_oauth_token_error($creds->get_error_code(), $creds->get_error_message(), 400);
+    }
+    $client_id = $creds['client_id'];
+    $client_secret = $creds['client_secret'];
+
+    $requested_resource = isset($body['resource']) && is_string($body['resource']) ? trim($body['resource']) : '';
+    if (!koto_mcp_oauth_is_valid_resource($requested_resource)) {
+        return koto_mcp_oauth_token_error('invalid_target', 'Requested resource does not match this MCP server.', 400);
     }
 
     if ($grant_type === 'refresh_token') {
@@ -919,6 +1320,7 @@ function koto_mcp_oauth_token($request)
                     'scope'      => (string) ($verified_rt['scp'] ?? 'validate preview'),
                     'client_id'  => (string) ($verified_rt['cid'] ?? ''),
                     'family_id'  => (string) ($verified_rt['fid'] ?? ''),
+                    'aud'        => (string) ($verified_rt['aud'] ?? ''),
                     'status'     => 'active',
                     'issued_at'  => (int) ($verified_rt['iat'] ?? time()),
                     'expires_at' => (int) ($verified_rt['exp'] ?? (time() + 30 * DAY_IN_SECONDS)),
@@ -980,6 +1382,26 @@ function koto_mcp_oauth_token($request)
                 return koto_mcp_oauth_token_error('invalid_grant', 'Refresh token client binding mismatch.', 400);
             }
             $effective_client_id = $client_id !== '' ? $client_id : $expected_client_id;
+            if ($effective_client_id !== '') {
+                $raw_client = koto_mcp_storage_get('koto_mcp_client_' . $effective_client_id);
+                if (!is_array($raw_client)) {
+                    $raw_client = get_transient('koto_mcp_client_' . $effective_client_id);
+                }
+                if (is_array($raw_client)) {
+                    if (!empty($raw_client['disabled'])) {
+                        return koto_mcp_oauth_token_error('invalid_client', 'Client is disabled.', 401);
+                    }
+                    if (($raw_client['client_type'] ?? 'public') === 'confidential' && !koto_mcp_verify_client_secret($raw_client, $client_secret)) {
+                        return koto_mcp_oauth_token_error('invalid_client', 'Invalid client credentials.', 401);
+                    }
+                }
+            }
+
+            $stored_aud = (string) ($refresh['aud'] ?? '');
+            if ($requested_resource !== '' && $stored_aud !== '' && koto_mcp_oauth_canonical_resource_uri($requested_resource) !== koto_mcp_oauth_canonical_resource_uri($stored_aud)) {
+                return koto_mcp_oauth_token_error('invalid_target', 'Requested resource does not match token audience.', 400);
+            }
+            $effective_aud = $requested_resource !== '' ? koto_mcp_oauth_canonical_resource_uri($requested_resource) : $stored_aud;
 
             $now = time();
 
@@ -1048,6 +1470,7 @@ function koto_mcp_oauth_token($request)
                     if ($cached_response instanceof WP_REST_Response) {
                         $cached_response->header('Cache-Control', 'no-store');
                         $cached_response->header('Pragma', 'no-cache');
+                        $cached_response->header('Access-Control-Allow-Origin', '*');
                     }
                     return $cached_response;
                 }
@@ -1070,7 +1493,7 @@ function koto_mcp_oauth_token($request)
                 }
             }
 
-            $token_response = koto_mcp_issue_token($refresh_user_id, $final_scope, $effective_client_id, $family_id);
+            $token_response = koto_mcp_issue_token($refresh_user_id, $final_scope, $effective_client_id, $family_id, $effective_aud);
             if (is_wp_error($token_response)) {
                 return $token_response;
             }
@@ -1139,11 +1562,38 @@ function koto_mcp_oauth_token($request)
             return koto_mcp_oauth_token_error('invalid_grant', 'Authorization code client/redirect binding mismatch.', 400);
         }
 
+        $client_record = koto_mcp_storage_get('koto_mcp_client_' . $client_id);
+        if (!is_array($client_record)) {
+            $client_record = get_transient('koto_mcp_client_' . $client_id);
+        }
+        $is_confidential = is_array($client_record) && ($client_record['client_type'] ?? 'public') === 'confidential';
+        if (is_array($client_record) && !empty($client_record['disabled'])) {
+            return koto_mcp_oauth_token_error('invalid_client', 'Client is disabled.', 401);
+        }
+        $secret_verified = false;
+        if ($is_confidential) {
+            if (!koto_mcp_verify_client_secret($client_record, $client_secret)) {
+                return koto_mcp_oauth_token_error('invalid_client', 'Invalid client credentials.', 401);
+            }
+            $secret_verified = true;
+        }
+
         $verifier = (string) ($body['code_verifier'] ?? '');
-        $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
-        if (empty($data['challenge']) || !$verifier || !hash_equals((string) $data['challenge'], $challenge)) {
+        $stored_challenge = (string) ($data['challenge'] ?? '');
+        if ($stored_challenge !== '') {
+            $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+            if (!$verifier || !hash_equals($stored_challenge, $challenge)) {
+                return koto_mcp_oauth_token_error('invalid_grant', 'PKCE verification failed.', 400);
+            }
+        } elseif (!($is_confidential && !empty($client_record['allow_no_pkce']) && $secret_verified)) {
             return koto_mcp_oauth_token_error('invalid_grant', 'PKCE verification failed.', 400);
         }
+
+        $code_resource = (string) ($data['resource'] ?? '');
+        if ($requested_resource !== '' && $code_resource !== '' && koto_mcp_oauth_canonical_resource_uri($requested_resource) !== koto_mcp_oauth_canonical_resource_uri($code_resource)) {
+            return koto_mcp_oauth_token_error('invalid_target', 'Requested resource does not match authorization code target.', 400);
+        }
+        $effective_aud = $requested_resource !== '' ? koto_mcp_oauth_canonical_resource_uri($requested_resource) : $code_resource;
 
         $code_user_id = (int) ($data['user_id'] ?? 0);
         if ($code_user_id <= 0 || !koto_mcp_is_user_approved($code_user_id)) {
@@ -1157,7 +1607,7 @@ function koto_mcp_oauth_token($request)
             return koto_mcp_oauth_token_error('invalid_grant', 'The WordPress user is no longer authorized for MCP access.', 400);
         }
 
-        return koto_mcp_issue_token($code_user_id, (string) $data['scope'], $client_id, (string) ($data['family_id'] ?? ''));
+        return koto_mcp_issue_token($code_user_id, (string) $data['scope'], $client_id, (string) ($data['family_id'] ?? ''), $effective_aud);
     } finally {
         koto_mcp_release_atomic_lock($code_lock);
     }

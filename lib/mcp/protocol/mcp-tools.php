@@ -4,7 +4,7 @@ if (!defined('ABSPATH')) exit;
 /**
  * コトダマンDB MCP ツール定義・実行ディスパッチモジュール
  *
- * 9つのMCPツール（get_field_schema, get_terms, search_character, get_draft,
+ * 10個のMCPツール（get_field_schema, get_blessing_schema, get_terms, search_character, get_draft,
  * validate, preview_draft, create_draft, update_draft, trash_draft）の
  * スキーマ定義、引数バリデーション、実行ディスパッチを提供します。
  */
@@ -19,16 +19,76 @@ function koto_mcp_tool_names()
 function koto_mcp_tools()
 {
     return [
-        ['name' => 'get_field_schema', 'description' => 'Return ACF field schema, required fields, and manual guidance. Set test_mode=true (debug only) for full unfiltered schema.', 'inputSchema' => ['type' => 'object', 'properties' => ['test_mode' => ['type' => 'boolean', 'description' => 'Debug only: return all unfiltered ACF fields.']]]],
-        ['name' => 'get_blessing_schema', 'description' => 'Return blessing token dictionary, template patterns, and validation schema for auto_input_blessing and auto_input_ex_blessing.', 'inputSchema' => ['type' => 'object', 'properties' => ['include_gimmicks' => ['type' => 'boolean', 'description' => 'Whether to include gimmick tokens (default: true).']]]],
-        ['name' => 'get_terms', 'description' => 'Return term dictionaries with IDs. taxonomy accepts a single name, comma-separated names, or "all". Optional search filters by name/slug.', 'inputSchema' => ['type' => 'object', 'properties' => ['taxonomy' => ['type' => 'string'], 'search' => ['type' => 'string'], 'test_mode' => ['type' => 'boolean']], 'required' => ['taxonomy']]],
-        ['name' => 'search_character', 'description' => 'Search existing character posts to verify duplication before creating a draft.', 'inputSchema' => ['type' => 'object', 'properties' => ['name' => ['type' => 'string', 'description' => 'Character name keyword to search.']], 'required' => ['name']]],
-        ['name' => 'get_draft', 'description' => 'Return current basic_fields, blessing, ex_blessing, title, status, and MCP review metadata of an existing character draft.', 'inputSchema' => ['type' => 'object', 'properties' => ['post_id' => ['type' => 'integer', 'description' => 'Post ID of the character draft.']], 'required' => ['post_id']]],
-        ['name' => 'validate', 'description' => 'Validate draft payload without saving or caching (use preview_draft when preparing to create/update). Set test_mode=true (debug only) to include full parsed_acf.', 'inputSchema' => koto_mcp_draft_schema(false)],
-        ['name' => 'preview_draft', 'description' => 'Parse, validate, and cache draft payload for 30 minutes. Returns preview_hash needed for create_draft/update_draft. Set test_mode=true (debug only) for full parsed_acf.', 'inputSchema' => koto_mcp_draft_schema(false)],
-        ['name' => 'create_draft', 'description' => 'Create a character draft using preview_hash and idempotency_key. WARNING: test_mode is for debugging only and does NOT prevent creation (not a dry run; use preview_draft/validate for dry run).', 'inputSchema' => koto_mcp_draft_schema(true)],
-        ['name' => 'update_draft', 'description' => 'Update an existing character draft using preview_hash, idempotency_key, and post_id. WARNING: test_mode is for debugging only and does NOT prevent update (not a dry run).', 'inputSchema' => koto_mcp_draft_schema(true, true)],
-        ['name' => 'trash_draft', 'description' => 'Move an existing draft to trash.', 'inputSchema' => ['type' => 'object', 'properties' => ['post_id' => ['type' => 'integer', 'description' => 'Post ID of the draft to trash.']], 'required' => ['post_id']]],
+        [
+            'name' => 'get_field_schema',
+            'description' => 'Return ACF field schema, required fields, and manual guidance. Set test_mode=true (debug only) for full unfiltered schema.',
+            'inputSchema' => ['type' => 'object', 'properties' => ['test_mode' => ['type' => 'boolean', 'description' => 'Debug only: return all unfiltered ACF fields.']]],
+            'annotations' => ['title' => 'ACFフィールド定義取得', 'readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
+        ],
+        [
+            'name' => 'get_blessing_schema',
+            'description' => 'Return blessing token dictionary, template patterns, and validation schema for auto_input_blessing and auto_input_ex_blessing.',
+            'inputSchema' => ['type' => 'object', 'properties' => ['include_gimmicks' => ['type' => 'boolean', 'description' => 'Whether to include gimmick tokens (default: true).']]],
+            'annotations' => ['title' => '祝福スキーマ取得', 'readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
+        ],
+        [
+            'name' => 'get_terms',
+            'description' => 'Return term dictionaries with IDs (paginated). taxonomy accepts a single name, comma-separated names, or "all". Optional search filters by name/slug.',
+            'inputSchema' => [
+                'type' => 'object',
+                'properties' => [
+                    'taxonomy' => ['type' => 'string'],
+                    'search' => ['type' => 'string'],
+                    'limit' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 500, 'default' => 200, 'description' => 'Maximum number of terms to return per taxonomy (default: 200, max: 500).'],
+                    'offset' => ['type' => 'integer', 'minimum' => 0, 'default' => 0, 'description' => 'Pagination offset (default: 0).'],
+                    'test_mode' => ['type' => 'boolean'],
+                ],
+                'required' => ['taxonomy'],
+            ],
+            'annotations' => ['title' => 'タクソノミー用語一覧取得', 'readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
+        ],
+        [
+            'name' => 'search_character',
+            'description' => 'Search existing character posts to verify duplication before creating a draft.',
+            'inputSchema' => ['type' => 'object', 'properties' => ['name' => ['type' => 'string', 'description' => 'Character name keyword to search.']], 'required' => ['name']],
+            'annotations' => ['title' => '既存キャラクター検索', 'readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
+        ],
+        [
+            'name' => 'get_draft',
+            'description' => 'Return current basic_fields, blessing, ex_blessing, title, status, and MCP review metadata of an existing character draft.',
+            'inputSchema' => ['type' => 'object', 'properties' => ['post_id' => ['type' => 'integer', 'description' => 'Post ID of the character draft.']], 'required' => ['post_id']],
+            'annotations' => ['title' => 'キャラクター下書き取得', 'readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
+        ],
+        [
+            'name' => 'validate',
+            'description' => 'Validate draft payload without saving or caching (use preview_draft when preparing to create/update). Set test_mode=true (debug only) to include full parsed_acf.',
+            'inputSchema' => koto_mcp_draft_schema(false),
+            'annotations' => ['title' => '下書きペイロード検証', 'readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
+        ],
+        [
+            'name' => 'preview_draft',
+            'description' => 'Parse, validate, and cache draft payload for 30 minutes. Returns preview_hash needed for create_draft/update_draft. Set test_mode=true (debug only) for full parsed_acf.',
+            'inputSchema' => koto_mcp_draft_schema(false),
+            'annotations' => ['title' => '下書きプレビュー生成', 'readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
+        ],
+        [
+            'name' => 'create_draft',
+            'description' => 'Create a character draft using preview_hash and idempotency_key. WARNING: test_mode is for debugging only and does NOT prevent creation (not a dry run; use preview_draft/validate for dry run).',
+            'inputSchema' => koto_mcp_draft_schema(true),
+            'annotations' => ['title' => 'キャラクター下書き作成', 'readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
+        ],
+        [
+            'name' => 'update_draft',
+            'description' => 'Update an existing character draft using preview_hash, idempotency_key, and post_id. WARNING: test_mode is for debugging only and does NOT prevent update (not a dry run).',
+            'inputSchema' => koto_mcp_draft_schema(true, true),
+            'annotations' => ['title' => 'キャラクター下書き更新', 'readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
+        ],
+        [
+            'name' => 'trash_draft',
+            'description' => 'Move an existing draft to trash.',
+            'inputSchema' => ['type' => 'object', 'properties' => ['post_id' => ['type' => 'integer', 'description' => 'Post ID of the draft to trash.']], 'required' => ['post_id']],
+            'annotations' => ['title' => 'キャラクター下書きゴミ箱移動', 'readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => true, 'openWorldHint' => false],
+        ],
     ];
 }
 
@@ -86,6 +146,23 @@ function koto_mcp_validate_tool_arguments($name, $arguments)
     }
     if ($name === 'get_terms' && isset($arguments['search']) && mb_strlen((string) $arguments['search'], 'UTF-8') > 200) {
         return new WP_Error('INVALID_PARAMS', 'search exceeds maximum length.', ['field' => 'search', 'reason' => 'above_max', 'status' => 400]);
+    }
+    if ($name === 'get_terms' && array_key_exists('limit', $arguments)) {
+        if (!is_int($arguments['limit']) && !(is_string($arguments['limit']) && ctype_digit($arguments['limit']))) {
+            return new WP_Error('INVALID_PARAMS', 'limit must be an integer.', ['field' => 'limit', 'reason' => 'invalid_type', 'status' => 400]);
+        }
+        $lim = (int) $arguments['limit'];
+        if ($lim < 1 || $lim > 500) {
+            return new WP_Error('INVALID_PARAMS', 'limit must be between 1 and 500.', ['field' => 'limit', 'reason' => 'out_of_range', 'status' => 400]);
+        }
+    }
+    if ($name === 'get_terms' && array_key_exists('offset', $arguments)) {
+        if (!is_int($arguments['offset']) && !(is_string($arguments['offset']) && ctype_digit($arguments['offset']))) {
+            return new WP_Error('INVALID_PARAMS', 'offset must be a non-negative integer.', ['field' => 'offset', 'reason' => 'invalid_type', 'status' => 400]);
+        }
+        if ((int) $arguments['offset'] < 0) {
+            return new WP_Error('INVALID_PARAMS', 'offset must be >= 0.', ['field' => 'offset', 'reason' => 'below_min', 'status' => 400]);
+        }
     }
     if ($name === 'search_character' && isset($arguments['name']) && mb_strlen((string) $arguments['name'], 'UTF-8') > KOTO_MCP_MAX_NAME_CHARS) {
         return new WP_Error('INVALID_PARAMS', 'name exceeds maximum length.', ['field' => 'name', 'reason' => 'above_max', 'status' => 400]);
@@ -290,6 +367,8 @@ function koto_mcp_call_tool($name, $args, $request = null)
         if ($name === 'get_terms') {
             $raw_tax = trim((string) ($args['taxonomy'] ?? ''));
             $search = isset($args['search']) ? trim((string) $args['search']) : '';
+            $limit = isset($args['limit']) ? min(500, max(1, (int) $args['limit'])) : 200;
+            $offset = isset($args['offset']) ? max(0, (int) $args['offset']) : 0;
             $tax_list = ($raw_tax === 'all')
                 ? ['attribute', 'species', 'rarity', 'affiliation', 'event', 'gimmick', 'available_moji', 'suitable_quest']
                 : array_values(array_filter(array_map('sanitize_key', explode(',', $raw_tax))));
@@ -301,27 +380,48 @@ function koto_mcp_call_tool($name, $args, $request = null)
                     return new WP_Error('VALIDATION_FAILED', 'Unknown taxonomy.', ['field' => 'taxonomy', 'reason' => 'invalid_value']);
                 }
             }
-            $fetch_terms = static function ($tax_item) use ($search) {
+            $fetch_terms_paginated = static function ($tax_item) use ($search, $limit, $offset) {
                 $query_args = ['taxonomy' => $tax_item, 'hide_empty' => false];
                 if ($search !== '') {
                     $query_args['search'] = $search;
                 }
                 $terms = get_terms($query_args);
                 if (is_wp_error($terms) || !is_array($terms)) {
-                    return [];
+                    return ['terms' => [], 'total' => 0, 'limit' => $limit, 'offset' => $offset, 'has_more' => false, 'next_offset' => null];
                 }
-                return array_values(array_map(static function ($term) {
+                $total = count($terms);
+                $sliced = array_slice($terms, $offset, $limit);
+                $mapped = array_values(array_map(static function ($term) {
                     return ['id' => (int) $term->term_id, 'name' => $term->name, 'slug' => $term->slug];
-                }, $terms));
+                }, $sliced));
+                $has_more = ($offset + count($mapped)) < $total;
+                return [
+                    'terms' => $mapped,
+                    'total' => $total,
+                    'limit' => $limit,
+                    'offset' => $offset,
+                    'has_more' => $has_more,
+                    'next_offset' => $has_more ? ($offset + count($mapped)) : null,
+                ];
             };
             if (count($tax_list) === 1 && $raw_tax !== 'all') {
-                return ['taxonomy' => $tax_list[0], 'terms' => $fetch_terms($tax_list[0])];
+                $page = $fetch_terms_paginated($tax_list[0]);
+                return array_merge(['taxonomy' => $tax_list[0]], $page);
             }
             $grouped = [];
+            $pagination = [];
             foreach ($tax_list as $tax_item) {
-                $grouped[$tax_item] = $fetch_terms($tax_item);
+                $page = $fetch_terms_paginated($tax_item);
+                $grouped[$tax_item] = $page['terms'];
+                $pagination[$tax_item] = [
+                    'total' => $page['total'],
+                    'limit' => $page['limit'],
+                    'offset' => $page['offset'],
+                    'has_more' => $page['has_more'],
+                    'next_offset' => $page['next_offset'],
+                ];
             }
-            return ['taxonomies' => $grouped];
+            return ['taxonomies' => $grouped, 'pagination' => $pagination];
         }
         if ($name === 'search_character') {
             $query = new WP_Query(['post_type' => 'character', 'post_status' => ['publish', 'draft', 'pending', 'private'], 's' => sanitize_text_field($args['name'] ?? ''), 'posts_per_page' => 20, 'no_found_rows' => true]);

@@ -25,14 +25,93 @@ function koto_mcp_rest_permission_check($request, $required_scope = 'validate')
     return true;
 }
 
+add_filter('rest_post_dispatch', function ($result, $server, $request) {
+    if (!$result instanceof WP_REST_Response || !$request instanceof WP_REST_Request) {
+        return $result;
+    }
+    $route = (string) $request->get_route();
+    if (strpos($route, '/kotodaman/v1/mcp') !== 0) {
+        return $result;
+    }
+    $status = $result->get_status();
+    $resp_headers = $result->get_headers();
+    if ($status === 401 && empty($resp_headers['WWW-Authenticate'])) {
+        $data = $result->get_data();
+        $msg = is_array($data) && !empty($data['message']) ? (string) $data['message'] : 'OAuth access token is required.';
+        if (function_exists('koto_mcp_www_authenticate_header')) {
+            $result->header('WWW-Authenticate', koto_mcp_www_authenticate_header('invalid_token', $msg));
+        }
+    } elseif ($status === 403 && empty($resp_headers['WWW-Authenticate'])) {
+        $data = $result->get_data();
+        $detail = is_array($data) && isset($data['data']) && is_array($data['data']) ? $data['data'] : [];
+        if (($detail['oauth_error'] ?? '') === 'insufficient_scope' && function_exists('koto_mcp_www_authenticate_header')) {
+            $msg = is_array($data) && !empty($data['message']) ? (string) $data['message'] : 'Required OAuth scope is missing.';
+            $result->header('WWW-Authenticate', koto_mcp_www_authenticate_header('insufficient_scope', $msg, (string) ($detail['required_scope'] ?? '')));
+        }
+    }
+    return $result;
+}, 10, 3);
+
+function koto_mcp_rest_wrap_result($result)
+{
+    if (!is_wp_error($result)) {
+        return rest_ensure_response($result);
+    }
+    $data = $result->get_error_data();
+    if (!is_array($data) || !isset($data['status'])) {
+        $code = $result->get_error_code();
+        $status = in_array($code, ['IDEMPOTENCY_CONFLICT', 'IDEMPOTENCY_IN_PROGRESS'], true) ? 409 : 400;
+        if (is_array($data)) {
+            $data['status'] = $status;
+        } else {
+            $data = ['status' => $status];
+        }
+        $result->add_data($data, $code);
+    }
+    return $result;
+}
+
+function koto_mcp_rest_openapi_json($request)
+{
+    $openapi_path = get_stylesheet_directory() . '/documents/mcp/openapi.json';
+    if (!file_exists($openapi_path)) {
+        return new WP_Error('openapi_not_found', 'OpenAPI specification file was not found.', ['status' => 404]);
+    }
+    $raw = file_get_contents($openapi_path);
+    $spec = is_string($raw) ? json_decode($raw, true) : null;
+    if (!is_array($spec)) {
+        return new WP_Error('openapi_invalid', 'OpenAPI specification file is invalid JSON.', ['status' => 500]);
+    }
+    $base_url = function_exists('koto_mcp_base_url') ? koto_mcp_base_url() : untrailingslashit(rest_url('kotodaman/v1'));
+    $issuer_url = function_exists('koto_mcp_issuer_url') ? koto_mcp_issuer_url() : untrailingslashit(home_url('/'));
+    if (isset($spec['servers'][0]) && is_array($spec['servers'][0])) {
+        $spec['servers'][0]['url'] = $base_url;
+    }
+    if (isset($spec['components']['securitySchemes']['oauth2']['flows']['authorizationCode'])) {
+        $spec['components']['securitySchemes']['oauth2']['flows']['authorizationCode']['authorizationUrl'] = $issuer_url . '/mcp/oauth/authorize';
+        $spec['components']['securitySchemes']['oauth2']['flows']['authorizationCode']['tokenUrl'] = $base_url . '/mcp/oauth/token';
+    }
+    $response = rest_ensure_response($spec);
+    if ($response instanceof WP_REST_Response) {
+        $response->header('Access-Control-Allow-Origin', '*');
+    }
+    return $response;
+}
+
 function koto_register_post_mcp_routes()
 {
+    register_rest_route('kotodaman/v1', '/mcp/openapi.json', [
+        'methods'             => WP_REST_Server::READABLE,
+        'callback'            => 'koto_mcp_rest_openapi_json',
+        'permission_callback' => '__return_true',
+    ]);
+
     register_rest_route('kotodaman/v1', '/mcp/schema', [
         'methods'             => WP_REST_Server::READABLE,
         'callback'            => function ($request) {
             $test_mode = (bool) ($request instanceof WP_REST_Request ? $request->get_param('test_mode') : false);
             $result = koto_mcp_call_tool('get_field_schema', ['test_mode' => $test_mode], $request);
-            return is_wp_error($result) ? $result : rest_ensure_response($result);
+            return koto_mcp_rest_wrap_result($result);
         },
         'permission_callback' => function ($request) {
             return koto_mcp_rest_permission_check($request, 'validate');
@@ -51,7 +130,7 @@ function koto_register_post_mcp_routes()
         'callback'            => function ($request) {
             $include_gimmicks = !($request instanceof WP_REST_Request) || $request->get_param('include_gimmicks') === null || (bool) $request->get_param('include_gimmicks');
             $result = koto_mcp_call_tool('get_blessing_schema', ['include_gimmicks' => $include_gimmicks], $request);
-            return is_wp_error($result) ? $result : rest_ensure_response($result);
+            return koto_mcp_rest_wrap_result($result);
         },
         'permission_callback' => function ($request) {
             return koto_mcp_rest_permission_check($request, 'validate');
@@ -65,20 +144,103 @@ function koto_register_post_mcp_routes()
         ],
     ]);
 
-    register_rest_route('kotodaman/v1', '/mcp/draft/(?P<post_id>\d+)', [
+    register_rest_route('kotodaman/v1', '/mcp/characters/search', [
         'methods'             => WP_REST_Server::READABLE,
         'callback'            => function ($request) {
-            $post_id = (int) ($request instanceof WP_REST_Request ? $request->get_param('post_id') : 0);
-            $result = koto_mcp_call_tool('get_draft', ['post_id' => $post_id], $request);
-            return is_wp_error($result) ? $result : rest_ensure_response($result);
+            $name = $request instanceof WP_REST_Request ? (string) $request->get_param('name') : '';
+            $result = koto_mcp_call_tool('search_character', ['name' => $name], $request);
+            return koto_mcp_rest_wrap_result($result);
         },
         'permission_callback' => function ($request) {
             return koto_mcp_rest_permission_check($request, 'validate');
         },
         'args'                => [
-            'post_id' => [
+            'name' => [
                 'required' => true,
-                'type'     => 'integer',
+                'type'     => 'string',
+            ],
+        ],
+    ]);
+
+    register_rest_route('kotodaman/v1', '/mcp/draft/preview', [
+        'methods'             => WP_REST_Server::CREATABLE,
+        'callback'            => function ($request) {
+            $args = [];
+            if ($request instanceof WP_REST_Request) {
+                foreach (['post_id', 'character_name', 'basic_fields', 'auto_input', 'screenshot_urls', 'evidence', 'replace_existing', 'human_approved', 'test_mode'] as $k) {
+                    $val = $request->get_param($k);
+                    if ($val !== null) {
+                        $args[$k] = $val;
+                    }
+                }
+            }
+            $result = koto_mcp_call_tool('preview_draft', $args, $request);
+            return koto_mcp_rest_wrap_result($result);
+        },
+        'permission_callback' => function ($request) {
+            return koto_mcp_rest_permission_check($request, 'preview');
+        },
+    ]);
+
+    register_rest_route('kotodaman/v1', '/mcp/draft/(?P<post_id>\d+)', [
+        [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => function ($request) {
+                $post_id = (int) ($request instanceof WP_REST_Request ? $request->get_param('post_id') : 0);
+                $result = koto_mcp_call_tool('get_draft', ['post_id' => $post_id], $request);
+                return koto_mcp_rest_wrap_result($result);
+            },
+            'permission_callback' => function ($request) {
+                return koto_mcp_rest_permission_check($request, 'validate');
+            },
+            'args'                => [
+                'post_id' => [
+                    'required' => true,
+                    'type'     => 'integer',
+                ],
+            ],
+        ],
+        [
+            'methods'             => 'PATCH, PUT',
+            'callback'            => function ($request) {
+                $post_id = (int) ($request instanceof WP_REST_Request ? $request->get_param('post_id') : 0);
+                $args = ['post_id' => $post_id];
+                if ($request instanceof WP_REST_Request) {
+                    foreach (['character_name', 'basic_fields', 'auto_input', 'screenshot_urls', 'evidence', 'replace_existing', 'human_approved', 'preview_hash', 'idempotency_key', 'test_mode'] as $k) {
+                        $val = $request->get_param($k);
+                        if ($val !== null) {
+                            $args[$k] = $val;
+                        }
+                    }
+                }
+                $result = koto_mcp_call_tool('update_draft', $args, $request);
+                return koto_mcp_rest_wrap_result($result);
+            },
+            'permission_callback' => function ($request) {
+                return koto_mcp_rest_permission_check($request, 'create');
+            },
+            'args'                => [
+                'post_id' => [
+                    'required' => true,
+                    'type'     => 'integer',
+                ],
+            ],
+        ],
+        [
+            'methods'             => WP_REST_Server::DELETABLE,
+            'callback'            => function ($request) {
+                $post_id = (int) ($request instanceof WP_REST_Request ? $request->get_param('post_id') : 0);
+                $result = koto_mcp_call_tool('trash_draft', ['post_id' => $post_id], $request);
+                return koto_mcp_rest_wrap_result($result);
+            },
+            'permission_callback' => function ($request) {
+                return koto_mcp_rest_permission_check($request, 'create');
+            },
+            'args'                => [
+                'post_id' => [
+                    'required' => true,
+                    'type'     => 'integer',
+                ],
             ],
         ],
     ]);
@@ -88,8 +250,15 @@ function koto_register_post_mcp_routes()
         'callback'            => function ($request) {
             $taxonomy = $request instanceof WP_REST_Request ? (string) $request->get_param('taxonomy') : 'all';
             $search = $request instanceof WP_REST_Request ? (string) $request->get_param('search') : '';
-            $result = koto_mcp_call_tool('get_terms', ['taxonomy' => $taxonomy ?: 'all', 'search' => $search], $request);
-            return is_wp_error($result) ? $result : rest_ensure_response($result);
+            $limit = $request instanceof WP_REST_Request && $request->get_param('limit') !== null ? (int) $request->get_param('limit') : 200;
+            $offset = $request instanceof WP_REST_Request && $request->get_param('offset') !== null ? (int) $request->get_param('offset') : 0;
+            $result = koto_mcp_call_tool('get_terms', [
+                'taxonomy' => $taxonomy ?: 'all',
+                'search'   => $search,
+                'limit'    => $limit,
+                'offset'   => $offset,
+            ], $request);
+            return koto_mcp_rest_wrap_result($result);
         },
         'permission_callback' => function ($request) {
             return koto_mcp_rest_permission_check($request, 'validate');
@@ -104,6 +273,19 @@ function koto_register_post_mcp_routes()
                 'required' => false,
                 'default'  => '',
                 'type'     => 'string',
+            ],
+            'limit' => [
+                'required' => false,
+                'default'  => 200,
+                'type'     => 'integer',
+                'minimum'  => 1,
+                'maximum'  => 500,
+            ],
+            'offset' => [
+                'required' => false,
+                'default'  => 0,
+                'type'     => 'integer',
+                'minimum'  => 0,
             ],
         ],
     ]);

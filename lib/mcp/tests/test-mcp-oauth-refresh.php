@@ -1,12 +1,21 @@
 <?php
+
 /**
  * MCP OAuth 2.1 トークンリフレッシュ・接続継続テストスクリプト
  *
  * 実行方法:
- *   php /var/www/html/wp-content/themes/cocoon-child-master/lib/acf/mcp/test-mcp-oauth-refresh.php
+ *   php lib/mcp/tests/test-mcp-oauth-refresh.php
  */
 
-require_once '/var/www/html/wp-load.php';
+if (php_sapi_name() !== 'cli') {
+    exit("CLI only.\n");
+}
+
+$wp_load = '/var/www/html/wp-load.php';
+if (!file_exists($wp_load)) {
+    $wp_load = dirname(__DIR__, 6) . '/wp-load.php';
+}
+require_once $wp_load;
 
 // 出力カラー定義
 const C_RESET  = "\033[0m";
@@ -15,20 +24,24 @@ const C_RED    = "\033[31m";
 const C_YELLOW = "\033[33m";
 const C_BLUE   = "\033[34m";
 
-function log_pass($msg) {
+function log_pass($msg)
+{
     echo C_GREEN . "  [PASS] " . C_RESET . $msg . "\n";
 }
-function log_fail($msg) {
+function log_fail($msg)
+{
     echo C_RED . "  [FAIL] " . C_RESET . $msg . "\n";
 }
-function log_section($title) {
+function log_section($title)
+{
     echo "\n" . C_BLUE . "=== " . $title . " ===" . C_RESET . "\n";
 }
 
 $tests_passed = 0;
 $tests_failed = 0;
 
-function assert_test($condition, $description) {
+function assert_test($condition, $description)
+{
     global $tests_passed, $tests_failed;
     if ($condition) {
         log_pass($description);

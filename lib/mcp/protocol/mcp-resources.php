@@ -15,7 +15,7 @@ function koto_mcp_instructions_text()
         '',
         '【スクリーンショットの読み取り・運用ルール】',
         '1. 外部チャットAI（Claude / Muse / ChatGPT等）の場合：ユーザーがチャットに添付したスクリーンショット画像（複数枚可）から直接情報を読み取ってください。',
-        '2. ローカルCLIエージェントの場合：複数枚またはZIPが渡されたら `php lib/acf/mcp/prepare_screenshots.php <入力パス>` で生成した `contact_sheet.jpg` 1枚のみを読み取ってください。',
+        '2. ローカルCLIエージェントの場合：複数枚またはZIPが渡されたら `php lib/mcp/tools/prepare_screenshots.php <入力パス>` で生成した `contact_sheet.jpg` 1枚のみを読み取ってください。',
         '3. 画面に存在しない値や判別不能な値は絶対に推測で埋めず、空欄にするか人間に確認を求めてください。',
         '',
         '【最短・省トークン作成手順】',
@@ -66,7 +66,7 @@ function koto_mcp_workflow_guide_data()
         'test_mode_warning' => 'test_modeはデバッグ専用フラグです。create_draft/update_draftに付けても保存は抑止されません（ドライランではありません）。保存を伴わない検証はpreview_draftまたはvalidateを使用してください。',
         'screenshot_handling' => [
             'external_chat_ai' => 'チャット画面に添付されたスクリーンショット画像（複数枚可）から直接文字・数値を読み取る。画面にない値は推測しない。',
-            'local_cli_agent' => 'php lib/acf/mcp/prepare_screenshots.php <zip_or_dir> を実行し、生成された contact_sheet.jpg 1枚のみを read_file で読み取る。',
+            'local_cli_agent' => 'php lib/mcp/tools/prepare_screenshots.php <zip_or_dir> を実行し、生成された contact_sheet.jpg 1枚のみを read_file で読み取る。',
         ],
         'steps' => [
             '0_search_character' => '下書き作成前に search_character(name) で既存キャラクターの有無（重複）を事前確認する。',

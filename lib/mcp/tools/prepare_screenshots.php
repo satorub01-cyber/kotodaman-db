@@ -8,7 +8,7 @@
  * これにより、AIの read_file 呼び出し回数とVisionトークン消費量を約75〜85%削減します。
  *
  * 【使い方】
- *   php lib/acf/mcp/prepare_screenshots.php <ZIPファイルまたは画像ディレクトリパス> [出力先ディレクトリ] [--test-mode]
+ *   php lib/mcp/tools/prepare_screenshots.php <ZIPファイルまたは画像ディレクトリパス> [出力先ディレクトリ] [--test-mode]
  */
 
 if (php_sapi_name() !== 'cli') {
@@ -22,7 +22,7 @@ $args = array_values(array_filter(array_slice($argv, 1), static function ($arg) 
 }));
 
 if (empty($args[0])) {
-    fwrite(STDERR, "Usage: php lib/acf/mcp/prepare_screenshots.php <zip_or_dir_path> [output_dir] [--test-mode]\n");
+    fwrite(STDERR, "Usage: php lib/mcp/tools/prepare_screenshots.php <zip_or_dir_path> [output_dir] [--test-mode]\n");
     exit(1);
 }
 

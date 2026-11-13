@@ -26,7 +26,7 @@ AIエージェントが画像から下書きを作成する際は、往復ター
 * ユーザーからZIPファイルまたは複数枚のスクリーンショットが渡されたら、**個別の高解像度PNGを1枚ずつ `read_file` してはいけません**。
 * まず以下の前処理CLIスクリプトを実行し、上下の不要なスマホステータスバー／ナビバー（縦長画像の上7%・下8%）をトリミングしてタイル状に1枚へ合成した `contact_sheet.jpg` を生成します：
   ```bash
-  php lib/acf/mcp/prepare_screenshots.php <ZIPまたは画像ディレクトリパス> [出力先ディレクトリ]
+  php lib/mcp/tools/prepare_screenshots.php <ZIPまたは画像ディレクトリパス> [出力先ディレクトリ]
   ```
 * 出力された **`contact_sheet.jpg` 1枚だけ** を `read_file` で読み取り、全画面の情報を1ターンで抽出します。
 
@@ -361,7 +361,7 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 | `create_draft` / `update_draft` | `post_id`, `status`, `edit_url`, `content_hash`, `screenshot_urls` を返却（**実際に保存される**） | 上記に加え、`parsed_acf` 全構造を返却（**※保存は抑止されない**） |
 | `get_field_schema` | `basic_fields` 対象フィールドのみ（`null` 属性を省いたコンパクト定義） | 自動入力管理下の内部Repeater等を含む全67フィールドの完全定義を返却 |
 | `php lib/acf/test_auto_input.php` | カテゴリ別 PASS/FAIL 集計（5行）のみ出力 | `--test-mode`（または `--verbose`）で全ケースの整形JSONとデバッグログを出力 |
-| `php lib/acf/mcp/prepare_screenshots.php` | `{"contact_sheet":"...","count":N}` の1行JSONのみ出力 | `--test-mode` でグリッド寸法、ファイルサイズ、処理時間、各パネルのトリミング座標を出力 |
+| `php lib/mcp/tools/prepare_screenshots.php` | `{"contact_sheet":"...","count":N}` の1行JSONのみ出力 | `--test-mode` でグリッド寸法、ファイルサイズ、処理時間、各パネルのトリミング座標を出力 |
 
 ---
 
@@ -402,7 +402,7 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 ### 開発者チェックリスト
 - [ ] PHP構文チェック（`php -l`）を実行した
 - [ ] 自動入力ロジックやCSV対応表を変更した場合、`php lib/acf/test_auto_input.php` で全件回帰テストがPASSすることを確認した
-- [ ] MCP認可・権限まわりを変更した場合、`php lib/acf/mcp/test-mcp-permissions.php` で包括検証テスト（39項目）が全件PASSすることを確認した
+- [ ] MCP認可・権限まわりを変更した場合、`php lib/mcp/tests/test-mcp-permissions.php` で包括検証テスト（39項目）が全件PASSすることを確認した
 - [ ] 基本データ（`basic_fields`）と自動入力データ（`auto_input`）の責務を分離している
 - [ ] 権限チェック（OAuthスコープ、`edit_posts`、管理者承認）を維持している
 - [ ] 投稿を意図せず `publish` にしていない

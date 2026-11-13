@@ -17,7 +17,7 @@ flowchart TD
         ACF_UI["ACF通常編集画面<br/>(wp-admin)"]
         ACF_Custom["DBエディタ画面<br/>(lib/acf/acf-editor.php)"]
         AutoInput["文言自動入力 Ajax<br/>(lib/acf/auto-input/)"]
-        MCP_Server["MCPサーバー (AIスクショ入力)<br/>(lib/acf/mcp/)"]
+        MCP_Server["MCPサーバー (AIスクショ入力)<br/>(lib/mcp/)"]
     end
 
     subgraph DataProcessing ["2. 計算・構造化レイヤー (核)"]
@@ -109,16 +109,21 @@ flowchart TD
 | `acf-editor.js` / `.css` | 専用エディタのDOM制御、ショートカット（並べ替え/行追加）、`beforeunload` 自動保存。 | |
 | `acf-auto-input.js` | 専用エディタ上の「自動入力」ボタン、文言貼り付けモーダル、Ajax送信・フォーム反映。 | |
 
-### ⑤ MCPサーバー（`lib/acf/mcp/`）
+### ⑤ MCPサーバー（`lib/mcp/`）
 | ファイルパス | 責務・主要関数 | 備考 |
 | :--- | :--- | :--- |
-| `server.php` | Model Context Protocol（MCP）JSON-RPC 2.0 サーバー。ツール呼び出し・リソース配信の受付。 | |
-| `mcp-tools.php` | MCPツールのディスパッチ（`preview_draft`, `create_draft`, `update_draft`, `validate`, `search_character`, `get_blessing_schema` 等）。 | |
-| `mcp-schema.php` | ACFフィールドスキーマ動的生成、祝福・EX祝福スキーマ＆トークン辞書生成（`koto_mcp_blessing_schema`）。 | |
-| `mcp-draft.php` | 下書き（Draft）の生成・更新・バリデーションロジック、雛型記事保護チェック。 | |
-| `mcp-resources.php` | MCPクライアント向けドキュメント・スキーマ（`kotodaman://guide/...`）の配信。 | |
-| `mcp-auth.php` / `mcp-oauth.php` | OAuth 2.1 Bearer 認証および Application Passwords 認証、権限管理。 | |
-| `prepare_screenshots.php` | スクショ画像の一括トリミング・タイル結合スクリプト（`contact_sheet.jpg` 生成）。 | |
+| `loader.php` | MCP全モジュール統一ローダー（`functions.php` から読み込み）。 | `auth/` → `protocol/` → `portal/` |
+| `auth/mcp-core.php`, `mcp-auth.php`, `mcp-oauth.php` | コア基盤、Bearer/App Password認証、OAuth 2.1（CIMD / DCR / Static Confidential Client / RFC 8707 `aud` / SEP-835）。 | |
+| `protocol/server.php` | Model Context Protocol（MCP）JSON-RPC 2.0 サーバー（`2025-11-25` ネゴシエーション、バッチ、CORS/Origin、エラー変換）。 | 全10ツール配信 |
+| `protocol/mcp-tools.php` | MCPツールのディスパッチ（`preview_draft`, `create_draft`, `update_draft`, `validate`, `search_character`, `get_blessing_schema` 等・Annotations・`get_terms` ページング）。 | |
+| `protocol/mcp-schema.php` | ACFフィールドスキーマ動的生成、祝福・EX祝福スキーマ＆トークン辞書生成（`koto_mcp_blessing_schema`）。 | |
+| `protocol/mcp-draft.php` | 下書き（Draft）の生成・更新・バリデーションロジック、雛型記事保護チェック。 | |
+| `protocol/mcp-resources.php` | MCPクライアント向けドキュメント・スキーマ（`kotodaman://guide/...`）の配信。 | |
+| `protocol/post-mcp.php` | REST API 全8ルート（`/mcp/openapi.json`, `/mcp/schema`, `/mcp/terms`, `/mcp/characters/search`, `/mcp/draft/preview`, `/mcp/character-draft`, `/mcp/draft/{id}`）。 | |
+| `portal/mcp-admin.php` | 管理画面「ユーザー > MCP利用申請」（承認時 `subscriber`→`mcp_user` 昇格・取消時降格、Static Client発行管理）。 | |
+| `portal/mcp-collaboration-page.php` | 協力者ポータル共通描画（`collaboration-page.php` テンプレートおよび `[koto_collaborate_portal]` ショートコード）、メール認証付き登録、AI別ガイドJSON（`.css` / `.js`）。 | `functions.php` の `koto_user_can_hide_ads()` で広告表示制御と連動 |
+| `tools/prepare_screenshots.php` | スクショ画像の一括トリミング・タイル結合スクリプト（`contact_sheet.jpg` 生成）。 | |
+| `tests/test-mcp-*.php` | 権限・OAuthリフレッシュ・互換拡張テストスクリプト群。 | |
 
 ### ⑥ フロント表示レイヤー
 | ファイルパス | 責務・主要関数 | 備考 |

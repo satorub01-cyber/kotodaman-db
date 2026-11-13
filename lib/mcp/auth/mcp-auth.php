@@ -28,12 +28,15 @@ function koto_mcp_scope_string_to_list($scope)
     return $parts;
 }
 
-function koto_mcp_normalize_scope($scope)
+function koto_mcp_normalize_scope($scope, $default_scope = 'validate preview')
 {
     $allowed = ['validate', 'preview', 'create'];
     $requested = koto_mcp_scope_string_to_list((string) $scope);
     if (empty($requested)) {
-        $requested = ['validate', 'preview'];
+        $requested = koto_mcp_scope_string_to_list((string) $default_scope);
+        if (empty($requested)) {
+            $requested = ['validate', 'preview'];
+        }
     }
     foreach ($requested as $token) {
         if (!in_array($token, $allowed, true)) {
@@ -48,17 +51,21 @@ function koto_mcp_has_scope($scope_string, $scope)
     return in_array($scope, koto_mcp_scope_string_to_list($scope_string), true);
 }
 
-function koto_mcp_www_authenticate_header($error = 'invalid_token', $description = 'OAuth access token is required.')
+function koto_mcp_www_authenticate_header($error = 'invalid_token', $description = 'OAuth access token is required.', $scope = '')
 {
     $safe_error = preg_replace('/[^a-z_]/', '', (string) $error);
     $safe_description = str_replace('"', '', (string) $description);
-    $format = 'Bea' . 'rer realm="kotodaman-mcp", error="%s", error_description="%s", resource_metadata="%s"';
-    return sprintf(
-        $format,
+    $header = sprintf(
+        'Bearer realm="kotodaman-mcp", error="%s", error_description="%s"',
         $safe_error ?: 'invalid_token',
-        $safe_description,
-        esc_url_raw(koto_mcp_protected_resource_metadata_url())
+        $safe_description
     );
+    $scope_list = koto_mcp_scope_string_to_list((string) $scope);
+    if (!empty($scope_list)) {
+        $header .= sprintf(', scope="%s"', implode(' ', $scope_list));
+    }
+    $header .= sprintf(', resource_metadata="%s"', esc_url_raw(koto_mcp_protected_resource_metadata_url()));
+    return $header;
 }
 
 function koto_mcp_get_authorization_header($request = null)
@@ -293,6 +300,7 @@ function koto_mcp_oauth_token_error($error, $description, $status = 400)
     $response->header('Content-Type', 'application/json; charset=' . get_bloginfo('charset'));
     $response->header('Cache-Control', 'no-store');
     $response->header('Pragma', 'no-cache');
+    $response->header('Access-Control-Allow-Origin', '*');
     return $response;
 }
 
@@ -340,6 +348,7 @@ function koto_mcp_resolve_access_token_data($raw_token)
                 'scope'      => (string) ($verified['scp'] ?? 'validate preview'),
                 'client_id'  => (string) ($verified['cid'] ?? ''),
                 'family_id'  => $family_id,
+                'aud'        => (string) ($verified['aud'] ?? ''),
                 'status'     => $status,
                 'issued_at'  => (int) ($verified['iat'] ?? time()),
                 'expires_at' => (int) ($verified['exp'] ?? (time() + HOUR_IN_SECONDS)),
@@ -376,6 +385,9 @@ function koto_mcp_current_user_from_token($request = null)
                 if (is_array($family) && ($family['status'] ?? 'active') !== 'active') {
                     return 0;
                 }
+            }
+            if (!empty($data['aud']) && function_exists('koto_mcp_oauth_is_valid_resource') && !koto_mcp_oauth_is_valid_resource((string) $data['aud'])) {
+                return 0;
             }
             if (!empty($data['scope']) && !is_user_logged_in()) {
                 wp_set_current_user((int) $data['user_id']);
@@ -473,13 +485,31 @@ function koto_mcp_require_scope($scope, $request = null)
                 ]);
             }
 
+            if (!empty($data['aud']) && function_exists('koto_mcp_oauth_is_valid_resource') && !koto_mcp_oauth_is_valid_resource((string) $data['aud'])) {
+                koto_mcp_log_token_event('mcp_auth_401', [
+                    'reason_code' => 'token_audience_mismatch',
+                    'access_id' => $access_id,
+                    'aud' => (string) $data['aud'],
+                    'required_scope' => $scope,
+                ]);
+                return new WP_Error('mcp_unauthorized', 'OAuth access token audience does not match this server.', [
+                    'status' => 401,
+                    'oauth_error' => 'invalid_token',
+                    'reason_code' => 'token_audience_mismatch',
+                ]);
+            }
+
             $user_id = (int) $data['user_id'];
             if (!is_user_logged_in()) {
                 wp_set_current_user($user_id);
             }
 
             if (!koto_mcp_has_scope((string) ($data['scope'] ?? ''), $scope)) {
-                return new WP_Error('mcp_forbidden', 'Required OAuth scope is missing.', ['status' => 403]);
+                return new WP_Error('mcp_forbidden', 'Required OAuth scope is missing.', [
+                    'status' => 403,
+                    'oauth_error' => 'insufficient_scope',
+                    'required_scope' => $scope,
+                ]);
             }
             return koto_mcp_check_user_mcp_permission($user_id);
         }

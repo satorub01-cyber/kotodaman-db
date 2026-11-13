@@ -1,0 +1,606 @@
+/* コトダマンDB 協力者総合ポータル・新規登録・AIツール接続ガイド */
+
+.koto-collab-page-shell {
+    width: 100%;
+    padding: 4px 0 24px;
+    box-sizing: border-box;
+}
+
+.koto-collab-portal {
+    background-color: #f7ede3;
+    color: #2c2520;
+    border-radius: 14px;
+    padding: 28px 24px;
+    margin: 0 auto 24px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #e2d3c4;
+    font-size: 15px;
+    line-height: 1.7;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+}
+
+.koto-collab-portal *,
+.koto-collab-portal *::before,
+.koto-collab-portal *::after {
+    box-sizing: border-box;
+}
+
+/* Cocoon .article / .entry-content / スキン見出し・疑似要素の干渉を完全にリセット */
+.koto-collab-portal h1,
+.koto-collab-portal h2,
+.koto-collab-portal h3,
+.koto-collab-portal h4,
+.koto-collab-portal h5,
+.koto-collab-portal h6 {
+    background: none;
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+    color: #2c2520;
+}
+
+.koto-collab-portal h1::before,
+.koto-collab-portal h1::after,
+.koto-collab-portal h2::before,
+.koto-collab-portal h2::after,
+.koto-collab-portal h3::before,
+.koto-collab-portal h3::after,
+.koto-collab-portal h4::before,
+.koto-collab-portal h4::after {
+    content: none;
+    display: none;
+}
+
+/* ヒーロー */
+.koto-collab-portal .koto-collab-hero {
+    background: linear-gradient(135deg, #ffffff 0%, #fcf6ef 100%);
+    border: 1px solid #e2d3c4;
+    border-left: 6px solid #135e96;
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin: 0 0 22px;
+}
+
+.koto-collab-portal .koto-collab-hero-title {
+    color: #135e96;
+    font-size: 1.55rem;
+    margin: 0 0 8px;
+}
+
+.koto-collab-portal .koto-collab-hero-lead {
+    margin: 0;
+    color: #4f463e;
+    font-size: 0.95rem;
+    line-height: 1.65;
+}
+
+/* フラッシュ通知 */
+.koto-collab-portal .koto-collab-notice {
+    padding: 14px 18px;
+    border-radius: 8px;
+    margin: 0 0 20px;
+    border: 1px solid #b8d3e8;
+    border-left: 5px solid #135e96;
+    background-color: #ffffff;
+    font-size: 0.94rem;
+    line-height: 1.6;
+}
+
+.koto-collab-portal .koto-collab-notice-success {
+    border-color: #b7dfc0;
+    border-left-color: #2e7d32;
+    background-color: #f3faf3;
+    color: #1b5e20;
+}
+
+.koto-collab-portal .koto-collab-notice-error {
+    border-color: #f0b8b8;
+    border-left-color: #c62828;
+    background-color: #fff5f5;
+    color: #8e1c1c;
+}
+
+/* セクションカード */
+.koto-collab-portal .koto-collab-section {
+    background-color: #ffffff;
+    border: 1px solid #e2d3c4;
+    border-radius: 12px;
+    padding: 22px 22px;
+    margin: 0 0 22px;
+    box-shadow: 0 2px 6px rgba(44, 37, 32, 0.04);
+}
+
+.koto-collab-portal .koto-collab-section:last-child {
+    margin-bottom: 0;
+}
+
+.koto-collab-portal .koto-collab-section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 14px;
+    padding: 0 0 10px;
+    border-bottom: 2px solid #efe5db;
+    color: #135e96;
+    font-size: 1.2rem;
+}
+
+.koto-collab-portal .koto-collab-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: #135e96;
+    color: #ffffff;
+    font-size: 0.9rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.koto-collab-portal .koto-collab-desc {
+    margin: 0 0 14px;
+    font-size: 0.93rem;
+    color: #4f463e;
+    line-height: 1.65;
+}
+
+.koto-collab-portal .koto-collab-desc code,
+.koto-collab-portal .koto-collab-logged-in-box code {
+    background-color: #f4ece3;
+    color: #135e96;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+}
+
+/* ステップ1: 3枚カード */
+.koto-collab-portal .koto-collab-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.koto-collab-portal .koto-collab-card {
+    background-color: #fdf9f5;
+    border: 1px solid #e2d3c4;
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.koto-collab-portal .koto-collab-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.koto-collab-portal .koto-collab-card-title {
+    margin: 0;
+    color: #135e96;
+    font-size: 1.02rem;
+}
+
+.koto-collab-portal .koto-collab-card-text {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.58;
+    color: #4f463e;
+}
+
+.koto-collab-portal .koto-collab-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* ボタン */
+.koto-collab-portal .koto-collab-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 10px 16px;
+    border-radius: 7px;
+    border: none;
+    background-color: #135e96;
+    color: #ffffff;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.9rem;
+    line-height: 1.35;
+    text-decoration: none;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+    appearance: none;
+}
+
+.koto-collab-portal .koto-collab-btn:visited {
+    color: #ffffff;
+}
+
+.koto-collab-portal .koto-collab-btn:hover,
+.koto-collab-portal .koto-collab-btn:focus {
+    background-color: #0e4a77;
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.koto-collab-portal .koto-collab-btn-secondary {
+    background-color: #d97218;
+}
+
+.koto-collab-portal .koto-collab-btn-secondary:hover,
+.koto-collab-portal .koto-collab-btn-secondary:focus {
+    background-color: #ba5f10;
+}
+
+.koto-collab-portal .koto-collab-btn-discord {
+    background-color: #5865f2;
+}
+
+.koto-collab-portal .koto-collab-btn-discord:hover,
+.koto-collab-portal .koto-collab-btn-discord:focus {
+    background-color: #4752c4;
+}
+
+.koto-collab-portal .koto-collab-btn-submit {
+    width: auto;
+    min-width: 240px;
+    padding: 12px 24px;
+    font-size: 0.96rem;
+}
+
+/* ログイン中ステータスボックス */
+.koto-collab-portal .koto-collab-logged-in-box {
+    background-color: #f4f9fd;
+    border: 1px solid #c3dced;
+    border-radius: 8px;
+    padding: 16px 18px;
+}
+
+.koto-collab-portal .koto-collab-logged-in-box p {
+    margin: 0 0 8px;
+    line-height: 1.6;
+}
+
+.koto-collab-portal .koto-collab-logged-in-box p:last-child {
+    margin-bottom: 0;
+}
+
+/* 登録フォーム */
+.koto-collab-portal .koto-collab-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 0;
+}
+
+.koto-collab-portal .koto-collab-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+}
+
+.koto-collab-portal .koto-collab-form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.koto-collab-portal .koto-collab-form-row label {
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: #3a312b;
+    margin: 0;
+}
+
+.koto-collab-portal .koto-collab-form-row input[type="text"],
+.koto-collab-portal .koto-collab-form-row input[type="email"],
+.koto-collab-portal .koto-collab-form-row input[type="password"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbbba9;
+    border-radius: 6px;
+    font-size: 0.94rem;
+    line-height: 1.4;
+    background-color: #ffffff;
+    color: #2c2520;
+    margin: 0;
+}
+
+.koto-collab-portal .koto-collab-form-row input:focus {
+    outline: 2px solid rgba(19, 94, 150, 0.25);
+    border-color: #135e96;
+}
+
+.koto-collab-portal .koto-collab-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background-color: #fdf9f5;
+    border: 1px solid #e2d3c4;
+    font-weight: 700;
+    font-size: 0.92rem;
+    cursor: pointer;
+    margin: 0;
+}
+
+.koto-collab-portal .koto-collab-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: #135e96;
+    flex-shrink: 0;
+}
+
+.koto-collab-portal .koto-collab-hint {
+    margin: 0;
+    font-size: 0.84rem;
+    color: #655a50;
+    line-height: 1.55;
+}
+
+.koto-collab-portal .koto-collab-form-actions {
+    padding-top: 2px;
+}
+
+.koto-collab-portal .koto-collab-hp-field {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+}
+
+/* エンドポイントURLコピー欄 */
+.koto-collab-portal .koto-endpoint-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.koto-collab-portal .koto-copy-block {
+    background-color: #fdf9f5;
+    border: 1px solid #e2d3c4;
+    border-radius: 8px;
+    padding: 12px;
+    margin: 0;
+}
+
+.koto-collab-portal .koto-copy-block-spaced {
+    margin-top: 16px;
+}
+
+.koto-collab-portal .koto-copy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #3a312b;
+}
+
+.koto-collab-portal .koto-copy-btn {
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    border-radius: 5px;
+    border: 1px solid #135e96;
+    background-color: #ffffff;
+    color: #135e96;
+    cursor: pointer;
+    font-weight: 700;
+    font-family: inherit;
+    flex-shrink: 0;
+    appearance: none;
+}
+
+.koto-collab-portal .koto-copy-btn:hover,
+.koto-collab-portal .koto-copy-btn:focus {
+    background-color: #135e96;
+    color: #ffffff;
+}
+
+.koto-collab-portal .koto-code-pre {
+    margin: 0;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 6px;
+    background-color: #23201e;
+    color: #f8f4ef;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* AIツール選択ガイド */
+.koto-collab-portal .koto-collab-sublead {
+    margin: 0 0 10px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #3a312b;
+}
+
+.koto-collab-portal .koto-ai-cat-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 12px;
+}
+
+.koto-collab-portal .koto-ai-cat-btn {
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid #cbbba9;
+    background-color: #fdf9f5;
+    color: #2c2520;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1.35;
+    cursor: pointer;
+    appearance: none;
+}
+
+.koto-collab-portal .koto-ai-cat-btn.is-active {
+    background-color: #135e96;
+    border-color: #135e96;
+    color: #ffffff;
+}
+
+.koto-collab-portal .koto-ai-tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.koto-collab-portal .koto-ai-tool-btn {
+    padding: 9px 10px;
+    border-radius: 7px;
+    border: 1px solid #d5c7b8;
+    background-color: #ffffff;
+    color: #2c2520;
+    font-family: inherit;
+    font-size: 0.84rem;
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+    appearance: none;
+}
+
+.koto-collab-portal .koto-ai-tool-btn:hover {
+    border-color: #135e96;
+    background-color: #f4f9fd;
+}
+
+.koto-collab-portal .koto-ai-tool-btn.is-active {
+    background-color: #135e96;
+    border-color: #135e96;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.koto-collab-portal .koto-ai-tool-btn.is-hidden {
+    display: none;
+}
+
+.koto-collab-portal .koto-ai-guide-panel {
+    background-color: #fdf9f5;
+    border: 1px solid #e2d3c4;
+    border-radius: 10px;
+    padding: 18px;
+}
+
+.koto-collab-portal .koto-ai-guide-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.koto-collab-portal .koto-ai-guide-title {
+    margin: 0;
+    font-size: 1.08rem;
+    color: #135e96;
+}
+
+.koto-collab-portal .koto-ai-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    background-color: #e6f0f8;
+    color: #135e96;
+}
+
+.koto-collab-portal .koto-ai-badge-warn {
+    background-color: #fdecea;
+    color: #b71c1c;
+}
+
+.koto-collab-portal .koto-ai-guide-summary {
+    margin: 0 0 10px;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: #3a312b;
+}
+
+.koto-collab-portal .koto-ai-steps {
+    margin: 0 0 12px;
+    padding-left: 20px;
+    font-size: 0.9rem;
+    line-height: 1.65;
+    color: #2c2520;
+}
+
+.koto-collab-portal .koto-ai-steps li {
+    margin: 0 0 6px;
+}
+
+.koto-collab-portal .koto-ai-steps li:last-child {
+    margin-bottom: 0;
+}
+
+@media (max-width: 820px) {
+    .koto-collab-portal .koto-collab-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .koto-collab-portal .koto-collab-form-grid,
+    .koto-collab-portal .koto-endpoint-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .koto-collab-portal {
+        padding: 16px 12px;
+        border-radius: 10px;
+    }
+
+    .koto-collab-portal .koto-collab-hero,
+    .koto-collab-portal .koto-collab-section {
+        padding: 16px 14px;
+    }
+
+    .koto-collab-portal .koto-collab-hero-title {
+        font-size: 1.28rem;
+    }
+
+    .koto-collab-portal .koto-collab-btn-submit {
+        width: 100%;
+    }
+
+    .koto-collab-portal .koto-ai-tool-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+}
