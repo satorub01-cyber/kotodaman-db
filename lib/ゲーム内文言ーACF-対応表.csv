@@ -344,6 +344,7 @@
 リーダー効果,がわざ・すごわざ・コトわざでダメージを与えた時、腐敗{$val}%を{$val2}ターン付与,"{""ls_type"" : ""corruption"",""ls_status"" : ""corruption_rate"",""rate"" : ""$val"",""turn_count"" : ""$val2""}"
 リーダー効果,のランダム対象への連続攻撃のクリティカル発生率{$val}%UP,"{""ls_type"" : ""random_crit"",""ls_status"" : ""corruption_rate"",""rate"" : ""$val""}"
 リーダー効果,獲得プレイヤー経験値{$val}%UP,"{""ls_status"" : ""exp_up"",""exp_magnification"" : ""$val""}"
+リーダー効果,プレイヤー経験値獲得量{$val}%UP,"{""ls_status"" : ""exp_up"",""exp_magnification"" : ""$val""}"
 リーダー効果,のわざ・すこわざ・コトわざの全体攻撃に、敵の数が少ないほど威力が上昇する効果を付与,"{""ls_type"" : ""converged"",""converge_rate_2"" : ""1.25"", ""converge_rate_1"" : ""1.5""}"
 リーダー効果,自身ダメージ上限突破 (+{$val}),"{""trait_type"" : ""damage_correction"",""damage_correction"" : ""break_limit"",""limit_break_rate"" : ""$val""}"
 リーダー対象,{$attr}属性,"{""target_type"" : ""attr"",""target_attr"" : ""$attr""}"
