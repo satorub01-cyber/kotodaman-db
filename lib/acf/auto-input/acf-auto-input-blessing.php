@@ -845,34 +845,43 @@ function koto_resolve_blessing_term_id($val, $taxonomy)
  * キャラクターの所属（affiliation）のタームID配列を取得・解決する。
  *
  * @param mixed $context 実行コンテキスト（'post_id', 'affiliations', 'affiliation' 等）または所属指定値。
- * @param int|string|null $target_id 直接指定されたターゲットタームID/名称。
+ * @param int|string|array<int, int|string>|null $target_id 直接指定されたターゲットタームID/名称（複数可）。
  * @return array<int, int> 解決されたタームID配列。
  */
 function koto_resolve_blessing_affiliations($context = [], $target_id = null)
 {
     $candidates = [];
+    $has_explicit_target = false;
 
     if (!empty($target_id)) {
-        $candidates[] = $target_id;
+        $target_list = is_array($target_id) ? $target_id : [$target_id];
+        foreach ($target_list as $tid_item) {
+            if (is_object($tid_item) || (is_scalar($tid_item) && trim((string) $tid_item) !== '')) {
+                $candidates[] = $tid_item;
+                $has_explicit_target = true;
+            }
+        }
     }
 
     $post_id = 0;
     if (is_array($context)) {
-        if (!empty($context['affiliations'])) {
-            $candidates = array_merge($candidates, (array) $context['affiliations']);
-        }
-        if (!empty($context['affiliation'])) {
-            $candidates = array_merge($candidates, (array) $context['affiliation']);
-        }
-        if (!empty($context['group'])) {
-            $candidates = array_merge($candidates, (array) $context['group']);
+        if (!$has_explicit_target) {
+            if (!empty($context['affiliations'])) {
+                $candidates = array_merge($candidates, (array) $context['affiliations']);
+            }
+            if (!empty($context['affiliation'])) {
+                $candidates = array_merge($candidates, (array) $context['affiliation']);
+            }
+            if (!empty($context['group'])) {
+                $candidates = array_merge($candidates, (array) $context['group']);
+            }
         }
         if (!empty($context['post_id'])) {
             $post_id = (int) $context['post_id'];
         }
     } elseif (is_numeric($context) && (int) $context > 0) {
         $post_id = (int) $context;
-    } elseif (is_string($context) && trim($context) !== '') {
+    } elseif (!$has_explicit_target && is_string($context) && trim($context) !== '') {
         $candidates[] = trim($context);
     }
 
@@ -893,8 +902,8 @@ function koto_resolve_blessing_affiliations($context = [], $target_id = null)
         }
     }
 
-    // まだ解決できておらず post_id がある場合、投稿から affiliation を取得
-    if (empty($resolved_ids) && $post_id > 0) {
+    // 明示的ターゲット指定がなく、まだ解決できておらず post_id がある場合、投稿から affiliation を取得
+    if (!$has_explicit_target && empty($resolved_ids) && $post_id > 0) {
         if (function_exists('wp_get_object_terms')) {
             $terms = wp_get_object_terms($post_id, 'affiliation');
             if (!is_wp_error($terms) && !empty($terms)) {
@@ -1405,10 +1414,16 @@ function koto_normalize_blessing_input($input)
                         if ($itype === 'token') {
                             $t_name = trim((string) ($it['token'] ?? ''));
                             if ($t_name !== '') {
+                                $raw_target = $it['target'] ?? '';
+                                if (is_array($raw_target)) {
+                                    $norm_target = array_values(array_filter(koto_normalize_blessing_param_array($raw_target), 'strlen'));
+                                } else {
+                                    $norm_target = trim((string) $raw_target);
+                                }
                                 $normalized['items'][] = [
                                     'type'   => 'token',
                                     'token'  => $t_name,
-                                    'target' => trim((string) ($it['target'] ?? '')),
+                                    'target' => $norm_target,
                                 ];
                             }
                         } elseif ($itype === 'free') {
@@ -1560,7 +1575,11 @@ function koto_parse_blessing($input, $grouped_csv, $input_key = 'auto_input_bles
                             $meta['warnings'][] = sprintf('トークン「%s」の対象種族「%s」を解決できませんでした。', $def['label'] ?? $base_token, $raw_target);
                         }
                     } elseif ($ttype === 'affiliation' || $ttype === 'group') {
-                        $target_id = $raw_target !== '' ? $raw_target : null;
+                        if (is_array($raw_target)) {
+                            $target_id = !empty($raw_target) ? $raw_target : null;
+                        } else {
+                            $target_id = $raw_target !== '' ? $raw_target : null;
+                        }
                     }
                 }
                 $token_context = array_merge($context, [
@@ -1569,6 +1588,15 @@ function koto_parse_blessing($input, $grouped_csv, $input_key = 'auto_input_bles
                 ]);
                 $row = koto_build_blessing_token_row($base_token, $target_id, $is_star5, $token_context);
                 if ($row) {
+                    if ($def && (($def['target_type'] ?? '') === 'affiliation' || ($def['target_type'] ?? '') === 'group')) {
+                        if (empty($row['target_field_group']['target_group'])) {
+                            if (!empty($target_id)) {
+                                $meta['warnings'][] = sprintf('トークン「%s」の対象グループを解決できませんでした。', $def['label'] ?? $base_token);
+                            } else {
+                                $meta['warnings'][] = 'グループドローバフの対象グループ（所属）が未設定です。';
+                            }
+                        }
+                    }
                     $ordered_rows[] = $row;
                 } else {
                     $meta['warnings'][] = sprintf('未登録の祝福トークンです: %s', $base_token);

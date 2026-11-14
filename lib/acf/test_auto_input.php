@@ -357,6 +357,44 @@ if ($g_pass) {
     $failed_cases[] = '[祝福ギミックトークン] ギミックトークン・スーパー化・ptフォールバックテストに失敗しました（取得件数: ' . count($gimmick_rows) . '）';
 }
 
+// グループドローバフ items 複数グループ指定＆未指定警告テスト
+$group_draw_multi_input = [
+    'items' => [
+        ['type' => 'token', 'token' => 'group_draw_buff', 'target' => ['101', '202']],
+    ],
+];
+$total_count++;
+$GLOBALS['koto_last_blessing_parse_meta'] = [];
+$group_multi_rows = koto_parse_blessing($group_draw_multi_input, $grouped_csv, 'auto_input_blessing', ['affiliations' => ['999']]);
+$group_multi_ok = (
+    count($group_multi_rows) === 1
+    && ($group_multi_rows[0]['target_field_group']['target_type'] ?? '') === 'group'
+    && ($group_multi_rows[0]['target_field_group']['target_group'] ?? []) === [101, 202]
+);
+
+$group_draw_empty_input = [
+    'items' => [
+        ['type' => 'token', 'token' => 'group_draw_buff', 'target' => ''],
+    ],
+];
+$total_count++;
+$GLOBALS['koto_last_blessing_parse_meta'] = [];
+koto_parse_blessing($group_draw_empty_input, $grouped_csv, 'auto_input_blessing');
+$group_empty_warnings = function_exists('koto_get_blessing_auto_input_warnings') ? koto_get_blessing_auto_input_warnings() : [];
+$group_empty_ok = (strpos(implode("\n", $group_empty_warnings), 'グループドローバフの対象グループ（所属）が未設定です。') !== false);
+
+$group_test_passed = ($group_multi_ok ? 1 : 0) + ($group_empty_ok ? 1 : 0);
+$passed_count += $group_test_passed;
+if (!$group_multi_ok) {
+    $failed_cases[] = '[グループドローバフ複数指定] target=["101","202"] の解決に失敗しました';
+}
+if (!$group_empty_ok) {
+    $failed_cases[] = '[グループドローバフ未指定警告] items形式で所属未設定の警告が出力されませんでした';
+}
+if (!$test_mode && $group_test_passed === 2) {
+    echo sprintf("[PASS] %-18s : %d / %d passed\n", 'グループドローバフ', 2, 2);
+}
+
 // コトわざ未解析行の空振り抑止 & 互換形式正規化テスト
 $koto_guard_total = 2;
 $koto_guard_passed = 0;

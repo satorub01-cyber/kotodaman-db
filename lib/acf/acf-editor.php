@@ -49,6 +49,73 @@ function koto_acf_editor_admin_bar_style()
 }
 
 /**
+ * DBエディタで現在選択されている左側の編集対象投稿IDを取得する。
+ *
+ * @return int 投稿ID（未選択時は 0）。
+ */
+function koto_acf_editor_get_current_edit_post_id()
+{
+    if (!empty($_GET['field_editor_edit_post']) && is_array($_GET['field_editor_edit_post'])) {
+        return intval($_GET['field_editor_edit_post'][0]);
+    }
+    if (!empty($_GET['edit_post_id'])) {
+        return intval($_GET['edit_post_id']);
+    }
+    return 0;
+}
+
+/**
+ * キャラクター投稿に設定されている所属グループ（affiliation）の ID・名称配列を取得する。
+ *
+ * @param int $post_id 投稿ID。
+ * @return array<int, array{id: int, name: string}> 所属ターム情報の配列。
+ */
+function koto_acf_editor_get_post_affiliation_items($post_id)
+{
+    $post_id = (int) $post_id;
+    if ($post_id <= 0) {
+        return [];
+    }
+
+    $items = [];
+    $seen_ids = [];
+    $aff_terms = wp_get_object_terms($post_id, 'affiliation');
+    if (!is_wp_error($aff_terms) && !empty($aff_terms)) {
+        foreach ($aff_terms as $aff_term) {
+            $tid = (int) $aff_term->term_id;
+            if ($tid > 0 && !isset($seen_ids[$tid])) {
+                $seen_ids[$tid] = true;
+                $items[] = [
+                    'id'   => $tid,
+                    'name' => (string) $aff_term->name,
+                ];
+            }
+        }
+    }
+
+    if (empty($items) && function_exists('get_field')) {
+        $acf_aff = get_field('affiliation', $post_id, false);
+        if (!empty($acf_aff)) {
+            foreach ((array) $acf_aff as $aid) {
+                $tid = (int) $aid;
+                if ($tid > 0 && !isset($seen_ids[$tid])) {
+                    $term = get_term($tid, 'affiliation');
+                    if ($term && !is_wp_error($term)) {
+                        $seen_ids[$tid] = true;
+                        $items[] = [
+                            'id'   => (int) $term->term_id,
+                            'name' => (string) $term->name,
+                        ];
+                    }
+                }
+            }
+        }
+    }
+
+    return $items;
+}
+
+/**
  * 祝福トークン一覧にアイコン画像URL・ギミック・スーパー情報を付与して取得するヘルパー。
  *
  * @return array<string, array<string, mixed>>
@@ -136,12 +203,15 @@ function koto_acf_editor_menu()
                 }
             }
         }
+        $current_edit_post_id = koto_acf_editor_get_current_edit_post_id();
+        $default_affiliations_for_js = koto_acf_editor_get_post_affiliation_items($current_edit_post_id);
         wp_localize_script('acf-auto-input-script', 'KotoBlessingConfig', [
-            'tokens'    => $blessing_tokens_for_js,
-            'templates' => $blessing_templates_for_js,
-            'attrs'     => ['火', '水', '木', '光', '闇', '冥', '天'],
-            'species'   => ['神', '魔', '英', '龍', '獣', '霊', '物', '妖'],
-            'maxItems'  => 8,
+            'tokens'              => $blessing_tokens_for_js,
+            'templates'           => $blessing_templates_for_js,
+            'attrs'               => ['火', '水', '木', '光', '闇', '冥', '天'],
+            'species'             => ['神', '魔', '英', '龍', '獣', '霊', '物', '妖'],
+            'defaultAffiliations' => $default_affiliations_for_js,
+            'maxItems'            => 8,
         ]);
     });
 }
@@ -151,13 +221,7 @@ add_filter('admin_title', 'koto_acf_editor_dynamic_admin_title', 10, 2);
 function koto_acf_editor_dynamic_admin_title($admin_title, $title)
 {
     if (isset($_GET['page']) && $_GET['page'] === 'koto-acf-editor') {
-        $edit_post_id = 0;
-
-        if (!empty($_GET['field_editor_edit_post']) && is_array($_GET['field_editor_edit_post'])) {
-            $edit_post_id = intval($_GET['field_editor_edit_post'][0]);
-        } elseif (!empty($_GET['edit_post_id'])) {
-            $edit_post_id = intval($_GET['edit_post_id']);
-        }
+        $edit_post_id = koto_acf_editor_get_current_edit_post_id();
 
         if ($edit_post_id) {
             $post_title = get_the_title($edit_post_id);
@@ -767,14 +831,7 @@ function koto_acf_editor_page_html()
 
     // ★修正: ACFが実際に送信してくるキー（field_editor_***）からIDを抽出する
     // ★修正: ACFの検索から来た場合と、コピー後のリダイレクトで来た場合の両方に対応
-    $edit_post_id = 0;
-    if (!empty($_GET['field_editor_edit_post']) && is_array($_GET['field_editor_edit_post'])) {
-        // ACFの関係フィールド検索から飛んできた場合
-        $edit_post_id = intval($_GET['field_editor_edit_post'][0]);
-    } elseif (!empty($_GET['edit_post_id'])) {
-        // コピー処理や保存直後のシンプルなURLパラメータから飛んできた場合
-        $edit_post_id = intval($_GET['edit_post_id']);
-    }
+    $edit_post_id = koto_acf_editor_get_current_edit_post_id();
 
     $edit_group = isset($_GET['acf_group']) ? sanitize_text_field($_GET['acf_group']) : '';
 
@@ -1135,6 +1192,28 @@ function koto_acf_editor_page_html()
         <?php
         };
         ?>
+        <template id="koto_blessing_group_field_template">
+            <div class="acf-field acf-field-taxonomy koto-blessing-group-acf-field" data-type="taxonomy" data-name="_dummy_blessing_group___koto_idx__" data-key="field_693982016d26b">
+                <div class="acf-input">
+                    <?php
+                    acf_render_field([
+                        'type'          => 'taxonomy',
+                        'key'           => 'field_693982016d26b',
+                        'name'          => '_dummy_blessing_group___koto_idx__',
+                        'prefix'        => 'koto_blessing_group___koto_idx__',
+                        'taxonomy'      => 'affiliation',
+                        'field_type'    => 'multi_select',
+                        'return_format' => 'id',
+                        'add_term'      => 0,
+                        'save_terms'    => 0,
+                        'load_terms'    => 0,
+                        'allow_null'    => 1,
+                        'value'         => [],
+                    ]);
+                    ?>
+                </div>
+            </div>
+        </template>
         <div class="acf-auto-input-container">
             <div class="acf-auto-input-header">自動入力を使用する</div>
             <div class="acf-auto-input-content">

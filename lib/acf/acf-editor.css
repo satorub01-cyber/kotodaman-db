@@ -607,6 +607,25 @@
     width: 100%;
 }
 
+/* Select2 選択済み表示枠内での位置ズレ防止（clearボタン float:right との共存） */
+.select2-container--default .select2-selection--single .select2-selection__rendered .koto-select2-token-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: auto;
+    min-width: 0;
+    height: 26px;
+    line-height: 26px;
+    padding-right: 4px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered .koto-select2-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .koto-select2-icon {
     width: 18px;
     height: 18px;
@@ -660,6 +679,33 @@
     font-size: 12px;
     padding: 2px 6px;
     height: 26px;
+}
+
+.koto-blessing-item-target-group-wrap {
+    flex: 1;
+    min-width: 240px;
+}
+
+.koto-blessing-item-target-group-wrap > label {
+    flex-shrink: 0;
+}
+
+.koto-blessing-item-target-group-wrap .koto-blessing-group-acf-field {
+    padding: 0;
+    border: none;
+    margin: 0;
+    flex: 1;
+    min-width: 220px;
+}
+
+.koto-blessing-group-acf-field .acf-taxonomy-field .select2-container {
+    width: 100% !important;
+    min-width: 200px;
+}
+
+.koto-blessing-group-acf-field .select2-selection--multiple .select2-search--inline:only-child,
+.koto-blessing-group-acf-field .select2-selection--multiple .select2-search--inline:only-child .select2-search__field {
+    width: 100% !important;
 }
 
 .koto-blessing-item-param {
