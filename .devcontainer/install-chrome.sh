@@ -29,6 +29,7 @@ echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-signing-keyring
 
 apt-get update
 apt-get install -y --no-install-recommends google-chrome-stable
+rm -f /etc/apt/sources.list.d/google-chrome.list
 rm -rf /var/lib/apt/lists/*
 
 # Wrapper so Chrome works cleanly as root and/or without an X/Wayland display.

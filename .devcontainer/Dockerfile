@@ -11,9 +11,10 @@ RUN curl -fsSL -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/bui
 RUN pecl install xdebug \
     && docker-php-ext-enable xdebug
 
-# アップロード上限・メモリ上限・実行時間制限の引き上げ
+# アップロード上限・メモリ上限・実行時間制限の引き上げ、およびApache生成ファイルの権限競合防止
 RUN printf "upload_max_filesize = 128M\npost_max_size = 128M\nmemory_limit = 256M\nmax_execution_time = 300\n" \
-    > /usr/local/etc/php/conf.d/uploads.ini
+    > /usr/local/etc/php/conf.d/uploads.ini \
+    && grep -qxF 'umask 000' /etc/apache2/envvars || echo 'umask 000' >> /etc/apache2/envvars
 
 # Antigravity /browser 用のヘッドレス Google Chrome と日本語フォントを導入（amd64 環境のみ）
 COPY .devcontainer/install-chrome.sh /tmp/install-chrome.sh

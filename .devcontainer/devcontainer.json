@@ -5,7 +5,7 @@
   "workspaceFolder": "/var/www/html/wp-content/themes/cocoon-child-master",
   "shutdownAction": "stopCompose",
   "postCreateCommand": "git config --global --add safe.directory '*' && bash .devcontainer/bootstrap.sh",
-  "postStartCommand": "if command -v ensure-headless-chrome >/dev/null 2>&1; then ensure-headless-chrome; fi",
+  "postStartCommand": "bash .devcontainer/fix-permissions.sh && if command -v ensure-headless-chrome >/dev/null 2>&1; then ensure-headless-chrome || true; fi",
   "customizations": {
     "vscode": {
       "extensions": [

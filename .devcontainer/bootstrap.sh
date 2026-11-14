@@ -23,7 +23,7 @@ log() {
 wait_for_wp_config() {
   log "Waiting for wp-config.php"
 
-  until [ -s "$WP_ROOT/wp-config.php" ] && grep -q "define( 'DB_NAME'" "$WP_ROOT/wp-config.php"; do
+  until [ -s "$WP_ROOT/wp-config.php" ] && grep -qE "define\(\s*'DB_NAME'" "$WP_ROOT/wp-config.php"; do
     sleep 2
   done
 }
@@ -58,8 +58,11 @@ install_wordpress() {
   fi
 
   log "Setting up Japanese language"
-  wp language core install ja --path="$WP_ROOT" --allow-root
-  wp site switch-language ja --path="$WP_ROOT" --allow-root
+  if wp language core install ja --path="$WP_ROOT" --allow-root; then
+    wp site switch-language ja --path="$WP_ROOT" --allow-root || true
+  else
+    log "Warning: Japanese language installation failed; continuing with default locale"
+  fi
 
   wp option update home "$SITE_URL" --path="$WP_ROOT" --allow-root
   wp option update siteurl "$SITE_URL" --path="$WP_ROOT" --allow-root
@@ -163,13 +166,16 @@ install_plugins
 install_mu_plugin
 activate_theme
 seed_data
-log "Fixing permissions for wp-content and character-search directory"
+log "Fixing permissions for wp-content and theme directories"
 mkdir -p "$WP_ROOT/wp-content/upgrade" "$WP_ROOT/wp-content/uploads" "$WP_ROOT/wp-content/plugins" "$WP_ROOT/wp-content/languages"
 chown -R www-data:www-data "$WP_ROOT/wp-content/upgrade" "$WP_ROOT/wp-content/uploads" "$WP_ROOT/wp-content/plugins" "$WP_ROOT/wp-content/languages"
-# Apache (www-data) が検索JSONを生成・更新できるようディレクトリのみ書き込み許可を付与
-chmod 777 "$THEME_DIR/lib/character-search"
+# Apache (www-data) が検索JSON・未入力情報・ACF JSONを生成・更新できるようディレクトリ書き込み許可を付与
+chmod 777 "$THEME_DIR/lib/character-search" "$THEME_DIR/lib" "$THEME_DIR/acf-json" 2>/dev/null || true
 generate_search_json
 flush_rewrites
+if [ -f "$THEME_DIR/.devcontainer/fix-permissions.sh" ]; then
+  bash "$THEME_DIR/.devcontainer/fix-permissions.sh"
+fi
 
 log "Local environment ready"
 log "Site: $SITE_URL"

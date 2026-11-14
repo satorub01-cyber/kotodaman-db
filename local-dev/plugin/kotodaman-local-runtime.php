@@ -8,6 +8,9 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// ローカル開発環境では Web (www-data) / CLI (root) / WSL ホストユーザー間の権限競合を防ぐ
+@umask(0000);
+
 add_action('init', function () {
     register_post_type('character', [
         'labels' => [
