@@ -11,6 +11,6 @@ search-moc.html
 /lib/missing-info.json
 /local-dev/*
 .devcontainer/devcontainer-lock.json
-.devcontainer/xdebug.ini
+/.devcontainer/local/
 .vscode/
 /.devcontainer/acf-pro-stubs-master
