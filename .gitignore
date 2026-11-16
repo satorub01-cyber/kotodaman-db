@@ -10,6 +10,7 @@ search-moc.html
 /documents/presentations/*
 /lib/missing-info.json
 /local-dev/*
+!/local-dev/plugin/kotodaman-local-runtime.php
 .devcontainer/devcontainer-lock.json
 /.devcontainer/local/
 .vscode/

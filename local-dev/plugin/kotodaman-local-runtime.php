@@ -258,3 +258,25 @@ if (!function_exists('kotodaman_local_build_sugowaza_conditions_from_spec')) {
         return $patterns;
     }
 }
+
+// ローカル開発環境でのSVGアップロードを許可（<?xml 宣言なしのSVGにも対応）
+add_filter('upload_mimes', function ($mimes) {
+    $mimes['svg'] = 'image/svg+xml';
+    $mimes['svgz'] = 'image/svg+xml';
+    return $mimes;
+});
+
+add_filter('wp_check_filetype_and_ext', function ($data, $file, $filename, $mimes) {
+    if (!empty($data['ext']) && !empty($data['type'])) {
+        return $data;
+    }
+
+    $filetype = wp_check_filetype($filename, $mimes);
+    if (in_array($filetype['ext'], ['svg', 'svgz'], true)) {
+        $data['ext'] = $filetype['ext'];
+        $data['type'] = $filetype['type'];
+        $data['proper_filename'] = $data['proper_filename'] ?? false;
+    }
+
+    return $data;
+}, 10, 4);
