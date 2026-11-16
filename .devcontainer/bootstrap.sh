@@ -147,19 +147,41 @@ flush_rewrites() {
   wp rewrite flush --hard --path="$WP_ROOT" --allow-root
 }
 
+reload_apache_if_running() {
+  local pid_file="/var/run/apache2/apache2.pid"
+  local pid
+  if [ -s "$pid_file" ]; then
+    pid="$(cat "$pid_file" 2>/dev/null || true)"
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && [ -r "/proc/$pid/comm" ] && [ "$(cat "/proc/$pid/comm" 2>/dev/null || true)" = "apache2" ]; then
+      apache2ctl graceful >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
 configure_php() {
   log "Configuring PHP upload and memory limits"
-  cat << 'EOF' > /usr/local/etc/php/conf.d/uploads.ini
+  local ini_path="/usr/local/etc/php/conf.d/uploads.ini"
+  local tmp_ini
+  tmp_ini="$(mktemp)"
+  cat << 'EOF' > "$tmp_ini"
 upload_max_filesize = 128M
 post_max_size = 128M
 memory_limit = 256M
 max_execution_time = 300
 EOF
-  apache2ctl graceful >/dev/null 2>&1 || true
+
+  if [ -f "$ini_path" ] && cmp -s "$tmp_ini" "$ini_path"; then
+    rm -f "$tmp_ini"
+    return 0
+  fi
+
+  mv "$tmp_ini" "$ini_path"
+  chmod 644 "$ini_path"
+  reload_apache_if_running
 }
 
-configure_php
 wait_for_wordpress
+configure_php
 install_wordpress
 install_parent_theme
 install_plugins

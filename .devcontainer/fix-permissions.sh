@@ -21,7 +21,12 @@ fi
 
 if [ -f /etc/apache2/envvars ] && ! grep -qxF 'umask 000' /etc/apache2/envvars; then
   echo 'umask 000' >> /etc/apache2/envvars
-  apache2ctl graceful >/dev/null 2>&1 || true
+  if [ -s /var/run/apache2/apache2.pid ]; then
+    APACHE_PID="$(cat /var/run/apache2/apache2.pid 2>/dev/null || true)"
+    if [ -n "$APACHE_PID" ] && kill -0 "$APACHE_PID" 2>/dev/null && [ -r "/proc/$APACHE_PID/comm" ] && [ "$(cat "/proc/$APACHE_PID/comm" 2>/dev/null || true)" = "apache2" ]; then
+      apache2ctl graceful >/dev/null 2>&1 || true
+    fi
+  fi
 fi
 
 # 2. ワークスペース（子テーマ）内で root や www-data 所有になったファイルをホストユーザー所有に戻す
