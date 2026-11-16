@@ -686,6 +686,42 @@ koto_compat_assert(
     'POST /mcp/character-draft (dry_run) でも auto_input_kotowaza 配列入力を受理できる'
 );
 
+// 5. status_auto_tf: true かつ lv_120_hp/atk 未入力時は自動で false に補正され警告が返る
+$lv120_fallback_preview = koto_mcp_call_tool('preview_draft', [
+    'character_name' => 'Lv120未入力補正_' . $suffix,
+    'basic_fields'   => [
+        'name_ruby'      => 'ほせい',
+        'attribute'      => '木',
+        'species'        => '妖',
+        'rarity'         => 'なし',
+        'lv_99_hp'       => 1829,
+        'lv_99_atk'      => 811,
+        'status_auto_tf' => true,
+    ],
+    'auto_input'     => [
+        'auto_input_waza' => '敵単体に強力な木属性の4回攻撃',
+    ],
+], $koto_req);
+$lv120_warn_str = implode("\n", (array) ($lv120_fallback_preview['warnings'] ?? []));
+$lv120_created = koto_mcp_call_tool('create_draft', [
+    'preview_hash'    => (string) ($lv120_fallback_preview['preview_hash'] ?? ''),
+    'idempotency_key' => 'lv120_fallback_' . $suffix,
+], $koto_req);
+$lv120_post_id = !is_wp_error($lv120_created) ? (int) ($lv120_created['post_id'] ?? 0) : 0;
+if ($lv120_post_id > 0) {
+    $cleanup_posts[] = $lv120_post_id;
+}
+$lv120_draft = $lv120_post_id > 0 ? koto_mcp_call_tool('get_draft', ['post_id' => $lv120_post_id], $koto_req) : null;
+koto_compat_assert(
+    !is_wp_error($lv120_fallback_preview)
+    && !empty($lv120_fallback_preview['valid'])
+    && strpos($lv120_warn_str, 'status_auto_tf') !== false
+    && $lv120_post_id > 0
+    && is_array($lv120_draft)
+    && ($lv120_draft['basic_fields']['status_auto_tf'] ?? true) === false,
+    'lv_120_hp/atk 未入力時の status_auto_tf: true は自動で false に補正され warnings に通知される'
+);
+
 unset($_SERVER['HTTP_AUTHORIZATION']);
 wp_set_current_user(0);
 

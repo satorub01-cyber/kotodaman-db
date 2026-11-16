@@ -57,8 +57,13 @@ function koto_parse_trait($text, $grouped_csv, $input_key = '')
 
         $trait_rows = $grouped_csv['とくせい'] ?? [];
         $effect_data = [];
-        // 条件の消し残りを考慮し、とくせいの効果部分は「後方一致」でマッチさせる
-        $match = koto_match_csv_template($remaining_text, $trait_rows, $input_key, 'suffix');
+        // まず完全一致を優先し、条件の消し残りがある場合のみ最長後方一致で照合する
+        $match = koto_match_csv_template($remaining_text, $trait_rows, $input_key, 'exact');
+        if (!koto_is_csv_template_match($match)) {
+            $match = koto_match_csv_template($remaining_text, $trait_rows, $input_key, 'suffix', [
+                'match_strategy' => 'longest',
+            ]);
+        }
         $effect_rows = koto_is_csv_template_match($match)
             ? koto_ensure_acf_data_list($match['acf_data'])
             : [];
@@ -690,7 +695,94 @@ function koto_parse_kotowaza($texts, $grouped_csv, $input_key = '')
 }
 
 /**
- * リーダーとくせいの入力文言を解析し、ACF行配列（ls_loopの要素）を返す。
+ * ミラクルリーダーとくせい（「〇〇」を付与する形式）の内部効果文言を解析し、
+ * miracle_leader_loop 用の行配列を構築する。
+ *
+ * @param string $inner_text 「」内の付与効果文言。
+ * @param array<int, array<string, mixed>> $targets 抽出済みの対象配列（ls_target_chara_loop形式）。
+ * @param string $inline_target 「」直前に書かれた全体・自身指定（味方全体/デッキ内全員/自身）。
+ * @param array<string, array<int, array<string, mixed>>> $grouped_csv 種別グループ済みCSV。
+ * @param string $input_key 入力欄識別キー。
+ * @return array<int, array<string, mixed>> miracle_leader_loop 用の行配列。
+ */
+function koto_parse_miracle_leader_inner_traits($inner_text, $targets, $inline_target, $grouped_csv, $input_key = '')
+{
+    $inner_text = trim((string) $inner_text);
+    if ($inner_text === '') {
+        return [];
+    }
+
+    $leader_effect_rows = $grouped_csv['リーダー効果'] ?? [];
+    $parsed_traits = [];
+
+    // 1. リーダー効果CSV内のミラクル用定義（trait_type を持つ行）で完全一致を試行
+    $leader_match = koto_match_csv_template($inner_text, $leader_effect_rows, $input_key, 'exact');
+    if (koto_is_csv_template_match($leader_match)) {
+        foreach (koto_ensure_acf_data_list($leader_match['acf_data']) as $row) {
+            if (is_array($row) && isset($row['trait_type'])) {
+                $parsed_traits[] = $row;
+            }
+        }
+    }
+
+    // 2. 未一致の場合は通常のとくせいパーサーへ委譲して汎用対応する
+    if (empty($parsed_traits)) {
+        $prep_inner = koto_preprocess_text($inner_text, 'とくせい');
+        $trait_res = koto_parse_trait($prep_inner, $grouped_csv, '');
+        if (empty($trait_res) && strpos($prep_inner, '%') !== false) {
+            // リーダーとくせい前処理で「UP」が除去されている場合の復元フォールバック
+            $restored_inner = preg_replace('/([0-9]+%)(?!UP)/u', '$1UP', $prep_inner);
+            if ($restored_inner !== null && $restored_inner !== $prep_inner) {
+                $trait_res = koto_parse_trait($restored_inner, $grouped_csv, '');
+            }
+        }
+        if (!empty($trait_res)) {
+            foreach ($trait_res as $row) {
+                if (is_array($row) && isset($row['trait_type'])) {
+                    $parsed_traits[] = $row;
+                }
+            }
+        }
+    }
+
+    if (empty($parsed_traits)) {
+        return [];
+    }
+
+    // 付与先（whose_trait）の解決
+    $whose_groups = [];
+    foreach ($targets as $t) {
+        if (isset($t['target_field_group']) && is_array($t['target_field_group']) && !empty($t['target_field_group'])) {
+            $whose_groups[] = $t['target_field_group'];
+        }
+    }
+    if (empty($whose_groups)) {
+        if ($inline_target === '味方全体' || $inline_target === 'デッキ内全員') {
+            $whose_groups[] = ['target_type' => 'all'];
+        } elseif ($inline_target === '自身') {
+            $whose_groups[] = ['target_type' => 'self'];
+        } else {
+            $whose_groups[] = [];
+        }
+    }
+
+    $miracle_rows = [];
+    foreach ($parsed_traits as $trait_row) {
+        foreach ($whose_groups as $whose_group) {
+            $row_copy = $trait_row;
+            if (!empty($whose_group) && empty($row_copy['whose_trait'])) {
+                $row_copy['whose_trait'] = $whose_group;
+            }
+            $row_copy['_target_repeater'] = 'miracle_leader_loop';
+            $miracle_rows[] = $row_copy;
+        }
+    }
+
+    return $miracle_rows;
+}
+
+/**
+ * リーダーとくせいの入力文言を解析し、ACF行配列（ls_loop / miracle_leader_loop の要素）を返す。
  *
  * @param string $text 入力文言。
  * @param array<string, array<int, array<string, mixed>>> $grouped_csv 種別グループ済みCSV。
@@ -1006,6 +1098,11 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
                 // 【修正】先頭の「、」や「,」を削る
                 $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
 
+                // 対象なしの「『効果』を付与する」が先頭にある場合は「『所属』」として誤消費しない
+                if (preg_match('/^「(?:[^「」]|「[^」]*」)+」を付与(?:する|し)?/u', $remaining_text)) {
+                    break;
+                }
+
                 $match = koto_match_csv_template($remaining_text, $target_rows, $input_key, 'prefix');
                 if (koto_is_csv_template_match($match)) {
                     $has_explicit_target = true;
@@ -1031,6 +1128,24 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
                 $last_targets = $targets;
             } elseif (empty($targets) && !empty($last_targets)) {
                 $targets = $last_targets;
+            }
+
+            // 2.5. ミラクルリーダーとくせい（「対象に「〇〇」を付与する」形式）の検知・変換
+            if (preg_match('/^(?:(味方全体|デッキ内全員|自身))?(?:に)?「((?:[^「」]|「[^」]*」)+)」を付与(?:する|し)?/u', $remaining_text, $miracle_match)) {
+                $inline_target = $miracle_match[1] ?? '';
+                $inner_text = $miracle_match[2] ?? '';
+                $miracle_rows = koto_parse_miracle_leader_inner_traits($inner_text, $targets, $inline_target, $grouped_csv, $input_key);
+                if (!empty($miracle_rows)) {
+                    foreach ($miracle_rows as $m_row) {
+                        $results[] = $m_row;
+                    }
+                    $remaining_text = trim(mb_substr($remaining_text, mb_strlen($miracle_match[0])));
+                    $remaining_text = preg_replace('/^[・\s、,]+/u', '', $remaining_text);
+                    if (mb_strlen($remaining_text) >= $prev_pattern_b_len) {
+                        break;
+                    }
+                    continue;
+                }
             }
 
             // 3. 効果の抽出ループ（ls_type ごとに仕分ける）
@@ -1133,9 +1248,16 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
         }
     }
     $ls_loop_map = koto_leader_get_field_map()['ls_loop']['_sub'];
-    $results = koto_leader_convert_keys($results, $ls_loop_map);
+    $converted_results = [];
+    foreach ($results as $res_row) {
+        if (isset($res_row['trait_type']) || ($res_row['_target_repeater'] ?? '') === 'miracle_leader_loop') {
+            $converted_results[] = $res_row;
+        } else {
+            $converted_results[] = koto_leader_convert_keys($res_row, $ls_loop_map);
+        }
+    }
 
-    return $results;
+    return $converted_results;
 }
 
 // auto-input-追加必須: 新しい koto_parse_* 関数はこのファイルへ追加し、下の振り分けへ接続

@@ -133,6 +133,8 @@ $tests = [
         '①自身が実体化時に、敵全体に被ダメージ少し増加状態を1ターン付与し、このターン敵全体が受けるダメージの上限を100000増加②自身が実体化した文字と同じ文字のコトダマンが実体化している場合、ことば読み上げ完了後にこのターン攻撃する自身と、自身と同じ文字のコトダマンの威力が30%UP・1回の攻撃で与えることができるダメージの上限を200000増加',
         // 11. 単体単発攻撃補正＋上限解放複合（single_shot）＆すごわざ発動条件追加（sugowaza_condition）
         '①デッキ内の水属性の単体単発攻撃で敵に与えるダメージが30%UP・単体単発攻撃で与えることができるダメージの上限を200000増加②自身のすごわざ発動条件に「いきもののことば」を追加する',
+        // 12. 共鳴クリティカル（後方一致によるcritical_damage誤吸防止）＆グループ対象クリティカル率UP
+        '①自身が実体化した文字と同じ文字のコトダマンが実体化している場合、ことば読み上げ完了後にこのターン攻撃する自身と、自身と同じ文字のコトダマンのクリティカル発生率が100%UP・クリティカル時の威力が20%UP※濁音、半濁音、小文字も同じ文字とする②デッキ内の「彩々のひと」のクリティカル発生率が20%UP',
     ],
     'リーダーとくせい' => [
         // 1. 編成条件＋コンボ条件＋固定倍率（パターンB）
@@ -153,6 +155,8 @@ $tests = [
         '①木属性がHP上限を超えて回復で固定ダメージ②木属性のATKが追加で40%UP',
         // 9. 中黒区切りの複数効果（対象引き継ぎ＋文字含有条件＋ATK上昇）
         '神種族と英種族のHP100%UP·「え」 を含む言葉を作成したときATKが200% UP',
+        // 10. ミラクルリーダーとくせい（miracle_leader_loop: 属性付与＋上限突破）
+        '①木・天属性HP150%・ATK150%UP・変異耐性100%②木・天属性に「自身ダメージ上限突破(+500000)」を付与する',
     ],
     'すごわざ発動条件' => [
         // 1. 文字数条件＋コンボ条件（OR条件）
@@ -169,6 +173,8 @@ $tests = [
         '①あかさs4m②んいe5m③しi12c',
         // 7. 頭文字＋語尾＋文字数の3条件AND結合
         '「あ」からはじまる「ん」でおわる5文字以上',
+        // 8. 連続引用「」「」による複数文字列（「こう」「ごう」等）の非分割保持
+        '「こう」「ごう」「そう」「とう」「どう」「ほう」を含む6文字以上',
     ],
     '祝福' => [
         // 1. タイプ1（テンプレート注入：★6通常、複数キラー対象属性・種族のインデックス付き配列展開）
@@ -423,6 +429,90 @@ if (is_array($koto_map_norm) && count($koto_map_norm) === 2 && ($koto_map_norm[0
 }
 if (!$test_mode && $koto_guard_passed === $koto_guard_total) {
     echo sprintf("[PASS] %-18s : %d / %d passed\n", 'コトわざガード', $koto_guard_passed, $koto_guard_total);
+}
+
+// 今回追加分の構造検証アサーション（共鳴クリティカル・グループクリティカル・ミラクルリーダー・コトわざ連続引用）
+$regression_total = 4;
+$regression_passed = 0;
+
+$total_count++;
+$res_crit_trait = koto_parse_text_by_type(
+    '①自身が実体化した文字と同じ文字のコトダマンが実体化している場合、ことば読み上げ完了後にこのターン攻撃する自身と、自身と同じ文字のコトダマンのクリティカル発生率が100%UP・クリティカル時の威力が20%UP※濁音、半濁音、小文字も同じ文字とする',
+    'とくせい',
+    $grouped_csv,
+    'auto_input_trait2'
+);
+$ok_res_crit = (
+    count($res_crit_trait) === 1
+    && ($res_crit_trait[0]['trait_type'] ?? '') === 'new_traits'
+    && ($res_crit_trait[0]['new_traits'] ?? '') === 'resonance'
+    && (int) ($res_crit_trait[0]['resonance_crit_rate'] ?? 0) === 100
+    && (int) ($res_crit_trait[0]['resonance_crit_damage'] ?? 0) === 20
+);
+if ($ok_res_crit) {
+    $passed_count++;
+    $regression_passed++;
+} else {
+    $failed_cases[] = '[回帰検証] 共鳴クリティカルが new_traits(resonance) として正しく解析されませんでした';
+}
+
+$total_count++;
+$grp_crit_trait = koto_parse_text_by_type(
+    'デッキ内の「彩々のひと」のクリティカル発生率が20%UP',
+    'とくせい',
+    $grouped_csv,
+    'auto_input_trait2'
+);
+$ok_grp_crit = (
+    count($grp_crit_trait) === 1
+    && ($grp_crit_trait[0]['trait_type'] ?? '') === 'status_up'
+    && ($grp_crit_trait[0]['status_up'] ?? '') === 'critical_rate'
+    && ($grp_crit_trait[0]['target_field_group']['target_type'] ?? '') === 'group'
+);
+if ($ok_grp_crit) {
+    $passed_count++;
+    $regression_passed++;
+} else {
+    $failed_cases[] = '[回帰検証] グループ対象クリティカル発生率UPの target_field_group が解析されませんでした';
+}
+
+$total_count++;
+$miracle_leader_res = koto_parse_text_by_type(
+    '①木・天属性HP150%・ATK150%UP・変異耐性100%②木・天属性に「自身ダメージ上限突破(+500000)」を付与する',
+    'リーダーとくせい',
+    $grouped_csv,
+    'auto_input_leader'
+);
+$ok_miracle = (
+    count($miracle_leader_res) === 2
+    && ($miracle_leader_res[1]['_target_repeater'] ?? '') === 'miracle_leader_loop'
+    && ($miracle_leader_res[1]['trait_type'] ?? '') === 'damage_correction'
+    && ($miracle_leader_res[1]['damage_correction'] ?? '') === 'break_limit'
+    && (int) ($miracle_leader_res[1]['limit_break_rate'] ?? 0) === 500000
+    && ($miracle_leader_res[1]['whose_trait']['target_type'] ?? '') === 'attr'
+);
+if ($ok_miracle) {
+    $passed_count++;
+    $regression_passed++;
+} else {
+    $failed_cases[] = '[回帰検証] ミラクルリーダーとくせい（miracle_leader_loop）の解析に失敗しました';
+}
+
+$total_count++;
+$koto_quoted_res = koto_parse_kotowaza([
+    ['condition' => '「こう」「ごう」「そう」「とう」「どう」「ほう」を含む6文字以上', 'effect' => '敵単体に超強力な天属性攻撃'],
+], $grouped_csv, 'auto_input_kotowaza');
+$koto_cond_val = $koto_quoted_res[0]['kotowaza_condition'][0]['sugo_cond_loop'][0]['sugo_cond_val'] ?? '';
+$ok_koto_quoted = ($koto_cond_val === 'こう,ごう,そう,とう,どう,ほう');
+if ($ok_koto_quoted) {
+    $passed_count++;
+    $regression_passed++;
+} else {
+    $failed_cases[] = '[回帰検証] コトわざ連続引用条件が分割されてしまいました（実際: ' . $koto_cond_val . '）';
+}
+
+if (!$test_mode && $regression_passed === $regression_total) {
+    echo sprintf("[PASS] %-18s : %d / %d passed\n", '回帰構造検証', $regression_passed, $regression_total);
 }
 
 if (!$test_mode) {

@@ -128,6 +128,7 @@ function koto_generate_regex_pattern($template, &$seen_vars, $match_mode = 'exac
  * @param array<string, mixed> $options {
  *   @type null|array $no_match_return  文言に一致する行が無いときの戻り値（既定: null）
  *   @type null|array $empty_acf_return  マッチしたがACF行が空のときの acf_data（既定: [[]]）
+ *   @type string     $match_strategy   一致候補の採用戦略（'first'|'longest'、既定: 'first'）
  * }
  * @return array<string, mixed> 正規化済みオプション。
  */
@@ -136,6 +137,7 @@ function koto_normalize_csv_match_options($options = [])
     $defaults = [
         'no_match_return' => null,
         'empty_acf_return' => [[]],
+        'match_strategy' => 'first',
     ];
     return array_merge($defaults, $options);
 }
@@ -444,6 +446,10 @@ function koto_remove_empty_keys_recursive($array)
 function koto_match_csv_template($text, $csv_rows, $input_key = '', $match_mode = 'exact', $options = [])
 {
     $options = koto_normalize_csv_match_options($options);
+    $use_longest = (($options['match_strategy'] ?? 'first') === 'longest');
+    $best_row = null;
+    $best_matches = null;
+    $best_len = -1;
 
     foreach ($csv_rows as $row) {
         if (empty($row['文言'])) continue;
@@ -452,25 +458,41 @@ function koto_match_csv_template($text, $csv_rows, $input_key = '', $match_mode 
         $pattern = koto_generate_regex_pattern($row['文言'], $seen_vars, $match_mode);
 
         if (preg_match($pattern, $text, $matches)) {
-            // auto-input-追加必須: 新しい入力キー固有のマッチ結果加工が必要な場合はここへ追加
-            if ($input_key === 'auto_input_trait1') {
-                $matches['trait_num'] = 'first_trait';
-            } elseif ($input_key === 'auto_input_trait2') {
-                $matches['trait_num'] = 'second_trait';
-            } elseif ($input_key === 'auto_input_blessing' || $input_key === 'auto_input_ex_blessing') {
-                $matches['trait_num'] = 'blessing';
+            if ($use_longest) {
+                $matched_len = mb_strlen((string) ($matches[0] ?? ''), 'UTF-8');
+                if ($matched_len > $best_len) {
+                    $best_len = $matched_len;
+                    $best_row = $row;
+                    $best_matches = $matches;
+                }
+                continue;
             }
-
-            // 文言がマッチした時点でこの行を採用（JSONが空・不正でも後続行へ進まない）
-            $acf_rows = koto_apply_variables_to_json_rows($row['ACFに入力するJSON'] ?? '', $matches, $input_key);
-            return [
-                'acf_data' => koto_finalize_match_acf_data($acf_rows, $options['empty_acf_return']),
-                'matched_text' => $matches[0],
-                'matches' => $matches, // 抽出した変数の配列をそのまま返す
-            ];
+            $best_row = $row;
+            $best_matches = $matches;
+            break;
         }
     }
-    return $options['no_match_return'];
+
+    if ($best_row === null || $best_matches === null) {
+        return $options['no_match_return'];
+    }
+
+    // auto-input-追加必須: 新しい入力キー固有のマッチ結果加工が必要な場合はここへ追加
+    if ($input_key === 'auto_input_trait1') {
+        $best_matches['trait_num'] = 'first_trait';
+    } elseif ($input_key === 'auto_input_trait2') {
+        $best_matches['trait_num'] = 'second_trait';
+    } elseif ($input_key === 'auto_input_blessing' || $input_key === 'auto_input_ex_blessing') {
+        $best_matches['trait_num'] = 'blessing';
+    }
+
+    // 文言がマッチした時点でこの行を採用（JSONが空・不正でも後続行へ進まない）
+    $acf_rows = koto_apply_variables_to_json_rows($best_row['ACFに入力するJSON'] ?? '', $best_matches, $input_key);
+    return [
+        'acf_data' => koto_finalize_match_acf_data($acf_rows, $options['empty_acf_return']),
+        'matched_text' => $best_matches[0],
+        'matches' => $best_matches, // 抽出した変数の配列をそのまま返す
+    ];
 }
 
 // =================================================================
@@ -1038,8 +1060,10 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             $values = preg_split('/・/u', $value);
             $value = array_filter(array_map('trim', $values));
         } elseif (strpos($key, 'characters') === 0) {
-            if (preg_match('/[、,，]/u', $value)) {
-                $value = preg_replace('/[、，]/u', ',', $value);
+            if (preg_match('/[、,，・]/u', $value)) {
+                $value = preg_replace('/[、，・]+/u', ',', $value);
+                $value = preg_replace('/,+/u', ',', (string) $value);
+                $value = trim((string) $value, ',');
             } else {
                 // 区切り文字がない場合のみ1文字ずつ分割
                 $value = implode(',', mb_str_split($value));
@@ -1350,6 +1374,11 @@ function koto_preprocess_text($text, $category = '')
 
     // 腐敗の注釈文言を除去（「リーダーとくせい」の除外語「各」で「各敵」が壊れる前に実行、かつ「各」の有無両対応）
     $text = preg_replace('/\(敵の行動時、そのターンに.+?が(?:各)?敵にわざ・すごわざ・コトわざで与えた合計ダメージの[\d.]+%の値で固定ダメージを与える効果\)/u', '', $text);
+
+    // すごわざ発動条件（コトわざ条件含む）の連続引用「こう」「ごう」等を、括弧除去前にカンマ区切りへ保護する
+    if ($category === 'すごわざ発動条件') {
+        $text = preg_replace('/」[、,，・]?「/u', ',', $text);
+    }
 
     // 「、さらに」はdetail_loop行分割の役割を持つため消去せず保護する
     $text = str_replace('、さらに', '___TEMP_COMMA_SARANI___', $text);

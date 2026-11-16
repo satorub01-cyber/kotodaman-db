@@ -838,6 +838,10 @@ function koto_mcp_create_character_draft($request)
         return is_string($url) ? esc_url_raw(trim($url)) : '';
     }, $screenshot_urls)));
 
+    $lv120_warnings = function_exists('koto_mcp_normalize_lv120_manual_flag')
+        ? koto_mcp_normalize_lv120_manual_flag($basic_fields)
+        : [];
+
     $csv_path = get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv';
     $grouped_csv = koto_group_csv_by_type(koto_load_csv_dictionary($csv_path));
     $acf_data = koto_build_acf_data_from_inputs($auto_input, $grouped_csv);
@@ -852,6 +856,9 @@ function koto_mcp_create_character_draft($request)
     $auto_warnings = function_exists('koto_mcp_detect_auto_input_warnings')
         ? koto_mcp_detect_auto_input_warnings($auto_input, $acf_data, $grouped_csv)
         : [];
+    if (!empty($lv120_warnings)) {
+        $auto_warnings = array_values(array_unique(array_merge($lv120_warnings, $auto_warnings)));
+    }
 
     if ($dry_run) {
         if ($computed_hash !== '' && function_exists('koto_mcp_preview_cache_key')) {

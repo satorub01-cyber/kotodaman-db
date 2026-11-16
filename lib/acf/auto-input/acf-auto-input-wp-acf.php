@@ -329,6 +329,14 @@ function koto_update_character_post_with_acf($post_id, $acf_data, $replace_exist
         if (!empty($replaced_moji_unlock_places) && !isset($fields_to_update['available_moji_loop'])) {
             $fields_to_update['available_moji_loop'] = [];
         }
+        if (array_key_exists('auto_input_leader', $acf_data)) {
+            if (!isset($fields_to_update['ls_loop'])) {
+                $fields_to_update['ls_loop'] = [];
+            }
+            if (!isset($fields_to_update['miracle_leader_loop'])) {
+                $fields_to_update['miracle_leader_loop'] = [];
+            }
+        }
     }
 
     // 分類したデータをまとめて更新する

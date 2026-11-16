@@ -772,6 +772,66 @@ function koto_mcp_detect_auto_input_warnings($safe_auto_input, $parsed, $csv)
     return array_values(array_unique($warnings));
 }
 
+/**
+ * status_auto_tf（Lv.120手動入力フラグ）と Lv.120 ステータス入力の整合性を正規化する。
+ *
+ * lv_120_hp / lv_120_atk（旧エイリアス 120_hp / 120_atk 含む）が未入力のまま
+ * status_auto_tf が true に設定されている場合、自動計算へフォールバックするため false に補正し警告を返す。
+ *
+ * @param array<string, mixed> $basic_fields 正規化対象の基本フィールド配列（参照渡し）。
+ * @param int $post_id 更新時の投稿ID（既存の手動Lv.120値が保存済みかの確認用）。
+ * @return array<int, string> 発生した警告メッセージ配列。
+ */
+function koto_mcp_normalize_lv120_manual_flag(&$basic_fields, $post_id = 0)
+{
+    if (!is_array($basic_fields) || !array_key_exists('status_auto_tf', $basic_fields)) {
+        return [];
+    }
+    $raw_flag = $basic_fields['status_auto_tf'];
+    $is_truthy = ($raw_flag === true || $raw_flag === 1 || $raw_flag === '1' || (is_string($raw_flag) && strtolower(trim($raw_flag)) === 'true'));
+    if (!$is_truthy) {
+        return [];
+    }
+
+    $has_positive_val = static function ($keys) use ($basic_fields) {
+        foreach ($keys as $k) {
+            if (array_key_exists($k, $basic_fields) && is_numeric($basic_fields[$k]) && (float) $basic_fields[$k] > 0) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    $has_120_hp = $has_positive_val(['lv_120_hp', '120_hp']);
+    $has_120_atk = $has_positive_val(['lv_120_atk', '120_atk']);
+
+    if ($post_id > 0 && function_exists('get_field')) {
+        if (!$has_120_hp) {
+            $hp_fdef = function_exists('koto_get_top_level_character_acf_field') ? koto_get_top_level_character_acf_field('lv_120_hp') : null;
+            $saved_hp = ($hp_fdef && !empty($hp_fdef['key'])) ? get_field($hp_fdef['key'], $post_id, false) : get_post_meta($post_id, 'lv_120_hp', true);
+            if (is_numeric($saved_hp) && (float) $saved_hp > 0) {
+                $has_120_hp = true;
+            }
+        }
+        if (!$has_120_atk) {
+            $atk_fdef = function_exists('koto_get_top_level_character_acf_field') ? koto_get_top_level_character_acf_field('lv_120_atk') : null;
+            $saved_atk = ($atk_fdef && !empty($atk_fdef['key'])) ? get_field($atk_fdef['key'], $post_id, false) : get_post_meta($post_id, 'lv_120_atk', true);
+            if (is_numeric($saved_atk) && (float) $saved_atk > 0) {
+                $has_120_atk = true;
+            }
+        }
+    }
+
+    if ($has_120_hp && $has_120_atk) {
+        return [];
+    }
+
+    $basic_fields['status_auto_tf'] = false;
+    return [
+        'basic_fields.status_auto_tf が true でしたが、lv_120_hp / lv_120_atk が未入力のため自動で false（Lv.99基礎値からの自動計算モード）に補正しました。Lv.120の画像またはLv.120パラメータが渡された場合のみ true を指定してください。',
+    ];
+}
+
 function koto_mcp_validate_draft(&$args)
 {
     $errors = ['missing_fields' => [], 'invalid_fields' => []];
@@ -829,6 +889,8 @@ function koto_mcp_validate_draft(&$args)
             $fields['get_place'] = 'other';
         }
     }
+
+    $lv120_warnings = koto_mcp_normalize_lv120_manual_flag($fields, (int) ($args['post_id'] ?? 0));
 
     $args['basic_fields'] = $fields;
 
@@ -1088,7 +1150,10 @@ function koto_mcp_validate_draft(&$args)
             $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $input_key, 'unparsed_text');
         }
     }
-    $warnings = koto_mcp_detect_auto_input_warnings($safe_auto_input, $parsed, $csv);
+    $warnings = array_values(array_unique(array_merge(
+        $lv120_warnings,
+        koto_mcp_detect_auto_input_warnings($safe_auto_input, $parsed, $csv)
+    )));
     return ['errors' => $errors, 'parsed_acf' => $parsed, 'warnings' => $warnings, 'normalized_args' => $args];
 }
 
