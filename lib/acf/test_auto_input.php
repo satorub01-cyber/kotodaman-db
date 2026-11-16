@@ -73,8 +73,17 @@ if (isset($cli_args[0]) && $cli_args[0] === '--extract-blessing') {
 // 引数指定時は単発テストを実行
 if (isset($cli_args[0], $cli_args[1])) {
     $type = $cli_args[0];
+    if ($type === 'ミラクルリーダーとくせい' || $type === 'ミラクルリーダー') {
+        $type = 'リーダーとくせい';
+    }
     $phrase = $cli_args[1];
-    $input_key = ($type === 'とくせい') ? 'auto_input_trait1' : (($type === 'EX祝福') ? 'auto_input_ex_blessing' : (($type === '祝福') ? 'auto_input_blessing' : ''));
+    $input_key = ($type === 'とくせい')
+        ? 'auto_input_trait1'
+        : (($type === 'EX祝福')
+            ? 'auto_input_ex_blessing'
+            : (($type === '祝福')
+                ? 'auto_input_blessing'
+                : (($type === 'リーダーとくせい') ? 'auto_input_leader' : '')));
     $parsed = koto_parse_text_by_type($phrase, $type, $grouped_csv, $input_key);
     echo "■ 種別: {$type}\n";
     echo "■ 文言: {$phrase}\n";
@@ -157,6 +166,8 @@ $tests = [
         '神種族と英種族のHP100%UP·「え」 を含む言葉を作成したときATKが200% UP',
         // 10. ミラクルリーダーとくせい（miracle_leader_loop: 属性付与＋上限突破）
         '①木・天属性HP150%・ATK150%UP・変異耐性100%②木・天属性に「自身ダメージ上限突破(+500000)」を付与する',
+        // 11. ミラクルリーダーとくせい（汎用とくせい委譲＋全体／グループ付与）
+        '①味方全体に「5文字以上の言葉を作成した時、自身の威力が50%UP」を付与する②「彩々のひと」に「自身ダメージ上限突破(+500000)」を付与する',
     ],
     'すごわざ発動条件' => [
         // 1. 文字数条件＋コンボ条件（OR条件）
@@ -210,7 +221,7 @@ foreach ($tests as $type => $phrases) {
         echo "========================================\n";
     }
     $cat_passed = 0;
-    $input_key = ($type === 'とくせい') ? 'auto_input_trait1' : '';
+    $input_key = ($type === 'とくせい') ? 'auto_input_trait1' : (($type === 'リーダーとくせい') ? 'auto_input_leader' : '');
     foreach ($phrases as $i => $phrase) {
         $num = $i + 1;
         $total_count++;
@@ -513,6 +524,81 @@ if ($ok_koto_quoted) {
 
 if (!$test_mode && $regression_passed === $regression_total) {
     echo sprintf("[PASS] %-18s : %d / %d passed\n", '回帰構造検証', $regression_passed, $regression_total);
+}
+
+// ミラクルリーダーとくせい専用検証（通常リーダー混在・汎用とくせい委譲・全体/グループ/対象なし）
+$miracle_total = 3;
+$miracle_passed = 0;
+
+$total_count++;
+$m_case1 = koto_parse_text_by_type(
+    '①木・天属性HP130%・ATK170%UP・睡眠耐性100%②木・天属性に「自身ダメージ上限突破(+500000)」を付与する',
+    'リーダーとくせい',
+    $grouped_csv,
+    'auto_input_leader'
+);
+$ok_m1 = (
+    count($m_case1) === 2
+    && isset($m_case1[0]['field_692e408c77f14'])
+    && ($m_case1[1]['_target_repeater'] ?? '') === 'miracle_leader_loop'
+    && ($m_case1[1]['trait_type'] ?? '') === 'damage_correction'
+    && (int) ($m_case1[1]['limit_break_rate'] ?? 0) === 500000
+    && ($m_case1[1]['whose_trait']['target_type'] ?? '') === 'attr'
+);
+if ($ok_m1) {
+    $passed_count++;
+    $miracle_passed++;
+} else {
+    $failed_cases[] = '[ミラクルリーダーとくせい #1] 属性付与＋上限突破のパースに失敗しました';
+}
+
+$total_count++;
+$m_case2 = koto_parse_text_by_type(
+    '①味方全体に「5文字以上の言葉を作成した時、自身の威力が50%UP」を付与する②「彩々のひと」に「自身ダメージ上限突破(+500000)」を付与する',
+    'リーダーとくせい',
+    $grouped_csv,
+    'auto_input_leader'
+);
+$ok_m2 = (
+    count($m_case2) === 2
+    && ($m_case2[0]['_target_repeater'] ?? '') === 'miracle_leader_loop'
+    && ($m_case2[0]['trait_type'] ?? '') === 'damage_correction'
+    && ($m_case2[0]['damage_correction'] ?? '') === 'oneself'
+    && (int) ($m_case2[0]['trait_rate'] ?? 0) === 50
+    && ($m_case2[0]['condition_type_loop'][0]['condition_type'] ?? '') === 'moji_count'
+    && ($m_case2[0]['whose_trait']['target_type'] ?? '') === 'all'
+    && ($m_case2[1]['_target_repeater'] ?? '') === 'miracle_leader_loop'
+    && ($m_case2[1]['whose_trait']['target_type'] ?? '') === 'group'
+);
+if ($ok_m2) {
+    $passed_count++;
+    $miracle_passed++;
+} else {
+    $failed_cases[] = '[ミラクルリーダーとくせい #2] 汎用とくせい委譲・全体/グループ付与のパースに失敗しました';
+}
+
+$total_count++;
+$m_case3 = koto_parse_text_by_type(
+    '「自身ダメージ上限突破(+300000)」を付与する',
+    'リーダーとくせい',
+    $grouped_csv,
+    'auto_input_leader'
+);
+$ok_m3 = (
+    count($m_case3) === 1
+    && ($m_case3[0]['_target_repeater'] ?? '') === 'miracle_leader_loop'
+    && ($m_case3[0]['trait_type'] ?? '') === 'damage_correction'
+    && (int) ($m_case3[0]['limit_break_rate'] ?? 0) === 300000
+);
+if ($ok_m3) {
+    $passed_count++;
+    $miracle_passed++;
+} else {
+    $failed_cases[] = '[ミラクルリーダーとくせい #3] 対象なし付与のパースに失敗しました';
+}
+
+if (!$test_mode && $miracle_passed === $miracle_total) {
+    echo sprintf("[PASS] %-18s : %d / %d passed\n", 'ミラクルリーダーとくせい', $miracle_passed, $miracle_total);
 }
 
 if (!$test_mode) {
