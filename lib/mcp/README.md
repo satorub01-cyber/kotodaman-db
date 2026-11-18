@@ -1,3 +1,11 @@
+---
+type: overview
+title: コトダマンDB MCPモジュール案内
+description: lib/mcp 配下のファイル構成・責務一覧および詳細ドキュメントへの案内。
+tags: [mcp, module, architecture]
+status: stable
+---
+
 # コトダマンDB MCP（Model Context Protocol）モジュール
 
 本ディレクトリ（`lib/mcp/`）は、コトダマンDBのMCPサーバー、OAuth 2.1認可サーバー、REST API、協力者登録ポータル、およびキャラクター下書き作成基盤の実装コード群です。
@@ -36,3 +44,11 @@ MCPのアーキテクチャ、API仕様、クライアント接続設定、運�
 | `tests/test-mcp-oauth-refresh.php` | OAuthリフレッシュトークン等のテストスクリプト |
 | `tests/test-mcp-permissions.php` | MCP権限・ロール・申請管理テストスクリプト |
 | `tests/test-mcp-compatibility.php` | 互換拡張（CIMD・Static OAuth・`aud`・`2025-11-25`・REST・登録・広告制御）テストスクリプト |
+
+---
+
+## 関連ドキュメント
+
+* [ドキュメント索引](../../documents/index.md) / [MCP ドキュメント索引](../../documents/mcp/index.md)
+* [MCP 全体総覧](../../documents/mcp/README.md)
+* [MCP・REST API 開発者リファレンス](../../documents/mcp/api-reference.md)

@@ -1,3 +1,11 @@
+---
+type: guide
+title: ローカル開発環境ガイド
+description: DevContainer を用いたローカル WordPress・MariaDB・Xdebug・ヘッドレス Chrome 環境の構築と運用手順。
+tags: [local-dev, devcontainer, docker, wordpress, xdebug]
+status: stable
+---
+
 # ローカル開発環境
 
 このリポジトリは WordPress の子テーマ（`cocoon-child-master`）のため、ローカルで動作させるには WordPress 本体、MariaDB、Cocoon 親テーマ、ローカル用の初期化コードが必要です。`.devcontainer` を使用すると、これらをまとめて起動し、最小限のダミーデータも自動投入します。
@@ -66,6 +74,15 @@ VS Code / エディタ側でコンテナ内のパス（`/var/www/html/wp-content
 }
 ```
 
+### Xdebug 接続トラブル時のクイック確認
+```bash
+# VS Code のリッスンポート確認（コンテナ内から）
+php -r '$fp = @fsockopen("127.0.0.1", 9003); var_dump($fp);'
+
+# Xdebug ログ確認
+tail -n 30 /tmp/xdebug.log
+```
+
 ## 個人用カスタマイズ設定の分離（Git を汚さない運用）
 
 共有の `.devcontainer/devcontainer.json` には個人固有のバインドマウントや拡張機能・デプロイ設定を含めず、必要な場合は `.gitignore` 対象の領域に分離します。
@@ -100,3 +117,11 @@ VS Code / エディタ側でコンテナ内のパス（`/var/www/html/wp-content
    `Dockerfile` を持たない `devcontainer.json`（`"image"` 直指定）の場合は、`postCreateCommand` で `sudo bash .devcontainer/install-chrome.sh` を実行してください。
 3. `devcontainer.json` に `"postStartCommand": "if command -v ensure-headless-chrome >/dev/null 2>&1; then ensure-headless-chrome; fi"` を追加します（既存コマンドがある場合は `&&` で連結）。
 4. Docker Compose 構成なら `shm_size: "1gb"`（単体 `devcontainer.json` なら `"runArgs": ["--shm-size=1gb"]`）を指定すると、重いページ描画時のタブクラッシュを防げます。
+
+---
+
+## 関連ドキュメント
+
+* [ドキュメント索引](index.md)
+* [システムアーキテクチャ＆コードマップ](codebase-map.md)
+* [MCP 全体総覧](mcp/README.md)

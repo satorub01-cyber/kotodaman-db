@@ -1,3 +1,12 @@
+---
+type: guide
+title: キャラクター登録基準ガイド
+description: イベント・コラボ階層基準、周年紐付けストーリー対応表、name_ruby表記ルール、雛形タイトル規約。
+tags: [mcp, character-entry, event, name-ruby, template]
+status: stable
+resource: kotodaman://guide/character-entry
+---
+
 # キャラクター登録基準ガイド（イベント・コラボ・紐付けストーリー・ひらがな・雛形）
 
 本書は、コトダマンDBにおいてキャラクターの **イベント・コラボ（`event`）の基準**、**周年と紐付けストーリーの対応表**、**キャラ名（ひらがな / `name_ruby`）の表記ルール**、および **雛形作成時のタイトル規約** をまとめたAI・運用者向けの基準ガイドです。
@@ -182,3 +191,11 @@
 ## 5. 声優（`voice_actor`）について
 
 * 進化前と進化後で声優が異なる場合は、半角の **`%`** で区切って **`進化前%進化後`** の形式で入力してください（例: `声優A%声優B`）。
+
+---
+
+## 関連ドキュメント
+
+* [MCP ドキュメント索引](index.md) / [MCP 全体総覧](README.md)
+* [キャラクター下書き作成・運用ガイド](character-draft-guide.md)（`kotodaman://guide/character-draft`）
+* [コトワザ自動入力ガイド](kotowaza-guide.md)（`kotodaman://guide/kotowaza`）

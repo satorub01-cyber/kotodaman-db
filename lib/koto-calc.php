@@ -1695,6 +1695,7 @@ function _parse_trait_loop_to_data($trait_loop, $is_blessing = false)
 
         // 4. Draw/On Play Eff
         elseif ($type === 'draw_eff' || $type === 'on_play_eff') {
+            // ACF上の歴史的タイポ 'draw_triat_turn' に対応するため3キーでフォールバック取得
             $raw_turn = $t['draw_triat_turn'] ?? ($t['draw_trait_turn'] ?? ($t['turn_count'] ?? ''));
             if ($raw_turn !== '') {
                 $parsed['turn'] = (int)$raw_turn;
@@ -1927,7 +1928,9 @@ function _parse_sugo_condition($cond_data)
                 ];
             }
         }
+        // ACF上の歴史的タイポ 'get_palce' に対応するためのフォールバック取得（default / blessing / ex_blessing）
         $get_place = $pattern['get_place'] ?? $pattern['get_palce'] ?? 'default';
+        // 必要ポイントフィールド（need_blessing_point）は通常祝福・EX祝福の両方で共有する
         $need_point = !empty($pattern['need_blessing_point']) && is_numeric($pattern['need_blessing_point'])
             ? (int)$pattern['need_blessing_point']
             : ($pattern['need_blessing_point'] ?? 0);

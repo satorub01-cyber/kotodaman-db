@@ -1,4 +1,17 @@
+---
+type: map
+title: コトダマンDB コードマップ＆システムアーキテクチャ
+description: テーマ全体のシステム構成図、ディレクトリ・ファイル責務マップ、機能追加時の変更連動チェックリスト。
+tags: [architecture, codebase-map, checklist, workflow]
+status: stable
+---
+
 # コトダマンDB コードマップ＆システムアーキテクチャ（AI時短リファレンス）
+
+> [!NOTE]
+> * ドキュメント全体の入口・OKF更新方針は **[documents/index.md](index.md)** を参照してください。
+> * `_spec_json` スキーマ・歴史的タイポ・祝福キー規則は **[spec.md](spec.md)**、各ファイル固有の制約・背景メモは該当 PHP ファイル内のコメントを参照してください。
+
 
 本書は、コトダマンDB（`cocoon-child-master`）の全体アーキテクチャ、データフロー、ファイル責務、および機能追加時の「変更連動チェックリスト」を網羅したリファレンスマニュアルです。
 AIエージェントおよび開発者が、手探りのファイル探索（grep / find の繰り返し）を行わず、最小の手数で目的のコードへ到達・編集できるようにすることを目的としています。
@@ -113,7 +126,7 @@ flowchart TD
 | ファイルパス | 責務・主要関数 | 備考 |
 | :--- | :--- | :--- |
 | `loader.php` | MCP全モジュール統一ローダー（`functions.php` から読み込み）。 | `auth/` → `protocol/` → `portal/` |
-| `auth/mcp-core.php`, `mcp-auth.php`, `mcp-oauth.php` | コア基盤、Bearer/App Password認証、OAuth 2.1（CIMD / DCR / Static Confidential Client / RFC 8707 `aud` / SEP-835）。 | |
+| `auth/mcp-core.php`, `mcp-auth.php`, `mcp-oauth.php` | コア基盤、Bearer/App Password認証、OAuth 2.1（CIMD / DCR / Static Confidential Client / RFC 8707 `aud` / SEP-835）。 | 保護記事ID・準備中画像URLの正本 |
 | `protocol/server.php` | Model Context Protocol（MCP）JSON-RPC 2.0 サーバー（`2025-11-25` ネゴシエーション、バッチ、CORS/Origin、エラー変換）。 | 全10ツール配信 |
 | `protocol/mcp-tools.php` | MCPツールのディスパッチ（`preview_draft`, `create_draft`, `update_draft`, `validate`, `search_character`, `get_blessing_schema` 等・Annotations・`get_terms` ページング）。 | |
 | `protocol/mcp-schema.php` | ACFフィールドスキーマ動的生成、祝福・EX祝福スキーマ＆トークン辞書生成（`koto_mcp_blessing_schema`）。 | |
@@ -121,7 +134,7 @@ flowchart TD
 | `protocol/mcp-resources.php` | MCPクライアント向けドキュメント・スキーマ（`kotodaman://guide/...`）の配信。 | |
 | `protocol/post-mcp.php` | REST API 全8ルート（`/mcp/openapi.json`, `/mcp/schema`, `/mcp/terms`, `/mcp/characters/search`, `/mcp/draft/preview`, `/mcp/character-draft`, `/mcp/draft/{id}`）。 | |
 | `portal/mcp-admin.php` | 管理画面「ユーザー > MCP利用申請」（承認時 `subscriber`→`mcp_user` 昇格・取消時降格、Static Client発行管理）。 | |
-| `portal/mcp-collaboration-page.php` | 協力者ポータル共通描画（`collaboration-page.php` テンプレートおよび `[koto_collaborate_portal]` ショートコード）、メール認証付き登録、AI別ガイドJSON（`.css` / `.js`）。 | **一時非公開中**: `collaboration-page.php`（404応答化）およびショートコード・登録受付フック・導線リンクをコメントアウト中（処理本体は残置）。詳細は [documents/mcp/README.md](mcp/README.md) 参照 |
+| `portal/mcp-collaboration-page.php` | 協力者ポータル共通描画（`collaboration-page.php` および `[koto_collaborate_portal]`）、メール認証付き登録、AI別ガイドJSON（`.css` / `.js`）。 | 一時非公開中（詳細: [mcp/README.md](mcp/README.md)・ファイル先頭コメント） |
 | `tools/prepare_screenshots.php` | スクショ画像の一括トリミング・タイル結合スクリプト（`contact_sheet.jpg` 生成）。 | |
 | `tests/test-mcp-*.php` | 権限・OAuthリフレッシュ・互換拡張テストスクリプト群。 | |
 
@@ -137,10 +150,10 @@ flowchart TD
 ### ⑦ 補助・管理系ツール（`lib/`）
 | ファイルパス | 責務・主要関数 | 備考 |
 | :--- | :--- | :--- |
-| `lib/image-setter/` | キャラクター画像紐付けツール（進化後、進化前、絵違い、アイキャッチ）。Ajaxページネーション `LIMIT 60`。 | |
+| `lib/image-setter/` | キャラクター画像紐付けツール（進化後、進化前、絵違い、アイキャッチ）。Ajaxページネーション `LIMIT 60`。 | 準備中画像除外・`_thumbnail_id` 連動の正本 |
 | `lib/term-setter/` | タクソノミー（所属、グループ等）一括設定ツール。 | |
 | `lib/missing-info-characters.php` | 画像や情報が未設定のキャラクターを抽出・一覧表示する管理機能。 | |
-| `lib/media-functions.php` | 画像アタッチメントの未紐付け判定、アイキャッチ更新補助。 | |
+| `lib/media-functions.php` | 画像アタッチメントの未紐付け判定、アイキャッチ更新補助。 | 未使用画像3フィールド定義の正本 |
 
 ---
 
@@ -249,65 +262,11 @@ flowchart LR
    - サイト基本色（背景 `#f7ede3`、アクセント `#135e96`）に準拠し、インラインスタイルを避けて専用CSSに記述。
 
 > [!NOTE]
-> 文言自動入力（auto-input）の追加・改修は [lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md](lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md)、祝福トークン仕様は [documents/blessing-token-guide.md](documents/blessing-token-guide.md)、MCP下書き運用の拡張は [documents/mcp/character-draft-guide.md](documents/mcp/character-draft-guide.md) を参照してください。
+> 文言自動入力（auto-input）の追加・改修は [AUTO_INPUT_GUIDELINES.md](../lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md)、祝福トークン仕様は [blessing-token-guide.md](blessing-token-guide.md)、MCP下書き運用の拡張は [mcp/character-draft-guide.md](mcp/character-draft-guide.md) を参照してください。
 
 ---
 
-## 4. 主要データ構造・キー・歴史的タイポ早見表
-
-### ① `_spec_json` の主要キー構造
-```json
-{
-  "post_id": 1234,
-  "name": "キャラクター名",
-  "name_ruby": "キャラクターめい",
-  "is_break_fuku": false,
-  "chars": [
-    {
-      "char": "あ",
-      "row_index": 1,
-      "moji_group_cond": false,
-      "need_point": 0
-    }
-  ],
-  "waza": { "variations": { "timelines": [ ... ] } },
-  "sugowaza": { "variations": { "timelines": [ ... ] } },
-  "kotowaza": { ... },
-  "first_trait": [ ... ],
-  "second_trait": [ ... ],
-  "blessing": [ ... ],
-  "ex_blessing": [ ... ],
-  "leader": {
-    "conditions": [
-      [ {"target": "attribute", "val": "fire"} ]
-    ],
-    "effects": [ ... ]
-  },
-  "search_tags": [ "trait_...", "sugo_..." ],
-  "firepower": { ... }
-}
-```
-
-### ② 歴史的タイポと必須フォールバック
-ACFフィールド定義の歴史的経緯により、以下のキー名タイポが存在します。コード上では必ずフォールバックを取得してください。
-
-| 概念 | ACF上のフィールドキー名 | 推奨フォールバック取得コード |
-| :--- | :--- | :--- |
-| **解放場所** | **`get_palce`**（placeのタイポ） | `$place = $row['get_palce'] ?? ($row['get_place'] ?? 'default');` |
-| **とくせいターン数** | **`draw_triat_turn`**（traitのタイポ） | `$turn = $row['draw_triat_turn'] ?? ($row['draw_trait_turn'] ?? ($row['turn_count'] ?? ''));` |
-
-### ③ 祝福・EX祝福のキー名規則
-| 区分 | 解放場所キー名 (`get_place`) | とくせいリピーター名 | 必要ポイントフィールド名 |
-| :--- | :--- | :--- | :--- |
-| **通常祝福** | `blessing` | `blessing_trait_loop` | `need_blessing_point` |
-| **EX祝福** | `ex_blessing`（※ハイフン `ex-blessing` も許容） | `blessing_ex_trait_loop` | `need_blessing_point`（**共通**） |
-
-> [!NOTE]
-> 祝福トークンの構造・定義一覧やテンプレート連携仕様は [documents/blessing-token-guide.md](documents/blessing-token-guide.md) を参照してください。
-
----
-
-## 5. 開発・デバッグ・時短用クイック検索コマンド集
+## 4. 開発・デバッグ・時短用クイック検索コマンド集
 
 AIが手探り探索を避け、最小ターンでコードを特定するためのコマンド集です。
 
@@ -326,58 +285,25 @@ grep -rn "フィールド名" acf-json/
 grep -rn "canonical_slug" lib/character-search/ documents/spec.md
 ```
 
-### ④ 構文チェック＆自動入力テスト
+### ④ 構文チェック＆各種テスト
 ```bash
 # PHPシンタックスチェック
 php -l 対象ファイル.php
 
 # ACF自動入力テスト（※auto_input関連の更新があるときのみ実行）
-# 単発テスト
 php lib/acf/test_auto_input.php "種別(とくせい等)" "ゲーム内文言"
-
-# 全件回帰テスト
 php lib/acf/test_auto_input.php
-```
 
-### ⑤ Xdebug接続トラブル時のクイック確認
-```bash
-# VS Codeのリッスンポート確認（コンテナ内から）
-php -r '$fp = @fsockopen("127.0.0.1", 9003); var_dump($fp);'
-
-# Xdebugログ確認
-tail -n 30 /tmp/xdebug.log
+# ドキュメント OKF 準拠チェック
+python documents/check-okf.py
 ```
 
 ---
 
-## 6. ドキュメント整理方針（役割分担と配置ルール）
+## 関連ドキュメント
 
-テーマ内の各種ドキュメントは、**「常時読み込まれる `AGENTS.md` の肥大化を防ぎ、詳細な知見・仕様・手順は適切な個別 md へ記録する」** 原則に基づいて整理・保守します。
-
-### ① ドキュメント別の責務と配置先一覧
-
-| ドキュメント | 役割・責務 | 主な記録内容 |
-| :--- | :--- | :--- |
-| **`AGENTS.md`** | **絶対規範・基本原則（核のみ）**<br>※常時参照・15KB以内厳守 | 作業スコープ厳守、Gitコミット自律実行禁止、256MBメモリ枯渇対策クエリ原則、ACF操作の鉄則（`field_xxxxxx` キー更新）、テスト報告義務など、**違反すると即座に障害・クラッシュ・手戻りにつながる最重要ルール**のみ。 |
-| **`documents/codebase-map.md`**（本書） | **システム地図・アーキテクチャ・運用索引** | 全体データフロー図、ディレクトリ・ファイル責務マップ、機能追加時の変更連動チェックリスト、クイック逆引きコマンド集、**本ドキュメント整理方針**。 |
-| **`documents/mcp/character-draft-guide.md`** | **MCP・AIキャラクター下書き作成運用** | スクリーンショット合成・1枚読み取り手順、`basic_fields`/`auto_input` 入力スキーマ、**祝福の設定優先度（テンプレ ➔ トークン ➔ 並べ替え ➔ 自由入力）**、バリデーションとエラー復旧手順。 |
-| **`documents/mcp/character-entry-guide.md`** | **キャラクター登録基準（イベント・ひらがな・雛形）** | イベント・コラボ階層の組み立て基準（ガチャ/降臨/大討伐/配布/モードシフト/コラボパック）、周年紐付けストーリー対応表、`name_ruby`（全角`＆`・伸ばし棒`ー`・カタカナ`ヴ`）、雛形タイトル規約（MCP Resource: `kotodaman://guide/character-entry`）。 |
-| **`documents/mcp/kotowaza-guide.md`** | **MCP コトワザ自動入力リファレンス** | `auto_input_kotowaza`（0凸〜4凸 `[{condition, effect}]` 配列）の入力仕様、0凸連番・飛び番禁止ルール、条件/効果文言、`koto_magnification_estimate_tf` の扱い、JSON実例。 |
-| **`documents/blessing-token-guide.md`** | **祝福トークン開発・仕様リファレンス** | `koto_get_blessing_token_registry()` のトークン構造定義、**ゲーム内テキスト準拠の `label` 仕様**、新規トークン追加手順、全25種類のギミック耐性（通常・スーパー化）トークン一覧。 |
-| **`lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md`** | **文言自動入力アルゴリズム・パース規則** | ゲーム内文言自動入力（auto-input）の分割規則、パーサー処理フロー、`lib/ゲーム内文言ーACF-対応表.csv` のカラム仕様、回帰テスト手順。 |
-| **`documents/spec.md`** | **スペックデータ構造・検索タグ定義** | ポストメタ `_spec_json` の完全スキーマ、検索タグ（`trait_...`, `sugo_...`）の命名規則、火力指数パラメータ定義。 |
-| **`documents/local-dev.md`** | **開発環境・環境固有設定** | DevContainer / Docker環境のセットアップ、Xdebug等のデバッグ環境設定。 |
-
-### ② 知見・仕様を記録・更新する際の判断フロー（AI自律更新原則）
-
-新機能の追加、仕様変更、歴史的経緯、落とし穴などが判明した際は、以下の基準に従って適切なドキュメントへ記録してください。
-
-1. **個別機能の詳細仕様・対応表・操作手順**:
-   * **`AGENTS.md` に直接書いてはいけません**。必ず該当する専門ドキュメント（`documents/mcp/`、`documents/blessing-token-guide.md`、`AUTO_INPUT_GUIDELINES.md` 等）に詳細を記録してください。
-2. **システム全体の構造・ファイル連動・検索コマンド**:
-   * 本書（`documents/codebase-map.md`）の該当セクションへ追記・更新してください。
-3. **`AGENTS.md` へ追記できる例外（核のルールのみ）**:
-   * 「全開発・全タスクに横断して影響し、守らないとメモリ枯渇やデータ破壊を引き起こす絶対規範」のみに限定します。
-   * 個別仕様の詳細や一覧表は含めず、該当する専門ドキュメントへのリンク（1〜2行）を添えるだけに留めてください（15KB以内のファイルサイズを厳守）。
-4. **新しい領域・機能カテゴリを新設する場合**:
-   * 必要に応じて `documents/` 配下に新しい Markdown ファイル（例: `documents/xxx-guide.md`）を作成し、本書（`codebase-map.md`）の責務一覧テーブルに登録してください。
+* [ドキュメント索引（OKF入口・更新方針）](index.md)
+* [データ構造・検索タグ仕様書（_spec_json・タイポ・祝福キー）](spec.md)
+* [ローカル開発環境ガイド（DevContainer・Xdebug）](local-dev.md)
+* [祝福トークン作成・運用ガイドライン](blessing-token-guide.md)
+* [MCP 全体総覧](mcp/README.md) / [MCP ドキュメント索引](mcp/index.md)

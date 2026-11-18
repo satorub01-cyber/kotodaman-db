@@ -1,3 +1,11 @@
+---
+type: guide
+title: 外部AIサービス連携・設定ガイド
+description: ChatGPT / Claude / Gemini / Muse / IDE エージェント等から MCP・REST API へ接続するための設定手順と協力者登録フロー。
+tags: [mcp, setup, oauth, external-ai, clients]
+status: stable
+---
+
 # 外部AIサービス（ChatGPT / Claude / Gemini / Muse / Copilot 等）連携・設定ガイド
 
 本書は、外部のチャットAI・コーディングエージェント・ワークフロー基盤（ChatGPT、Claude、Gemini、Muse、GitHub Copilot、Copilot Studio、Grok、Perplexity、Mistral Le Chat、Cursor、Windsurf、Cline、Roo Code、Codex CLI、OpenCode、Antigravity、JetBrains、Dify、MCP Inspector 等）からコトダマンDBのMCPサーバーまたはREST APIへ安全に接続し、スクリーンショットからキャラクター下書きを作成する手順をまとめたガイドです。
@@ -175,3 +183,12 @@ claude mcp add --transport http kotodaman-db https://www.kotodaman-db.com/wp-jso
 次に、私が添付したスクリーンショットから読み取れる事実のみを使ってキャラクター情報を整理し、`preview_draft` で検証とサマリー作成を行ってください。
 エラーや未解析の項目がなければ、私に確認を取ってから `create_draft` で下書きを作成してください。
 ```
+
+---
+
+## 関連ドキュメント
+
+* [MCP ドキュメント索引](index.md) / [MCP 全体総覧](README.md)
+* [外部AIツール対応状況一覧](ai-compatibility.md)
+* [キャラクター下書き作成・運用ガイド](character-draft-guide.md)
+* [MCP・REST API 開発者リファレンス](api-reference.md)

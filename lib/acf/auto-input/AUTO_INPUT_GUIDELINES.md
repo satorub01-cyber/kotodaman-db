@@ -1,3 +1,11 @@
+---
+type: guide
+title: ACF自動入力（auto-input）開発・保守ガイドライン
+description: ゲーム内スキル文言の分割規則、パーサー処理フロー、CSV対応表の記法および回帰テスト手順。
+tags: [auto-input, acf, parser, csv, testing]
+status: stable
+---
+
 # ACF自動入力（auto-input）開発・保守ガイドライン
 
 本書は、コトダマンDBのゲーム内スキル文言からACFフィールドデータへ自動変換・反映する機能（`lib/acf/auto-input/`）のアーキテクチャ、処理フロー、文言正規化ルール、トラブルシューティングおよび保守知見をまとめたドキュメントです。
@@ -340,3 +348,13 @@ flowchart TD
    ```text
    「あ」からはじまる「ん」でおわる5文字以上
    ```
+
+---
+
+## 関連ドキュメント
+
+* [ドキュメント索引](../../../documents/index.md)
+* [システムアーキテクチャ＆コードマップ](../../../documents/codebase-map.md)
+* [祝福トークン作成・運用ガイドライン](../../../documents/blessing-token-guide.md)
+* [キャラクター下書き作成・運用ガイド（MCP）](../../../documents/mcp/character-draft-guide.md)
+* [コトワザ自動入力（auto_input_kotowaza）ガイド](../../../documents/mcp/kotowaza-guide.md)

@@ -131,11 +131,27 @@ function koto_mcp_resources_list()
     ];
 }
 
+/**
+ * Markdown 先頭の YAML frontmatter ブロック（--- ... ---）のみを除去する。
+ * 本文途中の水平線（---）は除去しない。
+ *
+ * @param string $markdown
+ * @return string
+ */
+function koto_mcp_strip_yaml_frontmatter($markdown)
+{
+    $markdown = (string) $markdown;
+    if (preg_match('/\A(?:\xEF\xBB\xBF)?---[ \t]*\r?\n.*?\r?\n---[ \t]*(?:\r?\n|\z)/s', $markdown, $matches)) {
+        return ltrim(substr($markdown, strlen($matches[0])), "\r\n");
+    }
+    return $markdown;
+}
+
 function koto_mcp_read_resource($uri)
 {
     if ($uri === 'kotodaman://guide/character-draft') {
         $guide_path = get_stylesheet_directory() . '/documents/mcp/character-draft-guide.md';
-        $text = file_exists($guide_path) ? (string) file_get_contents($guide_path) : koto_mcp_instructions_text();
+        $text = file_exists($guide_path) ? koto_mcp_strip_yaml_frontmatter((string) file_get_contents($guide_path)) : koto_mcp_instructions_text();
         return [
             'contents' => [
                 [
@@ -149,7 +165,7 @@ function koto_mcp_read_resource($uri)
     if ($uri === 'kotodaman://guide/character-entry') {
         $guide_path = get_stylesheet_directory() . '/documents/mcp/character-entry-guide.md';
         $text = file_exists($guide_path)
-            ? (string) file_get_contents($guide_path)
+            ? koto_mcp_strip_yaml_frontmatter((string) file_get_contents($guide_path))
             : 'イベント・コラボの基準、周年紐付けストーリー、キャラ名（ひらがな: 全角＆・伸ばし棒ー・カタカナヴ）、雛形タイトル規約（タイトルに「雛形」の2文字を含める）のガイドファイルが未配置です。';
         return [
             'contents' => [
@@ -163,7 +179,9 @@ function koto_mcp_read_resource($uri)
     }
     if ($uri === 'kotodaman://guide/kotowaza') {
         $guide_path = get_stylesheet_directory() . '/documents/mcp/kotowaza-guide.md';
-        $text = file_exists($guide_path) ? (string) file_get_contents($guide_path) : 'コトワザ自動入力（auto_input_kotowaza）は 0凸〜4凸 の {"condition": "...", "effect": "..."} 配列（最大5件）で指定してください。';
+        $text = file_exists($guide_path)
+            ? koto_mcp_strip_yaml_frontmatter((string) file_get_contents($guide_path))
+            : 'コトワザ自動入力（auto_input_kotowaza）は 0凸〜4凸 の {"condition": "...", "effect": "..."} 配列（最大5件）で指定してください。';
         return [
             'contents' => [
                 [

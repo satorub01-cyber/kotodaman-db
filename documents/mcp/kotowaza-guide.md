@@ -1,3 +1,12 @@
+---
+type: guide
+title: コトワザ自動入力（auto_input_kotowaza）ガイド
+description: コトワザ（0凸〜4凸）の入力スキーマ、発動条件・効果文言ルール、koto_magnification_estimate_tf の扱いと実例。
+tags: [mcp, kotowaza, auto-input, schema]
+status: stable
+resource: kotodaman://guide/kotowaza
+---
+
 # コトワザ自動入力（`auto_input_kotowaza`）MCP クライアントガイド
 
 本書は、MCP クライアント（Claude / ChatGPT / Cursor / Gemini 等）および REST API（`POST /wp-json/kotodaman/v1/mcp/character-draft`）からキャラクターの **コトワザ（0凸〜4凸）** を登録・更新するための詳細仕様と実戦例をまとめたガイドです。
@@ -188,3 +197,11 @@ MCP クライアントや Actions のスキーマ制約により純配列を渡�
   * 未知の表現で警告が出た場合でも、意味を変えて別の定型文に勝手に書き換えたり、内部 ACF 構造を推測して直接渡したりしないでください。最大 3 回まで原文の転記ミスを確認し、解消しない場合は警告内容を添えてユーザーに報告してください。
 * **既存下書き更新（`update_draft`）時の注意**:
   * `auto_input_kotowaza` を含む `update_draft` 時は、`kotowaza_loop_v2` が置換更新（`replace_existing: true` 既定）されます。更新前の内容を確認したい場合は事前に `get_draft` で状態を確認してください。
+
+---
+
+## 関連ドキュメント
+
+* [MCP ドキュメント索引](index.md) / [MCP 全体総覧](README.md)
+* [キャラクター下書き作成・運用ガイド](character-draft-guide.md)（`kotodaman://guide/character-draft`）
+* [ACF自動入力開発・保守ガイドライン](../../lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md)

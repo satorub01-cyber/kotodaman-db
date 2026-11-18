@@ -24,21 +24,27 @@ description: >-
 * **フィールド個別説明（`get_field_schema` 返却用）**:
   * [documents/mcp/mcp-field-manual.json](../../../documents/mcp/mcp-field-manual.json)（Resource: `kotodaman://guide/field-manual`）
 * **新規トピックの独立ガイド**:
-  * `documents/mcp/<topic>-guide.md` として新規作成し、冒頭に MCP Resource URI（`kotodaman://guide/<topic>`）と全体ガイドへのリンクを記載する。
+  * `documents/mcp/<topic>-guide.md` として新規作成し、冒頭に OKF v0.2 の YAML frontmatter（`type: guide`, `title`, `description`, `tags`, `status: stable`, `resource: kotodaman://guide/<topic>`）を付与し、本文冒頭に全体ガイドへのリンクを記載する（※`lib/mcp/protocol/mcp-resources.php` が配信時に frontmatter を自動剥離する）。
 
 ## 3. MCPサーバー配信定義の連動（`lib/mcp/protocol/mcp-resources.php`）
 * **新規ガイドを作成した場合**:
   1. `koto_mcp_resources_list()` に新規 Resource（`uri`, `name`, `description`, `mimeType`）を追加する。
-  2. `koto_mcp_read_resource($uri)` に該当ファイルを読み込んで返却する分岐を追加する。
+  2. `koto_mcp_read_resource($uri)` に該当ファイルを読み込み、`koto_mcp_strip_yaml_frontmatter()` を通して返却する分岐を追加する。
 * **既存ガイドに重要な基本ルールを追記した場合**:
   * 必要に応じて `koto_mcp_instructions_text()` および `koto_mcp_workflow_guide_data()` 内の要約・該当フィールド説明も整合させる。
 
 ## 4. 索引ドキュメントの更新
 * 新規ガイドを追加した場合や既存ガイドの役割が増えた場合は、以下の索引・マップにも反映する。
+  * [documents/index.md](../../../documents/index.md)
+  * [documents/mcp/index.md](../../../documents/mcp/index.md)
   * [documents/mcp/README.md](../../../documents/mcp/README.md)
   * [documents/codebase-map.md](../../../documents/codebase-map.md)
 
 ## 5. 検証
+* OKF 準拠＆リンク整合チェック:
+  ```bash
+  python documents/check-okf.py
+  ```
 * `documents/mcp/mcp-field-manual.json` を編集した場合:
   ```bash
   php -r 'json_decode(file_get_contents("documents/mcp/mcp-field-manual.json"), false, 512, JSON_THROW_ON_ERROR); echo "JSON OK\n";'

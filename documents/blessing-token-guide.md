@@ -1,3 +1,11 @@
+---
+type: guide
+title: 祝福トークン作成・運用ガイドライン
+description: 祝福・EX祝福トークンレジストリの構造定義、label仕様、ギミック耐性トークン一覧および新規追加手順。
+tags: [blessing, ex-blessing, token, auto-input, acf]
+status: stable
+---
+
 # 祝福トークン作成・運用ガイドライン
 
 本書は、コトダマンDBの祝福・EX祝福自動入力システムにおける「**祝福トークン**」の構造、追加手順、ACFフィールドグループとの対応関係、およびテンプレート連携の手法をまとめた開発・保守ガイドです。
@@ -230,3 +238,12 @@ php lib/acf/test_auto_input.php --extract-blessing 5045 spe_custom
 祝福テンプレート,spe_custom,"{hp_up,attr_killer1,species_killer1,attr_mitigation1,species_killer2,group_draw_buff,species_killer3}"
 ```
 この行をそのまま `lib/ゲーム内文言ーACF-対応表.csv` に貼り付けることで、新しいテンプレートパターンを瞬時に作成できます。
+
+---
+
+## 関連ドキュメント
+
+* [ドキュメント索引](index.md)
+* [文言自動入力（auto-input）ガイドライン](../lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md)
+* [キャラクター下書き作成・運用ガイド（MCP）](mcp/character-draft-guide.md)
+* [システムアーキテクチャ＆コードマップ](codebase-map.md)

@@ -23,7 +23,7 @@ function image_setter_get_unused_images($search = '', $paged = 1, $per_page = 60
     $per_page = max(1, min(120, intval($per_page)));
     $offset = ($paged - 1) * $per_page;
 
-    // 1. 使用中画像IDのリストを取得
+    // 1. 使用中画像IDのリストを取得（進化後・絵違い・進化前・アイキャッチのいずれかに設定済みなら使用中）
     $meta_keys = ['character_image', 'another_character_image', 'pre_evo_image', '_thumbnail_id'];
     $keys_placeholder = implode("','", array_map('esc_sql', $meta_keys));
 
@@ -34,7 +34,7 @@ function image_setter_get_unused_images($search = '', $paged = 1, $per_page = 60
         AND meta_value REGEXP '^[0-9]+$'
     ");
 
-    // 2. 準備中画像のIDも除外
+    // 2. 準備中画像（無題51_20260205005357）は未設定キャラの仮画像であり、未紐付け画像一覧からは常に除外する
     $prep_ids = $wpdb->get_col("
         SELECT ID FROM {$wpdb->posts}
         WHERE post_type = 'attachment'
@@ -176,7 +176,7 @@ function image_setter_handle_save_image() {
         update_post_meta($char_id, $field_name, $image_id);
     }
 
-    // 進化後画像の場合はアイキャッチ画像（サムネイル）も同時に更新
+    // 進化後画像（character_image）がメインビジュアルとなるため、アイキャッチ画像（_thumbnail_id）も必ず連動更新する
     $thumb_updated = false;
     if ($image_type === 'character') {
         set_post_thumbnail($char_id, $image_id);
