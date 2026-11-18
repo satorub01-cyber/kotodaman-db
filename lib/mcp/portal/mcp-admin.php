@@ -100,34 +100,6 @@ function koto_mcp_get_user_tokens_summary($user_id)
 }
 
 /**
- * 承認時に購読者（subscriber）を mcp_user ロールへ昇格する（上位ロールは維持）。
- *
- * @param WP_User $user
- */
-function koto_mcp_promote_subscriber_to_mcp_user($user)
-{
-    if (!$user instanceof WP_User) return;
-    $roles = (array) $user->roles;
-    if (in_array('subscriber', $roles, true) && !array_intersect(['administrator', 'editor', 'author', 'mcp_user'], $roles)) {
-        $user->set_role('mcp_user');
-    }
-}
-
-/**
- * 利用停止（剥奪）時に mcp_user ロールを購読者（subscriber）へ降格する（上位ロールは維持）。
- *
- * @param WP_User $user
- */
-function koto_mcp_demote_mcp_user_to_subscriber($user)
-{
-    if (!$user instanceof WP_User) return;
-    $roles = (array) $user->roles;
-    if (in_array('mcp_user', $roles, true) && !array_intersect(['administrator', 'editor', 'author'], $roles)) {
-        $user->set_role('subscriber');
-    }
-}
-
-/**
  * 承認・再開通知メール送信（AIクライアント固有名は含めない）
  *
  * @param WP_User $user
@@ -284,7 +256,7 @@ function koto_mcp_approval_page()
     echo '<input type="text" id="koto_mcp_grant_user_identifier" name="koto_mcp_grant_user_identifier" placeholder="例: 123 または username" style="width:220px;">';
     echo '<button type="submit" class="button button-primary">MCP利用タグを付与（再開）</button>';
     echo '</form>';
-    echo '<p class="description">※管理画面からタグを付与すると、停止中フラグは解除され、購読者は <code>mcp_user</code> に昇格して対象ユーザーに再接続案内メールが自動送信されます。一覧に表示されない場合も直接指定欄から付与可能です。</p>';
+    echo '<p class="description">※管理画面からタグを付与すると、停止中フラグは解除され、対象ユーザーに再接続案内メールが自動送信されます。一覧に表示されない場合も直接指定欄から付与可能です。</p>';
 
     // 4. 静的 OAuth クライアント管理（ChatGPT Actions / Gemini 事前登録等向け）
     $static_clients = function_exists('koto_mcp_list_static_oauth_clients') ? koto_mcp_list_static_oauth_clients() : [];
@@ -355,7 +327,6 @@ function koto_mcp_handle_approval_action()
         $user = get_userdata($user_id);
         if ($user) {
             $was_revoked = (bool) get_user_meta($user_id, '_koto_mcp_revoked', true);
-            koto_mcp_promote_subscriber_to_mcp_user($user);
             update_user_meta($user_id, '_koto_mcp_approved', 1);
             delete_user_meta($user_id, '_koto_mcp_revoked');
             koto_mcp_clear_request_meta($user_id); // 申請メタ完全消去
@@ -387,7 +358,6 @@ function koto_mcp_handle_approval_action()
         check_admin_referer('koto_mcp_revoke_user_' . $user_id);
         $user = get_userdata($user_id);
         if ($user) {
-            koto_mcp_demote_mcp_user_to_subscriber($user);
             delete_user_meta($user_id, '_koto_mcp_approved');
             update_user_meta($user_id, '_koto_mcp_revoked', 1); // 剥奪履歴フラグを記録
             koto_mcp_clear_request_meta($user_id); // 申請メタ完全消去
@@ -420,7 +390,6 @@ function koto_mcp_handle_approval_action()
 
         if ($user && $user_id > 0) {
             $was_revoked = (bool) get_user_meta($user_id, '_koto_mcp_revoked', true);
-            koto_mcp_promote_subscriber_to_mcp_user($user);
             update_user_meta($user_id, '_koto_mcp_approved', 1);
             delete_user_meta($user_id, '_koto_mcp_revoked');
             koto_mcp_clear_request_meta($user_id); // 申請メタ完全消去

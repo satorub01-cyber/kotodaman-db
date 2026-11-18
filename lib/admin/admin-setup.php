@@ -134,7 +134,7 @@ add_filter('register_taxonomy_args', 'override_event_affiliation_caps', 20, 2);
  */
 function grant_custom_caps_to_roles()
 {
-    $roles_to_modify = ['administrator', 'editor', 'author'];
+    $roles_to_modify = ['administrator', 'editor', 'author', 'checker'];
     $cap_suffix = 'custom_event_aff_terms';
 
     foreach ($roles_to_modify as $role_slug) {
@@ -206,3 +206,269 @@ function handle_random_admin_color_change()
     }
 }
 add_action('admin_init', 'handle_random_admin_color_change');
+
+/**
+ * 9. checker ロール定義・AI-assistant 投稿権限・チェック実績管理・標準編集画面制限
+ */
+
+/**
+ * AI-assistant アカウントのユーザーIDを取得する。
+ *
+ * @return int ユーザーID（未存在時は 0）。
+ */
+function koto_get_ai_assistant_user_id()
+{
+    $user = get_user_by('login', 'AI-assistant');
+    return ($user instanceof WP_User && $user->exists()) ? (int) $user->ID : 0;
+}
+
+/**
+ * 指定ユーザー（省略時は現在のユーザー）が checker ロール相当か判定する。
+ * 上位権限（administrator / editor 等）を併有するユーザーは対象外。
+ *
+ * @param int|WP_User|null $user ユーザーID、WP_User、または null（現在ユーザー）。
+ * @return bool
+ */
+function koto_user_is_checker($user = null)
+{
+    if ($user === null) {
+        $user = wp_get_current_user();
+    } elseif (is_numeric($user)) {
+        $user = get_userdata((int) $user);
+    }
+
+    if (!$user instanceof WP_User || !$user->exists()) {
+        return false;
+    }
+
+    $roles = (array) $user->roles;
+    if (!in_array('checker', $roles, true)) {
+        return false;
+    }
+
+    if (array_intersect(['administrator', 'editor'], $roles) || !empty($user->allcaps['edit_others_posts'])) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * ユーザーがチェック完了（フラグ下げ）した投稿ID配列を取得する。
+ *
+ * @param int $user_id ユーザーID。
+ * @return array<int, int>
+ */
+function koto_user_get_checked_post_ids($user_id)
+{
+    $user_id = (int) $user_id;
+    if ($user_id <= 0) {
+        return [];
+    }
+
+    $raw = get_user_meta($user_id, '_koto_checked_post_ids', true);
+    if (!is_array($raw)) {
+        return [];
+    }
+
+    $ids = [];
+    foreach ($raw as $val) {
+        $pid = (int) $val;
+        if ($pid > 0) {
+            $ids[$pid] = $pid;
+        }
+    }
+
+    return array_values($ids);
+}
+
+/**
+ * ユーザーのチェック実績件数を取得する。
+ *
+ * @param int $user_id ユーザーID。
+ * @return int
+ */
+function koto_user_get_checked_count($user_id)
+{
+    return count(koto_user_get_checked_post_ids($user_id));
+}
+
+/**
+ * ユーザーのチェック実績を記録する（1記事につき1回まで）。
+ * ロールを問わず全ユーザーに対して記録する。
+ *
+ * @param int $user_id ユーザーID。
+ * @param int $post_id 投稿ID。
+ * @return bool 新規に1件追加された場合 true、重複・無効時は false。
+ */
+function koto_record_user_check_achievement($user_id, $post_id)
+{
+    $user_id = (int) $user_id;
+    $post_id = (int) $post_id;
+    if ($user_id <= 0 || $post_id <= 0 || !get_userdata($user_id)) {
+        return false;
+    }
+
+    $ids = koto_user_get_checked_post_ids($user_id);
+    if (in_array($post_id, $ids, true)) {
+        return false;
+    }
+
+    $ids[] = $post_id;
+    update_user_meta($user_id, '_koto_checked_post_ids', $ids);
+    update_user_meta($user_id, '_koto_checked_count', count($ids));
+    return true;
+}
+
+/**
+ * checker ロールを登録・権限同期する。
+ *
+ * @return void
+ */
+function koto_register_checker_role()
+{
+    $caps = [
+        'read'                          => true,
+        'edit_posts'                    => true,
+        'edit_published_posts'          => true,
+        'publish_posts'                 => true,
+        'delete_posts'                  => true,
+        'delete_published_posts'        => true,
+        'upload_files'                  => true,
+        'manage_custom_event_aff_terms' => true,
+        'edit_custom_event_aff_terms'   => true,
+        'assign_custom_event_aff_terms' => true,
+    ];
+
+    $role = get_role('checker');
+    if (!$role) {
+        add_role('checker', 'チェッカー', $caps);
+        return;
+    }
+
+    foreach ($caps as $cap => $grant) {
+        if ($grant && !$role->has_cap($cap)) {
+            $role->add_cap($cap);
+        }
+    }
+
+    foreach (['edit_others_posts', 'delete_others_posts', 'delete_custom_event_aff_terms', 'manage_categories', 'manage_options'] as $deny_cap) {
+        if ($role->has_cap($deny_cap)) {
+            $role->remove_cap($deny_cap);
+        }
+    }
+}
+add_action('init', 'koto_register_checker_role', 5);
+
+/**
+ * checker に対して AI-assistant 作者の投稿の編集・公開を許可し、削除および他ユーザー投稿を制限する。
+ */
+add_filter('map_meta_cap', function ($caps, $cap, $user_id, $args) {
+    if (!in_array($cap, ['edit_post', 'publish_post', 'read_post', 'delete_post'], true)) {
+        return $caps;
+    }
+
+    $post_id = isset($args[0]) ? (int) $args[0] : 0;
+    if ($post_id <= 0 || !koto_user_is_checker($user_id)) {
+        return $caps;
+    }
+
+    $post = get_post($post_id);
+    if (!$post instanceof WP_Post) {
+        return $caps;
+    }
+
+    if ((int) $post->post_author === (int) $user_id) {
+        return $caps;
+    }
+
+    $ai_id = koto_get_ai_assistant_user_id();
+    if ($ai_id > 0 && (int) $post->post_author === $ai_id) {
+        if ($cap === 'delete_post') {
+            return ['do_not_allow'];
+        }
+        if ($post->post_status === 'private' || (function_exists('koto_mcp_is_protected_template_post') && koto_mcp_is_protected_template_post($post))) {
+            return ['do_not_allow'];
+        }
+        return $cap === 'publish_post' ? ['publish_posts'] : ['edit_posts'];
+    }
+
+    return $caps;
+}, 20, 4);
+
+/**
+ * checker が AI-assistant 等の投稿を更新・公開しても post_author を元の作者のまま維持する。
+ */
+add_filter('wp_insert_post_data', function ($data, $postarr) {
+    $post_id = !empty($postarr['ID']) ? (int) $postarr['ID'] : 0;
+    if ($post_id <= 0 || !koto_user_is_checker()) {
+        return $data;
+    }
+
+    $existing = get_post($post_id);
+    if ($existing instanceof WP_Post && (int) $existing->post_author !== get_current_user_id()) {
+        $data['post_author'] = (int) $existing->post_author;
+    }
+
+    return $data;
+}, 20, 2);
+
+/**
+ * checker 向けの character 投稿編集リンクを DBエディタへ差し替える。
+ */
+add_filter('get_edit_post_link', function ($link, $post_id, $context) {
+    if (!koto_user_is_checker()) {
+        return $link;
+    }
+
+    $post = get_post($post_id);
+    if (!$post instanceof WP_Post || $post->post_type !== 'character') {
+        return $link;
+    }
+
+    if (!current_user_can('edit_post', $post->ID)) {
+        return $link;
+    }
+
+    $editor_url = admin_url('admin.php?page=koto-acf-editor&edit_post_id=' . $post->ID . '&acf_group=group_69204fa4dd82e');
+    return $context === 'display' ? esc_url($editor_url) : $editor_url;
+}, 20, 3);
+
+/**
+ * checker が character の標準編集画面（post.php / post-new.php）へアクセスした場合は DBエディタへリダイレクトする。
+ */
+add_action('load-post.php', function () {
+    if (!koto_user_is_checker()) {
+        return;
+    }
+
+    $post_id = isset($_GET['post']) ? (int) $_GET['post'] : 0;
+    if ($post_id > 0 && get_post_type($post_id) === 'character') {
+        $editor_url = admin_url('admin.php?page=koto-acf-editor&edit_post_id=' . $post_id . '&acf_group=group_69204fa4dd82e');
+        wp_safe_redirect($editor_url);
+        exit;
+    }
+});
+
+add_action('load-post-new.php', function () {
+    if (!koto_user_is_checker()) {
+        return;
+    }
+
+    $post_type = isset($_GET['post_type']) ? sanitize_key((string) $_GET['post_type']) : 'post';
+    if ($post_type === 'character') {
+        wp_safe_redirect(admin_url('admin.php?page=koto-acf-editor'));
+        exit;
+    }
+});
+
+/**
+ * checker に対してキャラクター標準「新規追加」サブメニューを非表示にする。
+ */
+add_action('admin_menu', function () {
+    if (!koto_user_is_checker()) {
+        return;
+    }
+
+    remove_submenu_page('edit.php?post_type=character', 'post-new.php?post_type=character');
+}, 999);

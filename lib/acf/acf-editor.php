@@ -319,9 +319,17 @@ function koto_acf_relationship_query_custom($args, $field, $post_id)
     // 1. 下書きのキャラも検索結果に出るようにする（超重要！）
     $args['post_status'] = ['publish', 'draft', 'pending', 'private'];
 
-    // 2. 左側（編集先）の検索で、他人の記事を編集できない権限の場合は自分の記事のみに絞る
+    // 2. 左側（編集先）の検索で、他人の記事を編集できない権限の場合は自分の記事（checker は AI-assistant 含む）に絞る
     if ($field['key'] === 'field_editor_edit_post' && !current_user_can('edit_others_posts')) {
-        $args['author'] = get_current_user_id();
+        if (function_exists('koto_user_is_checker') && koto_user_is_checker()) {
+            $allowed_authors = array_values(array_unique(array_filter([
+                get_current_user_id(),
+                function_exists('koto_get_ai_assistant_user_id') ? koto_get_ai_assistant_user_id() : 0,
+            ])));
+            $args['author__in'] = !empty($allowed_authors) ? $allowed_authors : [get_current_user_id()];
+        } else {
+            $args['author'] = get_current_user_id();
+        }
     }
     // ★追加: 検索キーワードが数字（ID）だった場合、ID検索に切り替える
     if (!empty($args['s']) && is_numeric($args['s'])) {
@@ -452,11 +460,47 @@ if (!function_exists('koto_acf_convert_to_name_keys')) {
     }
 }
 
+/**
+ * 投稿の要確認フラグ（_koto_mcp_needs_review）を解除し、操作ユーザーの実績を記録する。
+ * フラグが立っていた場合のみ処理し、1記事につき1回まで実績を加算する。
+ *
+ * @param int $post_id 投稿ID。
+ * @param int $user_id 操作ユーザーID（省略時は現在ログインユーザー）。
+ * @return bool フラグを実際に下げた場合 true。
+ */
+function koto_mcp_mark_post_reviewed($post_id, $user_id = 0)
+{
+    $post_id = (int) $post_id;
+    if ($post_id <= 0 || !get_post_meta($post_id, '_koto_mcp_needs_review', true)) {
+        return false;
+    }
+
+    $user_id = (int) $user_id > 0 ? (int) $user_id : get_current_user_id();
+    delete_post_meta($post_id, '_koto_mcp_needs_review');
+
+    $audit = get_post_meta($post_id, '_koto_mcp_audit', true);
+    if (!is_array($audit)) {
+        $audit = [];
+    }
+    $audit['reviewed_at'] = current_time('mysql');
+    $audit['reviewed_by'] = $user_id;
+    update_post_meta($post_id, '_koto_mcp_audit', $audit);
+
+    if ($user_id > 0 && function_exists('koto_record_user_check_achievement')) {
+        koto_record_user_check_achievement($user_id, $post_id);
+    }
+
+    return true;
+}
+
 function koto_acf_editor_handle_actions()
 {
     $current_url = admin_url('admin.php?page=koto-acf-editor');
     // A. 雛型・既存キャラの複製
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acf_action']) && $_POST['acf_action'] === 'copy_template') {
+        if (!current_user_can('edit_posts')) {
+            wp_die('この操作を行う権限がありません。', 'permission_denied', ['response' => 403]);
+        }
         $search_temp_id = 0;
         // こちらも $_POST の実際のキー名から取得する
         if (!empty($_POST['field_editor_search_template']) && is_array($_POST['field_editor_search_template'])) {
@@ -512,7 +556,7 @@ function koto_acf_editor_handle_actions()
             }
         }
 
-        if ($target_post_id && $source_post_id && $source_field_key && $target_field_key) {
+        if ($target_post_id && $source_post_id && $source_field_key && $target_field_key && current_user_can('edit_post', $target_post_id)) {
             $source_field_obj = function_exists('acf_get_field') ? acf_get_field($source_field_key) : null;
             $value = get_field($source_field_key, $source_post_id, false);
 
@@ -557,7 +601,7 @@ function koto_acf_editor_handle_actions()
             }
         }
 
-        if ($target_post_id && $source_post_id && $source_field_key && $target_field_key) {
+        if ($target_post_id && $source_post_id && $source_field_key && $target_field_key && current_user_can('edit_post', $target_post_id)) {
             $source_field_obj = function_exists('acf_get_field') ? acf_get_field($source_field_key) : null;
             // ソースの特定行を取得
             $source_data = get_field($source_field_key, $source_post_id, false);
@@ -596,7 +640,7 @@ function koto_acf_editor_handle_actions()
         $copy_items_json = stripslashes($_POST['copy_items_json']);
         $copy_items = json_decode($copy_items_json, true);
 
-        if ($target_post_id && $source_post_id && is_array($copy_items)) {
+        if ($target_post_id && $source_post_id && is_array($copy_items) && current_user_can('edit_post', $target_post_id)) {
             $fields_to_update = [];
             foreach ($copy_items as $item) {
                 $src_key = $item['field_key'];
@@ -652,13 +696,7 @@ function koto_acf_editor_handle_actions()
         $post_id = intval($_POST['edit_post_id'] ?? 0);
         check_admin_referer('koto_mcp_dismiss_review_' . $post_id);
         if ($post_id && current_user_can('edit_post', $post_id)) {
-            delete_post_meta($post_id, '_koto_mcp_needs_review');
-            $audit = get_post_meta($post_id, '_koto_mcp_audit', true);
-            if (is_array($audit)) {
-                $audit['reviewed_at'] = current_time('mysql');
-                $audit['reviewed_by'] = get_current_user_id();
-                update_post_meta($post_id, '_koto_mcp_audit', $audit);
-            }
+            koto_mcp_mark_post_reviewed($post_id, get_current_user_id());
             $redirect_url = add_query_arg([
                 'edit_post_id' => $post_id,
                 'acf_group'    => sanitize_text_field($_GET['acf_group'] ?? 'group_69204fa4dd82e'),
@@ -671,10 +709,17 @@ function koto_acf_editor_handle_actions()
 
     // E. カスタムステータス・アイキャッチ保存
     add_action('acf/save_post', function ($post_id) {
-        if (isset($_POST['custom_post_status']) && in_array($_POST['custom_post_status'], ['draft', 'publish'])) {
-            wp_update_post(['ID' => $post_id, 'post_status' => $_POST['custom_post_status']]);
-            if ($_POST['custom_post_status'] === 'publish') {
-                delete_post_meta($post_id, '_koto_mcp_needs_review');
+        if (isset($_POST['custom_post_status']) && in_array($_POST['custom_post_status'], ['draft', 'publish'], true)) {
+            $new_status = sanitize_key((string) $_POST['custom_post_status']);
+            if ($new_status === 'publish' && !current_user_can('publish_post', $post_id)) {
+                return;
+            }
+            if (!current_user_can('edit_post', $post_id)) {
+                return;
+            }
+            wp_update_post(['ID' => $post_id, 'post_status' => $new_status]);
+            if ($new_status === 'publish') {
+                koto_mcp_mark_post_reviewed($post_id, get_current_user_id());
             }
         }
 
@@ -832,6 +877,11 @@ function koto_acf_editor_page_html()
     // ★修正: ACFが実際に送信してくるキー（field_editor_***）からIDを抽出する
     // ★修正: ACFの検索から来た場合と、コピー後のリダイレクトで来た場合の両方に対応
     $edit_post_id = koto_acf_editor_get_current_edit_post_id();
+    $edit_permission_denied = false;
+    if ($edit_post_id > 0 && !current_user_can('edit_post', $edit_post_id)) {
+        $edit_permission_denied = true;
+        $edit_post_id = 0;
+    }
 
     $edit_group = isset($_GET['acf_group']) ? sanitize_text_field($_GET['acf_group']) : '';
 
@@ -850,6 +900,11 @@ function koto_acf_editor_page_html()
 
     <div class="wrap acf-editor-wrap">
         <h1 class="wp-heading-inline">コトダマンDB エディタ</h1>
+        <?php if ($edit_permission_denied) : ?>
+            <div class="notice notice-error">
+                <p>指定された投稿を編集する権限がありません（自分の投稿または AI-assistant の投稿のみ編集できます）。</p>
+            </div>
+        <?php endif; ?>
         <div id="koto-sticky-bar" class="acf-sticky-actions" style="position: sticky; top: 32px; z-index: 999; background: #fff; padding: 10px 20px; border-bottom: 2px solid #ccc; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div style="display:flex; gap:20px; align-items:flex-start; flex-wrap: wrap;">
                 <div style="display:flex; flex-direction:column; gap:5px; align-items:flex-start;">
@@ -1267,7 +1322,7 @@ function koto_acf_editor_page_html()
             </div>
         <?php endif; ?>
 
-        <?php if ($edit_post_id && get_post_meta($edit_post_id, '_koto_mcp_generated', true)) : ?>
+        <?php if ($edit_post_id && (get_post_meta($edit_post_id, '_koto_mcp_generated', true) || get_post_meta($edit_post_id, '_koto_mcp_needs_review', true))) : ?>
             <?php
             $mcp_needs_review = (bool) get_post_meta($edit_post_id, '_koto_mcp_needs_review', true);
             $mcp_audit = get_post_meta($edit_post_id, '_koto_mcp_audit', true);

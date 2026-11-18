@@ -413,9 +413,9 @@ koto_compat_assert($prev_res->get_status() === 200 && !empty($prev_data['preview
 unset($_SERVER['HTTP_AUTHORIZATION']);
 
 // ------------------------------------------------------------
-// シナリオ 6: 協力者ポータル登録・メール認証・ロール昇格/降格
+// シナリオ 6: 協力者ポータル登録・checker 権限・標準編集画面誘導
 // ------------------------------------------------------------
-echo "\n=== シナリオ 6: 協力者ポータル登録 & メール認証 & ロール昇格/降格 ===\n";
+echo "\n=== シナリオ 6: 協力者ポータル登録 & checker 権限検証 ===\n";
 
 $hp_res = koto_mcp_collab_submit_registration([
     'username'         => 'spam_user_' . $suffix,
@@ -437,7 +437,6 @@ $sub_res = koto_mcp_collab_submit_registration([
     'display_name'     => '協力テストユーザー',
     'password'         => $reg_pass,
     'password_confirm' => $reg_pass,
-    'request_mcp'      => true,
     'skip_rate_limit'  => true,
     'skip_mail'        => true,
 ]);
@@ -445,45 +444,120 @@ koto_compat_assert(!is_wp_error($sub_res) && ($sub_res['status'] ?? '') === 'pen
 koto_compat_assert(username_exists($reg_username) === false, 'メール認証完了前にはWPユーザーが作成されない');
 
 $ver_res = koto_mcp_collab_verify_registration((string) ($sub_res['token'] ?? ''));
-koto_compat_assert(!is_wp_error($ver_res) && ($ver_res['role'] ?? '') === 'subscriber', 'メール認証後に subscriber としてWPユーザーが作成される');
+koto_compat_assert(!is_wp_error($ver_res) && ($ver_res['role'] ?? '') === 'checker', 'メール認証後に checker としてWPユーザーが作成される');
 
 $created_uid = (int) ($ver_res['user_id'] ?? 0);
 $cleanup_users[] = $created_uid;
 $created_user = get_userdata($created_uid);
+koto_compat_assert($created_user && in_array('checker', (array) $created_user->roles, true), '作成ユーザーに checker ロールが付与されている');
 koto_compat_assert($created_user && wp_check_password($reg_pass, $created_user->user_pass, $created_uid), '作成されたユーザーで元のパスワードによるログイン検証が通る');
-koto_compat_assert(get_user_meta($created_uid, '_koto_mcp_requested', true) === '1', 'デフォルトONのMCP申請フラグ _koto_mcp_requested=1 が保存される');
+koto_compat_assert(get_user_meta($created_uid, '_koto_mcp_requested', true) === '', 'ポータル登録では _koto_mcp_requested が保存されない');
+koto_compat_assert(!function_exists('koto_mcp_promote_subscriber_to_mcp_user') && !function_exists('koto_mcp_demote_mcp_user_to_subscriber'), 'subscriber↔mcp_user 昇降格関数が廃止されている');
 
 $reuse_res = koto_mcp_collab_verify_registration((string) ($sub_res['token'] ?? ''));
 koto_compat_assert(is_wp_error($reuse_res), '使用済み認証トークンの再利用が拒否される');
 
-// subscriber <-> mcp_user 昇格・降格
-koto_mcp_promote_subscriber_to_mcp_user($created_user);
-$after_promote = get_userdata($created_uid);
-koto_compat_assert(in_array('mcp_user', (array) $after_promote->roles, true), '承認時に subscriber -> mcp_user へ昇格する');
+// checker 権限検証（AI-assistant 投稿・他ユーザー投稿・自分の投稿）
+$ai_user = get_user_by('login', 'AI-assistant');
+$ai_uid = $ai_user ? (int) $ai_user->ID : 0;
+if ($ai_uid <= 0) {
+    $ai_uid = wp_insert_user([
+        'user_login' => 'AI-assistant',
+        'user_pass'  => wp_generate_password(24),
+        'user_email' => 'ai_assistant_' . $suffix . '@example.test',
+        'role'       => 'contributor',
+    ]);
+    if (!is_wp_error($ai_uid) && $ai_uid > 0) {
+        $cleanup_users[] = $ai_uid;
+    }
+}
 
-koto_mcp_demote_mcp_user_to_subscriber($after_promote);
-$after_demote = get_userdata($created_uid);
-koto_compat_assert(in_array('subscriber', (array) $after_demote->roles, true) && !in_array('mcp_user', (array) $after_demote->roles, true), '取消時に mcp_user -> subscriber へ降格する');
+$ai_draft_id = wp_insert_post([
+    'post_type'   => 'character',
+    'post_status' => 'draft',
+    'post_title'  => 'AIテスト下書き_' . $suffix,
+    'post_author' => $ai_uid,
+]);
+$ai_pub_id = wp_insert_post([
+    'post_type'   => 'character',
+    'post_status' => 'publish',
+    'post_title'  => 'AIテスト公開_' . $suffix,
+    'post_author' => $ai_uid,
+]);
+$other_post_id = wp_insert_post([
+    'post_type'   => 'character',
+    'post_status' => 'draft',
+    'post_title'  => '他者テスト投稿_' . $suffix,
+    'post_author' => $admin_uid,
+]);
+$checker_own_id = wp_insert_post([
+    'post_type'   => 'character',
+    'post_status' => 'draft',
+    'post_title'  => 'チェッカー自投稿_' . $suffix,
+    'post_author' => $created_uid,
+]);
+$cleanup_posts[] = $ai_draft_id;
+$cleanup_posts[] = $ai_pub_id;
+$cleanup_posts[] = $other_post_id;
+$cleanup_posts[] = $checker_own_id;
 
-// 管理者は降格されない
-$admin_user = get_userdata($admin_uid);
-koto_mcp_demote_mcp_user_to_subscriber($admin_user);
-$admin_after = get_userdata($admin_uid);
-koto_compat_assert(in_array('administrator', (array) $admin_after->roles, true), '管理者は降格対象外として保護される');
+wp_set_current_user($created_uid);
+koto_compat_assert(
+    user_can($created_uid, 'edit_post', $ai_draft_id) === true
+    && user_can($created_uid, 'publish_post', $ai_draft_id) === true
+    && user_can($created_uid, 'delete_post', $ai_draft_id) === false,
+    'checker は AI-assistant の下書きを編集・公開でき、削除はできない'
+);
+koto_compat_assert(
+    user_can($created_uid, 'edit_post', $ai_pub_id) === true
+    && user_can($created_uid, 'publish_post', $ai_pub_id) === true
+    && user_can($created_uid, 'delete_post', $ai_pub_id) === false,
+    'checker は AI-assistant の公開済み投稿も編集・更新でき、削除はできない'
+);
+koto_compat_assert(
+    user_can($created_uid, 'edit_post', $other_post_id) === false
+    && user_can($created_uid, 'publish_post', $other_post_id) === false
+    && user_can($created_uid, 'delete_post', $other_post_id) === false,
+    'checker は他ユーザー作者の投稿を編集・公開・削除できない'
+);
+koto_compat_assert(
+    user_can($created_uid, 'edit_post', $checker_own_id) === true
+    && user_can($created_uid, 'publish_post', $checker_own_id) === true
+    && user_can($created_uid, 'delete_post', $checker_own_id) === true,
+    'checker は自身の投稿を作成・編集・公開・削除できる'
+);
 
-// ショートコード出力チェック（インラインスタイル禁止 & wpautop耐性確認）
+// checker が AI-assistant の下書きを公開しても post_author は AI-assistant のまま
+wp_update_post(['ID' => $ai_draft_id, 'post_status' => 'publish']);
+$ai_draft_after = get_post($ai_draft_id);
+koto_compat_assert(
+    $ai_draft_after && $ai_draft_after->post_status === 'publish' && (int) $ai_draft_after->post_author === $ai_uid,
+    'checker が AI-assistant の下書きを公開しても作者は AI-assistant のまま変わらない'
+);
+$checker_edit_link = get_edit_post_link($ai_draft_id, 'raw');
+koto_compat_assert(
+    is_string($checker_edit_link) && strpos($checker_edit_link, 'page=koto-acf-editor') !== false,
+    'checker 向けの character 編集リンクは DBエディタを指す'
+);
+wp_set_current_user(0);
+
+// ショートコード出力チェック（インラインスタイル禁止 & wpautop耐性・AIガイド廃止確認）
 $portal_html = do_shortcode('[koto_collaborate_portal]');
 $portal_wpautop = wpautop($portal_html);
 koto_compat_assert(
     strpos($portal_html, 'koto-collab-portal-shortcode') !== false
+    && strpos($portal_html, 'koto-collab-check-guide') !== false
+    && strpos($portal_html, '/mgn-blank-charas/') !== false
+    && strpos($portal_html, 'koto_reg_request_mcp') === false
+    && strpos($portal_html, 'koto-collab-ai-guide') === false
     && strpos($portal_html, 'style=') === false
     && stripos($portal_html, '<style') === false,
-    'ショートコード [koto_collaborate_portal] が描画され、インラインstyleを含まない'
+    'ショートコード [koto_collaborate_portal] がチェック・倍率導線付きで描画され、AIガイド・MCP申請・インラインstyleを含まない'
 );
 koto_compat_assert(
     strpos($portal_wpautop, '<p></p>') === false
     && strpos($portal_wpautop, 'koto-collab-cards"><br') === false
-    && strpos($portal_wpautop, 'koto-ai-tool-grid"><br') === false,
+    && strpos($portal_wpautop, 'koto-collab-guide-grid"><br') === false,
     'ショートコード出力に wpautop を適用してもレイアウト破壊用の空<p>や<br>が入らない'
 );
 
@@ -494,16 +568,32 @@ $tmpl_html = koto_mcp_render_collaboration_portal(['is_template' => true, 'page_
 koto_compat_assert(
     $tmpl_src !== ''
     && strpos($tmpl_src, 'Template Name:') !== false
+    && strpos($tmpl_src, 'set_404') === false
     && strpos($tmpl_src, 'style=') === false
     && strpos($tmpl_html, 'koto-collab-portal-template') !== false
     && strpos($tmpl_html, '<h1 class="koto-collab-hero-title">テスト協力ページ</h1>') !== false,
-    '固定ページテンプレート collaboration-page.php とテンプレート用レンダリングが正常動作する'
+    '固定ページテンプレート collaboration-page.php が再公開状態で正常動作する'
 );
 
 // ------------------------------------------------------------
-// シナリオ 7: 広告非表示制御 (koto_user_can_hide_ads / Site Kit / is_ads_visible)
+// シナリオ 7: チェック実績カウント＆広告表示制御 (koto_user_can_hide_ads / Site Kit / is_ads_visible)
 // ------------------------------------------------------------
-echo "\n=== シナリオ 7: 条件付き広告非表示制御 ===\n";
+echo "\n=== シナリオ 7: チェック実績＆条件付き広告非表示制御 ===\n";
+
+$author_uid = wp_insert_user([
+    'user_login' => 'koto_compat_author_' . $suffix,
+    'user_pass'  => wp_generate_password(20),
+    'user_email' => 'koto_compat_author_' . $suffix . '@example.test',
+    'role'       => 'author',
+]);
+$contrib_uid = wp_insert_user([
+    'user_login' => 'koto_compat_contrib_' . $suffix,
+    'user_pass'  => wp_generate_password(20),
+    'user_email' => 'koto_compat_contrib_' . $suffix . '@example.test',
+    'role'       => 'contributor',
+]);
+$cleanup_users[] = $author_uid;
+$cleanup_users[] = $contrib_uid;
 
 wp_set_current_user(0);
 koto_compat_assert(koto_user_can_hide_ads() === false && apply_filters('googlesitekit_adsense_tag_blocked', false) === false, '未ログイン時は広告非表示=false');
@@ -511,23 +601,90 @@ koto_compat_assert(koto_user_can_hide_ads() === false && apply_filters('googlesi
 wp_set_current_user($admin_uid);
 koto_compat_assert(koto_user_can_hide_ads() === true && apply_filters('googlesitekit_adsense_tag_blocked', false) === true && is_ads_visible() === false, '管理者は広告非表示=true / is_ads_visible()=false');
 
-wp_set_current_user($sub_uid);
-koto_compat_assert(koto_user_can_hide_ads() === false && apply_filters('googlesitekit_adsense_tag_blocked', false) === false, '公開記事0件の subscriber は広告非表示=false');
+wp_set_current_user($author_uid);
+koto_compat_assert(koto_user_can_hide_ads() === true && apply_filters('googlesitekit_adsense_tag_blocked', false) === true, 'WP標準投稿者（author）は広告非表示=true');
 
-// subscriber が公開キャラを1件持つと非表示=trueになる
-$pub_pid = wp_insert_post([
+// 購読者・寄稿者は公開投稿を1件持っていても広告表示=true（非表示=false）
+$sub_pub_pid = wp_insert_post([
     'post_type'   => 'character',
     'post_status' => 'publish',
-    'post_title'  => '広告テストキャラ_' . $suffix,
+    'post_title'  => '広告テスト公開キャラ_' . $suffix,
     'post_author' => $sub_uid,
 ]);
-$cleanup_posts[] = $pub_pid;
-clean_user_cache($sub_uid);
-koto_compat_assert(koto_user_can_hide_ads($sub_uid) === true && is_ads_visible() === false, '公開キャラを1件持つユーザーは広告非表示=true');
+$cleanup_posts[] = $sub_pub_pid;
 
-// 削除後は再度 false になる
-wp_delete_post($pub_pid, true);
-koto_compat_assert(koto_user_can_hide_ads($sub_uid) === false, '公開投稿削除後は広告非表示=falseに戻る');
+wp_set_current_user($sub_uid);
+koto_compat_assert(koto_user_can_hide_ads($sub_uid) === false, 'subscriber は公開記事があっても広告非表示=false');
+
+wp_set_current_user($contrib_uid);
+koto_compat_assert(koto_user_can_hide_ads($contrib_uid) === false, 'contributor は広告非表示=false');
+
+// 新規 checker（実績0件）は公開記事があっても広告非表示=false
+$checker_ad_uid = wp_insert_user([
+    'user_login' => 'koto_compat_checker_ad_' . $suffix,
+    'user_pass'  => wp_generate_password(20),
+    'user_email' => 'koto_compat_checker_ad_' . $suffix . '@example.test',
+    'role'       => 'checker',
+]);
+$cleanup_users[] = $checker_ad_uid;
+$checker_pub_pid = wp_insert_post([
+    'post_type'   => 'character',
+    'post_status' => 'publish',
+    'post_title'  => 'チェッカー公開キャラ_' . $suffix,
+    'post_author' => $checker_ad_uid,
+]);
+$cleanup_posts[] = $checker_pub_pid;
+
+wp_set_current_user($checker_ad_uid);
+koto_compat_assert(koto_user_can_hide_ads($checker_ad_uid) === false && apply_filters('googlesitekit_adsense_tag_blocked', false) === false, 'チェック実績0件の checker は公開記事があっても広告非表示=false');
+
+// 下書き記事の要確認フラグを下げる（公開せず下書きのまま）と実績1・広告非表示=true
+$review_draft_1 = wp_insert_post([
+    'post_type'   => 'character',
+    'post_status' => 'draft',
+    'post_title'  => 'チェック実績テスト1_' . $suffix,
+    'post_author' => $ai_uid,
+]);
+$cleanup_posts[] = $review_draft_1;
+update_post_meta($review_draft_1, '_koto_mcp_generated', 1);
+update_post_meta($review_draft_1, '_koto_mcp_needs_review', 1);
+
+$marked_1 = koto_mcp_mark_post_reviewed($review_draft_1, $checker_ad_uid);
+koto_compat_assert(
+    $marked_1 === true
+    && get_post_meta($review_draft_1, '_koto_mcp_needs_review', true) === ''
+    && koto_user_get_checked_count($checker_ad_uid) === 1
+    && koto_user_can_hide_ads($checker_ad_uid) === true
+    && is_ads_visible() === false,
+    '要確認フラグを下げると公開しなくても実績=1となり checker の広告非表示=trueになる'
+);
+
+// 同じ記事で再度フラグを立て直して下げても実績は1のまま増えない
+update_post_meta($review_draft_1, '_koto_mcp_needs_review', 1);
+$marked_1_again = koto_mcp_mark_post_reviewed($review_draft_1, $checker_ad_uid);
+koto_compat_assert(
+    $marked_1_again === true && koto_user_get_checked_count($checker_ad_uid) === 1,
+    '同じ記事でフラグを下げ直してもチェック実績は1のまま増えない'
+);
+
+// 別記事を公開遷移（transition_post_status）で自動解除した場合も全ユーザーで1回だけ記録
+$review_draft_2 = wp_insert_post([
+    'post_type'   => 'character',
+    'post_status' => 'draft',
+    'post_title'  => 'チェック実績テスト2_' . $suffix,
+    'post_author' => $ai_uid,
+]);
+$cleanup_posts[] = $review_draft_2;
+update_post_meta($review_draft_2, '_koto_mcp_needs_review', 1);
+
+wp_set_current_user($contrib_uid);
+wp_update_post(['ID' => $review_draft_2, 'post_status' => 'publish']);
+wp_update_post(['ID' => $review_draft_2, 'post_status' => 'draft']);
+wp_update_post(['ID' => $review_draft_2, 'post_status' => 'publish']);
+koto_compat_assert(
+    koto_user_get_checked_count($contrib_uid) === 1 && koto_user_can_hide_ads($contrib_uid) === false,
+    '全ユーザーでチェック実績がカウントされ、公開取消と再公開でも1件以上増えず、寄稿者は広告表示のまま'
+);
 wp_set_current_user(0);
 
 // ------------------------------------------------------------

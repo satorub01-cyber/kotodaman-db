@@ -225,7 +225,8 @@ if (str_ends_with($current_domain, 'kotodaman-db.com')) {
 // =================================================================
 /**
  * ユーザーが広告非表示権限を持つか判定する。
- * 管理者・編集者、または公開済み投稿を1件以上所有しているログインユーザーのみ true。
+ * - 非表示: 管理者・編集者・投稿者（WP標準ロール author 以上）、チェック実績が1件以上ある checker
+ * - 表示: チェック実績0件の checker、寄稿者、購読者、未ログイン閲覧者等
  *
  * @param int $user_id ユーザーID（省略時は現在ログイン中のユーザー）。
  * @return bool
@@ -244,58 +245,44 @@ function koto_user_can_hide_ads($user_id = 0)
     }
 
     $user = get_userdata($user_id);
-    if (!$user instanceof WP_User) {
+    if (!$user instanceof WP_User || !$user->exists()) {
         return false;
     }
 
-    if (user_can($user, 'manage_options') || user_can($user, 'edit_others_posts')) {
+    $roles = (array) $user->roles;
+    if (
+        user_can($user, 'manage_options')
+        || user_can($user, 'edit_others_posts')
+        || in_array('author', $roles, true)
+    ) {
         return true;
     }
 
-    $cached = get_user_meta($user_id, '_koto_has_published_post', true);
-    if ($cached === '1' || $cached === 1) {
-        return true;
-    }
-    if ($cached === '0' || $cached === 0) {
-        return false;
+    if (in_array('checker', $roles, true)) {
+        return function_exists('koto_user_get_checked_count') && koto_user_get_checked_count($user_id) >= 1;
     }
 
-    global $wpdb;
-    $has_published = (bool) $wpdb->get_var($wpdb->prepare(
-        "SELECT ID FROM {$wpdb->posts} WHERE post_author = %d AND post_status = 'publish' AND post_type IN ('character', 'post') LIMIT 1",
-        $user_id
-    ));
-    update_user_meta($user_id, '_koto_has_published_post', $has_published ? '1' : '0');
-    return $has_published;
+    return false;
 }
 
+/**
+ * 投稿が公開された際、要確認フラグが残っていれば自動で取り下げてチェック実績を記録する。
+ */
 add_action('transition_post_status', function ($new_status, $old_status, $post) {
-    if (!$post instanceof WP_Post || (int) $post->post_author <= 0) {
+    if ($new_status !== 'publish' || $old_status === 'publish' || !$post instanceof WP_Post) {
         return;
     }
-    if (!in_array($post->post_type, ['character', 'post'], true)) {
+    $user_id = get_current_user_id();
+    if ($user_id <= 0) {
         return;
     }
-    $author_id = (int) $post->post_author;
-    if ($new_status === 'publish') {
-        update_user_meta($author_id, '_koto_has_published_post', '1');
-    } elseif ($old_status === 'publish' && $new_status !== 'publish') {
-        delete_user_meta($author_id, '_koto_has_published_post');
+    if (function_exists('koto_mcp_mark_post_reviewed')) {
+        koto_mcp_mark_post_reviewed($post->ID, $user_id);
     }
 }, 10, 3);
 
-add_action('deleted_post', function ($post_id, $post = null) {
-    if (!$post instanceof WP_Post || (int) $post->post_author <= 0) {
-        return;
-    }
-    if (!in_array($post->post_type, ['character', 'post'], true)) {
-        return;
-    }
-    delete_user_meta((int) $post->post_author, '_koto_has_published_post');
-}, 10, 2);
-
 /**
- * Cocoon 広告表示判定のオーバーライド（公開済み投稿1件以上または管理者・編集者のみ非表示）。
+ * Cocoon 広告表示判定のオーバーライド（WP標準 author 以上または実績1件以上の checker のみ非表示）。
  *
  * @return bool
  */
@@ -339,7 +326,7 @@ add_filter('googlesitekit_analytics-4_tag_blocked', function ($is_blocked) {
 }, 100);
 
 /**
- * Google Site Kit AdSense タグ出力の制御（公開済み投稿1件以上または管理者・編集者のみ非表示）
+ * Google Site Kit AdSense タグ出力の制御（WP標準 author 以上または実績1件以上の checker のみ非表示）
  */
 add_filter('googlesitekit_adsense_tag_blocked', function ($is_blocked) {
     // //要チェック 本番の Google Site Kit 設定側で「ログイン中のユーザーを広告表示から除外」が有効な場合はオフにすること

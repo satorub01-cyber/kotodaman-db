@@ -46,6 +46,10 @@ function koto_ajax_update_post_from_auto_input()
         wp_send_json_error(['message' => '対象の記事が選択されていません']);
     }
 
+    if (!current_user_can('edit_post', $post_id)) {
+        wp_send_json_error(['message' => 'この記事を編集する権限がありません'], 403);
+    }
+
     $context = [
         'post_id' => $post_id,
         'rarity'  => isset($_POST['rarity']) ? sanitize_text_field(wp_unslash($_POST['rarity'])) : null,
@@ -91,6 +95,10 @@ function koto_ajax_update_post_from_auto_input()
  */
 function koto_ajax_create_post_from_auto_input()
 {
+    if (!current_user_can('edit_posts')) {
+        wp_send_json_error(['message' => '新規記事を作成する権限がありません'], 403);
+    }
+
     $texts = isset($_POST['texts']) ? wp_unslash($_POST['texts']) : [];
     $character_name = isset($_POST['character_name']) ? sanitize_text_field($_POST['character_name']) : '';
     $context = [

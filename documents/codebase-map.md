@@ -133,8 +133,8 @@ flowchart TD
 | `protocol/mcp-draft.php` | 下書き（Draft）の生成・更新・バリデーションロジック、雛型記事保護チェック。 | |
 | `protocol/mcp-resources.php` | MCPクライアント向けドキュメント・スキーマ（`kotodaman://guide/...`）の配信。 | |
 | `protocol/post-mcp.php` | REST API 全8ルート（`/mcp/openapi.json`, `/mcp/schema`, `/mcp/terms`, `/mcp/characters/search`, `/mcp/draft/preview`, `/mcp/character-draft`, `/mcp/draft/{id}`）。 | |
-| `portal/mcp-admin.php` | 管理画面「ユーザー > MCP利用申請」（承認時 `subscriber`→`mcp_user` 昇格・取消時降格、Static Client発行管理）。 | |
-| `portal/mcp-collaboration-page.php` | 協力者ポータル共通描画（`collaboration-page.php` および `[koto_collaborate_portal]`）、メール認証付き登録、AI別ガイドJSON（`.css` / `.js`）。 | 一時非公開中（詳細: [mcp/README.md](mcp/README.md)・ファイル先頭コメント） |
+| `portal/mcp-admin.php` | 管理画面「ユーザー > MCP利用者管理」（`_koto_mcp_approved` 承認・剥奪、Static Client発行管理）。 | ロール昇降格は廃止済み |
+| `portal/mcp-collaboration-page.php` | 協力者ポータル共通描画（`collaboration-page.php` および `[koto_collaborate_portal]`）、メール認証付き `checker` 登録、チェック・倍率調査導線（`.css` / `.js`）。 | `checker` 登録・チェック実績と連動 |
 | `tools/prepare_screenshots.php` | スクショ画像の一括トリミング・タイル結合スクリプト（`contact_sheet.jpg` 生成）。 | |
 | `tests/test-mcp-*.php` | 権限・OAuthリフレッシュ・互換拡張テストスクリプト群。 | |
 
