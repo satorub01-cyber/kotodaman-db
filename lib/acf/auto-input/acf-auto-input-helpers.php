@@ -1409,3 +1409,220 @@ function koto_split_by_circled_numbers($text)
     }
     return $result;
 }
+
+/**
+ * 1つの述語に複数のギミック名が「・」「|」「と」で並列された表現を、個別の標準ギミック文言へ展開する。
+ *
+ * 例:
+ * - 「ウォール・シールドブロックへのダメージをUP」 -> 「ウォールブロックへのダメージをUP」「シールドブロックへのダメージをUP」
+ * - 「チェンジ・コピーマスの効果を受けない」 -> 「チェンジマスの効果を受けない」「コピーマスの効果を受けない」
+ *
+ * @param string $clause 正規化済みの単一ギミック句。
+ * @return array<int, string> 展開後のギミック文言配列。
+ */
+function koto_expand_shared_gimmick_clause($clause)
+{
+    $clause = trim((string) $clause);
+    if ($clause === '') {
+        return [];
+    }
+
+    $split_names = static function ($raw_names, $suffix_to_strip = '') {
+        if (!preg_match('/(?:・|\||と)/u', $raw_names)) {
+            return [];
+        }
+        $parts = preg_split('/(?:・|\||と)/u', $raw_names);
+        $names = [];
+        foreach ((array) $parts as $part) {
+            $name = trim((string) $part);
+            if ($suffix_to_strip !== '') {
+                $name = preg_replace('/' . preg_quote($suffix_to_strip, '/') . '$/u', '', $name);
+                $name = trim((string) $name);
+            }
+            if ($name !== '') {
+                $names[] = $name;
+            }
+        }
+        return count($names) >= 2 ? $names : [];
+    };
+
+    if (preg_match('/^(?P<names>[^、。\n×xX%％]+?)ブロック(?P<pred>(?:へのダメージ(?:を|が)?(?:超大きく|大きく|少し)?UP|から受けるダメージを(?:大きく)?軽減))$/u', $clause, $m)) {
+        $names = $split_names($m['names'], 'ブロック');
+        if (!empty($names)) {
+            return array_map(static function ($n) use ($m) {
+                return $n . 'ブロック' . $m['pred'];
+            }, $names);
+        }
+    }
+
+    if (preg_match('/^(?P<names>[^、。\n×xX%％]+?)マスの効果を受けない$/u', $clause, $m)) {
+        $names = $split_names($m['names'], 'マス');
+        if (!empty($names)) {
+            return array_map(static function ($n) {
+                return $n . 'マスの効果を受けない';
+            }, $names);
+        }
+    }
+
+    if (preg_match('/^(?P<names>[^、。\n×xX%％]+?)マスに入れた場合[、,]?(?P<names2>[^、。\n×xX%％]+?)マスの効果を受けず強化効果を付与$/u', $clause, $m)) {
+        $names = $split_names($m['names'], 'マス');
+        if (!empty($names)) {
+            return array_map(static function ($n) {
+                return $n . 'マスに入れた場合、' . $n . 'マスの効果を受けず強化効果を付与';
+            }, $names);
+        }
+    }
+
+    if (preg_match('/^(?P<cond>(?:福[0-9０-９]+|満福)で)(?P<names>[^、。\n×xX%％]+?)が解放$/u', $clause, $m)) {
+        $names = $split_names($m['names']);
+        if (!empty($names)) {
+            return array_map(static function ($n) use ($m) {
+                return $m['cond'] . $n . 'が解放';
+            }, $names);
+        }
+    }
+
+    return [$clause];
+}
+
+/**
+ * 1つのとくせい文言に2つ以上のギミック効果が含まれる複合文言を、個別の標準ギミック文言配列へ分解する。
+ *
+ * - 「ウォールブロックへのダメージをUPし、コピーマスの効果を受けない」のような連結文言や、
+ *   「ウォール・シールドブロックへのダメージをUP」のような並列文言を対象とする。
+ * - 全文が余りなくギミック句として分解でき、かつ2件以上になる場合のみ配列を返す。
+ * - 単一ギミック（スーパー化・レーザー・文字追加複合など）や非ギミック文言では空配列を返し、既存処理をそのまま維持する。
+ *
+ * @param string $text とくせい効果文言（条件除去後）。
+ * @return array<int, string> 2件以上の標準ギミック文言配列。非該当時は空配列。
+ */
+function koto_split_compound_gimmick_clauses($text)
+{
+    $remaining = trim((string) $text);
+    if ($remaining === '') {
+        return [];
+    }
+
+    $rules = [
+        // 1. スーパーチェンジ（文字追加複合）
+        [
+            'pattern' => '/^チェンジマスの効果を受けない[。.]?さらにチェンジマスがある場合[、,]?文字変換に「(?P<moji>[^」]+)」が追加(?:される|され)/u',
+            'build'   => static function ($m) {
+                return 'チェンジマスの効果を受けない。さらにチェンジマスがある場合、文字変換に「' . $m['moji'] . '」が追加される';
+            },
+        ],
+        // 2. スーパーコピー（文字追加複合）
+        [
+            'pattern' => '/^コピーマスの効果を受けない[。.]?さらにコピーマスがある場合[、,]?文字変換に「(?P<moji>[^」]+)」が追加(?:される|され)/u',
+            'build'   => static function ($m) {
+                return 'コピーマスの効果を受けない。さらにコピーマスがある場合、文字変換に「' . $m['moji'] . '」が追加される';
+            },
+        ],
+        // 3. スーパー弱体ガード
+        [
+            'pattern' => '/^弱体マスに入れた場合[、,]?弱体効果を受けず強化効果を付与(?:する|し)?/u',
+            'build'   => static function () {
+                return '弱体マスに入れた場合、弱体効果を受けず強化効果を付与';
+            },
+        ],
+        // 4. スーパーマスガード汎用（地雷・バルーン等）
+        [
+            'pattern' => '/^(?P<name>[^、。\n×xX%％]+?)マスに入れた場合[、,]?(?P<name2>[^、。\n×xX%％]+?)マスの効果を受けず強化効果を付与(?:する|し)?/u',
+            'build'   => static function ($m) {
+                if ($m['name'] !== $m['name2'] && !preg_match('/(?:・|\||と)/u', $m['name'])) {
+                    return null;
+                }
+                return $m['name'] . 'マスに入れた場合、' . $m['name2'] . 'マスの効果を受けず強化効果を付与';
+            },
+        ],
+        // 5. スーパートゲガード
+        [
+            'pattern' => '/^トゲブロックから受けるダメージを軽減し[、,]?軽減した時に自身のATKを上昇(?:する|し)?/u',
+            'build'   => static function () {
+                return 'トゲブロックから受けるダメージを軽減し、軽減した時に自身のATKを上昇する';
+            },
+        ],
+        // 6. スーパービリビリガード
+        [
+            'pattern' => '/^ビリビリブロックから受けるダメージを軽減し[、,]?HPを(?P<val>[0-9０-９]+)回復(?:する|し)?/u',
+            'build'   => static function ($m) {
+                return 'ビリビリブロックから受けるダメージを軽減し、HPを' . $m['val'] . '回復する';
+            },
+        ],
+        // 7. レーザーガード（2種表記）
+        [
+            'pattern' => '/^レーザーブロックからのダメージを防ぎ[、,]?レーザーを遮断(?:する|し)?/u',
+            'build'   => static function () {
+                return 'レーザーブロックからのダメージを防ぎ、レーザーを遮断する';
+            },
+        ],
+        [
+            'pattern' => '/^レーザーブロックから受けるダメージを軽減し[、,]?レーザーを受け止め(?:る)?/u',
+            'build'   => static function () {
+                return 'レーザーブロックから受けるダメージを軽減し、レーザーを受け止める';
+            },
+        ],
+        // 8. ブロックブレイカー
+        [
+            'pattern' => '/^(?P<name>[^、。\n×xX%％]+?)ブロックへのダメージ(?P<prefix>(?:を|が)?(?:超大きく|大きく|少し)?UP)(?:する|し)?/u',
+            'build'   => static function ($m) {
+                return $m['name'] . 'ブロックへのダメージ' . $m['prefix'];
+            },
+        ],
+        // 9. ブロックダメージ軽減
+        [
+            'pattern' => '/^(?P<name>[^、。\n×xX%％]+?)ブロックから受けるダメージを(?P<prefix>大きく軽減|軽減)(?:する|し)?/u',
+            'build'   => static function ($m) {
+                return $m['name'] . 'ブロックから受けるダメージを' . $m['prefix'];
+            },
+        ],
+        // 10. マスガード
+        [
+            'pattern' => '/^(?P<name>[^、。\n×xX%％]+?)マスの効果を受け(?:ない|ず|ないで)/u',
+            'build'   => static function ($m) {
+                return $m['name'] . 'マスの効果を受けない';
+            },
+        ],
+        // 11. 福解放
+        [
+            'pattern' => '/^(?P<cond>(?:福[0-9０-９]+|満福)で)(?P<name>[^、。\n×xX%％]+?)が解放(?:される|され|する)?/u',
+            'build'   => static function ($m) {
+                return $m['cond'] . $m['name'] . 'が解放';
+            },
+        ],
+    ];
+
+    $clauses = [];
+    while ($remaining !== '') {
+        $prev_len = mb_strlen($remaining, 'UTF-8');
+        $matched_rule = false;
+
+        foreach ($rules as $rule) {
+            if (preg_match($rule['pattern'], $remaining, $m)) {
+                $normalized = $rule['build']($m);
+                if ($normalized === null || $normalized === '') {
+                    continue;
+                }
+                foreach (koto_expand_shared_gimmick_clause($normalized) as $expanded) {
+                    $clauses[] = $expanded;
+                }
+                $consumed_len = mb_strlen($m[0], 'UTF-8');
+                $remaining = trim(mb_substr($remaining, $consumed_len, null, 'UTF-8'));
+                $remaining = preg_replace('/^(?:[、,。・\|\s]+|(?:さらに|また(?:は)?)[、,・\s]*)+/u', '', $remaining);
+                $remaining = trim((string) $remaining);
+                $matched_rule = true;
+                break;
+            }
+        }
+
+        if (!$matched_rule || mb_strlen($remaining, 'UTF-8') >= $prev_len) {
+            break;
+        }
+    }
+
+    if ($remaining !== '' || count($clauses) < 2) {
+        return [];
+    }
+
+    return $clauses;
+}
