@@ -1793,4 +1793,789 @@
                                             "type": "taxonomy",
                                             "instructions": "",
                                             "required": 0,
-                                            "conditional_log
+                                            "conditional_logic": [
+                                                [
+                                                    {
+                                                        "field": "field_693fc25158636",
+                                                        "operator": "==",
+                                                        "value": "moji"
+                                                    }
+                                                ]
+                                            ],
+                                            "wrapper": {
+                                                "width": "",
+                                                "class": "",
+                                                "id": ""
+                                            },
+                                            "taxonomy": "available_moji",
+                                            "add_term": 0,
+                                            "save_terms": 0,
+                                            "load_terms": 0,
+                                            "return_format": "object",
+                                            "field_type": "multi_select",
+                                            "allow_null": 0,
+                                            "acfe_bidirectional": {
+                                                "acfe_bidirectional_enabled": "0"
+                                            },
+                                            "allow_in_bindings": 0,
+                                            "bidirectional": 0,
+                                            "multiple": 0,
+                                            "bidirectional_target": [],
+                                            "parent_repeater": "field_693fc25158635"
+                                        },
+                                        {
+                                            "key": "field_693fc2515863b",
+                                            "label": "フィールド火力補正値",
+                                            "name": "battle_field_value",
+                                            "aria-label": "",
+                                            "type": "number",
+                                            "instructions": "",
+                                            "required": 0,
+                                            "conditional_logic": [
+                                                [
+                                                    {
+                                                        "field": "field_693fc25158636",
+                                                        "operator": "!=empty"
+                                                    }
+                                                ]
+                                            ],
+                                            "wrapper": {
+                                                "width": "",
+                                                "class": "",
+                                                "id": ""
+                                            },
+                                            "default_value": 0,
+                                            "min": "",
+                                            "max": "",
+                                            "allow_in_bindings": 0,
+                                            "placeholder": "",
+                                            "step": "",
+                                            "prepend": "",
+                                            "append": "",
+                                            "parent_repeater": "field_693fc25158635"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "key": "field_693fc2515863c",
+                                    "label": "効果ターン数",
+                                    "name": "turn_count",
+                                    "aria-label": "",
+                                    "type": "text",
+                                    "instructions": "半角数字で入力",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_693fc2505861f",
+                                                "operator": "==",
+                                                "value": "atk_buff"
+                                            },
+                                            {
+                                                "field": "field_693fc25058627",
+                                                "operator": "!=",
+                                                "value": "all_ally"
+                                            },
+                                            {
+                                                "field": "field_693fc25058627",
+                                                "operator": "!=",
+                                                "value": "limited_ally"
+                                            },
+                                            {
+                                                "field": "field_693fc25058627",
+                                                "operator": "!=",
+                                                "value": "self"
+                                            }
+                                        ],
+                                        [
+                                            {
+                                                "field": "field_693fc2505861f",
+                                                "operator": "==",
+                                                "value": "atk_debuff"
+                                            }
+                                        ],
+                                        [
+                                            {
+                                                "field": "field_693fc2505861f",
+                                                "operator": "==",
+                                                "value": "def_buff"
+                                            }
+                                        ],
+                                        [
+                                            {
+                                                "field": "field_693fc2505861f",
+                                                "operator": "==",
+                                                "value": "def_debuff"
+                                            }
+                                        ],
+                                        [
+                                            {
+                                                "field": "field_693fc2505861f",
+                                                "operator": "==",
+                                                "value": "status_barrier"
+                                            }
+                                        ],
+                                        [
+                                            {
+                                                "field": "field_693fc2505861f",
+                                                "operator": "==",
+                                                "value": "battle_field"
+                                            }
+                                        ],
+                                        [
+                                            {
+                                                "field": "field_693fc2505861f",
+                                                "operator": "==",
+                                                "value": "taunt"
+                                            },
+                                            {
+                                                "field": "field_693fc25058627",
+                                                "operator": "!=",
+                                                "value": "all_ally"
+                                            },
+                                            {
+                                                "field": "field_693fc25058627",
+                                                "operator": "!=",
+                                                "value": "limited_ally"
+                                            },
+                                            {
+                                                "field": "field_693fc25058627",
+                                                "operator": "!=",
+                                                "value": "self"
+                                            }
+                                        ],
+                                        [
+                                            {
+                                                "field": "field_693fc2505861f",
+                                                "operator": "==",
+                                                "value": "pressure"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "default_value": 2,
+                                    "maxlength": "",
+                                    "allow_in_bindings": 0,
+                                    "placeholder": "",
+                                    "prepend": "",
+                                    "append": "",
+                                    "parent_repeater": "field_693fc2505861e"
+                                },
+                                {
+                                    "key": "field_693fc2515863d",
+                                    "label": "重圧の防御デバフ",
+                                    "name": "pressure_debuff_count",
+                                    "aria-label": "",
+                                    "type": "text",
+                                    "instructions": "ターン開始時に重圧によって起こるデバフの数「,」で区切る",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_693fc2505861f",
+                                                "operator": "==",
+                                                "value": "pressure"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "default_value": "",
+                                    "maxlength": "",
+                                    "allow_in_bindings": 0,
+                                    "placeholder": "",
+                                    "prepend": "",
+                                    "append": "",
+                                    "parent_repeater": "field_693fc2505861e"
+                                },
+                                {
+                                    "key": "field_693fc2515863e",
+                                    "label": "生成するトークン",
+                                    "name": "related_token",
+                                    "aria-label": "",
+                                    "type": "relationship",
+                                    "instructions": "",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_693fc2505861f",
+                                                "operator": "==",
+                                                "value": "token"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "post_type": [
+                                        "character"
+                                    ],
+                                    "post_status": "",
+                                    "taxonomy": "",
+                                    "filters": [
+                                        "search",
+                                        "post_type",
+                                        "taxonomy"
+                                    ],
+                                    "return_format": "object",
+                                    "acfe_bidirectional": {
+                                        "acfe_bidirectional_enabled": "0"
+                                    },
+                                    "min": "",
+                                    "max": "",
+                                    "allow_in_bindings": 0,
+                                    "elements": "",
+                                    "bidirectional": 0,
+                                    "bidirectional_target": [],
+                                    "parent_repeater": "field_693fc2505861e"
+                                },
+                                {
+                                    "key": "field_693fc2515863f",
+                                    "label": "文字失効",
+                                    "name": "moji_exhaust",
+                                    "aria-label": "",
+                                    "type": "true_false",
+                                    "instructions": "",
+                                    "required": 0,
+                                    "conditional_logic": [
+                                        [
+                                            {
+                                                "field": "field_693fc24f58619",
+                                                "operator": "==",
+                                                "value": "char"
+                                            }
+                                        ]
+                                    ],
+                                    "wrapper": {
+                                        "width": "",
+                                        "class": "",
+                                        "id": ""
+                                    },
+                                    "message": "",
+                                    "default_value": 0,
+                                    "allow_in_bindings": 0,
+                                    "ui": 0,
+                                    "ui_on_text": "",
+                                    "ui_off_text": "",
+                                    "parent_repeater": "field_693fc2505861e"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "key": "field_693986368804d",
+            "label": "倍率表グループ",
+            "name": "kotowaza_maltiplier_table_group",
+            "aria-label": "",
+            "type": "group",
+            "instructions": "",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "layout": "block",
+            "acfe_seamless_style": 0,
+            "acfe_group_modal": 0,
+            "acfe_group_modal_close": 0,
+            "acfe_group_modal_button": "",
+            "acfe_group_modal_size": "large",
+            "sub_fields": [
+                {
+                    "key": "field_6939863688054",
+                    "label": "倍率表の使用",
+                    "name": "use_maltiplier_table",
+                    "aria-label": "",
+                    "type": "true_false",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": 0,
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "message": "",
+                    "default_value": 0,
+                    "allow_in_bindings": 0,
+                    "ui": 0,
+                    "ui_on_text": "",
+                    "ui_off_text": ""
+                },
+                {
+                    "key": "field_6939863688055",
+                    "label": "条件タイプ",
+                    "name": "multi_cond_type",
+                    "aria-label": "",
+                    "type": "select",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_6939863688054",
+                                "operator": "==",
+                                "value": "1"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "choices": {
+                        "enemy": "収束",
+                        "moji": "文字数",
+                        "both": "どちらも",
+                        "target": "対象"
+                    },
+                    "default_value": false,
+                    "return_format": "value",
+                    "multiple": 0,
+                    "allow_null": 0,
+                    "allow_in_bindings": 0,
+                    "ui": 0,
+                    "ajax": 0,
+                    "placeholder": "",
+                    "create_options": 0,
+                    "save_options": 0,
+                    "allow_custom": 0,
+                    "search_placeholder": ""
+                },
+                {
+                    "key": "field_6939863688056",
+                    "label": "上昇する対象",
+                    "name": "advantage_target",
+                    "aria-label": "",
+                    "type": "group",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_6939863688055",
+                                "operator": "==",
+                                "value": "target"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "layout": "",
+                    "acfe_group_modal": 1,
+                    "acfe_group_modal_close": 1,
+                    "acfe_group_modal_button": "",
+                    "acfe_group_modal_size": "medium",
+                    "acfe_seamless_style": 0,
+                    "sub_fields": [
+                        {
+                            "key": "field_6939863688057",
+                            "label": "対象",
+                            "name": "target_type",
+                            "aria-label": "",
+                            "type": "select",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": 0,
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "choices": {
+                                "self": "自身",
+                                "all": "パーティー内全員",
+                                "attr": "属性",
+                                "species": "種族",
+                                "group": "グループ",
+                                "other": "その他"
+                            },
+                            "default_value": "self",
+                            "return_format": "",
+                            "multiple": 0,
+                            "allow_null": 0,
+                            "allow_in_bindings": 0,
+                            "ui": 0,
+                            "ajax": 0,
+                            "placeholder": "",
+                            "create_options": 0,
+                            "save_options": 0,
+                            "allow_custom": 0,
+                            "search_placeholder": ""
+                        },
+                        {
+                            "key": "field_6939863688058",
+                            "label": "対象の詳細（属性）",
+                            "name": "target_attr",
+                            "aria-label": "",
+                            "type": "taxonomy",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": [
+                                [
+                                    {
+                                        "field": "field_6939863688057",
+                                        "operator": "==",
+                                        "value": "self"
+                                    }
+                                ]
+                            ],
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "taxonomy": "attribute",
+                            "add_term": 0,
+                            "save_terms": 0,
+                            "load_terms": 0,
+                            "return_format": "",
+                            "field_type": "multi_select",
+                            "allow_null": 0,
+                            "acfe_bidirectional": {
+                                "acfe_bidirectional_enabled": "0"
+                            },
+                            "allow_in_bindings": 0,
+                            "bidirectional": 0,
+                            "multiple": 0,
+                            "bidirectional_target": []
+                        },
+                        {
+                            "key": "field_6939863688059",
+                            "label": "対象の詳細（種族）",
+                            "name": "target_species",
+                            "aria-label": "",
+                            "type": "taxonomy",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": [
+                                [
+                                    {
+                                        "field": "field_6939863688057",
+                                        "operator": "==",
+                                        "value": "self"
+                                    }
+                                ]
+                            ],
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "taxonomy": "species",
+                            "add_term": 0,
+                            "save_terms": 0,
+                            "load_terms": 0,
+                            "return_format": "",
+                            "field_type": "multi_select",
+                            "allow_null": 0,
+                            "acfe_bidirectional": {
+                                "acfe_bidirectional_enabled": "0"
+                            },
+                            "allow_in_bindings": 0,
+                            "bidirectional": 0,
+                            "multiple": 0,
+                            "bidirectional_target": []
+                        },
+                        {
+                            "key": "field_693986368805a",
+                            "label": "対象の詳細（グループ）",
+                            "name": "target_group",
+                            "aria-label": "",
+                            "type": "taxonomy",
+                            "instructions": "入力してください",
+                            "required": 0,
+                            "conditional_logic": [
+                                [
+                                    {
+                                        "field": "field_6939863688057",
+                                        "operator": "==",
+                                        "value": "self"
+                                    }
+                                ]
+                            ],
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "taxonomy": "affiliation",
+                            "add_term": 0,
+                            "save_terms": 0,
+                            "load_terms": 0,
+                            "return_format": "",
+                            "field_type": "multi_select",
+                            "allow_null": 0,
+                            "acfe_bidirectional": {
+                                "acfe_bidirectional_enabled": "0"
+                            },
+                            "allow_in_bindings": 0,
+                            "bidirectional": 0,
+                            "multiple": 0,
+                            "bidirectional_target": []
+                        },
+                        {
+                            "key": "field_693986368805b",
+                            "label": "対象の詳細（その他）",
+                            "name": "target_other",
+                            "aria-label": "",
+                            "type": "text",
+                            "instructions": "入力してください",
+                            "required": 0,
+                            "conditional_logic": [
+                                [
+                                    {
+                                        "field": "field_6939863688057",
+                                        "operator": "==",
+                                        "value": "self"
+                                    }
+                                ]
+                            ],
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "default_value": "",
+                            "maxlength": "",
+                            "allow_in_bindings": 0,
+                            "placeholder": "",
+                            "prepend": "",
+                            "append": ""
+                        }
+                    ]
+                },
+                {
+                    "key": "field_693986368805c",
+                    "label": "倍率表",
+                    "name": "maltiplier_table",
+                    "aria-label": "",
+                    "type": "repeater",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_6939863688054",
+                                "operator": "==",
+                                "value": "1"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "acfe_repeater_stylised_button": 1,
+                    "layout": "table",
+                    "pagination": 0,
+                    "min": 0,
+                    "max": 0,
+                    "collapsed": "",
+                    "button_label": "行を追加",
+                    "rows_per_page": 20,
+                    "sub_fields": [
+                        {
+                            "key": "field_693986368805d",
+                            "label": "収束の条件",
+                            "name": "enemy_count",
+                            "aria-label": "",
+                            "type": "number",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": [
+                                [
+                                    {
+                                        "field": "field_6939863688055",
+                                        "operator": "!=",
+                                        "value": "moji"
+                                    },
+                                    {
+                                        "field": "field_6939863688055",
+                                        "operator": "!=",
+                                        "value": "target"
+                                    }
+                                ]
+                            ],
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "default_value": "",
+                            "min": "",
+                            "max": "",
+                            "allow_in_bindings": 0,
+                            "placeholder": "",
+                            "step": "",
+                            "prepend": "",
+                            "append": "",
+                            "parent_repeater": "field_693986368805c"
+                        },
+                        {
+                            "key": "field_693986368805e",
+                            "label": "文字数の条件",
+                            "name": "moji_count",
+                            "aria-label": "",
+                            "type": "number",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": [
+                                [
+                                    {
+                                        "field": "field_6939863688055",
+                                        "operator": "!=",
+                                        "value": "enemy"
+                                    },
+                                    {
+                                        "field": "field_6939863688055",
+                                        "operator": "!=",
+                                        "value": "target"
+                                    }
+                                ]
+                            ],
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "default_value": "",
+                            "min": "",
+                            "max": "",
+                            "allow_in_bindings": 0,
+                            "placeholder": "",
+                            "step": "",
+                            "prepend": "",
+                            "append": "",
+                            "parent_repeater": "field_693986368805c"
+                        },
+                        {
+                            "key": "field_693986368805f",
+                            "label": "上昇した状態",
+                            "name": "advantage_tf",
+                            "aria-label": "",
+                            "type": "true_false",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": [
+                                [
+                                    {
+                                        "field": "field_6939863688055",
+                                        "operator": "==",
+                                        "value": "target"
+                                    }
+                                ]
+                            ],
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "message": "",
+                            "default_value": 1,
+                            "allow_in_bindings": 0,
+                            "ui": 0,
+                            "ui_on_text": "",
+                            "ui_off_text": "",
+                            "parent_repeater": "field_693986368805c"
+                        },
+                        {
+                            "key": "field_693ad659e5913",
+                            "label": "凸数",
+                            "name": "break_count",
+                            "aria-label": "",
+                            "type": "number",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": 0,
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "default_value": "",
+                            "min": "",
+                            "max": "",
+                            "allow_in_bindings": 0,
+                            "placeholder": "",
+                            "step": "",
+                            "prepend": "",
+                            "append": "",
+                            "parent_repeater": "field_693986368805c"
+                        },
+                        {
+                            "key": "field_6939863688060",
+                            "label": "倍率",
+                            "name": "rate",
+                            "aria-label": "",
+                            "type": "text",
+                            "instructions": "",
+                            "required": 0,
+                            "conditional_logic": 0,
+                            "wrapper": {
+                                "width": "",
+                                "class": "",
+                                "id": ""
+                            },
+                            "default_value": "",
+                            "maxlength": "",
+                            "allow_in_bindings": 0,
+                            "placeholder": "",
+                            "prepend": "",
+                            "append": "",
+                            "parent_repeater": "field_693986368805c"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "post_type",
+                "operator": "==",
+                "value": "character"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "description": "",
+    "show_in_rest": 0,
+    "display_title": "",
+    "allow_ai_access": false,
+    "ai_description": "",
+    "acfe_autosync": [
+        "json"
+    ],
+    "acfe_form": 0,
+    "acfe_meta": "",
+    "acfe_note": "",
+    "modified": 1777188732
+}

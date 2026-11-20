@@ -393,6 +393,10 @@ add_filter('map_meta_cap', function ($caps, $cap, $user_id, $args) {
         return $cap === 'publish_post' ? ['publish_posts'] : ['edit_posts'];
     }
 
+    if (in_array($cap, ['edit_post', 'publish_post', 'delete_post'], true)) {
+        return ['do_not_allow'];
+    }
+
     return $caps;
 }, 20, 4);
 

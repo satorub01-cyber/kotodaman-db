@@ -117,7 +117,7 @@ flowchart LR
 | [lib/mcp/protocol/post-mcp.php](../../lib/mcp/protocol/post-mcp.php) | REST API 全8ルート（`openapi.json`, `schema`, `blessing-schema`, `terms`, `characters/search`, `draft/preview`, `character-draft`, `draft/{id}`） |
 | [lib/mcp/portal/mcp-admin.php](../../lib/mcp/portal/mcp-admin.php) | WordPress管理画面「ユーザー > MCP利用者管理」UI（`_koto_mcp_approved` 承認/剥奪、Static OAuthクライアント管理） |
 | [collaboration-page.php](../../collaboration-page.php) | 編集協力ポータル用 固定ページテンプレート（テーマ直下・専用レイアウト） |
-| [lib/mcp/portal/mcp-collaboration-page.php](../../lib/mcp/portal/mcp-collaboration-page.php) | 協力者ポータル共通描画・ショートコード `[koto_collaborate_portal]`、メール認証付き `checker` 登録、チェック＆倍率調査導線（`.css` / `.js` と連携） |
+| [lib/mcp/portal/mcp-collaboration-page.php](../../lib/mcp/portal/mcp-collaboration-page.php) | 協力者ポータル共通描画・ショートコード `[koto_collaborate_portal]`、メール認証付き `checker` 登録、チェック＆倍率調査導線（`.css` と連携） |
 | [lib/mcp/tools/prepare_screenshots.php](../../lib/mcp/tools/prepare_screenshots.php) | 複数スクリーンショット／ZIPの展開・上下トリミング・タイル合成CLIスクリプト |
 | [lib/mcp/tests/test-mcp-compatibility.php](../../lib/mcp/tests/test-mcp-compatibility.php) | 互換拡張（CIMD・Static OAuth・`aud`・`2025-11-25`・REST・登録・広告制御）の自動検証テスト |
 | [documents/mcp/mcp-field-manual.json](mcp-field-manual.json) | `get_field_schema` に統合されるフィールド別読み取りガイド定義 |

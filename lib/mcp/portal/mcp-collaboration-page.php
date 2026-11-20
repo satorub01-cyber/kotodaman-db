@@ -19,26 +19,18 @@ if (!defined('KOTO_MCP_REG_TOKEN_TTL')) {
 }
 
 /**
- * ポータル用のスタイル・スクリプトをエンキューする（<head>内事前読み込み・冪等）
+ * ポータル用のスタイルをエンキューする（<head>内事前読み込み・冪等）
  */
 function koto_mcp_collab_enqueue_assets(): void {
     $theme_uri = get_stylesheet_directory_uri();
     $mcp_dir   = __DIR__;
     $css_ver   = file_exists($mcp_dir . '/mcp-collaboration.css') ? (string) filemtime($mcp_dir . '/mcp-collaboration.css') : '1.0.0';
-    $js_ver    = file_exists($mcp_dir . '/mcp-collaboration.js') ? (string) filemtime($mcp_dir . '/mcp-collaboration.js') : '1.0.0';
 
     wp_enqueue_style(
         'koto-mcp-collaboration',
         $theme_uri . '/lib/mcp/portal/mcp-collaboration.css',
         [],
         $css_ver
-    );
-    wp_enqueue_script(
-        'koto-mcp-collaboration',
-        $theme_uri . '/lib/mcp/portal/mcp-collaboration.js',
-        [],
-        $js_ver,
-        true
     );
 }
 
