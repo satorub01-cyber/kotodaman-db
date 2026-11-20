@@ -306,10 +306,10 @@ status: stable
    * `client_id` がHTTPS URLの場合、`localhost` / プライベートIP / リンクローカルIP（`169.254.169.254` 等）への解決を拒否し、メタデータJSON内の `client_id` とリクエスト `client_id` の完全一致、`redirect_uris` の妥当性を検証します。
 3. **SEP-835 `insufficient_scope` 対応**:
    * 認可済みトークンでも必要スコープ（例: `create`）が不足している場合、HTTP `403` と共に `WWW-Authenticate: Bearer realm="...", error="insufficient_scope", scope="<required>"` を返却し、クライアント側の段階的スコープ再認可を促します。
-4. **サイト協力者登録とロール昇格・降格 / 広告表示ルール**:
-   * `[koto_collaborate_portal]`（[lib/mcp/portal/mcp-collaboration-page.php](../../lib/mcp/portal/mcp-collaboration-page.php)）でのセルフ登録は、ハニーポット＋IPレート制限（5回/10分）＋24時間有効メール認証リンクを経て最小権限の `subscriber` として作成されます。
-   * 管理画面で承認すると `subscriber` → `mcp_user` ロールへ自動昇格し、権限取消・無効化時は `mcp_user` → `subscriber` へ自動降格（`administrator`/`editor` 等は保護）＋トークン即時失効となります。
-   * 広告非表示制御（[functions.php](../../functions.php)）は `administrator` / `editor` または「公開済み記事・キャラクター投稿が1件以上あるユーザー」にのみ適用され、新規 `subscriber` や公開実績のない `mcp_user` には通常通り広告が表示されます。
+4. **サイト協力者登録（`checker` ロール）と広告表示ルール**:
+   * `[koto_collaborate_portal]`（[lib/mcp/portal/mcp-collaboration-page.php](../../lib/mcp/portal/mcp-collaboration-page.php)）でのセルフ登録は、ハニーポット＋IPレート制限（5回/10分）＋24時間有効メール認証リンクを経て、承認不要で `checker` ロールとして作成されます（ポータルからのMCP利用申請および `mcp-admin.php` でのロール昇降格は廃止）。
+   * `checker` は自身の投稿の作成・編集・公開・削除に加え、`AI-assistant` が作者の投稿（下書き〜公開済み）を DBエディタ上で編集・公開できます（作者変更・削除や他ユーザー記事の編集は不可、`post.php` / `post-new.php` は DBエディタへ誘導）。
+   * 広告非表示制御（[functions.php](../../functions.php)）は `administrator` / `editor` / `author`（WP標準ロールの投稿者以上）、または「チェック実績（`_koto_mcp_needs_review` の取り下げ操作・1記事1回上限）が1件以上ある `checker`」にのみ適用され、実績0件の `checker` や `contributor` / `subscriber` / 未ログイン閲覧者には通常通り広告が表示されます。
 5. **`scope` 省略時の安全フォールバックとクライアント既定値**:
    * OAuthリクエストで `scope` が省略された場合は安全な既定値 `validate preview`（読み取り・検証のみ）、またはクライアント個別設定（`default_scope`）を適用します。
 6. **リフレッシュトークン・ローテーションと永続化・安全救済**:

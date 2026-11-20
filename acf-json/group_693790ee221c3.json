@@ -1341,6 +1341,7 @@
                         "pressure_break": "重圧の上限解放",
                         "kokusen": "黒閃",
                         "kyouwa": "協和",
+                        "weak_discover": "弱点発見",
                         "other": "その他"
                     },
                     "default_value": false,
@@ -3656,6 +3657,7 @@
                         "pressure_break": "重圧の上限解放",
                         "kokusen": "黒閃",
                         "kyouwa": "協和",
+                        "weak_discover": "弱点発見",
                         "other": "その他"
                     },
                     "default_value": false,
@@ -4661,5 +4663,5 @@
             }
         ]
     },
-    "modified": 1785407366
+    "modified": 1794311718
 }

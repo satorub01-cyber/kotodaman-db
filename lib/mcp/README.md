@@ -38,8 +38,8 @@ MCPのアーキテクチャ、API仕様、クライアント接続設定、運�
 | `protocol/mcp-schema.php` | ACFフィールドスキーマ動的生成（`koto_mcp_field_schema`）、マニュアル読み込み |
 | `protocol/mcp-resources.php` | MCP Resources（ガイド文書、フィールドマニュアル）、MCP Prompts 配信 |
 | `protocol/post-mcp.php` | REST API 全8ルート（`openapi.json`, `schema`, `blessing-schema`, `terms`, `characters/search`, `draft/preview`, `character-draft`, `draft/{id}`） |
-| `portal/mcp-admin.php` | WordPress管理画面「ユーザー > MCP利用申請」UI（`subscriber` ↔ `mcp_user` ロール昇格/降格、Static OAuth クライアント管理） |
-| `portal/mcp-collaboration-page.php` | 固定ページテンプレート [collaboration-page.php](../../collaboration-page.php) および `[koto_collaborate_portal]` 共通描画、メール認証付き登録、AI別ガイドUI（`mcp-collaboration.css` / `.js`） |
+| `portal/mcp-admin.php` | WordPress管理画面「ユーザー > MCP利用者管理」UI（`_koto_mcp_approved` 承認/剥奪、Static OAuth クライアント管理） |
+| `portal/mcp-collaboration-page.php` | 固定ページテンプレート [collaboration-page.php](../../collaboration-page.php) および `[koto_collaborate_portal]` 共通描画、メール認証付き `checker` 登録、チェック・倍率調査導線（`mcp-collaboration.css`） |
 | `tools/prepare_screenshots.php` | 複数スクリーンショットの展開・トリミング・タイル合成CLIスクリプト |
 | `tests/test-mcp-oauth-refresh.php` | OAuthリフレッシュトークン等のテストスクリプト |
 | `tests/test-mcp-permissions.php` | MCP権限・ロール・申請管理テストスクリプト |

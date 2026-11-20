@@ -3,12 +3,8 @@
  * 協力者ポータル＆ユーザー登録モジュール
  *
  * - 固定ページテンプレート（collaboration-page.php）およびショートコード [koto_collaborate_portal] の共通描画
- * - メール認証付きセルフユーザー登録（登録時は権限最小の subscriber として作成）
- * - 登録時の「MCP利用も申請する」チェック（デフォルトON）で _koto_mcp_requested=1 を付与し管理者へ通知
- * - 主要AIツール別の接続ガイド切替UI（ChatGPT / Claude / Gemini / Muse / Copilot / Cursor / Dify 等）
- *
- * ※一時非公開中（2026-11-13〜）: 処理本体は残置したまま、collaboration-page.php の404応答化および
- *   本ファイルのショートコード・登録受付フック・外部導線リンクをコメントアウト中（詳細: documents/mcp/README.md）。
+ * - メール認証付きセルフユーザー登録（認証完了と同時に checker ロールとして作成）
+ * - AI-assistant 下書きチェック・DBエディタ・倍率調査への導線および実績・広告非表示ステータス表示
  */
 
 if (!defined('ABSPATH')) {
@@ -23,13 +19,12 @@ if (!defined('KOTO_MCP_REG_TOKEN_TTL')) {
 }
 
 /**
- * ポータル用のスタイル・スクリプトをエンキューする（<head>内事前読み込み・冪等）
+ * ポータル用のスタイルをエンキューする（<head>内事前読み込み・冪等）
  */
 function koto_mcp_collab_enqueue_assets(): void {
     $theme_uri = get_stylesheet_directory_uri();
     $mcp_dir   = __DIR__;
     $css_ver   = file_exists($mcp_dir . '/mcp-collaboration.css') ? (string) filemtime($mcp_dir . '/mcp-collaboration.css') : '1.0.0';
-    $js_ver    = file_exists($mcp_dir . '/mcp-collaboration.js') ? (string) filemtime($mcp_dir . '/mcp-collaboration.js') : '1.0.0';
 
     wp_enqueue_style(
         'koto-mcp-collaboration',
@@ -37,18 +32,8 @@ function koto_mcp_collab_enqueue_assets(): void {
         [],
         $css_ver
     );
-    wp_enqueue_script(
-        'koto-mcp-collaboration',
-        $theme_uri . '/lib/mcp/portal/mcp-collaboration.js',
-        [],
-        $js_ver,
-        true
-    );
 }
 
-// 【一時非公開メモ】MCP協力者募集ページ（/collaborate/）一時非公開化に伴いアセット読み込みフックをコメントアウト（処理自体は残す）。
-// 再公開時は下のコメントアウトを解除すること。
-/*
 add_action('wp_enqueue_scripts', function (): void {
     if (is_page_template('collaboration-page.php')) {
         koto_mcp_collab_enqueue_assets();
@@ -64,20 +49,6 @@ add_action('wp_enqueue_scripts', function (): void {
         }
     }
 }, 20);
-*/
-
-/**
- * ユーザー登録用システムプロンプト（AIクライアント向けコピー用）
- */
-function koto_mcp_collab_default_system_prompt(): string {
-    return "あなたは「コトダマンDB」のキャラクターデータ登録アシスタントです。\n"
-        . "必ず以下のルールに従って作業してください：\n"
-        . "1. 作業開始時にまず `get_field_schema` と `get_blessing_schema` と `get_terms` を確認し、有効なフィールド名・選択肢・スラッグを把握する。\n"
-        . "2. 既存キャラとの重複を防ぐため、`search_character` で同名キャラが存在しないか先に確認する。\n"
-        . "3. 画像やユーザーから提供された情報だけを根拠にし、推測で数値・属性・ギミック等を埋めない。\n"
-        . "4. 下書き登録前に `validate` で入力エラーを確認し、`preview_draft` で人間が確認できるサマリーを提示する。\n"
-        . "5. 問題がなければ `create_draft` または `update_draft` で下書き（draft）として保存する。公開操作は人間がWordPress管理画面で行う。";
-}
 
 /**
  * クライアントIPアドレス取得（レート制限用）
@@ -125,7 +96,6 @@ function koto_mcp_collab_resolve_return_url(string $candidate = ''): string {
  *   'display_name'     => string,
  *   'password'         => string,
  *   'password_confirm' => string,
- *   'request_mcp'      => bool|int|string,
  *   'website_url'      => string, // ハニーポット（空であること）
  *   'client_ip'        => string, // 任意（レート制限識別）
  *   'skip_rate_limit'  => bool,   // CLIテスト等での明示スキップ用
@@ -159,7 +129,6 @@ function koto_mcp_collab_submit_registration(array $input) {
     $display_name     = sanitize_text_field(trim((string) ($input['display_name'] ?? '')));
     $password         = (string) ($input['password'] ?? '');
     $password_confirm = (string) ($input['password_confirm'] ?? '');
-    $request_mcp      = !isset($input['request_mcp']) || !empty($input['request_mcp']);
 
     if ($username === '' || strlen($username) < 3 || strlen($username) > 60 || $username !== $username_raw || !validate_username($username)) {
         return new WP_Error('koto_reg_invalid_username', 'ユーザー名は半角英数字・アンダースコア等で3〜60文字以内で入力してください。');
@@ -196,7 +165,6 @@ function koto_mcp_collab_submit_registration(array $input) {
         'email'        => $email,
         'display_name' => $display_name,
         'pass_hash'    => wp_hash_password($password),
-        'request_mcp'  => $request_mcp ? 1 : 0,
         'created_at'   => $now,
         'expires_at'   => $expires_at,
     ];
@@ -234,18 +202,17 @@ function koto_mcp_collab_submit_registration(array $input) {
     }
 
     return [
-        'status'      => 'pending_verification',
-        'email'       => $email,
-        'username'    => $username,
-        'request_mcp' => $request_mcp,
-        'expires_at'  => $expires_at,
-        'verify_url'  => $verify_url,
-        'token'       => $token,
+        'status'     => 'pending_verification',
+        'email'      => $email,
+        'username'   => $username,
+        'expires_at' => $expires_at,
+        'verify_url' => $verify_url,
+        'token'      => $token,
     ];
 }
 
 /**
- * メール認証トークンを検証し、WordPressユーザー（subscriber）を作成する
+ * メール認証トークンを検証し、WordPressユーザー（checker）を作成する
  *
  * @param string $token
  * @return array|WP_Error
@@ -283,19 +250,22 @@ function koto_mcp_collab_verify_registration(string $token) {
     $email        = (string) $pending['email'];
     $display_name = (string) ($pending['display_name'] ?? $username);
     $pass_hash    = (string) $pending['pass_hash'];
-    $request_mcp  = !empty($pending['request_mcp']);
 
     if (username_exists($username) || email_exists($email)) {
         return new WP_Error('koto_reg_already_registered', 'このユーザー名またはメールアドレスは既に登録済みです。');
     }
 
-    // 最小権限 subscriber としてユーザー作成
+    if (function_exists('koto_register_checker_role')) {
+        koto_register_checker_role();
+    }
+
+    // checker ロールとしてユーザー作成（承認不要）
     $user_id = wp_insert_user([
         'user_login'   => $username,
         'user_pass'    => wp_generate_password(32, true, true),
         'user_email'   => $email,
         'display_name' => $display_name,
-        'role'         => 'subscriber',
+        'role'         => 'checker',
     ]);
 
     if (is_wp_error($user_id)) {
@@ -316,41 +286,12 @@ function koto_mcp_collab_verify_registration(string $token) {
     update_user_meta((int) $user_id, '_koto_email_verified', 1);
     update_user_meta((int) $user_id, '_koto_email_verified_at', current_time('mysql'));
 
-    if ($request_mcp) {
-        if (function_exists('koto_mcp_record_request_meta')) {
-            koto_mcp_record_request_meta((int) $user_id);
-        } else {
-            update_user_meta((int) $user_id, '_koto_mcp_requested', '1');
-            update_user_meta((int) $user_id, '_koto_mcp_requested_at', current_time('mysql'));
-        }
-
-        // 管理者通知メール
-        $admin_email = get_option('admin_email');
-        if ($admin_email) {
-            $approval_url = admin_url('users.php?page=koto-mcp-approvals');
-            wp_mail(
-                $admin_email,
-                sprintf('[%s] 新規ユーザー登録＋MCP利用申請がありました', get_bloginfo('name')),
-                sprintf(
-                    "新しい協力者がメール認証を完了し、MCP利用を申請しました。\n\n"
-                    . "ユーザー名: %s\n表示名: %s\nメール: %s\n"
-                    . "承認管理画面: %s\n",
-                    $username,
-                    $display_name,
-                    $email,
-                    $approval_url
-                )
-            );
-        }
-    }
-
     return [
-        'status'      => 'verified',
-        'user_id'     => (int) $user_id,
-        'username'    => $username,
-        'email'       => $email,
-        'role'        => 'subscriber',
-        'request_mcp' => $request_mcp,
+        'status'   => 'verified',
+        'user_id'  => (int) $user_id,
+        'username' => $username,
+        'email'    => $email,
+        'role'     => 'checker',
     ];
 }
 
@@ -368,12 +309,7 @@ function koto_mcp_collab_store_notice(string $type, string $message): string {
 
 /**
  * template_redirect でフォーム送信とメール認証GETを受け付ける
- *
- * 【一時非公開メモ】MCP協力者募集の一時非公開化に伴い、公開ページからの登録・認証受付フックをコメントアウト中。
- * 関数本体（koto_mcp_collab_submit_registration / koto_mcp_collab_verify_registration）は残している。
- * 再公開時は下のコメントアウトを解除すること。
  */
-/*
 add_action('template_redirect', function (): void {
     // 1. メール認証GET (?koto_reg_verify=...)
     if (isset($_GET['koto_reg_verify'])) {
@@ -382,10 +318,7 @@ add_action('template_redirect', function (): void {
         if (is_wp_error($result)) {
             $nk = koto_mcp_collab_store_notice('error', $result->get_error_message());
         } else {
-            $msg = 'メールアドレスの認証が完了し、アカウントを作成しました（' . $result['username'] . '）。';
-            if (!empty($result['request_mcp'])) {
-                $msg .= ' MCP利用申請も同時に送信済みです。管理者の承認後、承認通知メールが届きます。';
-            }
+            $msg = 'メールアドレスの認証が完了し、チェッカーアカウント（' . $result['username'] . '）を作成しました。ログイン後すぐにAI下書きのチェックや倍率調査にご協力いただけます。';
             $nk = koto_mcp_collab_store_notice('success', $msg);
         }
         $redirect = add_query_arg('koto_reg_notice', $nk, koto_mcp_collab_current_url());
@@ -411,7 +344,6 @@ add_action('template_redirect', function (): void {
             'display_name'     => wp_unslash((string) ($_POST['koto_reg_display_name'] ?? '')),
             'password'         => (string) ($_POST['koto_reg_password'] ?? ''),
             'password_confirm' => (string) ($_POST['koto_reg_password_confirm'] ?? ''),
-            'request_mcp'      => isset($_POST['koto_reg_request_mcp']),
             'website_url'      => wp_unslash((string) ($_POST['website_url'] ?? '')),
             'return_url'       => $return_url,
         ]);
@@ -432,325 +364,6 @@ add_action('template_redirect', function (): void {
         exit;
     }
 });
-*/
-
-/**
- * AIクライアント別の接続ガイド定義（JSに渡すJSONデータ）
- */
-function koto_mcp_collab_ai_guides_data(): array {
-    $mcp_url     = koto_mcp_server_url();
-    $rest_base   = koto_mcp_base_url();
-    $openapi_url = $rest_base . '/mcp/openapi.json';
-
-    $json_http_config = wp_json_encode([
-        'mcpServers' => [
-            'kotodaman-db' => [
-                'url' => $mcp_url,
-            ],
-        ],
-    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-
-    $json_type_http_config = wp_json_encode([
-        'mcpServers' => [
-            'kotodaman-db' => [
-                'type' => 'http',
-                'url'  => $mcp_url,
-            ],
-        ],
-    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-
-    return [
-        'chatgpt_mcp' => [
-            'title'         => 'ChatGPT（MCPコネクタ / Apps・Developer Mode）',
-            'badge'         => '対応済み・OAuth 2.1 / CIMD',
-            'unsupported'   => false,
-            'summary'       => 'ChatGPTの設定画面からMCPサーバーURLを登録するだけで、ブラウザ上のOAuthログイン画面が開き、全10ツールをそのまま利用できます。',
-            'steps'         => [
-                'ChatGPT の設定 →「コネクタ（Connectors / Apps）」→「開発者モード（Developer Mode）」またはカスタムコネクタ作成を開く。',
-                'MCP Server URL に「' . $mcp_url . '」を入力する。',
-                '認証方式は「OAuth」を選択する（CIMD / DCR 自動対応）。',
-                '表示されるコトダマンDBログイン画面でサインインし、スコープ（validate preview / create）を許可する。',
-            ],
-            'snippet_label' => 'ChatGPT コネクタ登録URL',
-            'snippet'       => $mcp_url,
-        ],
-        'chatgpt_actions' => [
-            'title'         => 'ChatGPT（Custom GPT Actions / REST + OpenAPI）',
-            'badge'         => '対応済み・Static OAuth / OpenAPI 3.1',
-            'unsupported'   => false,
-            'summary'       => 'Custom GPTsのActions機能からOpenAPI 3.1.0スキーマを取り込み、REST経由で下書き作成・検索・検証を行います。管理者発行のStatic Client ID / Secretが必要です。',
-            'steps'         => [
-                '管理者に依頼してStatic OAuthクライアント（client_id / client_secret）を発行してもらい、GPT編集画面に表示されるCallback URLを登録してもらう。',
-                'GPT Builder の「Configure」→「Actions」→「Import from URL」へ下記 OpenAPI URL を入力する。',
-                'Authentication で「OAuth」を選び、Client ID / Client Secret、Authorization URL（' . $rest_base . '/mcp/oauth/authorize）、Token URL（' . $rest_base . '/mcp/oauth/token）を設定する。',
-                'Scope に「validate preview create」を指定して保存する。',
-            ],
-            'snippet_label' => 'OpenAPI 3.1.0 スキーマ URL',
-            'snippet'       => $openapi_url,
-        ],
-        'claude' => [
-            'title'         => 'Claude（Web / Desktop / iOS・Android）',
-            'badge'         => '対応済み・OAuth 2.1 / DCR・CIMD',
-            'unsupported'   => false,
-            'summary'       => 'Claudeの「カスタムコネクタ」からMCPサーバーURLを追加するだけで、OAuth 2.1認証を経てすぐに利用できます。',
-            'steps'         => [
-                'Claude の「設定（Settings）」→「コネクタ（Connectors / Integrations）」→「カスタムコネクタを追加」を開く。',
-                '名前に「コトダマンDB」、リモートMCPサーバーURLに「' . $mcp_url . '」を入力して追加する。',
-                'チャット画面でコネクタを有効にし、OAuth画面でコトダマンDBにログイン・許可する。',
-            ],
-            'snippet_label' => 'Claude リモートMCP URL',
-            'snippet'       => $mcp_url,
-        ],
-        'claude_code' => [
-            'title'         => 'Claude Code（CLI）',
-            'badge'         => '対応済み・Streamable HTTP + OAuth',
-            'unsupported'   => false,
-            'summary'       => 'コマンド1行でリモートHTTP MCPサーバーを登録し、`/mcp` コマンドからブラウザOAuth認証を行えます。',
-            'steps'         => [
-                'ターミナルで下記の `claude mcp add` コマンドを実行する。',
-                'Claude Code 起動後、`/mcp` を実行して `kotodaman-db` の「Authenticate」を選択する。',
-                'ブラウザでコトダマンDBへログイン・承認するとトークンが保存される。',
-            ],
-            'snippet_label' => 'Claude Code 追加コマンド',
-            'snippet'       => 'claude mcp add --transport http kotodaman-db ' . $mcp_url,
-        ],
-        'gemini_web' => [
-            'title'         => 'Gemini（Web・Developer Mode / Extensions）',
-            'badge'         => '一部対応・環境により接続可',
-            'unsupported'   => false,
-            'summary'       => 'コンシューマ向けGemini Web標準画面はサードパーティMCPを直接登録できない場合がありますが、Developer ModeまたはGoogle AI Studio / Workspace Studio連携ではMCP URLまたはOpenAPIを利用できます。',
-            'steps'         => [
-                '利用中のGemini環境がカスタムMCPに対応している場合、MCP URL（' . $mcp_url . '）を設定する。',
-                'OpenAPIツール連携に対応している場合は OpenAPI URL（' . $openapi_url . '）と OAuth / Bearer トークンを指定する。',
-                '一般的なGemini Webのみお使いの場合は、ターミナルで使える「Gemini CLI」の利用をおすすめします。',
-            ],
-            'snippet_label' => 'MCP / OpenAPI URL',
-            'snippet'       => "MCP URL: {$mcp_url}\nOpenAPI URL: {$openapi_url}",
-        ],
-        'gemini_cli' => [
-            'title'         => 'Gemini CLI（Google公式ターミナルエージェント）',
-            'badge'         => '対応済み・HTTP MCP + OAuth',
-            'unsupported'   => false,
-            'summary'       => 'Google公式の Gemini CLI は Streamable HTTP MCP と OAuth 2.1 にネイティブ対応しています。',
-            'steps'         => [
-                '`~/.gemini/settings.json`（またはプロジェクトの `.gemini/settings.json`）に下記 `mcpServers` 設定を追加する。',
-                '`gemini` を起動し、`/mcp auth kotodaman-db` を実行するか初回ツール呼び出し時の認証プロンプトに従いブラウザでログインする。',
-            ],
-            'snippet_label' => 'Gemini CLI settings.json 抜粋',
-            'snippet'       => wp_json_encode([
-                'mcpServers' => [
-                    'kotodaman-db' => [
-                        'httpUrl' => $mcp_url,
-                    ],
-                ],
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
-        ],
-        'gemini_api_enterprise' => [
-            'title'         => 'Gemini API / Gemini Enterprise（Vertex AI Agent）',
-            'badge'         => '対応済み・HTTP MCP / Static OAuth',
-            'unsupported'   => false,
-            'summary'       => 'Gemini Enterprise や Vertex AI / Gemini API からはリモートMCPまたはOpenAPI Toolとして接続できます。',
-            'steps'         => [
-                'MCP対応エージェント機能では「' . $mcp_url . '」をリモートMCPエンドポイントとして指定する。',
-                'OpenAPI連携やサーバー間接続で固定クライアントが必要な場合は、管理者にStatic OAuthクライアント発行を依頼し、OpenAPI URL（' . $openapi_url . '）を取り込む。',
-            ],
-            'snippet_label' => '接続エンドポイント一覧',
-            'snippet'       => "MCP URL: {$mcp_url}\nOpenAPI URL: {$openapi_url}\nToken URL: {$rest_base}/mcp/oauth/token",
-        ],
-        'muse' => [
-            'title'         => 'Muse（リモートMCP対応クライアント）',
-            'badge'         => '対応済み・Streamable HTTP + OAuth / Bearer',
-            'unsupported'   => false,
-            'summary'       => 'Muse の MCPサーバー設定画面から HTTP エンドポイントを指定して接続できます。',
-            'steps'         => [
-                'Muse の MCP 設定で「HTTP / Streamable HTTP」タイプの新規サーバーを追加する。',
-                'URL に「' . $mcp_url . '」を設定する。',
-                'OAuth画面が開く場合はそのままログイン。固定トークンが必要な場合は、WordPressプロフィール画面でアプリケーションパスワードを発行し Authorization: Basic ヘッダーで指定する。',
-            ],
-            'snippet_label' => 'Muse 設定用JSON例',
-            'snippet'       => $json_type_http_config,
-        ],
-        'grok_perplexity_lechat' => [
-            'title'         => 'Grok / Perplexity / Mistral Le Chat',
-            'badge'         => '対応済み・Custom MCP Connectors',
-            'unsupported'   => false,
-            'summary'       => 'Grok、Perplexity（Desktop / Enterprise）、Mistral Le Chat のカスタムMCPコネクタから HTTP + OAuth 2.1 で接続できます。',
-            'steps'         => [
-                '各サービスの Connectors / Integrations 設定からカスタムMCPサーバーを追加する。',
-                'エンドポイントURLに「' . $mcp_url . '」を入力する。',
-                '表示されたOAuth同意画面でコトダマンDBアカウント（mcp_user権限）にログインしアクセスを許可する。',
-            ],
-            'snippet_label' => 'カスタムMCP URL',
-            'snippet'       => $mcp_url,
-        ],
-        'copilot_studio' => [
-            'title'         => 'Microsoft Copilot Studio（Agent Builder）',
-            'badge'         => '対応済み・Static OAuth + MCP / OpenAPI',
-            'unsupported'   => false,
-            'summary'       => 'Copilot Studio ではカスタムコネクタ経由でMCPサーバーまたはOpenAPI REST APIをエージェントに組み込めます。',
-            'steps'         => [
-                '管理者にStatic OAuthクライアント（client_id / client_secret）発行を依頼する（Power PlatformのリダイレクトURL登録も依頼）。',
-                'Copilot Studio の「ツール（Tools）」→「新しいツール」→「Model Context Protocol」または「REST API（OpenAPI）」を選択する。',
-                'MCP URL「' . $mcp_url . '」または OpenAPI URL「' . $openapi_url . '」と OAuth 2.0 情報を入力する。',
-            ],
-            'snippet_label' => 'Copilot Studio 設定値',
-            'snippet'       => "MCP URL: {$mcp_url}\nOpenAPI URL: {$openapi_url}\nAuthorize URL: {$rest_base}/mcp/oauth/authorize\nToken URL: {$rest_base}/mcp/oauth/token",
-        ],
-        'github_copilot' => [
-            'title'         => 'GitHub Copilot（VS Code / Coding Agent）',
-            'badge'         => '対応済み・mcp.json + OAuth 2.1',
-            'unsupported'   => false,
-            'summary'       => 'VS Code の `.vscode/mcp.json`（またはユーザー設定）に登録するだけで、OAuth 2.1 ブラウザログインにより利用できます。',
-            'steps'         => [
-                'VS Code で `.vscode/mcp.json`（またはユーザー `mcp.json`）を開き、下記設定を貼り付ける。',
-                'エディタ上の「Start」をクリックし、VS Codeの案内に従ってブラウザでコトダマンDBにログイン・認可する。',
-                'Copilot Chat を「Agent」モードに切り替えて `kotodaman-db` のツールが有効になっていることを確認する。',
-            ],
-            'snippet_label' => '.vscode/mcp.json 設定例',
-            'snippet'       => wp_json_encode([
-                'servers' => [
-                    'kotodaman-db' => [
-                        'type' => 'http',
-                        'url'  => $mcp_url,
-                    ],
-                ],
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
-        ],
-        'antigravity' => [
-            'title'         => 'Antigravity（IDE / Agent）',
-            'badge'         => '対応済み・mcp_config.json',
-            'unsupported'   => false,
-            'summary'       => 'Antigravity の `mcp_config.json` に `serverUrl` と認証ヘッダー（またはOAuth）を設定して接続できます。',
-            'steps'         => [
-                '`~/.gemini/antigravity/mcp_config.json` を開く。',
-                '下記 `mcpServers` ブロックを追加する（WordPressプロフィールで発行したアプリケーションパスワードを Base64 化した Basic 認証、または OAuth Bearer トークンを指定）。',
-            ],
-            'snippet_label' => 'mcp_config.json 設定例',
-            'snippet'       => wp_json_encode([
-                'mcpServers' => [
-                    'kotodaman-db' => [
-                        'serverUrl' => $mcp_url,
-                        'headers'   => [
-                            'Authorization' => 'Basic <base64(username:app_password)>',
-                        ],
-                    ],
-                ],
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
-        ],
-        'cursor' => [
-            'title'         => 'Cursor',
-            'badge'         => '対応済み・mcp.json + OAuth 2.1',
-            'unsupported'   => false,
-            'summary'       => 'Cursor の `.cursor/mcp.json` にURLを記述すると、OAuth 2.1 フローにより自動でトークンを取得できます。',
-            'steps'         => [
-                'Cursor Settings →「Tools & MCP」を開くか、`~/.cursor/mcp.json` に下記を追記する。',
-                '「Needs authentication / Connect」を押してブラウザでコトダマンDBへログイン・承認する。',
-            ],
-            'snippet_label' => '~/.cursor/mcp.json 設定例',
-            'snippet'       => $json_http_config,
-        ],
-        'windsurf' => [
-            'title'         => 'Windsurf（Cascade）',
-            'badge'         => '対応済み・mcp_config.json',
-            'unsupported'   => false,
-            'summary'       => 'Windsurf の MCP Marketplace / `mcp_config.json` で Streamable HTTP URL を設定して利用できます。',
-            'steps'         => [
-                '`~/.codeium/windsurf/mcp_config.json` を開く。',
-                '下記の通り `serverUrl` にコトダマンDBのMCP URLを追加し、リフレッシュする。',
-            ],
-            'snippet_label' => 'mcp_config.json 設定例',
-            'snippet'       => wp_json_encode([
-                'mcpServers' => [
-                    'kotodaman-db' => [
-                        'serverUrl' => $mcp_url,
-                    ],
-                ],
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
-        ],
-        'cline_roo' => [
-            'title'         => 'Cline / Roo Code',
-            'badge'         => '対応済み・streamableHttp',
-            'unsupported'   => false,
-            'summary'       => 'VS Code 拡張の Cline / Roo Code では `streamableHttp` タイプのMCP設定で接続できます。',
-            'steps'         => [
-                'Cline / Roo Code の MCP Servers 設定アイコンから `cline_mcp_settings.json`（または `mcp_settings.json`）を開く。',
-                '下記設定を追記し、認証プロンプトまたはBasic/Bearerヘッダーを設定する。',
-            ],
-            'snippet_label' => 'streamableHttp 設定例',
-            'snippet'       => wp_json_encode([
-                'mcpServers' => [
-                    'kotodaman-db' => [
-                        'type' => 'streamableHttp',
-                        'url'  => $mcp_url,
-                    ],
-                ],
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
-        ],
-        'codex_opencode' => [
-            'title'         => 'OpenAI Codex CLI / OpenCode',
-            'badge'         => '対応済み・config.toml / opencode.json',
-            'unsupported'   => false,
-            'summary'       => 'Codex CLI（TOML）と OpenCode（JSON）の両方がリモートHTTP MCP + OAuth 2.1に対応しています。',
-            'steps'         => [
-                'Codex CLI の場合は `~/.codex/config.toml` に下記を追記し、`codex mcp login kotodaman-db` を実行する。',
-                'OpenCode の場合は `opencode.json` に `type: "remote"` としてURLを追記し、`opencode mcp auth kotodaman-db` を実行する。',
-            ],
-            'snippet_label' => 'Codex CLI (~/.codex/config.toml) 例',
-            'snippet'       => "[mcp_servers.kotodaman_db]\nurl = \"{$mcp_url}\"\n",
-        ],
-        'jetbrains' => [
-            'title'         => 'JetBrains IDE / AI Assistant',
-            'badge'         => '対応済み・Streamable HTTP + OAuth',
-            'unsupported'   => false,
-            'summary'       => 'JetBrains IDE（IntelliJ / PhpStorm 等）の Settings → Tools → AI Assistant → Model Context Protocol から HTTP MCP を追加できます。',
-            'steps'         => [
-                'JetBrains Settings →「Tools」→「AI Assistant」→「Model Context Protocol (MCP)」を開く。',
-                '「+」ボタンから下記JSONまたは URL（' . $mcp_url . '）を登録して「OK」を押す。',
-                '認可リクエストが出たらブラウザでコトダマンDBにログインする。',
-            ],
-            'snippet_label' => 'JetBrains MCP JSON 設定例',
-            'snippet'       => $json_type_http_config,
-        ],
-        'dify' => [
-            'title'         => 'Dify（ワークフロー / エージェントMCPツール）',
-            'badge'         => '対応済み・Static OAuth / HTTP MCP',
-            'unsupported'   => false,
-            'summary'       => 'Dify のツールプラグインまたはワークフローの MCP 連携から接続し、下書き作成ワークフローを自動化できます。',
-            'steps'         => [
-                'Dify の「ツール」→「MCP」→「MCPサーバーを追加（HTTP）」を開く。',
-                'Server URL に「' . $mcp_url . '」を入力する。',
-                'Dify側のバージョンに応じてOAuth認証またはStatic Client / アプリケーションパスワード（Basic認証ヘッダー）を指定する。',
-            ],
-            'snippet_label' => 'Dify MCP Server URL',
-            'snippet'       => $mcp_url,
-        ],
-        'mcp_inspector' => [
-            'title'         => 'MCP Inspector（開発者・動作確認用）',
-            'badge'         => '対応済み・OAuth / Bearer テスト',
-            'unsupported'   => false,
-            'summary'       => '公式 MCP Inspector を使って、ツール一覧やスキーマ、OAuth認証フローをブラウザ上でテストできます。',
-            'steps'         => [
-                'ローカル環境等で `npx @modelcontextprotocol/inspector` を起動する。',
-                'Transport Type に「Streamable HTTP」、URL に「' . $mcp_url . '」を入力する。',
-                'Connect 後に「Quick OAuth Flow」を実行して動作確認する。',
-            ],
-            'snippet_label' => 'MCP Inspector 起動コマンド',
-            'snippet'       => 'npx @modelcontextprotocol/inspector',
-        ],
-        'copilot_web_poe' => [
-            'title'         => '個人向け Web版 Microsoft Copilot / Poe',
-            'badge'         => '未対応（ツール側の仕様制約）',
-            'unsupported'   => true,
-            'summary'       => '個人向けコンシューマWeb版 Microsoft Copilot と Poe は、外部カスタムMCPや外部OAuth接続の受け口を公式提供していないため直接接続できません。',
-            'steps'         => [
-                'Microsoft 環境で接続したい場合は、開発者向けの「VS Code GitHub Copilot」または業務向け「Copilot Studio」をご利用ください。',
-                '無料またはブラウザ単体でキャラクター下書き登録を行いたい場合は、「ChatGPT」「Claude」「Gemini CLI」のご利用をおすすめします。',
-            ],
-            'snippet_label' => '推奨の代替AIツール',
-            'snippet'       => 'ChatGPT（コネクタ） / Claude（カスタムコネクタ） / VS Code GitHub Copilot / Gemini CLI',
-        ],
-    ];
-}
 
 /**
  * ショートコード経路等で wpautop がタグ間に <p> や <br> を挿入しないよう整形する
@@ -792,7 +405,7 @@ function koto_mcp_render_collaboration_portal(array $args = []): string {
     $is_template = !empty($args['is_template']);
     $page_title  = trim((string) ($args['page_title'] ?? ''));
     if ($page_title === '') {
-        $page_title = 'コトダマンDB 編集協力・AI連携ポータル';
+        $page_title = 'コトダマンDB 編集協力ポータル';
     }
 
     $notice = null;
@@ -807,42 +420,21 @@ function koto_mcp_render_collaboration_portal(array $args = []): string {
 
     $is_logged_in = is_user_logged_in();
     $current_user = $is_logged_in ? wp_get_current_user() : null;
-    $has_mcp_role = $current_user && (
-        in_array('administrator', (array) $current_user->roles, true)
-        || in_array('editor', (array) $current_user->roles, true)
-        || in_array('mcp_user', (array) $current_user->roles, true)
-    );
-    $mcp_requested = $current_user ? (bool) get_user_meta($current_user->ID, '_koto_mcp_requested', true) : false;
+    $checked_count = ($current_user && function_exists('koto_user_get_checked_count'))
+        ? koto_user_get_checked_count((int) $current_user->ID)
+        : 0;
+    $ads_hidden = ($current_user && function_exists('koto_user_can_hide_ads'))
+        ? koto_user_can_hide_ads((int) $current_user->ID)
+        : false;
+    $is_checker_role = ($current_user && function_exists('koto_user_is_checker'))
+        ? koto_user_is_checker($current_user)
+        : false;
 
-    $portal_url    = koto_mcp_collab_current_url();
-    $mcp_url       = koto_mcp_server_url();
-    $rest_base     = koto_mcp_base_url();
-    $openapi_url   = $rest_base . '/mcp/openapi.json';
-    $system_prompt = koto_mcp_collab_default_system_prompt();
-    $ai_guides     = koto_mcp_collab_ai_guides_data();
-
-    $tool_buttons = [
-        ['id' => 'chatgpt_mcp',            'cat' => 'chat', 'label' => 'ChatGPT（MCP）'],
-        ['id' => 'chatgpt_actions',        'cat' => 'api',  'label' => 'ChatGPT（Actions）'],
-        ['id' => 'claude',                 'cat' => 'chat', 'label' => 'Claude'],
-        ['id' => 'claude_code',            'cat' => 'ide',  'label' => 'Claude Code'],
-        ['id' => 'gemini_web',             'cat' => 'chat', 'label' => 'Gemini（Web）'],
-        ['id' => 'gemini_cli',             'cat' => 'ide',  'label' => 'Gemini CLI'],
-        ['id' => 'gemini_api_enterprise',  'cat' => 'api',  'label' => 'Gemini API / Enterprise'],
-        ['id' => 'muse',                   'cat' => 'chat', 'label' => 'Muse'],
-        ['id' => 'grok_perplexity_lechat', 'cat' => 'chat', 'label' => 'Grok / Perplexity / Le Chat'],
-        ['id' => 'copilot_studio',         'cat' => 'api',  'label' => 'Copilot Studio'],
-        ['id' => 'github_copilot',         'cat' => 'ide',  'label' => 'GitHub Copilot'],
-        ['id' => 'antigravity',            'cat' => 'ide',  'label' => 'Antigravity'],
-        ['id' => 'cursor',                 'cat' => 'ide',  'label' => 'Cursor'],
-        ['id' => 'windsurf',               'cat' => 'ide',  'label' => 'Windsurf'],
-        ['id' => 'cline_roo',              'cat' => 'ide',  'label' => 'Cline / Roo Code'],
-        ['id' => 'codex_opencode',         'cat' => 'ide',  'label' => 'Codex CLI / OpenCode'],
-        ['id' => 'jetbrains',              'cat' => 'ide',  'label' => 'JetBrains IDE'],
-        ['id' => 'dify',                   'cat' => 'api',  'label' => 'Dify'],
-        ['id' => 'mcp_inspector',          'cat' => 'api',  'label' => 'MCP Inspector'],
-        ['id' => 'copilot_web_poe',        'cat' => 'chat', 'label' => 'MS Copilot(Web) / Poe（非対応）'],
-    ];
+    $portal_url       = koto_mcp_collab_current_url();
+    $db_editor_url    = admin_url('admin.php?page=koto-acf-editor');
+    $draft_list_url   = admin_url('edit.php?post_type=character&post_status=draft');
+    $blank_charas_url = home_url('/mgn-blank-charas/');
+    $calc_url         = home_url('/magnification-calc/');
 
     $hero_tag    = $is_template ? 'h1' : 'h2';
     $section_tag = $is_template ? 'h2' : 'h3';
@@ -855,7 +447,7 @@ function koto_mcp_render_collaboration_portal(array $args = []): string {
     <div class="<?php echo esc_attr($wrap_class); ?>">
         <div class="koto-collab-hero">
             <<?php echo $hero_tag; ?> class="koto-collab-hero-title"><?php echo esc_html($page_title); ?></<?php echo $hero_tag; ?>>
-            <p class="koto-collab-hero-lead">キャラクター図鑑の編集協力方法のご案内、アカウント新規登録、および ChatGPT・Claude・Gemini・Muse・Copilot などの外部AIから下書き登録するための接続ガイドをまとめています。</p>
+            <p class="koto-collab-hero-lead">AI-assistant が作成したキャラクター下書きのチェック・公開作業、攻撃・回復倍率の調査協力、およびチェッカー（<code>checker</code>）アカウントの新規登録手順をまとめています。</p>
         </div>
 
         <?php if ($notice): ?>
@@ -869,57 +461,72 @@ function koto_mcp_render_collaboration_portal(array $args = []): string {
             <div class="koto-collab-cards">
                 <div class="koto-collab-card">
                     <div class="koto-collab-card-body">
-                        <<?php echo $card_tag; ?> class="koto-collab-card-title">不足キャラ一覧・Discordから協力</<?php echo $card_tag; ?>>
-                        <p class="koto-collab-card-text">スクショや性能データの提供、不足キャラクターの情報提供から参加できます。まずはDiscordまたは未調査リストをご確認ください。</p>
+                        <<?php echo $card_tag; ?> class="koto-collab-card-title">AI下書きのチェック＆公開</<?php echo $card_tag; ?>>
+                        <p class="koto-collab-card-text">AI-assistant が作成したキャラクター下書きを DBエディタで確認し、問題なければチェック完了・公開する作業です。1件以上のチェックで広告が非表示になります。</p>
                     </div>
                     <div class="koto-collab-card-actions">
+                        <?php if ($is_logged_in): ?>
+                            <a class="koto-collab-btn" href="<?php echo esc_url($db_editor_url); ?>">DBエディタを開く</a>
+                            <a class="koto-collab-btn koto-collab-btn-secondary" href="<?php echo esc_url($draft_list_url); ?>">下書きキャラ一覧を見る</a>
+                        <?php else: ?>
+                            <a class="koto-collab-btn" href="#koto-collab-register">チェッカー登録して始める</a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div class="koto-collab-card">
+                    <div class="koto-collab-card-body">
+                        <<?php echo $card_tag; ?> class="koto-collab-card-title">倍率調査・Discordから協力</<?php echo $card_tag; ?>>
+                        <p class="koto-collab-card-text">攻撃・回復倍率が未調査のキャラクターの調査や、計算ツールを使った倍率の算出・スクリーンショット提供からご参加いただけます。</p>
+                    </div>
+                    <div class="koto-collab-card-actions">
+                        <a class="koto-collab-btn koto-collab-btn-secondary" href="<?php echo esc_url($blank_charas_url); ?>">倍率未調査キャラを見る</a>
+                        <a class="koto-collab-btn" href="<?php echo esc_url($calc_url); ?>">倍率計算機を使う</a>
                         <a class="koto-collab-btn koto-collab-btn-discord" href="https://discord.gg/cmjGCXe6u5" target="_blank" rel="noopener noreferrer">Discordで参加する</a>
-                        <a class="koto-collab-btn koto-collab-btn-secondary" href="<?php echo esc_url(home_url('/mgn-blank-charas/')); ?>">情報不足キャラを見る</a>
                     </div>
                 </div>
                 <div class="koto-collab-card">
                     <div class="koto-collab-card-body">
-                        <<?php echo $card_tag; ?> class="koto-collab-card-title">ユーザー登録・MCP利用申請</<?php echo $card_tag; ?>>
-                        <p class="koto-collab-card-text">下のフォームからサイト上でアカウント登録ができます。管理者がMCP利用を承認すると、AIから直接下書き登録が可能になります。</p>
+                        <<?php echo $card_tag; ?> class="koto-collab-card-title">作業の流れを確認する</<?php echo $card_tag; ?>>
+                        <p class="koto-collab-card-text">DBエディタでの確認ポイントや、「確認完了にする」フラグの操作方法、倍率調査の進め方をステップごとに解説しています。</p>
                     </div>
                     <div class="koto-collab-card-actions">
-                        <a class="koto-collab-btn" href="#koto-collab-register">登録フォームへ進む</a>
-                    </div>
-                </div>
-                <div class="koto-collab-card">
-                    <div class="koto-collab-card-body">
-                        <<?php echo $card_tag; ?> class="koto-collab-card-title">お使いのAIツールと連携する</<?php echo $card_tag; ?>>
-                        <p class="koto-collab-card-text">ChatGPT / Claude / Gemini / Muse / GitHub Copilot / Cursor / Dify など主要AI別の接続手順と設定JSONを確認できます。</p>
-                    </div>
-                    <div class="koto-collab-card-actions">
-                        <a class="koto-collab-btn koto-collab-btn-secondary" href="#koto-collab-ai-guide">AI接続ガイドを見る</a>
+                        <a class="koto-collab-btn koto-collab-btn-secondary" href="#koto-collab-check-guide">チェック・調査手順を見る</a>
                     </div>
                 </div>
             </div>
         </section>
 
         <section class="koto-collab-section" id="koto-collab-register">
-            <<?php echo $section_tag; ?> class="koto-collab-section-title"><span class="koto-collab-step-num">2</span><span>協力者アカウント登録（メール認証付き）</span></<?php echo $section_tag; ?>>
+            <<?php echo $section_tag; ?> class="koto-collab-section-title"><span class="koto-collab-step-num">2</span><span>チェッカーアカウント登録（承認不要・メール認証）</span></<?php echo $section_tag; ?>>
             <?php if ($is_logged_in && $current_user): ?>
                 <div class="koto-collab-logged-in-box">
                     <p>現在 <strong><?php echo esc_html($current_user->display_name); ?></strong>（<code><?php echo esc_html($current_user->user_login); ?></code>）としてログイン中です。</p>
-                    <?php if ($has_mcp_role): ?>
-                        <p>MCP利用権限：<strong>承認済み</strong>（各AIツールからOAuthログインして下書き作成が可能です）。</p>
-                    <?php elseif ($mcp_requested): ?>
-                        <p>MCP利用権限：<strong>承認待ち</strong>（管理者が承認すると通知メールが届きます）。</p>
-                    <?php else: ?>
-                        <p>MCPでの下書き登録を希望する場合は、WordPressプロフィール画面またはOAuthログイン時の申請ボタンから申請できます。</p>
-                    <?php endif; ?>
+                    <div class="koto-collab-status-row">
+                        <span class="koto-collab-status-badge">チェック実績: <?php echo esc_html((string) $checked_count); ?>件</span>
+                        <?php if ($ads_hidden): ?>
+                            <span class="koto-collab-status-badge is-ad-free">広告表示: 非表示（特典適用中）</span>
+                        <?php elseif ($is_checker_role): ?>
+                            <span class="koto-collab-status-badge is-ads-shown">広告表示: 表示中（あと1件チェック完了で非表示）</span>
+                        <?php else: ?>
+                            <span class="koto-collab-status-badge is-ads-shown">広告表示: 通常表示</span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="koto-collab-quick-actions">
+                        <a class="koto-collab-btn" href="<?php echo esc_url($db_editor_url); ?>">DBエディタを開く</a>
+                        <a class="koto-collab-btn koto-collab-btn-secondary" href="<?php echo esc_url($draft_list_url); ?>">下書きキャラ一覧</a>
+                        <a class="koto-collab-btn koto-collab-btn-secondary" href="<?php echo esc_url($blank_charas_url); ?>">倍率未調査キャラ</a>
+                        <a class="koto-collab-btn" href="<?php echo esc_url($calc_url); ?>">簡易ダメージ・倍率計算機</a>
+                    </div>
                 </div>
             <?php else: ?>
-                <p class="koto-collab-desc">新規登録時はセキュリティのため最小権限（購読者 / <code>subscriber</code>）として作成され、確認メール内のリンクをクリックした時点でアカウントが有効になります。「MCP利用も同時に申請する」にチェックを入れておくと、管理者の承認後にAIからの下書き登録が使えるようになります。</p>
+                <p class="koto-collab-desc">フォーム送信後に届く確認メール内のリンクをクリックすると、承認待ちなしで自動的にチェッカー（<code>checker</code>）アカウントが作成されます。AI-assistant が作成した下書きの編集・公開や、ご自身のキャラクター投稿を行えます。</p>
                 <form method="post" class="koto-collab-form" action="<?php echo esc_url($portal_url); ?>">
                     <?php wp_nonce_field('koto_collab_register', 'koto_collab_reg_nonce'); ?>
                     <input type="hidden" name="koto_reg_return_url" value="<?php echo esc_attr($portal_url); ?>">
                     <div class="koto-collab-form-grid">
                         <div class="koto-collab-form-row">
                             <label for="koto_reg_username">ユーザー名（必須・半角英数字3〜60文字）</label>
-                            <input type="text" id="koto_reg_username" name="koto_reg_username" required minlength="3" maxlength="60" pattern="[A-Za-z0-9_.\-]+" autocomplete="username" placeholder="例: kotodaman_helper01">
+                            <input type="text" id="koto_reg_username" name="koto_reg_username" required minlength="3" maxlength="60" pattern="[A-Za-z0-9_.\-]+" autocomplete="username" placeholder="例: kotodaman_checker01">
                         </div>
                         <div class="koto-collab-form-row">
                             <label for="koto_reg_email">メールアドレス（必須・認証メール送信先）</label>
@@ -942,11 +549,7 @@ function koto_mcp_render_collaboration_portal(array $args = []): string {
                         <label for="koto_reg_hp_url">Website</label>
                         <input type="text" id="koto_reg_hp_url" name="website_url" value="" tabindex="-1" autocomplete="off">
                     </div>
-                    <label class="koto-collab-checkbox">
-                        <input type="checkbox" name="koto_reg_request_mcp" value="1" checked>
-                        <span>MCP利用（AIツールからのキャラクター下書き作成連携）も同時に申請する</span>
-                    </label>
-                    <p class="koto-collab-hint">※ 登録時点では公開記事の編集やサイト設定変更は行えません。広告の非表示特典は「管理者・編集者」または「公開記事を1件以上投稿したユーザー」にのみ適用されます。</p>
+                    <p class="koto-collab-hint">※ 登録後、AI-assistant の下書きまたは自分の投稿のみ編集・公開できます（他ユーザーが作成した記事の編集やサイト設定変更は行えません）。1件以上のチェック実績（要確認フラグの解除）がある <code>checker</code> にはサイト内広告が表示されなくなります。</p>
                     <div class="koto-collab-form-actions">
                         <button type="submit" name="koto_collab_reg_submit" value="1" class="koto-collab-btn koto-collab-btn-submit">確認メールを送信して登録する</button>
                     </div>
@@ -954,68 +557,27 @@ function koto_mcp_render_collaboration_portal(array $args = []): string {
             <?php endif; ?>
         </section>
 
-        <section class="koto-collab-section" id="koto-collab-ai-guide">
-            <<?php echo $section_tag; ?> class="koto-collab-section-title"><span class="koto-collab-step-num">3</span><span>AIツール別 接続ガイド＆エンドポイント</span></<?php echo $section_tag; ?>>
-            <div class="koto-endpoint-grid">
-                <div class="koto-copy-block">
-                    <div class="koto-copy-header">
-                        <span>コトダマンDB MCP サーバーURL（共通）</span>
-                        <button type="button" class="koto-copy-btn" data-copy-target="koto-mcp-endpoint-url">コピー</button>
-                    </div>
-                    <pre id="koto-mcp-endpoint-url" class="koto-code-pre"><?php echo esc_html($mcp_url); ?></pre>
+        <section class="koto-collab-section" id="koto-collab-check-guide">
+            <<?php echo $section_tag; ?> class="koto-collab-section-title"><span class="koto-collab-step-num">3</span><span>AI下書きチェック・倍率調査の手順</span></<?php echo $section_tag; ?>>
+            <div class="koto-collab-guide-grid">
+                <div class="koto-collab-guide-card">
+                    <<?php echo $guide_tag; ?> class="koto-collab-guide-card-title">AI-assistant 下書きのチェック手順</<?php echo $guide_tag; ?>>
+                    <ol class="koto-ai-steps">
+                        <li>ログイン後、管理画面の「<a href="<?php echo esc_url($draft_list_url); ?>">キャラクター下書き一覧</a>」または「<a href="<?php echo esc_url($db_editor_url); ?>">DBエディタ</a>」を開きます。</li>
+                        <li>AI-assistant が作成した下書きを選択し、ゲーム内の性能（ステータス・わざ・すごわざ・とくせい・祝福など）と入力内容に誤りがないか確認・修正します。</li>
+                        <li>内容の確認が終わったら、DBエディタ上部の「確認完了にする」ボタン（または「公開 / 更新」ボタン）を押して要確認フラグを下げます。</li>
+                        <li>要確認フラグを1記事でも下げるとチェック実績が記録され、<code>checker</code> ユーザーはサイト内の広告が非表示になります（実績は1記事につき1回までカウントされます）。</li>
+                    </ol>
                 </div>
-                <div class="koto-copy-block">
-                    <div class="koto-copy-header">
-                        <span>OpenAPI 3.1.0 スキーマ URL（REST連携用）</span>
-                        <button type="button" class="koto-copy-btn" data-copy-target="koto-mcp-openapi-url">コピー</button>
-                    </div>
-                    <pre id="koto-mcp-openapi-url" class="koto-code-pre"><?php echo esc_html($openapi_url); ?></pre>
-                </div>
-            </div>
-
-            <p class="koto-collab-sublead">お使いのAIツールを選択すると、必要な手順とコピー用設定が表示されます。</p>
-
-            <div class="koto-ai-cat-bar" role="tablist" aria-label="AIツールカテゴリ">
-                <button type="button" class="koto-ai-cat-btn is-active" data-category="all">すべて</button>
-                <button type="button" class="koto-ai-cat-btn" data-category="chat">Web / チャットAI</button>
-                <button type="button" class="koto-ai-cat-btn" data-category="ide">IDE / CLIエージェント</button>
-                <button type="button" class="koto-ai-cat-btn" data-category="api">API / ノーコード / 検証</button>
-            </div>
-
-            <div class="koto-ai-tool-grid">
-                <?php foreach ($tool_buttons as $tb): ?>
-                    <button type="button"
-                            class="koto-ai-tool-btn<?php echo $tb['id'] === 'chatgpt_mcp' ? ' is-active' : ''; ?>"
-                            data-category="<?php echo esc_attr($tb['cat']); ?>"
-                            data-tool="<?php echo esc_attr($tb['id']); ?>"><?php echo esc_html($tb['label']); ?></button>
-                <?php endforeach; ?>
-            </div>
-
-            <div class="koto-ai-guide-panel">
-                <div class="koto-ai-guide-header">
-                    <<?php echo $guide_tag; ?> id="koto-ai-guide-title" class="koto-ai-guide-title"></<?php echo $guide_tag; ?>>
-                    <span id="koto-ai-guide-badge" class="koto-ai-badge"></span>
-                </div>
-                <p id="koto-ai-guide-summary" class="koto-ai-guide-summary"></p>
-                <ol id="koto-ai-guide-steps" class="koto-ai-steps"></ol>
-                <div id="koto-ai-guide-snippet-wrap" class="koto-copy-block" hidden>
-                    <div class="koto-copy-header">
-                        <span id="koto-ai-guide-snippet-label"></span>
-                        <button type="button" class="koto-copy-btn" data-copy-target="koto-ai-guide-snippet-code">コピー</button>
-                    </div>
-                    <pre id="koto-ai-guide-snippet-code" class="koto-code-pre"></pre>
+                <div class="koto-collab-guide-card">
+                    <<?php echo $guide_tag; ?> class="koto-collab-guide-card-title">攻撃・回復倍率の調査手順</<?php echo $guide_tag; ?>>
+                    <ol class="koto-ai-steps">
+                        <li>「<a href="<?php echo esc_url($blank_charas_url); ?>">倍率未調査キャラ一覧</a>」から倍率が未入力のキャラクターを探します。</li>
+                        <li>実戦でのダメージ数値やスクショをもとに「<a href="<?php echo esc_url($calc_url); ?>">簡易ダメージ・倍率計算機</a>」で倍率を逆算・検算します。</li>
+                        <li>算出した倍率や検証結果のスクリーンショットは、<a href="https://discord.gg/cmjGCXe6u5" target="_blank" rel="noopener noreferrer">Discordサーバー</a>での報告または DBエディタでの直接入力にお役立てください。</li>
+                    </ol>
                 </div>
             </div>
-
-            <div class="koto-copy-block koto-copy-block-spaced">
-                <div class="koto-copy-header">
-                    <span>AIへの共通システムプロンプト例（コピペ推奨）</span>
-                    <button type="button" class="koto-copy-btn" data-copy-target="koto-mcp-system-prompt">コピー</button>
-                </div>
-                <pre id="koto-mcp-system-prompt" class="koto-code-pre"><?php echo esc_html($system_prompt); ?></pre>
-            </div>
-
-            <script type="application/json" id="koto-ai-guide-data"><?php echo wp_json_encode($ai_guides, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?></script>
         </section>
     </div>
     <?php
@@ -1026,10 +588,7 @@ function koto_mcp_render_collaboration_portal(array $args = []): string {
  * ショートコード [koto_collaborate_portal] レンダリング（後方互換維持）
  */
 add_shortcode('koto_collaborate_portal', function (): string {
-    // 【一時非公開メモ】MCP協力者募集の一時非公開化に伴いショートコード描画をコメントアウト（処理自体は残す）。
-    // 再公開時は下のコメントアウトを解除し、return ''; を削除すること。
-    // return koto_mcp_render_collaboration_portal([
-    //     'is_template' => false,
-    // ]);
-    return '';
+    return koto_mcp_render_collaboration_portal([
+        'is_template' => false,
+    ]);
 });

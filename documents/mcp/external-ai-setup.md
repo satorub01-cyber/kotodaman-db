@@ -12,18 +12,17 @@ status: stable
 
 ---
 
-## 1. サイト上でのアカウント登録・AI連携ポータル
+## 1. サイト上でのアカウント登録・編集協力ポータル
 
-協力者向けのユーザー登録およびAI別設定案内は、固定ページテンプレート **[collaboration-page.php](../../collaboration-page.php)**（または任意固定ページへのショートコード `[koto_collaborate_portal]` 配置、[lib/mcp/portal/mcp-collaboration-page.php](../../lib/mcp/portal/mcp-collaboration-page.php)）で提供されています。固定ページ作成時にテンプレート「**編集協力・AI連携ポータル (collaboration-page)**」を選択すると、URL自動検出と専用レイアウトで表示されます。
+協力者向けのユーザー登録およびチェック・倍率調査案内は、固定ページテンプレート **[collaboration-page.php](../../collaboration-page.php)**（または任意固定ページへのショートコード `[koto_collaborate_portal]` 配置、[lib/mcp/portal/mcp-collaboration-page.php](../../lib/mcp/portal/mcp-collaboration-page.php)）で提供されています。
 
-### 新規登録と承認フロー
-1. 登録フォームからユーザー名・メールアドレス・表示名・パスワード（8文字以上）を入力して送信します（デフォルトで「MCP利用も同時に申請する」がONになっています）。
+### 新規登録フロー（`checker` 自動付与）
+1. 登録フォームからユーザー名・メールアドレス・表示名・パスワード（8文字以上）を入力して送信します（ポータルからのMCP利用申請は廃止済みです）。
 2. 入力したメールアドレス宛に24時間有効の認証リンクが送信されます（リンクを開くまでユーザーアカウントは作成されません）。
-3. メール内の認証リンクをクリックすると、最小権限の `subscriber` ユーザーとして登録が完了し、MCP利用申請フラグ（`_koto_mcp_requested = 1`）と管理者通知が自動処理されます。
-4. 管理者が WordPress管理画面「**ユーザー > MCP利用申請**（`users.php?page=koto-mcp-approvals`）」で承認すると、`subscriber` → `mcp_user` ロールへ昇格し、登録メールアドレス宛に承認通知が送信されます（取消時は `mcp_user` → `subscriber` へ降格・トークン即失効）。
+3. メール内の認証リンクをクリックすると、承認待ちなしで `checker` ロールのアカウントが作成され、`AI-assistant` が作成した下書きの確認・公開や自身の投稿を行えます。
 
 > [!NOTE]
-> **広告表示制御について**: サイト上の広告非表示特典は「管理者（`administrator`）・編集者（`editor`）」および「公開済み記事・キャラクター投稿が1件以上あるユーザー」にのみ適用されます。新規登録直後のユーザーや公開実績のない `mcp_user` には通常通り広告が表示されます。
+> **広告表示制御について**: サイト上の広告非表示特典は「管理者（`administrator`）・編集者（`editor`）・投稿者（`author`）」および「チェック実績（`_koto_mcp_needs_review` のフラグ下げ操作・1記事1回上限）が1件以上ある `checker`」にのみ適用されます。実績0件の `checker` や `contributor` / `subscriber` / 未ログイン閲覧者には通常通り広告が表示されます。
 
 ---
 

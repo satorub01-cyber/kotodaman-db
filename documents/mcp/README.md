@@ -37,16 +37,7 @@ status: stable
 
 ## 1. 現在のMCP実装状況（ステータス総覧）
 
-> [!NOTE]
-> **【一時非公開メモ（2026-11-13）】MCPを使った協力者募集・`collaborate` ポータルの一時非公開化**:
-> MCPサーバー本体・OAuth 2.1・管理画面機能（処理基盤）は維持したまま、一般ユーザーから閲覧・申請できる協力者募集UI・導線・登録受付を一時的に非公開（コメントアウト / 404応答）にしています。
-> - [collaboration-page.php](../../collaboration-page.php): 直接アクセス時に 404 を返却し、テンプレート描画処理をコメントアウト。
-> - [lib/mcp/portal/mcp-collaboration-page.php](../../lib/mcp/portal/mcp-collaboration-page.php): `wp_enqueue_scripts` / `template_redirect`（登録・メール認証受付）/ `[koto_collaborate_portal]` ショートコード出力をコメントアウト（登録・検証・描画関数本体は残置）。
-> - [lib/koto-modal-displayer.php](../../lib/koto-modal-displayer.php): モーダル内の「協力者登録・AI連携ガイドを見る」ボタンをコメントアウト。
-> - [lib/mcp/auth/mcp-oauth.php](../../lib/mcp/auth/mcp-oauth.php): OAuthログイン画面の「アカウントをお持ちでない方・協力登録はこちら」リンクをコメントアウト。
-> - WordPress管理画面側の固定ページ（`collaborate`）のステータスも「非公開」または「下書き」にすることを推奨。
-
-ゲームのスクリーンショットからAIが情報を読み取り、WordPress上にキャラクターの下書き（`draft`）を安全・高速・省トークンで作成・更新するための基盤が実装済みです。
+ゲームのスクリーンショットからAIが情報を読み取り、WordPress上にキャラクターの下書き（`draft`）を安全・高速・省トークンで作成・更新するための基盤が実装済みです。現在、MCP経由の下書き作成は `AI-assistant` アカウントに限定し、一般協力者は `checker` ロールとしてポータルから登録・下書きチェック・倍率調査を行う運用へ移行しています。
 
 ### 実装済み機能
 
@@ -64,13 +55,13 @@ status: stable
   * **CIMD (SEP-991)** HTTPSクライアントメタデータURL自動解決（SSRF防止）、**動的クライアント登録 (`/mcp/oauth/register`)**、および管理画面発行の **Static Confidential Clients（`client_secret_basic`/`post`・非PKCEオプトイン可）**。
   * **RFC 8707 `resource` (`aud`) 検証**、**SEP-835 `insufficient_scope` ヘッダー応答**、`scope` 省略時の安全フォールバック（`validate preview` またはクライアント既定スコープ）。
   * HTTPS/ローカルループバック環境での WordPress Application Passwords 認証サポート（ブルートフォース防止付き）。
-  * **協力者ポータル `[koto_collaborate_portal]` / `collaboration-page.php`**: メール認証付きセルフ登録（`subscriber` 作成・デフォルトONのMCP申請連動）、AI別接続ガイドUI。管理画面で承認すると `subscriber` → `mcp_user` 昇格、取消で `mcp_user` → `subscriber` 降格＋トークン即失効。
+  * **協力者ポータル `[koto_collaborate_portal]` / `collaboration-page.php`**: メール認証付きセルフ登録（認証完了で承認不要の `checker` ロールを付与）、DBエディタ・下書き一覧・倍率調査（`/mgn-blank-charas/`・`/magnification-calc/`）導線、チェック実績・広告ステータス表示。ポータルからのMCP利用申請および `mcp-admin.php` でのロール昇降格は廃止済み。
   * トークン管理：アクセストークン（1時間）、リフレッシュトークン（30日・トークンファミリー単位の安全ローテーション＆15秒デバウンス＆明示的失効）、失効エンドポイント（`/mcp/oauth/revoke`）。
   * 期限切れ Transient / Option の自動ガベージコレクション（GC）機構（保留中登録トークン含む）。
   * レート制限（ユーザー単位 60req/min、クライアント登録IP単位 30req/min、登録申請IP 5req/10min）および `idempotency_key` による二重作成防止。
 * **DBエディタ（[lib/acf/acf-editor.php](../../lib/acf/acf-editor.php) & [lib/acf/acf-editor.css](../../lib/acf/acf-editor.css)）**
   * MCP作成キャラクターに対する「🤖 AIによるdraft（要確認 / 確認済み）」レビューバナーと未解析警告一覧を表示（AIによる下書きで確認が必要である旨を明示、不要な仮画像表示は排除）。
-  * 人間によるワンクリック「確認完了にする」ボタンおよび「公開 / 更新」時の確認フラグ自動解除。
+  * 人間によるワンクリック「確認完了にする」ボタンおよび「公開 / 更新」時の確認フラグ自動解除（`_koto_mcp_needs_review` を下げた操作は1記事1回まで全ユーザーのチェック実績として記録）。
 * **基本フィールド保存・自動入力連携・REST API（[lib/mcp/protocol/post-mcp.php](../../lib/mcp/protocol/post-mcp.php)）**
   * `basic_fields`（属性・種族・レア度・文字・ステータス等）のバリデーションとACFフィールドキー（`field_xxxxxx`）変換保存。
   * タクソノミー項目の柔軟な自動解決（タームIDだけでなく日本語名・スラッグ・「火属性」「★6」等の表記ゆれを `koto_mcp_resolve_taxonomy_term_id()` で自動解決）。
@@ -124,9 +115,9 @@ flowchart LR
 | [lib/mcp/protocol/mcp-schema.php](../../lib/mcp/protocol/mcp-schema.php) | ACFフィールドスキーマ動的生成（`koto_mcp_field_schema`）、マニュアル読み込み |
 | [lib/mcp/protocol/mcp-resources.php](../../lib/mcp/protocol/mcp-resources.php) | MCP Resources（ガイド文書、フィールドマニュアル）、MCP Prompts 配信 |
 | [lib/mcp/protocol/post-mcp.php](../../lib/mcp/protocol/post-mcp.php) | REST API 全8ルート（`openapi.json`, `schema`, `blessing-schema`, `terms`, `characters/search`, `draft/preview`, `character-draft`, `draft/{id}`） |
-| [lib/mcp/portal/mcp-admin.php](../../lib/mcp/portal/mcp-admin.php) | WordPress管理画面「ユーザー > MCP利用申請」UI（ロール昇格/降格、Static OAuthクライアント管理） |
-| [collaboration-page.php](../../collaboration-page.php) | 編集協力・AI連携ポータル用 固定ページテンプレート（テーマ直下・専用レイアウト） |
-| [lib/mcp/portal/mcp-collaboration-page.php](../../lib/mcp/portal/mcp-collaboration-page.php) | 協力者ポータル共通描画・ショートコード `[koto_collaborate_portal]`、メール認証付き登録、AI接続ガイドJSON（`.css` / `.js` と連携） |
+| [lib/mcp/portal/mcp-admin.php](../../lib/mcp/portal/mcp-admin.php) | WordPress管理画面「ユーザー > MCP利用者管理」UI（`_koto_mcp_approved` 承認/剥奪、Static OAuthクライアント管理） |
+| [collaboration-page.php](../../collaboration-page.php) | 編集協力ポータル用 固定ページテンプレート（テーマ直下・専用レイアウト） |
+| [lib/mcp/portal/mcp-collaboration-page.php](../../lib/mcp/portal/mcp-collaboration-page.php) | 協力者ポータル共通描画・ショートコード `[koto_collaborate_portal]`、メール認証付き `checker` 登録、チェック＆倍率調査導線（`.css` と連携） |
 | [lib/mcp/tools/prepare_screenshots.php](../../lib/mcp/tools/prepare_screenshots.php) | 複数スクリーンショット／ZIPの展開・上下トリミング・タイル合成CLIスクリプト |
 | [lib/mcp/tests/test-mcp-compatibility.php](../../lib/mcp/tests/test-mcp-compatibility.php) | 互換拡張（CIMD・Static OAuth・`aud`・`2025-11-25`・REST・登録・広告制御）の自動検証テスト |
 | [documents/mcp/mcp-field-manual.json](mcp-field-manual.json) | `get_field_schema` に統合されるフィールド別読み取りガイド定義 |
