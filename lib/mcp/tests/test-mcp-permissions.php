@@ -402,12 +402,18 @@ assert_test(!empty($summary), "ユーザーのトークンサマリーが取得�
 
 $matched_token = null;
 foreach ($summary as $item) {
-    if (($item['status'] ?? '') === '有効' && (int) ($item['expires_at'] ?? 0) > time()) {
+    if (($item['family_id'] ?? '') === $target_family) {
         $matched_token = $item;
         break;
     }
 }
-assert_test($matched_token !== null, "トークンサマリー内にステータスが '有効' かつ期限が未来のアクティブトークンが存在する");
+assert_test(
+    $matched_token !== null
+    && ($matched_token['family_id'] ?? '') === $target_family
+    && ($matched_token['status'] ?? '') === '有効'
+    && (int) ($matched_token['expires_at'] ?? 0) > time(),
+    "トークンサマリー内に発行時 family_id と一致し、ステータスが '有効' かつ期限が未来のアクティブトークンが存在する"
+);
 
 // -------------------------------------------------------------
 // シナリオ 9: 通知メール文面の製品固有名非含有

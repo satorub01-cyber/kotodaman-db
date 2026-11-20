@@ -105,7 +105,7 @@ function koto_mcp_draft_schema($hash_required = false, $update = false)
             'evidence' => ['type' => 'object', 'description' => 'Optional OCR extraction evidence and reasoning metadata (stored in _koto_mcp_audit, max 16KB). Pass during preview_draft or create_draft.'],
             'idempotency_key' => ['type' => 'string', 'description' => 'Unique idempotency key for draft creation or update.'],
             'preview_hash' => ['type' => 'string', 'description' => '30-minute cache hash returned from preview_draft.'],
-            'replace_existing' => ['type' => 'boolean', 'description' => 'For update_draft: true (default) replaces existing skill/blessing rows; false appends new rows.'],
+            'replace_existing' => ['type' => 'boolean', 'default' => false, 'description' => 'For update_draft: false (default) appends new rows to existing skill/blessing rows; true replaces/overwrites existing rows.'],
             'human_approved' => ['type' => 'boolean', 'description' => 'Flag indicating that ambiguous values (e.g. get_place) have been confirmed and approved by a human.'],
             'test_mode' => ['type' => 'boolean', 'description' => 'Debug only: returns verbose parsed_acf structure. CAUTION: Does NOT prevent saving in create_draft/update_draft (not a dry run; use preview_draft/validate for dry run).'],
         ],
@@ -498,14 +498,16 @@ function koto_mcp_call_tool($name, $args, $request = null)
         // create_draft / update_draft で preview_hash のみが渡された場合、直前の preview_draft キャッシュから入力を復元
         if (in_array($name, ['create_draft', 'update_draft'], true) && !empty($args['preview_hash'])) {
             $has_explicit_payload = array_key_exists('basic_fields', $args) || array_key_exists('auto_input', $args) || array_key_exists('character_name', $args);
-            if (!$has_explicit_payload) {
-                $cached_preview = get_transient(koto_mcp_preview_cache_key($auth, (string) $args['preview_hash']));
-                if (is_array($cached_preview)) {
+            $cached_preview = get_transient(koto_mcp_preview_cache_key($auth, (string) $args['preview_hash']));
+            if (is_array($cached_preview)) {
+                if (!$has_explicit_payload) {
                     foreach (['character_name', 'basic_fields', 'auto_input', 'screenshot_urls', 'evidence', 'replace_existing'] as $ckey) {
                         if (!array_key_exists($ckey, $args) && array_key_exists($ckey, $cached_preview) && $cached_preview[$ckey] !== null) {
                             $args[$ckey] = $cached_preview[$ckey];
                         }
                     }
+                } elseif (!array_key_exists('replace_existing', $args) && array_key_exists('replace_existing', $cached_preview) && $cached_preview['replace_existing'] !== null) {
+                    $args['replace_existing'] = $cached_preview['replace_existing'];
                 }
             }
         }
@@ -584,7 +586,7 @@ function koto_mcp_call_tool($name, $args, $request = null)
                 wp_update_post(['ID' => $post_id, 'post_title' => sanitize_text_field($args['character_name'])]);
             }
             koto_mcp_update_basic_fields($post_id, $args['basic_fields'] ?? []);
-            $replace_existing = array_key_exists('replace_existing', $args) ? (bool) $args['replace_existing'] : true;
+            $replace_existing = array_key_exists('replace_existing', $args) ? (bool) $args['replace_existing'] : false;
             koto_update_character_post_with_acf($post_id, $validation['parsed_acf'], $replace_existing);
         }
         if (is_wp_error($post_id) || !$post_id) {

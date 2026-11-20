@@ -132,7 +132,7 @@
           "screenshot_urls": { "type": "array", "items": { "type": "string" } },
           "evidence": { "type": "object", "description": "OCR抽出根拠・判断メタデータ（最大16KB）" },
           "human_approved": { "type": "boolean", "description": "曖昧値の人間確認済みフラグ" },
-          "replace_existing": { "type": "boolean", "default": true },
+          "replace_existing": { "type": "boolean", "default": false, "description": "update_draft時の更新方式。false（デフォルト）は既存行の末尾へ追記、trueを指定すると既存行を上書き（置換）" },
           "preview_hash": { "type": "string", "description": "直前のプレビュー検証で取得したハッシュ値" },
           "idempotency_key": { "type": "string", "description": "二重作成・二重更新防止キー" },
           "test_mode": { "type": "boolean", "default": false }

@@ -88,6 +88,7 @@ function koto_mcp_get_user_tokens_summary($user_id)
         $client_name = is_array($client) ? ($client['client_name'] ?? $client['name'] ?? $client_id) : ($client_id ?: '不明');
 
         $tokens[] = [
+            'family_id'   => $fid,
             'client_name' => $client_name,
             'issued_at'   => is_array($refresh_record) ? (int) ($refresh_record['issued_at'] ?? 0) : (int) ($family['updated_at'] ?? 0),
             'expires_at'  => is_array($refresh_record) ? (int) ($refresh_record['expires_at'] ?? 0) : 0,

@@ -171,8 +171,8 @@ function koto_mcp_blessing_schema($include_gimmicks = true)
     $limits = [
         'max_items'                => 8,
         'default_point_for_single' => 20,
-        'description'              => '祝福（通常祝福）およびEX祝福はそれぞれ最大8項目（MAX 8）まで設定可能です。8項目を超えるとVALIDATION_FAILEDとなります。【注意】free形式は非レベル制専用であり、レベル制とくせいに使用してはいけません。またupdate_draftでの更新時、入れ直し（置換）は replace_existing: true（デフォルト）、末尾追記は replace_existing: false を指定します。',
-        'update_replace_rules'     => 'update_draft 時の使い分け: 既存行をすべて置き換える場合は replace_existing: true（省略時デフォルト）、既存行を残して末尾に追加する場合は replace_existing: false。',
+        'description'              => '祝福（通常祝福）およびEX祝福はそれぞれ最大8項目（MAX 8）まで設定可能です。8項目を超えるとVALIDATION_FAILEDとなります。【注意】free形式は非レベル制専用であり、レベル制とくせいに使用してはいけません。またupdate_draftでの更新時、デフォルト（replace_existing: false）は既存行への末尾追記となり、入れ直し（上書き置換）を行う場合は必ず replace_existing: true を指定してください。',
+        'update_replace_rules'     => 'update_draft 時の使い分け: 既存行を残して末尾に追記する場合は replace_existing: false（省略時デフォルト）、既存行をすべて上書き（置換）する場合は replace_existing: true を明示指定してください。',
     ];
 
     // トークン一覧の収集

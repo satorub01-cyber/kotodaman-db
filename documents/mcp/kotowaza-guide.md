@@ -187,4 +187,4 @@ MCP クライアントや Actions のスキーマ制約により純配列を渡�
 * **【禁止事項】推測による文言改変や `kotowaza_loop_v2` 直接指定は禁止**:
   * 未知の表現で警告が出た場合でも、意味を変えて別の定型文に勝手に書き換えたり、内部 ACF 構造を推測して直接渡したりしないでください。最大 3 回まで原文の転記ミスを確認し、解消しない場合は警告内容を添えてユーザーに報告してください。
 * **既存下書き更新（`update_draft`）時の注意**:
-  * `auto_input_kotowaza` を含む `update_draft` 時は、`kotowaza_loop_v2` が置換更新（`replace_existing: true` 既定）されます。更新前の内容を確認したい場合は事前に `get_draft` で状態を確認してください。
+  * `auto_input_kotowaza` を含む `update_draft` 時は、省略時（`replace_existing: false` 既定）は既存 `kotowaza_loop_v2` の末尾に追記されます。既存行をすべて入れ直して上書きしたい場合は、必ず **`"replace_existing": true`** を指定してください。更新前の内容を確認したい場合は事前に `get_draft` で状態を確認してください。

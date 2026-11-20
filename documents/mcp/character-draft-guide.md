@@ -280,11 +280,11 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
   * サーバー側で自動的に `pt_pattern = "single"`（非レベル制）および `need_point` が設定され、文字追加（`available_moji_loop` の `unlock_need_point`）やすごわざ条件追加（`sugowaza_condition` の `get_palce = "blessing" | "ex_blessing"`, `need_blessing_point`）も自動で振り分けられます。
 * **保存順序**:
   * 旧形式でタイプ1とタイプ2の両方を指定した場合、必ず **タイプ1 → タイプ2** の順で保存されます。
-* **`update_draft` における置換（`replace_existing: true`）と追記（`replace_existing: false`）の使い分け**:
-  - `update_draft` 呼び出し時、`replace_existing` の初期値は **`true`（既存のスキル・祝福行を置換/上書き）** です。
-  - 祝福やとくせいを修正して最初から入れ直したい場合は、**`"replace_existing": true`**（または省略）を使用します。
-  - 一方、既存の祝福行を残したまま末尾にタイプ2（`rows`）等を追記したい場合のみ、必ず **`"replace_existing": false`** を指定してください（`preview_draft` 実行時にも `"replace_existing": false` を含めます）。
-  - （例: ガチャキャラでタイプ1とタイプ2の両方を持つ場合、まずタイプ1のみで作成し、ユーザー確認後にタイプ2を追加する際は `"replace_existing": false` を指定する）。
+* **`update_draft` における追記（`replace_existing: false`）と上書き（`replace_existing: true`）の使い分け**:
+  - `update_draft` 呼び出し時、`replace_existing` の初期値は **`false`（既存のスキル・祝福行を残して末尾に追記）** です。
+  - 既存の祝福行を残したまま末尾にタイプ2（`rows`）等を追記したい場合は、**`"replace_existing": false`**（または省略）を使用します。
+  - 一方、祝福やとくせいを修正して最初から入れ直したい（追記ではなく既存行を上書き／置換したい）場合は、必ず **`"replace_existing": true`** を指定してください（`preview_draft` 実行時にも `"replace_existing": true` を含めます）。
+  - （例: ガチャキャラでタイプ1とタイプ2の両方を持つ場合、まずタイプ1のみで作成し、ユーザー確認後にタイプ2を追加する際は省略または `"replace_existing": false`、タイプ1自体を修正して入れ直す際は `"replace_existing": true` を指定する）。
 
 ##### 祝福アイコンの視覚的識別法則（AI読み取りガイド）
 
