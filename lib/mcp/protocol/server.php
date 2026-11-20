@@ -159,7 +159,8 @@ function koto_mcp_build_auth_error_response($id, WP_Error $err)
     if ($status === 401) {
         $headers['WWW-Authenticate'] = koto_mcp_www_authenticate_header(
             is_array($detail) ? ($detail['oauth_error'] ?? 'invalid_token') : 'invalid_token',
-            $err->get_error_message()
+            $err->get_error_message(),
+            'validate preview create'
         );
     } elseif ($status === 403 && is_array($detail) && ($detail['oauth_error'] ?? '') === 'insufficient_scope') {
         $headers['WWW-Authenticate'] = koto_mcp_www_authenticate_header(
@@ -331,6 +332,7 @@ function koto_mcp_handle_http($request)
     }
 
     $header_protocol_version = '';
+    $http_method = 'POST';
     if ($request instanceof WP_REST_Request) {
         $header_protocol_version = trim((string) $request->get_header('mcp_protocol_version'));
         $http_method = strtoupper($request->get_method());
@@ -341,11 +343,26 @@ function koto_mcp_handle_http($request)
                 $header_protocol_version !== '' && in_array($header_protocol_version, KOTO_MCP_SUPPORTED_PROTOCOL_VERSIONS, true) ? $header_protocol_version : KOTO_MCP_PROTOCOL_VERSION
             );
         }
+    }
+
+    // MCP Streamable HTTP 仕様準拠: ボディパースやメソッド検証より先に認証を要求し、
+    // 空ボディPOSTやHEADプローブを含む全ての未認証アクセスへ確実に 401 + WWW-Authenticate を返す。
+    $raw_body = ($request instanceof WP_REST_Request) ? (string) $request->get_body() : '';
+    $peek_id = null;
+    if ($raw_body !== '' && strlen($raw_body) <= KOTO_MCP_MAX_BODY_BYTES) {
+        $peek_body = json_decode($raw_body, true);
+        if (is_array($peek_body) && !(array_keys($peek_body) === range(0, count($peek_body) - 1))) {
+            $peek_id = $peek_body['id'] ?? null;
+        }
+    }
+
+    $early_auth = koto_mcp_require_scope('validate', $request);
+    if (is_wp_error($early_auth)) {
+        return koto_mcp_apply_cors_headers(koto_mcp_build_auth_error_response($peek_id, $early_auth), $request);
+    }
+
+    if ($request instanceof WP_REST_Request) {
         if ($http_method === 'GET') {
-            $get_auth = koto_mcp_require_scope('validate', $request);
-            if (is_wp_error($get_auth)) {
-                return koto_mcp_apply_cors_headers(koto_mcp_build_auth_error_response(null, $get_auth), $request);
-            }
             return koto_mcp_apply_cors_headers(
                 new WP_REST_Response(null, 405, ['Allow' => 'POST, GET, OPTIONS']),
                 $request,
@@ -367,7 +384,6 @@ function koto_mcp_handle_http($request)
         );
     }
 
-    $raw_body = (string) $request->get_body();
     if (strlen($raw_body) > KOTO_MCP_MAX_BODY_BYTES) {
         return koto_mcp_apply_cors_headers(
             koto_mcp_jsonrpc_error_response(null, -32600, 'Request payload too large (max 256KB).', ['reason' => 'payload_too_large'], 413),
@@ -394,16 +410,6 @@ function koto_mcp_handle_http($request)
             koto_mcp_jsonrpc_error_response(null, -32600, 'Batch exceeds maximum size (20 requests).', null, 400),
             $request
         );
-    }
-
-    $first_id = !$is_batch ? ($body['id'] ?? null) : null;
-
-    // MCP Streamable HTTP 仕様準拠: 全ての JSON-RPC メソッド（initialize, tools/list, tools/call 等）で認証を必須化。
-    // トークン未指定または期限切れ・無効時は即座に 401 Unauthorized + WWW-Authenticate チャレンジを返信し、
-    // クライアント側（Claude / Cursor 等）の OAuth 自動リフレッシュフローを確実に起動させる。
-    $early_auth = koto_mcp_require_scope('validate', $request);
-    if (is_wp_error($early_auth)) {
-        return koto_mcp_apply_cors_headers(koto_mcp_build_auth_error_response($first_id, $early_auth), $request);
     }
 
     $negotiated_version = $header_protocol_version !== '' ? $header_protocol_version : KOTO_MCP_PROTOCOL_VERSION;

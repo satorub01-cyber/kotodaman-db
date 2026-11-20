@@ -289,12 +289,12 @@ status: stable
 
 | 用途 | メソッド & パス | 説明 |
 |---|---|---|
-| 保護リソースメタデータ | `GET /.well-known/oauth-protected-resource` | リソースURI（`/wp-json/kotodaman/v1/mcp`）、認可サーバーURL、対応スコープ（`validate`, `preview`, `create`）を返却（CORS対応） |
-| 認可サーバーメタデータ | `GET /.well-known/oauth-authorization-server` | issuer、各OAuthエンドポイント、`client_id_metadata_document_supported: true`、`client_secret_basic` / `client_secret_post` / `none`、PKCE (`S256`) 対応情報を返却 |
-| 動的クライアント登録 (DCR) | `POST /wp-json/kotodaman/v1/mcp/oauth/register` | `client_name`, `redirect_uris` を受け取り Public Client `client_id`（`koto_...`、有効期限1年）を発行。IPあたり30回/分のレート制限あり |
-| CIMD (SEP-991) | — | HTTPS URL形式の `client_id` を自動的にフェッチ・検証（SSRF防止・64KB上限・5秒タイムアウト・短時間キャッシュ）しクライアント登録不要で認可 |
+| 保護リソースメタデータ | `GET / HEAD / OPTIONS /.well-known/oauth-protected-resource` | リソースURI（`/wp-json/kotodaman/v1/mcp`）、認可サーバーURL、対応スコープ（`validate`, `preview`, `create`）を返却（パス挿入/後置・CORSプリフライト対応） |
+| 認可サーバーメタデータ | `GET / HEAD / OPTIONS /.well-known/oauth-authorization-server` | issuer、各OAuthエンドポイント、`client_id_metadata_document_supported: true`、`client_secret_basic` / `client_secret_post` / `none`、PKCE (`S256`) 対応情報を返却（`openid-configuration`・パス後置・CORSプリフライト対応） |
+| 動的クライアント登録 (DCR) | `POST /wp-json/kotodaman/v1/mcp/oauth/register` | `client_name`, `redirect_uris`, `scope` を受け取り Public Client `client_id`（`koto_...`、有効期限1年）を HTTP `201 Created` で発行（RFC 7591 準拠エラーJSON、IPあたり30回/分のレート制限） |
+| CIMD (SEP-991) | — | HTTPS URL形式の `client_id` を自動的にフェッチ・検証（SSRF防止 IPv4/IPv6・64KB上限・5秒タイムアウト・短時間キャッシュ）しクライアント登録不要で認可 |
 | Static Confidential Clients | WordPress管理画面 UI | 管理画面「ユーザー > MCP利用申請」から `client_id` (`koto_sc_...`) ＋ `client_secret` を事前発行（ChatGPT Actions / Copilot Studio / Gemini Enterprise / Dify 向け、`allow_no_pkce` オプトイン可） |
-| ブラウザ認可エンドポイント | `GET / POST /mcp/oauth/authorize`（および `/wp-json/kotodaman/v1/mcp/oauth/authorize`） | 未ログイン時は認可ページ内でWordPressログイン（協力者登録ページへの導線リンク付き）。Public ClientはPKCE (`S256`) 必須、Static Confidential Clientのみ `allow_no_pkce` オプトイン可。RFC 8707 `resource`（`aud`）を認可コードに束縛 |
+| ブラウザ認可エンドポイント | `GET / POST /mcp/oauth/authorize`（`/wp-json/kotodaman/v1/mcp/oauth/authorize` の GET は 302 転送） | 未ログイン時は認可ページ内でWordPressログイン。`prompt=login` および同意画面での「別のアカウントでログイン」に対応。Public ClientはPKCE (`S256`) 必須、Static Confidential Clientのみ `allow_no_pkce` オプトイン可。ループバックHTTP動的ポート（RFC 8252）対応・RFC 8707 `resource`（`aud`）を認可コードに束縛 |
 | トークンエンドポイント | `POST /wp-json/kotodaman/v1/mcp/oauth/token` | `authorization_code` または `refresh_token` グラントでトークンを発行。Confidential Clientの `client_secret_basic` / `client_secret_post` 検証および `resource` (`aud`) 検証（`invalid_target`）を実施 |
 | トークン失効エンドポイント | `POST /wp-json/kotodaman/v1/mcp/oauth/revoke` | アクセストークンまたはリフレッシュトークン（および紐づくトークンファミリー全体）を即時失効 |
 

@@ -44,6 +44,7 @@ MCPのアーキテクチャ、API仕様、クライアント接続設定、運�
 | `tests/test-mcp-oauth-refresh.php` | OAuthリフレッシュトークン等のテストスクリプト |
 | `tests/test-mcp-permissions.php` | MCP権限・ロール・申請管理テストスクリプト |
 | `tests/test-mcp-compatibility.php` | 互換拡張（CIMD・Static OAuth・`aud`・`2025-11-25`・REST・登録・広告制御）テストスクリプト |
+| `tests/test-mcp-oauth-preauth.php` | MCP OAuth 2.1 認可前段（未認証プローブ・ディスカバリ・DCR/CIMD・再認可フロー）テストスクリプト |
 
 ---
 

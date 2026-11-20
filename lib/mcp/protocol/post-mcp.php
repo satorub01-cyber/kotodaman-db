@@ -35,11 +35,22 @@ add_filter('rest_post_dispatch', function ($result, $server, $request) {
     }
     $status = $result->get_status();
     $resp_headers = $result->get_headers();
+    if (strpos($route, '/kotodaman/v1/mcp/oauth/') === 0) {
+        if (empty($resp_headers['Access-Control-Allow-Origin'])) {
+            $result->header('Access-Control-Allow-Origin', '*');
+        }
+        if (empty($resp_headers['Access-Control-Allow-Methods'])) {
+            $result->header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+        }
+        if (empty($resp_headers['Access-Control-Allow-Headers'])) {
+            $result->header('Access-Control-Allow-Headers', 'Authorization, Content-Type, Accept, MCP-Protocol-Version, Mcp-Session-Id');
+        }
+    }
     if ($status === 401 && empty($resp_headers['WWW-Authenticate'])) {
         $data = $result->get_data();
         $msg = is_array($data) && !empty($data['message']) ? (string) $data['message'] : 'OAuth access token is required.';
         if (function_exists('koto_mcp_www_authenticate_header')) {
-            $result->header('WWW-Authenticate', koto_mcp_www_authenticate_header('invalid_token', $msg));
+            $result->header('WWW-Authenticate', koto_mcp_www_authenticate_header('invalid_token', $msg, 'validate preview create'));
         }
     } elseif ($status === 403 && empty($resp_headers['WWW-Authenticate'])) {
         $data = $result->get_data();

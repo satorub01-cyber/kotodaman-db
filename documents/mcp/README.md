@@ -120,6 +120,7 @@ flowchart LR
 | [lib/mcp/portal/mcp-collaboration-page.php](../../lib/mcp/portal/mcp-collaboration-page.php) | 協力者ポータル共通描画・ショートコード `[koto_collaborate_portal]`、メール認証付き `checker` 登録、チェック＆倍率調査導線（`.css` と連携） |
 | [lib/mcp/tools/prepare_screenshots.php](../../lib/mcp/tools/prepare_screenshots.php) | 複数スクリーンショット／ZIPの展開・上下トリミング・タイル合成CLIスクリプト |
 | [lib/mcp/tests/test-mcp-compatibility.php](../../lib/mcp/tests/test-mcp-compatibility.php) | 互換拡張（CIMD・Static OAuth・`aud`・`2025-11-25`・REST・登録・広告制御）の自動検証テスト |
+| [lib/mcp/tests/test-mcp-oauth-preauth.php](../../lib/mcp/tests/test-mcp-oauth-preauth.php) | MCP OAuth 2.1 認可前段（未認証プローブ・ディスカバリ・DCR/CIMD・ループバック・再認可フロー）の自動検証テスト |
 | [documents/mcp/mcp-field-manual.json](mcp-field-manual.json) | `get_field_schema` に統合されるフィールド別読み取りガイド定義 |
 | [lib/acf/acf-auto-input.php](../../lib/acf/acf-auto-input.php) | 自動入力モジュール（`auto-input`）のローダー |
 | [lib/acf/auto-input/acf-auto-input-parsers.php](../../lib/acf/auto-input/acf-auto-input-parsers.php) | わざ・すごわざ・とくせい・リーダー・祝福文言の解析エンジン |
