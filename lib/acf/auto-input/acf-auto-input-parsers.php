@@ -57,16 +57,44 @@ function koto_parse_trait($text, $grouped_csv, $input_key = '')
 
         $trait_rows = $grouped_csv['とくせい'] ?? [];
         $effect_data = [];
-        // まず完全一致を優先し、条件の消し残りがある場合のみ最長後方一致で照合する
-        $match = koto_match_csv_template($remaining_text, $trait_rows, $input_key, 'exact');
-        if (!koto_is_csv_template_match($match)) {
-            $match = koto_match_csv_template($remaining_text, $trait_rows, $input_key, 'suffix', [
-                'match_strategy' => 'longest',
-            ]);
+        $effect_rows = [];
+
+        // 複合ギミック（2つ以上のギミック効果を含む文言）を分解・照合する
+        if (function_exists('koto_split_compound_gimmick_clauses')) {
+            $compound_clauses = koto_split_compound_gimmick_clauses($remaining_text);
+            if (count($compound_clauses) >= 2) {
+                $all_matched = true;
+                $compound_effect_rows = [];
+                foreach ($compound_clauses as $clause) {
+                    $clause_match = koto_match_csv_template($clause, $trait_rows, $input_key, 'exact');
+                    if (!koto_is_csv_template_match($clause_match)) {
+                        $all_matched = false;
+                        break;
+                    }
+                    foreach (koto_ensure_acf_data_list($clause_match['acf_data']) as $row) {
+                        if (is_array($row) && !empty($row)) {
+                            $compound_effect_rows[] = $row;
+                        }
+                    }
+                }
+                if ($all_matched && !empty($compound_effect_rows)) {
+                    $effect_rows = $compound_effect_rows;
+                }
+            }
         }
-        $effect_rows = koto_is_csv_template_match($match)
-            ? koto_ensure_acf_data_list($match['acf_data'])
-            : [];
+
+        // まず完全一致を優先し、条件の消し残りがある場合のみ最長後方一致で照合する
+        if (empty($effect_rows)) {
+            $match = koto_match_csv_template($remaining_text, $trait_rows, $input_key, 'exact');
+            if (!koto_is_csv_template_match($match)) {
+                $match = koto_match_csv_template($remaining_text, $trait_rows, $input_key, 'suffix', [
+                    'match_strategy' => 'longest',
+                ]);
+            }
+            $effect_rows = koto_is_csv_template_match($match)
+                ? koto_ensure_acf_data_list($match['acf_data'])
+                : [];
+        }
 
         foreach ($effect_rows as $effect_data) {
             if (!is_array($effect_data) || empty($effect_data)) {

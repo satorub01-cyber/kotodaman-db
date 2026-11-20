@@ -1898,6 +1898,7 @@ function get_koto_blessing_sugo_list($post_id = null, $target_place = 'blessing'
 
     if ($cond_rows) {
         foreach ($cond_rows as $row) {
+            // ACF上の歴史的タイポ 'get_palce' フォールバック、および EX祝福のハイフン表記 'ex-blessing' を許容
             $place = $row['get_palce'] ?? ($row['get_place'] ?? 'default');
             $is_target = false;
             if ($target_place === 'blessing') {

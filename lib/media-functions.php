@@ -24,6 +24,8 @@ function filter_unused_images_query($query)
     if (isset($_GET['acf_unused_filter']) && $_GET['acf_unused_filter'] === 'unused') {
         global $wpdb;
 
+        // 未使用画像の判定基準: character_image（進化後）/ another_character_image（絵違い）/ pre_evo_image（進化前）を参照
+        // ※画像紐付けツール（lib/image-setter/image-setter-ajax.php）では _thumbnail_id も含め、準備中画像（無題51_20260205005357）を除外する
         $meta_keys = array('character_image', 'another_character_image', 'pre_evo_image');
         $keys_placeholder = implode("','", esc_sql($meta_keys));
 

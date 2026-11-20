@@ -10,6 +10,7 @@ if (!defined('ABSPATH')) exit;
 
 const KOTO_MCP_PROTOCOL_VERSION = '2025-11-25';
 const KOTO_MCP_SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'];
+// 準備中画像URL（この画像がアイキャッチに設定されているキャラは「未設定」同等に扱い、未紐付け一覧からも除外する）
 const KOTO_MCP_DEFAULT_IMAGE_URL = 'https://www.kotodaman-db.com/wp-content/uploads/2026/02/無題51_20260205005357.png';
 const KOTO_MCP_MAX_BODY_BYTES = 262144;
 const KOTO_MCP_MAX_NAME_CHARS = 200;
@@ -43,6 +44,7 @@ add_action('init', function () {
 
 /**
  * 保護対象の雛型・特殊記事ID一覧を返す。
+ * テンプレート／特殊記事のため、画像設定・MCP操作・削除の対象外（タイトルに「雛型」「雛形」を含む記事も保護対象）。
  *
  * @return array<int, int>
  */

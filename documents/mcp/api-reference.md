@@ -1,3 +1,11 @@
+---
+type: spec
+title: MCPサーバー・OAuth 2.1・REST API 開発者リファレンス
+description: MCP Streamable HTTP 全10ツール・Resources/Prompts、OAuth 2.1 認証、および WordPress REST API の技術仕様。
+tags: [mcp, api, oauth, rest-api, specification]
+status: stable
+---
+
 # MCPサーバー・OAuth 2.1・REST API 開発者リファレンス
 
 本書は、コトダマンDBのMCPサーバー（[lib/mcp/protocol/server.php](../../lib/mcp/protocol/server.php)）および直接呼び出し用REST API（[lib/mcp/protocol/post-mcp.php](../../lib/mcp/protocol/post-mcp.php)）の技術仕様書です。
@@ -352,3 +360,12 @@ MCPクライアントを介さず、OpenAPI 3.1.0（[documents/mcp/openapi.json]
 3. **既存ACFパーサーを再利用する**: MCP側に独自の文言解析ロジックを複製せず、`koto_build_acf_data_from_inputs()` と `lib/ゲーム内文言ーACF-対応表.csv` に一元化する。
 4. **ACF更新時は必ずフィールドキー（`field_xxxxxx`）へ変換する**: `koto_get_top_level_character_acf_field()` および `koto_convert_acf_rows_to_field_keys()` を通して保存し、同名サブフィールドとのキャッシュ衝突を防止する。
 5. **外部画像取得時のSSRF防止**: `koto_mcp_set_featured_image_from_url()` では許可ホスト（`www.kotodaman-db.com`）、プロトコル（`http`/`https`）、ファイルサイズ（10MB以下）、MIMEタイプ（PNG/JPEG/WebP/GIF）、タイムアウト（15秒）の制限を厳守する。
+
+---
+
+## 関連ドキュメント
+
+* [MCP ドキュメント索引](index.md) / [MCP 全体総覧](README.md)
+* [キャラクター下書き作成・運用ガイド](character-draft-guide.md)
+* [外部AIサービス連携・設定ガイド](external-ai-setup.md)
+* [OpenAPI 3.1.0 スキーマ](openapi.json) / [フィールド読み取り定義](mcp-field-manual.json)

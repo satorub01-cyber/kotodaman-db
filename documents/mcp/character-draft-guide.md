@@ -1,3 +1,12 @@
+---
+type: guide
+title: キャラクター下書き作成・運用ガイド（MCP）
+description: スクリーンショット読み取りからキャラクター下書き作成・更新までの最短4ステップとフィールド入力規則。
+tags: [mcp, character-draft, workflow, screenshot, blessing]
+status: stable
+resource: kotodaman://guide/character-draft
+---
+
 # キャラクター下書き作成・運用ガイド（MCP）
 
 本書は、1キャラクター分のスクリーンショットからAIエージェント（またはMCPクライアント）を使ってWordPress上にキャラクターの下書き（`draft`）を作成・更新する際の運用手順、フィールド入力規則、および注意点をまとめたガイドです。
@@ -453,3 +462,13 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
   - `edit_posts` および `upload_files` を動的付与し、下書き作成および画像添付を許可します。
   - `delete_post`（完全削除）は一切付与されません。
 - 実行終了時は `finally` ブロックで確実に `remove_filter` されます。
+
+---
+
+## 関連ドキュメント
+
+* [MCP ドキュメント索引](index.md) / [MCP 全体総覧](README.md)
+* [キャラクター登録基準ガイド](character-entry-guide.md)（`kotodaman://guide/character-entry`）
+* [コトワザ自動入力ガイド](kotowaza-guide.md)（`kotodaman://guide/kotowaza`）
+* [祝福トークン作成・運用ガイドライン](../blessing-token-guide.md)
+* [ACF自動入力開発・保守ガイドライン](../../lib/acf/auto-input/AUTO_INPUT_GUIDELINES.md)

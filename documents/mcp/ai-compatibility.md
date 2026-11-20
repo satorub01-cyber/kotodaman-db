@@ -1,3 +1,11 @@
+---
+type: overview
+title: 外部AIツール対応状況一覧
+description: チャットAI・IDE・ワークフロー基盤ごとの MCP / OAuth 2.1 / OpenAPI 接続対応状況マトリクス。
+tags: [mcp, compatibility, external-ai, clients]
+status: stable
+---
+
 # 外部AIツール対応状況一覧
 
 コトダマンDBのMCPサーバー（`/wp-json/kotodaman/v1/mcp`）およびREST API（`/wp-json/kotodaman/v1/mcp/*`）における、各AIツール・クライアントの現在の対応状況一覧です。
@@ -54,3 +62,11 @@
 | **Gemini Enterprise** (Vertex AI Agent Builder) | Remote MCP / OpenAPI + Static OAuth | **対応済み** | Static OAuth (`client_secret`)・Remote MCP・Annotations対応済み |
 | **Dify** | Remote MCP / OpenAPI 3.1.0 | **対応済み** | MCPツール連携および OpenAPI 3.1.0 全7パスインポートに対応済み |
 | **MCP Inspector** (ブラウザ検証ツール) | Remote MCP (Browser CORS + `MCP-Protocol-Version`) | **対応済み** | CORS / `OPTIONS` プリフライト / 露出ヘッダー・OAuthテストに対応済み |
+
+---
+
+## 関連ドキュメント
+
+* [MCP ドキュメント索引](index.md) / [MCP 全体総覧](README.md)
+* [外部AIサービス連携・設定ガイド](external-ai-setup.md)
+* [MCP・REST API 開発者リファレンス](api-reference.md)

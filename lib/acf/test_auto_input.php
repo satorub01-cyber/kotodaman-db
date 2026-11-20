@@ -144,6 +144,8 @@ $tests = [
         '①デッキ内の水属性の単体単発攻撃で敵に与えるダメージが30%UP・単体単発攻撃で与えることができるダメージの上限を200000増加②自身のすごわざ発動条件に「いきもののことば」を追加する',
         // 12. 共鳴クリティカル（後方一致によるcritical_damage誤吸防止）＆グループ対象クリティカル率UP
         '①自身が実体化した文字と同じ文字のコトダマンが実体化している場合、ことば読み上げ完了後にこのターン攻撃する自身と、自身と同じ文字のコトダマンのクリティカル発生率が100%UP・クリティカル時の威力が20%UP※濁音、半濁音、小文字も同じ文字とする②デッキ内の「彩々のひと」のクリティカル発生率が20%UP',
+        // 13. ギミック複合とくせい（ブロックブレイカー＋マスガード）
+        'ウォールブロックへのダメージをUPし、コピーマスの効果を受けない',
     ],
     'リーダーとくせい' => [
         // 1. 編成条件＋コンボ条件＋固定倍率（パターンB）
@@ -599,6 +601,231 @@ if ($ok_m3) {
 
 if (!$test_mode && $miracle_passed === $miracle_total) {
     echo sprintf("[PASS] %-18s : %d / %d passed\n", 'ミラクルリーダーとくせい', $miracle_passed, $miracle_total);
+}
+
+// ギミック複合とくせい検証（多様な連結・並列・既存保護ケース）
+$compound_gimmick_total = 10;
+$compound_gimmick_passed = 0;
+
+// 1. 受け入れ例: ウォールブロックへのダメージをUPし、コピーマスの効果を受けない
+$total_count++;
+$cg_clauses_1 = koto_split_compound_gimmick_clauses('ウォールブロックへのダメージをUPし、コピーマスの効果を受けない');
+$cg_res_1 = koto_parse_text_by_type(
+    'ウォールブロックへのダメージをUPし、コピーマスの効果を受けない',
+    'とくせい',
+    $grouped_csv,
+    'auto_input_trait1'
+);
+$ok_cg_1 = (
+    $cg_clauses_1 === ['ウォールブロックへのダメージをUP', 'コピーマスの効果を受けない']
+    && count($cg_res_1) === 2
+    && ($cg_res_1[0]['trait_type'] ?? '') === 'gimmick'
+    && ($cg_res_1[1]['trait_type'] ?? '') === 'gimmick'
+    && !empty($cg_res_1[0]['gimmick'])
+    && !empty($cg_res_1[1]['gimmick'])
+);
+if ($ok_cg_1) {
+    $passed_count++;
+    $compound_gimmick_passed++;
+} else {
+    $failed_cases[] = '[ギミック複合 #1] ウォール＋コピーの2行分解に失敗しました';
+}
+
+// 2. スーパーブレイカー＋マスガード（接頭辞「を大きくUP」保持）
+$total_count++;
+$cg_clauses_2 = koto_split_compound_gimmick_clauses('ウォールブロックへのダメージを大きくUPし、コピーマスの効果を受けない');
+$cg_res_2 = koto_parse_text_by_type(
+    'ウォールブロックへのダメージを大きくUPし、コピーマスの効果を受けない',
+    'とくせい',
+    $grouped_csv,
+    'auto_input_trait1'
+);
+$ok_cg_2 = (
+    $cg_clauses_2 === ['ウォールブロックへのダメージを大きくUP', 'コピーマスの効果を受けない']
+    && count($cg_res_2) === 2
+    && ($cg_res_2[0]['trait_type'] ?? '') === 'gimmick'
+    && ($cg_res_2[1]['trait_type'] ?? '') === 'gimmick'
+);
+if ($ok_cg_2) {
+    $passed_count++;
+    $compound_gimmick_passed++;
+} else {
+    $failed_cases[] = '[ギミック複合 #2] スーパーウォール＋コピーの分解に失敗しました';
+}
+
+// 3. マスガード先頭（「ず、」）＋ブロック軽減
+$total_count++;
+$cg_clauses_3 = koto_split_compound_gimmick_clauses('チェンジマスの効果を受けず、トゲブロックから受けるダメージを軽減');
+$cg_res_3 = koto_parse_text_by_type(
+    'チェンジマスの効果を受けず、トゲブロックから受けるダメージを軽減',
+    'とくせい',
+    $grouped_csv,
+    'auto_input_trait1'
+);
+$ok_cg_3 = (
+    $cg_clauses_3 === ['チェンジマスの効果を受けない', 'トゲブロックから受けるダメージを軽減']
+    && count($cg_res_3) === 2
+    && ($cg_res_3[0]['trait_type'] ?? '') === 'gimmick'
+    && ($cg_res_3[1]['trait_type'] ?? '') === 'gimmick'
+);
+if ($ok_cg_3) {
+    $passed_count++;
+    $compound_gimmick_passed++;
+} else {
+    $failed_cases[] = '[ギミック複合 #3] チェンジ(受けず)＋トゲの分解に失敗しました';
+}
+
+// 4. レーザーガード（防ぎ＋遮断）＋バルーンマス
+$total_count++;
+$cg_clauses_4 = koto_split_compound_gimmick_clauses('レーザーブロックからのダメージを防ぎ、レーザーを遮断し、バルーンマスの効果を受けない');
+$cg_res_4 = koto_parse_text_by_type(
+    'レーザーブロックからのダメージを防ぎ、レーザーを遮断し、バルーンマスの効果を受けない',
+    'とくせい',
+    $grouped_csv,
+    'auto_input_trait1'
+);
+$ok_cg_4 = (
+    $cg_clauses_4 === ['レーザーブロックからのダメージを防ぎ、レーザーを遮断する', 'バルーンマスの効果を受けない']
+    && count($cg_res_4) === 2
+    && ($cg_res_4[0]['trait_type'] ?? '') === 'gimmick'
+    && ($cg_res_4[1]['trait_type'] ?? '') === 'gimmick'
+);
+if ($ok_cg_4) {
+    $passed_count++;
+    $compound_gimmick_passed++;
+} else {
+    $failed_cases[] = '[ギミック複合 #4] レーザー(遮断)＋バルーンの分解に失敗しました';
+}
+
+// 5. ブレイカー＋レーザーガード（軽減＋受け止め）
+$total_count++;
+$cg_clauses_5 = koto_split_compound_gimmick_clauses('ウォールブロックへのダメージをUPし、レーザーブロックから受けるダメージを軽減し、レーザーを受け止める');
+$cg_res_5 = koto_parse_text_by_type(
+    'ウォールブロックへのダメージをUPし、レーザーブロックから受けるダメージを軽減し、レーザーを受け止める',
+    'とくせい',
+    $grouped_csv,
+    'auto_input_trait1'
+);
+$ok_cg_5 = (
+    $cg_clauses_5 === ['ウォールブロックへのダメージをUP', 'レーザーブロックから受けるダメージを軽減し、レーザーを受け止める']
+    && count($cg_res_5) === 2
+    && ($cg_res_5[0]['trait_type'] ?? '') === 'gimmick'
+    && ($cg_res_5[1]['trait_type'] ?? '') === 'gimmick'
+);
+if ($ok_cg_5) {
+    $passed_count++;
+    $compound_gimmick_passed++;
+} else {
+    $failed_cases[] = '[ギミック複合 #5] ウォール＋レーザー(受け止め)の分解に失敗しました';
+}
+
+// 6. スーパートゲ＋マスガード
+$total_count++;
+$cg_clauses_6 = koto_split_compound_gimmick_clauses('トゲブロックから受けるダメージを軽減し、軽減した時に自身のATKを上昇し、コピーマスの効果を受けない');
+$cg_res_6 = koto_parse_text_by_type(
+    'トゲブロックから受けるダメージを軽減し、軽減した時に自身のATKを上昇し、コピーマスの効果を受けない',
+    'とくせい',
+    $grouped_csv,
+    'auto_input_trait1'
+);
+$ok_cg_6 = (
+    $cg_clauses_6 === ['トゲブロックから受けるダメージを軽減し、軽減した時に自身のATKを上昇する', 'コピーマスの効果を受けない']
+    && count($cg_res_6) === 2
+    && (int) ($cg_res_6[0]['gimmick'] ?? 0) === 132
+    && ($cg_res_6[1]['trait_type'] ?? '') === 'gimmick'
+);
+if ($ok_cg_6) {
+    $passed_count++;
+    $compound_gimmick_passed++;
+} else {
+    $failed_cases[] = '[ギミック複合 #6] スーパートゲ＋コピーの分解に失敗しました';
+}
+
+// 7. 並列（共有述語）形式: ウォール・シールドブロック / チェンジ・コピーマス
+$total_count++;
+$cg_clauses_7a = koto_split_compound_gimmick_clauses('ウォール・シールドブロックへのダメージをUP');
+$cg_clauses_7b = koto_split_compound_gimmick_clauses('チェンジ・コピーマスの効果を受けない');
+$cg_res_7a = koto_parse_text_by_type('ウォール・シールドブロックへのダメージをUP', 'とくせい', $grouped_csv, 'auto_input_trait1');
+$cg_res_7b = koto_parse_text_by_type('チェンジ・コピーマスの効果を受けない', 'とくせい', $grouped_csv, 'auto_input_trait1');
+$ok_cg_7 = (
+    $cg_clauses_7a === ['ウォールブロックへのダメージをUP', 'シールドブロックへのダメージをUP']
+    && $cg_clauses_7b === ['チェンジマスの効果を受けない', 'コピーマスの効果を受けない']
+    && count($cg_res_7a) === 2
+    && count($cg_res_7b) === 2
+);
+if ($ok_cg_7) {
+    $passed_count++;
+    $compound_gimmick_passed++;
+} else {
+    $failed_cases[] = '[ギミック複合 #7] 並列（共有述語）ギミックの展開に失敗しました';
+}
+
+// 8. 条件付き複合ギミック（両行へ条件が引き継がれること）
+$total_count++;
+$cg_res_8 = koto_parse_text_by_type(
+    'HPが80%以上の時、ウォールブロックへのダメージをUPし、コピーマスの効果を受けない',
+    'とくせい',
+    $grouped_csv,
+    'auto_input_trait1'
+);
+$ok_cg_8 = (
+    count($cg_res_8) === 2
+    && ($cg_res_8[0]['condition_type_loop'][0]['condition_type'] ?? '') === 'hpcond'
+    && ($cg_res_8[1]['condition_type_loop'][0]['condition_type'] ?? '') === 'hpcond'
+);
+if ($ok_cg_8) {
+    $passed_count++;
+    $compound_gimmick_passed++;
+} else {
+    $failed_cases[] = '[ギミック複合 #8] 条件付き複合ギミックの条件引き継ぎに失敗しました';
+}
+
+// 9. 既存保護: 単一ギミック（スーパートゲ・レーザー）が誤分割されないこと
+$total_count++;
+$cg_single_1 = koto_split_compound_gimmick_clauses('トゲブロックから受けるダメージを軽減し、軽減した時に自身のATKを上昇する');
+$cg_single_2 = koto_split_compound_gimmick_clauses('レーザーブロックから受けるダメージを軽減し、レーザーを受け止める');
+$cg_res_single_1 = koto_parse_text_by_type('トゲブロックから受けるダメージを軽減し、軽減した時に自身のATKを上昇する', 'とくせい', $grouped_csv, 'auto_input_trait1');
+$cg_res_single_2 = koto_parse_text_by_type('レーザーブロックから受けるダメージを軽減し、レーザーを受け止める', 'とくせい', $grouped_csv, 'auto_input_trait1');
+$ok_cg_9 = (
+    $cg_single_1 === []
+    && $cg_single_2 === []
+    && count($cg_res_single_1) === 1
+    && (int) ($cg_res_single_1[0]['gimmick'] ?? 0) === 132
+    && count($cg_res_single_2) === 1
+    && ($cg_res_single_2[0]['trait_type'] ?? '') === 'gimmick'
+);
+if ($ok_cg_9) {
+    $passed_count++;
+    $compound_gimmick_passed++;
+} else {
+    $failed_cases[] = '[ギミック複合 #9] 単一ギミック保護に回帰が発生しました';
+}
+
+// 10. 既存保護: もともと複数行に解析されるスーパーチェンジ（文字追加複合）の結果が変わらないこと
+$total_count++;
+$cg_super_change = koto_split_compound_gimmick_clauses('チェンジマスの効果を受けない。さらにチェンジマスがある場合、文字変換に「あ・い」が追加される');
+$cg_res_sc = koto_parse_text_by_type(
+    'チェンジマスの効果を受けない。さらにチェンジマスがある場合、文字変換に「あ・い」が追加される',
+    'とくせい',
+    $grouped_csv,
+    'auto_input_trait1'
+);
+$ok_cg_10 = (
+    $cg_super_change === []
+    && count($cg_res_sc) === 2
+    && ($cg_res_sc[0]['trait_type'] ?? '') === 'gimmick'
+    && isset($cg_res_sc[1]['available_moji'])
+    && ($cg_res_sc[1]['unlock_place'] ?? '') === 'super_change'
+);
+if ($ok_cg_10) {
+    $passed_count++;
+    $compound_gimmick_passed++;
+} else {
+    $failed_cases[] = '[ギミック複合 #10] スーパーチェンジ文字追加複合に回帰が発生しました';
+}
+
+if (!$test_mode && $compound_gimmick_passed === $compound_gimmick_total) {
+    echo sprintf("[PASS] %-18s : %d / %d passed\n", 'ギミック複合とくせい', $compound_gimmick_passed, $compound_gimmick_total);
 }
 
 if (!$test_mode) {

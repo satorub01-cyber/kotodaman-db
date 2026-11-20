@@ -1,3 +1,17 @@
+---
+type: spec
+title: コトダマンDB データ構造・検索タグ仕様書
+description: _spec_json スキーマ、all_characters_search.json の trait 検索 canonical slug 定義、火力計算・解析関数仕様メモ。
+tags: [spec, spec-json, search-tags, canonical-slug, koto-calc]
+status: draft
+---
+
+> [!NOTE]
+> **本書の読み方（現行仕様と初期メモの区分）**:
+> * システム全体の最新ファイル構成・変更連動チェックリストは **[codebase-map.md](codebase-map.md)**（正本）を参照してください。
+> * 本書の「`# all_characters_search.json の trait検索 schema`」および「`# _spec_jsonの構造`」は `lib/koto-calc.php`・`lib/character-search/koto-json-reformer.php` と連動する現行仕様リファレンスです。
+> * 冒頭の「`# サイトと各ファイルの構成`」および末尾の「`# 検索機能の実装方針`」には初期開発時のメモが残っています。
+
 # サイトと各ファイルの構成
 - トップページ /
   - page-db-top.php
@@ -344,6 +358,8 @@
 - `damage_correction_killer`
 - `damage_correction_break_limit`
 - `damage_correction_single_shot`
+- `damage_correction_single_shot_killer`
+- `damage_correction_single_shot_limit_break`
 - `damage_correction_week_killer`
 - `status_up`
 - `status_up_atk`
@@ -391,10 +407,71 @@
 - 基本は詳細検索checkboxの `trait_*` から先頭の `trait_` を落とした値を canonical slug とする
 - `other_traits` は外向き schema では `other` 系へ寄せる
 - `new_traits.resonance` はクリティカル共鳴なら `new_traits_resonance_crit`、それ以外は `new_traits_resonance_atk`
-- `mode_shift` は `shift_relation` が `mode_shift` なら `mode_shift_mode_shift`、`before_transform` / `after_transform` なら `mode_shift_transform`
+- `mode_shift` は `shift_relation`（フォールバック: `relation_ship`）が `mode_shift` または `another_image` なら `mode_shift_mode_shift`、`before_transform` / `after_transform`（または `transform` を含む場合）なら `mode_shift_transform`
 - `draw_eff.healling` は schema では `draw_eff_healing` に正規化する
+- `single_shot` は `value` / `trait_rate` がある場合に `*_single_shot_killer`、`limit_break` / `limit_break_rate` がある場合に `*_single_shot_limit_break` も併せて出力する
+
+### 検索用JSON（`all_characters_search.json`）の追加出力キー（`koto_get_flat_char_data`）
+`trait1_en/jp`・`trait2_en/jp`・`blessing_en/jp` に加え、以下の主要検索キーが出力されます。
+- イベント・クエスト: `event`, `sub_event`（互換: `sub-event`）, `guerilla_root`（互換: `gerilla_root`）, `quests`
+- ギミック・耐性: `gimmick_en` / `gimmick_jp`, `trait_status_resistance_en` / `trait_status_resistance_jp`, `leader_status_resistance_en` / `leader_status_resistance_jp`
+- 火力・回復指数・日本語タグ: `firepower_index`, `healingpower_index`, `jp_t`, `axis`, `waza_t`, `sugo_t`, `koto_t`
  
 # _spec_jsonの構造
+
+## 更新パイプラインと主要キー構造
+* **更新フロー**: 投稿保存時（`acf/save_post` フックの `on_save_character_specs`）に `get_character_spec_data($post_id)`（`lib/koto-calc.php`）で解析され、ポストメタ `_spec_json` に JSON 文字列として保存されます。
+* **参照元**: キャラ詳細ページ（`single-character.php`）や検索用 JSON 生成（`koto-json-reformer.php`）はこの `_spec_json` を高速参照します。
+
+```json
+{
+  "post_id": 1234,
+  "name": "キャラクター名",
+  "name_ruby": "キャラクターめい",
+  "is_break_fuku": false,
+  "chars": [
+    {
+      "char": "あ",
+      "row_index": 1,
+      "moji_group_cond": false,
+      "need_point": 0
+    }
+  ],
+  "waza": { "variations": { "timelines": [ ... ] } },
+  "sugowaza": { "variations": { "timelines": [ ... ] } },
+  "kotowaza": { ... },
+  "first_trait": [ ... ],
+  "second_trait": [ ... ],
+  "blessing": [ ... ],
+  "ex_blessing": [ ... ],
+  "leader": {
+    "conditions": [
+      [ {"target": "attribute", "val": "fire"} ]
+    ],
+    "effects": [ ... ]
+  },
+  "search_tags": [ "trait_...", "sugo_..." ],
+  "firepower": { ... }
+}
+```
+
+## 歴史的タイポと必須フォールバック
+ACF フィールド定義の歴史的経緯により、以下のキー名タイポが存在します。コード上では必ずフォールバックを取得してください。
+
+| 概念 | ACF 上のフィールドキー名 | 推奨フォールバック取得コード |
+| :--- | :--- | :--- |
+| **解放場所** | **`get_palce`**（place のタイポ） | `$place = $row['get_palce'] ?? ($row['get_place'] ?? 'default');` |
+| **とくせいターン数** | **`draw_triat_turn`**（trait のタイポ） | `$turn = $row['draw_triat_turn'] ?? ($row['draw_trait_turn'] ?? ($row['turn_count'] ?? ''));` |
+
+## 祝福・EX祝福のキー名規則と表示・検索仕様
+| 区分 | 解放場所キー名 (`get_place`) | とくせいリピーター名 | 必要ポイントフィールド名 |
+| :--- | :--- | :--- | :--- |
+| **通常祝福** | `blessing` | `blessing_trait_loop` | `need_blessing_point` |
+| **EX祝福** | `ex_blessing`（※ハイフン `ex-blessing` も許容） | `blessing_ex_trait_loop` | `need_blessing_point`（**共通**） |
+
+* **詳細画面表示**: `get_koto_blessing_card_html()`（`lib/koto-display.php`）で通常祝福・EX祝福を共通描画します。
+* **検索用 JSON**: `koto-json-reformer.php` では親カテゴリのタグは持たせず子タグのみ保持し、祝福タグ（`blessing_en` / `blessing_jp`）は通常祝福と EX 祝福をマージして収集します（祝福トークン詳細は [blessing-token-guide.md](blessing-token-guide.md) 参照）。
+
 ## 概要
   |キー|型|要素数|データの役割|未実装?|
   |---|---|---|---|---|
@@ -406,8 +483,12 @@
   |is_no_lv120|bool||trueなら昇華なし(低レア、トークンなど)||
   |rarity|int||星の数||
   |rarity_detail|str||none,specialなど||
-  |max_level|int||レアリティごと自動設定(★6は99)||
+  |max_lavel|int||レアリティごと自動設定(★6は99) ※実コード上のキー名は `max_lavel`（タイポ）||
   |release_date|日付||実装日||
+  |event|連想配列|任意|実装イベント||
+  |sub_event / sub-event|連想配列|任意|サブイベント||
+  |guerilla_root / gerilla_root|連想配列|任意|ゲリラ等ルート||
+  |suitable_quest|連想配列|任意|適正クエスト||
   |attribute|str||属性||
   |sub_attributes|str|任意|サブ属性|
   |species|str||種族|
@@ -423,6 +504,7 @@
   |blessing|連想配列|0~8|祝福とくせい||
   |ex_blessing|連想配列|0~8|EX祝福とくせい||
   |leader|連想配列||リーダーとくせい||
+  |miracle_leader|連想配列|任意|ミラクルリーダーとくせい||
   |EX_skill|連想配列||EXスキル詳細||
   |charge_skill|連想配列||チャージスキル詳細||
   |corrections|json|任意|火力指数計算に必要な火力補正の配列||
@@ -435,7 +517,8 @@
   |acquisition|str||ガチャ産かその他||
   |max_ls_hp|int||最大リーダーhp倍率(並べ替え用)||
   |max_ls_atk|int||最大リーダーatk倍率(並べ替え用)||
-  |firepower_index|int||すごわざの最大火力指数||
+  |firepower_index|int/配列||すごわざの火力指数（`simple_firepower_calc()` 結果）||
+  |healingpower_index|int/配列||すごわざの回復指数（`simple_healingpower_calc()` 結果）||
   |is_estimate|bool||すごわざ倍率が未調査ならtrue||
   |is_koto_estimate|bool||ことわざ倍率が一部未調査ならtrue||
   |pre_evo_name|str||進化前の名前||
@@ -935,3 +1018,11 @@ $result=[
   "traits": ["god_buff", "super_heal", "shield_break"]
 }
 ```
+
+---
+
+## 関連ドキュメント
+
+* [ドキュメント索引](index.md)
+* [システムアーキテクチャ＆コードマップ](codebase-map.md)
+* [祝福トークン作成・運用ガイドライン](blessing-token-guide.md)

@@ -6,6 +6,9 @@
  * - メール認証付きセルフユーザー登録（登録時は権限最小の subscriber として作成）
  * - 登録時の「MCP利用も申請する」チェック（デフォルトON）で _koto_mcp_requested=1 を付与し管理者へ通知
  * - 主要AIツール別の接続ガイド切替UI（ChatGPT / Claude / Gemini / Muse / Copilot / Cursor / Dify 等）
+ *
+ * ※一時非公開中（2026-11-13〜）: 処理本体は残置したまま、collaboration-page.php の404応答化および
+ *   本ファイルのショートコード・登録受付フック・外部導線リンクをコメントアウト中（詳細: documents/mcp/README.md）。
  */
 
 if (!defined('ABSPATH')) {

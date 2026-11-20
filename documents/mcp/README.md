@@ -1,4 +1,16 @@
+---
+type: overview
+title: コトダマンDB MCP ドキュメント総覧
+description: MCPサーバーの実装ステータス、アーキテクチャ図、エンドポイント接続設定および拡張ロードマップ。
+tags: [mcp, overview, architecture, oauth, roadmap]
+status: stable
+---
+
 # コトダマンDB MCP ドキュメント
+
+> [!NOTE]
+> `documents/mcp/` 配下の全ファイル一覧・1行説明は **[index.md](index.md)** を参照してください。
+
 
 コトダマンDBテーマ（`cocoon-child-master`）における **MCP（Model Context Protocol）サーバーおよびキャラクター下書き自動作成機能** のドキュメント一式です。
 
@@ -202,3 +214,11 @@ Muse等のカスタムコネクタでは、MCPリソースURIに `${KOTO_MCP_BAS
 ### 将来構想
 * **Androidエミュレータ / ADB連携による画面自動取得**: 手動スクリーンショット撮影を省き、検証環境から直接画像を収集するパイプライン。
 * **代表スクリーンショットによるE2E回帰テスト**: サンプル画像セットと期待ACF JSONペアを用いた自動回帰テスト。
+
+---
+
+## 関連ドキュメント
+
+* [MCP ドキュメント索引](index.md) / [リポジトリ全体ドキュメント索引](../index.md)
+* [lib/mcp モジュール案内](../../lib/mcp/README.md)
+* [システムアーキテクチャ＆コードマップ](../codebase-map.md)

@@ -722,6 +722,24 @@ koto_compat_assert(
     'lv_120_hp/atk 未入力時の status_auto_tf: true は自動で false に補正され warnings に通知される'
 );
 
+// 6. MCPリソースガイド3本で先頭 YAML frontmatter が剥離されていることを確認
+foreach ([
+    'kotodaman://guide/character-draft',
+    'kotodaman://guide/character-entry',
+    'kotodaman://guide/kotowaza',
+] as $guide_uri) {
+    $guide_res = koto_mcp_read_resource($guide_uri);
+    $guide_text = (string) ($guide_res['contents'][0]['text'] ?? '');
+    koto_compat_assert(
+        !is_wp_error($guide_res)
+        && $guide_text !== ''
+        && strpos($guide_text, '# ') === 0
+        && strpos($guide_text, "---\n") !== 0
+        && strpos($guide_text, "---\r\n") !== 0,
+        'MCPリソース (' . $guide_uri . ') が YAML frontmatter を含まず # 見出しから始まる'
+    );
+}
+
 unset($_SERVER['HTTP_AUTHORIZATION']);
 wp_set_current_user(0);
 
