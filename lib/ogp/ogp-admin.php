@@ -15,7 +15,7 @@ add_action('admin_menu', function () {
     add_media_page(
         'サムネイル画像生成 (OGP / YouTube)',
         'サムネ生成 (OGP/YT)',
-        'upload_files',
+        'edit_others_posts',
         'koto-ogp-generator',
         'koto_ogp_render_admin_page'
     );
@@ -50,7 +50,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
  */
 add_action('wp_ajax_koto_ogp_search_characters', function () {
     check_ajax_referer('koto_ogp_admin_nonce', 'nonce');
-    if (!current_user_can('upload_files')) {
+    if (!current_user_can('edit_others_posts')) {
         wp_send_json_error(['message' => '権限がありません'], 403);
     }
 
@@ -152,7 +152,7 @@ add_action('wp_ajax_koto_ogp_search_characters', function () {
  */
 add_action('wp_ajax_koto_ogp_clear_cache', function () {
     check_ajax_referer('koto_ogp_admin_nonce', 'nonce');
-    if (!current_user_can('upload_files')) {
+    if (!current_user_can('edit_others_posts')) {
         wp_send_json_error(['message' => '権限がありません'], 403);
     }
     $dir = koto_ogp_get_cache_dir();
@@ -173,7 +173,7 @@ add_action('wp_ajax_koto_ogp_clear_cache', function () {
  */
 function koto_ogp_render_admin_page()
 {
-    if (!current_user_can('upload_files')) {
+    if (!current_user_can('edit_others_posts')) {
         wp_die('権限がありません。');
     }
     ?>

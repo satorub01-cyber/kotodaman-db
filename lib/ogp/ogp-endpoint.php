@@ -331,7 +331,7 @@ function koto_ogp_handle_image_request()
 
     if ($mode === 'custom') {
         $nonce = isset($raw_get['_wpnonce']) && is_scalar($raw_get['_wpnonce']) ? (string)$raw_get['_wpnonce'] : '';
-        if (!is_user_logged_in() || !current_user_can('upload_files') || !wp_verify_nonce($nonce, 'koto_ogp_custom_render')) {
+        if (!is_user_logged_in() || !current_user_can('edit_others_posts') || !wp_verify_nonce($nonce, 'koto_ogp_custom_render')) {
             koto_ogp_send_error_response(403, 'Forbidden');
         }
         $ids_raw = [];
