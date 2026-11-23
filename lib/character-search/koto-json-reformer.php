@@ -1071,7 +1071,8 @@ function koto_render_json_reform_page()
     echo '<p>キャラクター記事を保存・公開すると、対象の1キャラ分だけが自動的に更新されます。</p>';
     echo '<p>この画面では巨大JSONのプレビューを表示しません（メモリ節約のため）。</p>';
     echo '<p>タクソノミーslug変更は、投稿の更新有無に関係なくこの全件再生成で反映されます。</p>';
-    echo '<p>spec（_spec_json）を全件再計算したい場合は、<a href="' . esc_url(add_query_arg(['run_update_index' => '1'], home_url('/'))) . '">こちらのバッチ更新導線</a>を使ってください（JSON再生成とは分離）。</p>';
+    $update_index_url = wp_nonce_url(add_query_arg(['run_update_index' => '1'], home_url('/')), 'koto_run_update_index');
+    echo '<p>spec（_spec_json）を全件再計算したい場合は、<a href="' . esc_url($update_index_url) . '">こちらのバッチ更新導線</a>を使ってください（JSON再生成とは分離）。</p>';
 
     echo '<form method="post" action="">';
     wp_nonce_field('koto_generate_json_action', 'koto_generate_json_nonce');

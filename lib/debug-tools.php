@@ -26,6 +26,10 @@ function force_update_all_characters_index()
         return;
     }
 
+    if (!isset($_GET['_wpnonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash((string) $_GET['_wpnonce'])), 'koto_run_update_index')) {
+        wp_die('セキュリティチェックに失敗しました。管理画面の専用導線から再実行してください。', 'forbidden', ['response' => 403]);
+    }
+
     // 2. タイムアウト対策
     set_time_limit(300); // 5分
 
@@ -86,7 +90,7 @@ function force_update_all_characters_index()
 
     if ($query->max_num_pages > $paged) {
         $next_page = $paged + 1;
-        $next_url = add_query_arg(['run_update_index' => '1', 'batch_page' => $next_page]);
+        $next_url = wp_nonce_url(add_query_arg(['run_update_index' => '1', 'batch_page' => $next_page]), 'koto_run_update_index');
         echo '<a href="' . esc_url($next_url) . '" style="display:inline-block; margin-top:10px; padding:10px 20px; background:#00a0d2; color:#fff; text-decoration:none;">次の' . intval($posts_per_page) . '体を更新</a>';
     } else {
         echo '<a href="' . esc_url(home_url('/wp-admin/edit.php?post_type=character&page=koto-json-reform')) . '" style="display:inline-block; margin-top:10px; padding:10px 20px; background:#00a0d2; color:#fff; text-decoration:none;">元の画面に戻る</a>';
@@ -98,11 +102,21 @@ function force_update_all_characters_index()
 
 // =================================================================
 // 2. 単一キャラクター強制再計算フック
-// サイトURL/wp-admin/?force_calc_id=123 でアクセス
+// サイトURL/wp-admin/?force_calc_id=123&_wpnonce=... でアクセス
 // =================================================================
 add_action('admin_init', function () {
     if (isset($_GET['force_calc_id']) && current_user_can('edit_posts')) {
+        $nonce = sanitize_text_field(wp_unslash((string) ($_GET['_wpnonce'] ?? '')));
+        if (!wp_verify_nonce($nonce, 'koto_force_calc_id')) {
+            wp_die('セキュリティチェックに失敗しました。', 'forbidden', ['response' => 403]);
+        }
+
         $post_id = intval($_GET['force_calc_id']);
+        $target_post = $post_id ? get_post($post_id) : null;
+        if (!($target_post instanceof WP_Post) || $target_post->post_type !== 'character' || !current_user_can('edit_post', $post_id)) {
+            wp_die('対象のキャラクターを再計算する権限がありません。', 'forbidden', ['response' => 403]);
+        }
+
         if (function_exists('on_save_character_specs')) {
             on_save_character_specs($post_id);
             wp_die("ID: {$post_id} のJSONとタグを再生成しました。");
@@ -119,6 +133,12 @@ add_shortcode('debug_koto_json', function ($atts) {
     static $instance_count = 0;
     $instance_count++;
 
+    $home_host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+    $is_local_env = (wp_get_environment_type() === 'local') || in_array($home_host, ['localhost', '127.0.0.1'], true);
+    if (!$is_local_env && !current_user_can('edit_posts')) {
+        return '';
+    }
+
     // 1. IDの決定
     $default_id = get_the_ID();
     $atts = shortcode_atts(['id' => $default_id], $atts);
@@ -128,6 +148,16 @@ add_shortcode('debug_koto_json', function ($atts) {
 
     // GETパラメータがあればそれを優先
     $target_id = isset($_GET[$param_name]) ? intval($_GET[$param_name]) : intval($atts['id']);
+
+    $target_post = $target_id ? get_post($target_id) : null;
+    if (!($target_post instanceof WP_Post)) {
+        return '';
+    }
+    $can_read_target = ($target_post->post_status === 'publish' && $target_post->post_password === '')
+        || current_user_can('edit_post', $target_id);
+    if (!$can_read_target) {
+        return '';
+    }
 
     // 2. データ取得
     $json = get_post_meta($target_id, '_spec_json', true);
@@ -147,8 +177,9 @@ add_shortcode('debug_koto_json', function ($atts) {
 
             <?php
             foreach ($_GET as $key => $val) {
-                if ($key !== $param_name && !is_array($val)) {
-                    echo '<input type="hidden" name="' . esc_attr($key) . '" value="' . esc_attr($val) . '">';
+                $clean_key = sanitize_text_field(wp_unslash((string) $key));
+                if ($clean_key !== $param_name && !is_array($val)) {
+                    echo '<input type="hidden" name="' . esc_attr($clean_key) . '" value="' . esc_attr(wp_unslash((string) $val)) . '">';
                 }
             }
             ?>
@@ -259,6 +290,10 @@ add_shortcode('debug_koto_json', function ($atts) {
  */
 function test_acf_mapping_shortcode()
 {
+    if (!current_user_can('edit_posts')) {
+        return '';
+    }
+
     ob_start();
 
     $csv_path = get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv';
@@ -283,8 +318,16 @@ function test_acf_mapping_shortcode()
         echo "<p style='color:red;'>※CSVファイルが見つかりません。テスト用のモックデータで実行します。</p>";
     }
 
-    $input_text = isset($_POST['test_text']) ? sanitize_text_field($_POST['test_text']) : '';
+    $input_text = '';
     $result_output = '';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['test_text'])) {
+        $nonce = sanitize_text_field(wp_unslash((string) ($_POST['_koto_test_acf_nonce'] ?? '')));
+        if (!wp_verify_nonce($nonce, 'koto_test_acf_mapping')) {
+            $result_output = "<p style='color:red;'>セキュリティチェックに失敗しました。ページを再読み込みしてください。</p>";
+        } else {
+            $input_text = mb_substr(sanitize_text_field(wp_unslash((string) $_POST['test_text'])), 0, 1000, 'UTF-8');
+        }
+    }
 
     if ($input_text) {
         $match_found = false;
@@ -320,14 +363,16 @@ function test_acf_mapping_shortcode()
 
                 foreach ($matches as $key => $value) {
                     if (is_string($key)) {
-                        $json_str = str_replace('$' . $key, $value, $json_str);
+                        $encoded = wp_json_encode((string) $value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                        $escaped = (is_string($encoded) && strlen($encoded) >= 2) ? substr($encoded, 1, -1) : '';
+                        $json_str = str_replace('$' . $key, $escaped, $json_str);
                     }
                 }
 
                 $acf_data = json_decode($json_str, true);
 
                 if (json_last_error() !== JSON_ERROR_NONE) {
-                    $result_output = "<p style='color:red;'>JSONパースエラー: " . json_last_error_msg() . "<br>生成された文字列: " . esc_html($json_str) . "</p>";
+                    $result_output = "<p style='color:red;'>JSONパースエラー: " . esc_html(json_last_error_msg()) . "<br>生成された文字列: " . esc_html($json_str) . "</p>";
                 } else {
                     if (isset($acf_data['gimmick_prefix'])) {
                         if ($acf_data['gimmick_prefix'] === '大きく') {
@@ -353,6 +398,7 @@ function test_acf_mapping_shortcode()
     <div style="max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
         <h2>CSV対応表 テストツール</h2>
         <form method="post" action="">
+            <?php wp_nonce_field('koto_test_acf_mapping', '_koto_test_acf_nonce'); ?>
             <label for="test_text"><strong>AI抽出テキスト（ゲーム内文言）:</strong></label><br>
             <input type="text" id="test_text" name="test_text" value="<?php echo esc_attr($input_text); ?>" style="width: 100%; padding: 8px; margin: 10px 0;" placeholder="例: 福30でシールドブレイカーが解放">
             <button type="submit" style="padding: 10px 20px; background: #0073aa; color: white; border: none; border-radius: 4px; cursor: pointer;">テスト実行</button>

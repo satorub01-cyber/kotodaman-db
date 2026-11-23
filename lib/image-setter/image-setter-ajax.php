@@ -157,12 +157,12 @@ add_action('wp_ajax_image_setter_search_media', 'image_setter_handle_search_medi
 
 function image_setter_handle_search_media() {
     if (!current_user_can('edit_posts')) {
-        wp_send_json_error(['message' => '権限がありません。']);
+        wp_send_json_error(['message' => '権限がありません。'], 403);
     }
 
-    $posted_nonce = $_POST['nonce'] ?? $_REQUEST['nonce'] ?? '';
+    $posted_nonce = sanitize_text_field(wp_unslash((string) ($_POST['nonce'] ?? '')));
     if (!wp_verify_nonce($posted_nonce, 'image_setter_nonce')) {
-        wp_send_json_error(['message' => 'セキュリティチェックに失敗しました。']);
+        wp_send_json_error(['message' => 'セキュリティチェックに失敗しました。'], 403);
     }
 
     $search = sanitize_text_field($_POST['search'] ?? '');
@@ -180,21 +180,33 @@ add_action('wp_ajax_image_setter_save_image', 'image_setter_handle_save_image');
 function image_setter_handle_save_image() {
     // 権限チェック
     if (!current_user_can('edit_posts')) {
-        wp_send_json_error(['message' => '権限がありません。']);
+        wp_send_json_error(['message' => '権限がありません。'], 403);
     }
 
-    // Nonceチェック (POST / REQUEST の双方に対応)
-    $posted_nonce = $_POST['nonce'] ?? $_REQUEST['nonce'] ?? '';
+    // Nonceチェック (POSTのみ許可)
+    $posted_nonce = sanitize_text_field(wp_unslash((string) ($_POST['nonce'] ?? '')));
     if (!wp_verify_nonce($posted_nonce, 'image_setter_nonce')) {
-        wp_send_json_error(['message' => 'セキュリティチェックに失敗しました。ページを再読み込みしてください。']);
+        wp_send_json_error(['message' => 'セキュリティチェックに失敗しました。ページを再読み込みしてください。'], 403);
     }
 
     $char_id = isset($_POST['character_id']) ? intval($_POST['character_id']) : 0;
     $image_id = isset($_POST['image_id']) ? intval($_POST['image_id']) : 0;
     $image_type = isset($_POST['image_type']) ? sanitize_key($_POST['image_type']) : '';
 
-    if (!$char_id || !get_post($char_id)) {
-        wp_send_json_error(['message' => 'キャラクターが正しく選択されていません。']);
+    $char_post = $char_id ? get_post($char_id) : null;
+    if (!($char_post instanceof WP_Post) || $char_post->post_type !== 'character') {
+        wp_send_json_error(['message' => 'キャラクターが正しく選択されていません。'], 400);
+    }
+
+    $is_protected = function_exists('koto_mcp_is_protected_template_post')
+        ? koto_mcp_is_protected_template_post($char_post)
+        : ((int) $char_post->ID === 3683 || strpos((string) $char_post->post_title, '雛型') !== false || strpos((string) $char_post->post_title, '雛形') !== false);
+    if ($is_protected) {
+        wp_send_json_error(['message' => '保護対象のテンプレート記事には設定できません。'], 403);
+    }
+
+    if (!current_user_can('edit_post', $char_id)) {
+        wp_send_json_error(['message' => 'このキャラクターを編集する権限がありません。'], 403);
     }
 
     if (!$image_id || !wp_attachment_is_image($image_id)) {

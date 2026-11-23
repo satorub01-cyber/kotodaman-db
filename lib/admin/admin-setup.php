@@ -52,12 +52,15 @@ add_action('admin_enqueue_scripts', function ($hook) {
     // 親テーマ/カスタムAJAXスクリプトの登録・読み込み
     wp_enqueue_script('custom-ajax-script', get_template_directory_uri() . '/js/custom-ajax.js', ['jquery'], null, true);
 
-    // ローカル環境かどうかの判定（WP環境タイプ、WP_DEBUG、ホスト名等から総合判定）
+    // ローカル環境かどうかの判定（WP環境タイプ、WP_DEBUG、サイトホスト等から総合判定）
+    $site_host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
     $is_local = (wp_get_environment_type() === 'local')
         || (defined('WP_DEBUG') && WP_DEBUG)
-        || (isset($_SERVER['HTTP_HOST']) && (
-            str_contains($_SERVER['HTTP_HOST'], 'local')
-            || str_contains($_SERVER['HTTP_HOST'], '127.0.0.1')
+        || ($site_host !== '' && (
+            $site_host === 'localhost'
+            || $site_host === '127.0.0.1'
+            || str_ends_with($site_host, '.local')
+            || str_ends_with($site_host, '.test')
         ));
 
     $debug_config = [
@@ -172,6 +175,10 @@ add_filter('manage_users_columns', function ($columns) {
  */
 function add_random_color_theme_button()
 {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
     $ajax_url = wp_nonce_url(add_query_arg('action', 'set_random_admin_color'), 'random_color_nonce');
 
     echo '<div class="notice notice-info is-dismissible" style="margin-top: 15px;">';
@@ -188,7 +195,10 @@ add_action('admin_notices', 'add_random_color_theme_button');
 function handle_random_admin_color_change()
 {
     if (isset($_GET['action']) && $_GET['action'] === 'set_random_admin_color') {
-        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'random_color_nonce')) {
+        if (!current_user_can('manage_options')) {
+            wp_die('この操作を行う権限がありません。', 'permission_denied', ['response' => 403]);
+        }
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash((string) $_GET['_wpnonce'])), 'random_color_nonce')) {
             wp_die('セキュリティエラーが発生しました。');
         }
 

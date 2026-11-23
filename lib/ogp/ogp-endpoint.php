@@ -93,8 +93,36 @@ function koto_ogp_cleanup_stale_tmp_files($max_age_sec = 600)
 /**
  * 指定モード・パラメータでPNG画像を生成し、ファイルパスを返す（キャッシュ利用）。
  */
-function koto_ogp_generate_image_file(array $options)
+/**
+ * OGP画像のキャッシュミス時生成に対するIP単位のレート制限を判定・記録する。
+ *
+ * @return bool 制限超過時は true。
+ */
+function koto_ogp_is_generation_rate_limited()
 {
+    if (current_user_can('edit_others_posts')) {
+        return false;
+    }
+    if (PHP_SAPI === 'cli' && empty($_SERVER['REMOTE_ADDR'])) {
+        return false;
+    }
+
+    $remote_ip = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : 'unknown';
+    $rate_key = 'koto_ogp_gen_rl_' . md5($remote_ip);
+    $hits = (int) get_transient($rate_key);
+    if ($hits >= 20) {
+        return true;
+    }
+    set_transient($rate_key, $hits + 1, MINUTE_IN_SECONDS);
+    return false;
+}
+
+/**
+ * 動的OGP画像を生成し、画像ファイルパスを返す。
+ */
+function koto_ogp_generate_image_file(array $options, bool &$rate_limited = false)
+{
+    $rate_limited = false;
     $allowed_modes = ['search', 'post', 'top', 'custom', 'default'];
     $raw_mode  = is_scalar($options['mode'] ?? null) ? (string)$options['mode'] : 'default';
     $mode      = in_array($raw_mode, $allowed_modes, true) ? $raw_mode : 'default';
@@ -131,6 +159,11 @@ function koto_ogp_generate_image_file(array $options)
 
     if ($use_cache && file_exists($cache_file) && filesize($cache_file) > 0) {
         return $cache_file;
+    }
+
+    if (koto_ogp_is_generation_rate_limited()) {
+        $rate_limited = true;
+        return '';
     }
 
     $render_opts = [
@@ -368,7 +401,11 @@ function koto_ogp_handle_image_request()
         }
     }
 
-    $file = koto_ogp_generate_image_file($options);
+    $rate_limited = false;
+    $file = koto_ogp_generate_image_file($options, $rate_limited);
+    if ($rate_limited) {
+        koto_ogp_send_error_response(429, 'Too Many Requests');
+    }
     if (!$file || !file_exists($file)) {
         koto_ogp_send_error_response(500, 'Failed to generate OGP image');
     }

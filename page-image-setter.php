@@ -79,6 +79,9 @@ foreach ($pending_raw as $c) {
     if (strpos($c->post_title, '雛型') !== false || strpos($c->post_title, '雛形') !== false) {
         continue;
     }
+    if (!current_user_can('edit_post', (int) $c->ID)) {
+        continue;
+    }
 
     $pending_characters[] = [
         'id'          => $c->ID,

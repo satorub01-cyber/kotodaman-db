@@ -1166,8 +1166,24 @@ function koto_mcp_set_featured_image_from_url($post_id, $url)
 {
     global $wpdb;
     $url = esc_url_raw($url);
-    $scheme = strtolower((string) wp_parse_url($url, PHP_URL_SCHEME));
-    if (!$url || !in_array($scheme, ['https', 'http'], true) || wp_parse_url($url, PHP_URL_HOST) !== 'www.kotodaman-db.com') return;
+    $parsed_url = $url ? wp_parse_url($url) : false;
+    $scheme = is_array($parsed_url) ? strtolower((string) ($parsed_url['scheme'] ?? '')) : '';
+    $host = is_array($parsed_url) ? strtolower((string) ($parsed_url['host'] ?? '')) : '';
+    $path = is_array($parsed_url) ? (string) ($parsed_url['path'] ?? '') : '';
+    $query = is_array($parsed_url) ? (string) ($parsed_url['query'] ?? '') : '';
+    $ext = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+    $allowed_exts = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
+    if (
+        !$url
+        || !in_array($scheme, ['https', 'http'], true)
+        || $host !== 'www.kotodaman-db.com'
+        || $query !== ''
+        || !str_starts_with($path, '/wp-content/uploads/')
+        || strpos($path, '..') !== false
+        || !in_array($ext, $allowed_exts, true)
+    ) {
+        return;
+    }
     $existing = attachment_url_to_postid($url);
     if (!$existing) {
         $raw_basename = rawurldecode(basename((string) wp_parse_url($url, PHP_URL_PATH)));

@@ -97,11 +97,9 @@ function koto_mcp_is_secure_or_loopback_transport()
         return true;
     }
     $host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
-    $server_host = isset($_SERVER['HTTP_HOST']) ? strtolower((string) preg_replace('/:\d+$/', '', (string) $_SERVER['HTTP_HOST'])) : '';
     $loopbacks = ['localhost', '127.0.0.1', '[::1]', '::1'];
-    foreach ([$host, $server_host] as $h) {
-        if ($h === '') continue;
-        if (in_array($h, $loopbacks, true) || substr($h, -6) === '.local' || substr($h, -5) === '.test') {
+    if ($host !== '') {
+        if (in_array($host, $loopbacks, true) || substr($host, -6) === '.local' || substr($host, -5) === '.test') {
             return true;
         }
     }

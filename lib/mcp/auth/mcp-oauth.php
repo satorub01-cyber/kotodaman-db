@@ -650,6 +650,16 @@ function koto_mcp_oauth_resolve_cimd_client($client_id)
     // テスト差し替えや追加検証用フック（通常運用時は null を返し wp_safe_remote_get を使用）
     $custom_response = apply_filters('koto_mcp_cimd_http_fetcher', null, $client_id);
     if ($custom_response === null) {
+        if (PHP_SAPI !== 'cli') {
+            $remote_ip = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : 'unknown';
+            $rate_key = 'koto_mcp_cimd_rl_' . md5($remote_ip);
+            $hits = (int) get_transient($rate_key);
+            if ($hits >= 30) {
+                return null;
+            }
+            set_transient($rate_key, $hits + 1, MINUTE_IN_SECONDS);
+        }
+
         if (filter_var($host, FILTER_VALIDATE_IP) === false) {
             $resolved_ips = [];
             if (function_exists('dns_get_record')) {

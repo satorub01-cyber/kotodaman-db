@@ -17,6 +17,14 @@ add_action('wp_ajax_koto_create_post_from_auto_input', 'koto_ajax_create_post_fr
  */
 function koto_ajax_parse_auto_input()
 {
+    if (!current_user_can('edit_posts')) {
+        wp_send_json_error(['message' => '権限がありません'], 403);
+    }
+
+    if (!check_ajax_referer('koto_auto_input_nonce', 'nonce', false)) {
+        wp_send_json_error(['message' => 'セキュリティチェックに失敗しました'], 403);
+    }
+
     $texts = isset($_POST['texts']) ? wp_unslash($_POST['texts']) : [];
     $context = [
         'post_id' => isset($_POST['post_id']) ? intval($_POST['post_id']) : 0,
@@ -39,11 +47,20 @@ function koto_ajax_parse_auto_input()
  */
 function koto_ajax_update_post_from_auto_input()
 {
+    if (!check_ajax_referer('koto_auto_input_nonce', 'nonce', false)) {
+        wp_send_json_error(['message' => 'セキュリティチェックに失敗しました'], 403);
+    }
+
     $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
     $texts = isset($_POST['texts']) ? wp_unslash($_POST['texts']) : [];
 
     if (!$post_id) {
         wp_send_json_error(['message' => '対象の記事が選択されていません']);
+    }
+
+    $target_post = get_post($post_id);
+    if (!($target_post instanceof WP_Post) || $target_post->post_type !== 'character') {
+        wp_send_json_error(['message' => '対象のキャラクター記事が見つかりません'], 400);
     }
 
     if (!current_user_can('edit_post', $post_id)) {
@@ -95,6 +112,10 @@ function koto_ajax_update_post_from_auto_input()
  */
 function koto_ajax_create_post_from_auto_input()
 {
+    if (!check_ajax_referer('koto_auto_input_nonce', 'nonce', false)) {
+        wp_send_json_error(['message' => 'セキュリティチェックに失敗しました'], 403);
+    }
+
     if (!current_user_can('edit_posts')) {
         wp_send_json_error(['message' => '新規記事を作成する権限がありません'], 403);
     }

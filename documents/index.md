@@ -42,6 +42,7 @@ description: リポジトリ内の全ドキュメントの入口。必要な資�
 | [spec.md](spec.md) | `spec` | `draft` | `_spec_json` スキーマ、`all_characters_search.json` の trait 検索 canonical slug 定義、火力計算・解析関数仕様メモ。 |
 | [blessing-token-guide.md](blessing-token-guide.md) | `guide` | `stable` | 祝福・EX祝福トークンレジストリの構造定義、`label` 仕様、ギミック耐性トークン一覧および新規追加手順。 |
 | [local-dev.md](local-dev.md) | `guide` | `stable` | DevContainer を用いたローカル WordPress・MariaDB・Xdebug・ヘッドレス Chrome 環境の構築と運用手順。 |
+| [security-issues.md](security-issues.md) | `note` | `stable` | テーマ全体の外部入力・CSRF・認可・XSS・SSRF/DoS 監査結果、修正済み項目、および要検討イシュー一覧。 |
 
 ### MCP 連携・外部AI関連（[mcp/index.md](mcp/index.md)）
 | ドキュメント | `type` | `status` | 要約（`description`） |

@@ -1543,7 +1543,9 @@ wp_reset_postdata();
 </div>
 
 <?php
-$is_localhost_8080 = isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] === 'localhost:8080';
+$home_host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+$home_port = wp_parse_url(home_url('/'), PHP_URL_PORT);
+$is_localhost_8080 = (wp_get_environment_type() === 'local') || ($home_host === 'localhost' && (int) $home_port === 8080);
 if ($is_localhost_8080):
 ?>
     <div class="detail-section-part" style="margin-top: 24px;">

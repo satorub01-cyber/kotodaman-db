@@ -210,7 +210,7 @@ add_action('wp_footer', function () {
 // =================================================================
 // 7. ACF JSON 保存・読み込み先設定 (本番ドメイン用)
 // =================================================================
-$current_domain = $_SERVER['HTTP_HOST'] ?? '';
+$current_domain = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
 if (str_ends_with($current_domain, 'kotodaman-db.com')) {
     add_filter('acf/settings/save_json', function ($path) {
         return get_stylesheet_directory() . '/acf-json';

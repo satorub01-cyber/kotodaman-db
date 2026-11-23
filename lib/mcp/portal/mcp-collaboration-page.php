@@ -176,6 +176,10 @@ function koto_mcp_collab_submit_registration(array $input) {
         update_option($storage_key, $pending_payload, false);
     }
 
+    if (function_exists('koto_mcp_maybe_cleanup_expired_options')) {
+        koto_mcp_maybe_cleanup_expired_options();
+    }
+
     $base_portal_url = !empty($input['return_url'])
         ? koto_mcp_collab_resolve_return_url((string) $input['return_url'])
         : koto_mcp_collab_current_url();

@@ -7,31 +7,48 @@
 if (!defined('ABSPATH')) exit;
 
 /**
+ * ターム一括付与で操作を許可するキャラクター関連タクソノミー一覧を返す。
+ *
+ * @return string[]
+ */
+function term_setter_get_allowed_taxonomies() {
+    $taxonomies = get_object_taxonomies('character', 'names');
+    return is_array($taxonomies) ? array_values($taxonomies) : [];
+}
+
+/**
  * Ajax: 新規ターム作成
  */
 add_action('wp_ajax_term_setter_create_term', 'term_setter_handle_create_term');
 function term_setter_handle_create_term() {
     // 権限チェック
     if (!current_user_can('publish_posts')) {
-        wp_send_json_error(['message' => '権限がありません。']);
+        wp_send_json_error(['message' => '権限がありません。'], 403);
     }
 
     // nonceチェック
-    if (!wp_verify_nonce($_POST['nonce'] ?? '', 'term_setter_nonce')) {
-        wp_send_json_error(['message' => 'セキュリティチェックに失敗しました。']);
+    $nonce = sanitize_text_field(wp_unslash((string) ($_POST['nonce'] ?? '')));
+    if (!wp_verify_nonce($nonce, 'term_setter_nonce')) {
+        wp_send_json_error(['message' => 'セキュリティチェックに失敗しました。'], 403);
     }
 
-    $taxonomy = sanitize_text_field($_POST['taxonomy'] ?? '');
-    $name = sanitize_text_field($_POST['name'] ?? '');
-    $slug = sanitize_title($_POST['slug'] ?? '');
+    $taxonomy = sanitize_key(wp_unslash((string) ($_POST['taxonomy'] ?? '')));
+    $name = sanitize_text_field(wp_unslash((string) ($_POST['name'] ?? '')));
+    $slug = sanitize_title(wp_unslash((string) ($_POST['slug'] ?? '')));
 
     if (empty($taxonomy) || empty($name)) {
         wp_send_json_error(['message' => 'タクソノミー名とターム名は必須です。']);
     }
 
-    // タクソノミーの存在確認
-    if (!taxonomy_exists($taxonomy)) {
-        wp_send_json_error(['message' => '指定されたタクソノミーが存在しません。']);
+    // タクソノミーの許可・存在・権限確認
+    if (!in_array($taxonomy, term_setter_get_allowed_taxonomies(), true) || !taxonomy_exists($taxonomy)) {
+        wp_send_json_error(['message' => '指定されたタクソノミーが存在しないか対象外です。'], 400);
+    }
+
+    $tax_obj = get_taxonomy($taxonomy);
+    $manage_cap = $tax_obj->cap->manage_terms ?? 'manage_categories';
+    if (!$tax_obj || !current_user_can($manage_cap)) {
+        wp_send_json_error(['message' => 'このタクソノミーにタームを作成する権限がありません。'], 403);
     }
 
     // 親ターム指定
@@ -69,15 +86,16 @@ add_action('wp_ajax_term_setter_apply_terms', 'term_setter_handle_apply_terms');
 function term_setter_handle_apply_terms() {
     // 権限チェック
     if (!current_user_can('publish_posts')) {
-        wp_send_json_error(['message' => '権限がありません。']);
+        wp_send_json_error(['message' => '権限がありません。'], 403);
     }
 
     // nonceチェック
-    if (!wp_verify_nonce($_POST['nonce'] ?? '', 'term_setter_nonce')) {
-        wp_send_json_error(['message' => 'セキュリティチェックに失敗しました。']);
+    $nonce = sanitize_text_field(wp_unslash((string) ($_POST['nonce'] ?? '')));
+    if (!wp_verify_nonce($nonce, 'term_setter_nonce')) {
+        wp_send_json_error(['message' => 'セキュリティチェックに失敗しました。'], 403);
     }
 
-    $taxonomy = sanitize_text_field($_POST['taxonomy'] ?? '');
+    $taxonomy = sanitize_key(wp_unslash((string) ($_POST['taxonomy'] ?? '')));
     $term_ids = array_map('intval', (array) ($_POST['term_ids'] ?? []));
     $character_ids = array_map('intval', (array) ($_POST['character_ids'] ?? []));
 
@@ -93,9 +111,15 @@ function term_setter_handle_apply_terms() {
         wp_send_json_error(['message' => 'キャラクターが選択されていません。']);
     }
 
-    // タクソノミーの存在確認
-    if (!taxonomy_exists($taxonomy)) {
-        wp_send_json_error(['message' => '指定されたタクソノミーが存在しません。']);
+    // タクソノミーの許可・存在・権限確認
+    if (!in_array($taxonomy, term_setter_get_allowed_taxonomies(), true) || !taxonomy_exists($taxonomy)) {
+        wp_send_json_error(['message' => '指定されたタクソノミーが存在しないか対象外です。'], 400);
+    }
+
+    $tax_obj = get_taxonomy($taxonomy);
+    $assign_cap = $tax_obj->cap->assign_terms ?? 'edit_posts';
+    if (!$tax_obj || !current_user_can($assign_cap)) {
+        wp_send_json_error(['message' => 'このタクソノミーのタームを付与する権限がありません。'], 403);
     }
 
     $success_count = 0;
@@ -103,11 +127,24 @@ function term_setter_handle_apply_terms() {
     $errors = [];
 
     foreach ($character_ids as $post_id) {
-        // 投稿の存在確認
+        // 投稿の存在確認・種別・保護記事・編集権限チェック
         $post = get_post($post_id);
-        if (!$post) {
+        if (!($post instanceof WP_Post) || $post->post_type !== 'character') {
             $failed_count++;
-            $errors[] = "ID {$post_id}: 投稿が見つかりません";
+            $errors[] = "ID {$post_id}: 対象のキャラクター投稿が見つかりません";
+            continue;
+        }
+        $is_protected = function_exists('koto_mcp_is_protected_template_post')
+            ? koto_mcp_is_protected_template_post($post)
+            : ((int) $post->ID === 3683 || strpos((string) $post->post_title, '雛型') !== false || strpos((string) $post->post_title, '雛形') !== false);
+        if ($is_protected) {
+            $failed_count++;
+            $errors[] = "ID {$post_id}: 保護対象のテンプレート記事には付与できません";
+            continue;
+        }
+        if (!current_user_can('edit_post', $post_id)) {
+            $failed_count++;
+            $errors[] = "ID {$post_id}: この記事を編集する権限がありません";
             continue;
         }
 
@@ -150,18 +187,19 @@ add_action('wp_ajax_term_setter_get_term_hierarchy', 'term_setter_handle_get_ter
 function term_setter_handle_get_term_hierarchy() {
     // 権限チェック
     if (!current_user_can('publish_posts')) {
-        wp_send_json_error(['message' => '権限がありません。']);
+        wp_send_json_error(['message' => '権限がありません。'], 403);
     }
 
     // nonceチェック
-    if (!wp_verify_nonce($_POST['nonce'] ?? '', 'term_setter_nonce')) {
-        wp_send_json_error(['message' => 'セキュリティチェックに失敗しました。']);
+    $nonce = sanitize_text_field(wp_unslash((string) ($_POST['nonce'] ?? '')));
+    if (!wp_verify_nonce($nonce, 'term_setter_nonce')) {
+        wp_send_json_error(['message' => 'セキュリティチェックに失敗しました。'], 403);
     }
 
-    $taxonomy = sanitize_text_field($_POST['taxonomy'] ?? '');
+    $taxonomy = sanitize_key(wp_unslash((string) ($_POST['taxonomy'] ?? '')));
 
-    if (empty($taxonomy) || !taxonomy_exists($taxonomy)) {
-        wp_send_json_error(['message' => 'タクソノミーが存在しません。']);
+    if (empty($taxonomy) || !in_array($taxonomy, term_setter_get_allowed_taxonomies(), true) || !taxonomy_exists($taxonomy)) {
+        wp_send_json_error(['message' => 'タクソノミーが存在しないか対象外です。'], 400);
     }
 
     // 階層付きでタームを取得

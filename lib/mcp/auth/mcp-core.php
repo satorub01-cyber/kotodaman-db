@@ -417,6 +417,27 @@ function koto_mcp_maybe_cleanup_expired_options()
             }
         }
     }
+
+    // 8. 期限切れの公開DCRクライアント koto_mcp_oauth_client_% (作成から1年経過、静的クライアント除外) (LIMIT 100)
+    $dcr_like = $wpdb->esc_like('koto_mcp_oauth_client_') . '%';
+    $dcr_rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s LIMIT 100",
+        $dcr_like
+    ));
+    if (is_array($dcr_rows)) {
+        foreach ($dcr_rows as $row) {
+            $val = maybe_unserialize($row->option_value);
+            if (
+                is_array($val)
+                && empty($val['is_static'])
+                && ($val['client_type'] ?? '') === 'public'
+                && !empty($val['created_at'])
+                && ((int) $val['created_at'] + YEAR_IN_SECONDS) < $now
+            ) {
+                delete_option($row->option_name);
+            }
+        }
+    }
 }
 
 /**

@@ -16,3 +16,4 @@ search-moc.html
 .vscode/
 /.devcontainer/acf-pro-stubs-master
 lib/character-search/test_characters_search.json
+documents/security-issues.md

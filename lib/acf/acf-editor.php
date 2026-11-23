@@ -173,16 +173,20 @@ function koto_acf_editor_menu()
         wp_enqueue_script('acf-editor-script', $theme_uri . '/lib/acf/acf-editor.js', ['jquery', 'acf-input'], time(), true);
         wp_enqueue_script('acf-auto-input-script', $theme_uri . '/lib/acf/acf-auto-input.js', ['jquery', 'jquery-ui-sortable'], time(), true);
 
+        $site_host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
         $is_local = (wp_get_environment_type() === 'local')
             || (defined('WP_DEBUG') && WP_DEBUG)
-            || (isset($_SERVER['HTTP_HOST']) && (
-                str_contains($_SERVER['HTTP_HOST'], 'local')
-                || str_contains($_SERVER['HTTP_HOST'], '127.0.0.1')
+            || ($site_host !== '' && (
+                $site_host === 'localhost'
+                || $site_host === '127.0.0.1'
+                || str_ends_with($site_host, '.local')
+                || str_ends_with($site_host, '.test')
             ));
 
         wp_localize_script('acf-auto-input-script', 'AppDebugConfig', [
-            'isLocal' => $is_local,
-            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'isLocal'        => $is_local,
+            'ajaxUrl'        => admin_url('admin-ajax.php'),
+            'autoInputNonce' => wp_create_nonce('koto_auto_input_nonce'),
         ]);
 
         // 祝福トークン・テンプレート・属性・種族の設定データをフロントエンドへ渡す
@@ -316,8 +320,12 @@ add_filter('acf/fields/relationship/query/key=field_editor_search_template', 'ko
  */
 function koto_acf_relationship_query_custom($args, $field, $post_id)
 {
-    // 1. 下書きのキャラも検索結果に出るようにする（超重要！）
-    $args['post_status'] = ['publish', 'draft', 'pending', 'private'];
+    // 1. 下書きのキャラも検索結果に出るようにする（非公開は権限保持者のみ）
+    $allowed_statuses = ['publish', 'draft', 'pending'];
+    if (current_user_can('read_private_posts')) {
+        $allowed_statuses[] = 'private';
+    }
+    $args['post_status'] = $allowed_statuses;
 
     // 左側（編集先）で「下書きのみ」絞り込みが指定されている場合
     if (
@@ -501,6 +509,50 @@ function koto_mcp_mark_post_reviewed($post_id, $user_id = 0)
     return true;
 }
 
+/**
+ * 引用・複製元となるキャラクター投稿を現在のユーザーが参照可能か検証する。
+ *
+ * @param int  $post_id
+ * @param bool $allow_templates 雛型コピー元の許可フラグ
+ * @return bool
+ */
+function koto_acf_editor_can_read_source_post($post_id, $allow_templates = false)
+{
+    $post_id = intval($post_id);
+    if ($post_id <= 0 || !current_user_can('edit_posts')) {
+        return false;
+    }
+
+    $post = get_post($post_id);
+    if (!($post instanceof WP_Post) || $post->post_type !== 'character') {
+        return false;
+    }
+
+    if ($post->post_status === 'trash') {
+        return false;
+    }
+
+    if ($post->post_status === 'publish' && $post->post_password === '') {
+        return true;
+    }
+
+    if (current_user_can('edit_post', $post->ID)) {
+        return true;
+    }
+
+    if ($allow_templates) {
+        $template_ids = [2947, 2023, 2637, 2638, 3845, 4603, 5294, 3683];
+        $is_tpl = in_array((int) $post->ID, $template_ids, true)
+            || (function_exists('koto_mcp_is_protected_template_post') && koto_mcp_is_protected_template_post($post))
+            || (mb_strpos((string) $post->post_title, '雛型', 0, 'UTF-8') !== false || mb_strpos((string) $post->post_title, '雛形', 0, 'UTF-8') !== false);
+        if ($is_tpl && $post->post_status !== 'private') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function koto_acf_editor_handle_actions()
 {
     $current_url = admin_url('admin.php?page=koto-acf-editor');
@@ -509,52 +561,57 @@ function koto_acf_editor_handle_actions()
         if (!current_user_can('edit_posts')) {
             wp_die('この操作を行う権限がありません。', 'permission_denied', ['response' => 403]);
         }
+        check_admin_referer('koto_acf_copy_template');
         $search_temp_id = 0;
         // こちらも $_POST の実際のキー名から取得する
         if (!empty($_POST['field_editor_search_template']) && is_array($_POST['field_editor_search_template'])) {
             $search_temp_id = intval($_POST['field_editor_search_template'][0]);
         }
-        $template_id = $search_temp_id ? $search_temp_id : intval($_POST['template_id']);
-        $target_group = sanitize_text_field($_POST['target_group']);
-        if ($template_id) {
+        $template_id = $search_temp_id ? $search_temp_id : intval($_POST['template_id'] ?? 0);
+        $target_group = sanitize_text_field(wp_unslash((string) ($_POST['target_group'] ?? '')));
+        if ($template_id && koto_acf_editor_can_read_source_post($template_id, true)) {
             $template_post = get_post($template_id);
+            if ($template_post instanceof WP_Post) {
+                // 投稿を作成（強制的に下書き）
+                $new_post_id = wp_insert_post([
+                    'post_title'  => $template_post->post_title . '（コピー）',
+                    'post_status' => 'draft',
+                    'post_type'   => $template_post->post_type,
+                ]);
 
-            // 投稿を作成（強制的に下書き）
-            $new_post_id = wp_insert_post([
-                'post_title'  => $template_post->post_title . '（コピー）',
-                'post_status' => 'draft',
-                'post_type'   => $template_post->post_type,
-            ]);
+                if ($new_post_id && !is_wp_error($new_post_id)) {
+                    // 1. メタデータのコピー（データの破損を防ぐため maybe_unserialize を挟む）
+                    $meta_data = get_post_meta($template_id);
+                    foreach ($meta_data as $key => $values) {
+                        foreach ($values as $value) {
+                            add_post_meta($new_post_id, $key, maybe_unserialize($value));
+                        }
+                    }
 
-            // 1. メタデータのコピー（データの破損を防ぐため maybe_unserialize を挟む）
-            $meta_data = get_post_meta($template_id);
-            foreach ($meta_data as $key => $values) {
-                foreach ($values as $value) {
-                    add_post_meta($new_post_id, $key, maybe_unserialize($value));
+                    // 2. タクソノミー（ターム情報）のコピー
+                    $taxonomies = get_object_taxonomies($template_post->post_type);
+                    foreach ($taxonomies as $taxonomy) {
+                        $terms = wp_get_object_terms($template_id, $taxonomy, ['fields' => 'ids']);
+                        if (!empty($terms) && !is_wp_error($terms)) {
+                            wp_set_object_terms($new_post_id, $terms, $taxonomy);
+                        }
+                    }
+
+                    wp_safe_redirect(add_query_arg(['edit_post_id' => $new_post_id, 'acf_group' => $target_group], $current_url));
+                    exit;
                 }
             }
-
-            // 2. タクソノミー（ターム情報）のコピー
-            $taxonomies = get_object_taxonomies($template_post->post_type);
-            foreach ($taxonomies as $taxonomy) {
-                $terms = wp_get_object_terms($template_id, $taxonomy, ['fields' => 'ids']);
-                if (!empty($terms) && !is_wp_error($terms)) {
-                    wp_set_object_terms($new_post_id, $terms, $taxonomy);
-                }
-            }
-
-            wp_safe_redirect(add_query_arg(['edit_post_id' => $new_post_id, 'acf_group' => $target_group], $current_url));
-            exit;
         }
     }
 
     // B. フィールド全体の上書きコピペ処理
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acf_action']) && $_POST['acf_action'] === 'import_single_field') {
-        $target_post_id = intval($_POST['target_post_id']);
-        $source_post_id = intval($_POST['source_post_id']);
-        $source_field_key = sanitize_text_field($_POST['source_field_key'] ?? $_POST['field_key'] ?? '');
-        $target_field_raw = sanitize_text_field($_POST['target_field_key'] ?? $source_field_key);
-        $field_label      = sanitize_text_field($_POST['field_label']);
+        check_admin_referer('koto_acf_import_single_field');
+        $target_post_id   = intval($_POST['target_post_id'] ?? 0);
+        $source_post_id   = intval($_POST['source_post_id'] ?? 0);
+        $source_field_key = sanitize_text_field(wp_unslash((string) ($_POST['source_field_key'] ?? $_POST['field_key'] ?? '')));
+        $target_field_raw = sanitize_text_field(wp_unslash((string) ($_POST['target_field_key'] ?? $source_field_key)));
+        $field_label      = sanitize_text_field(wp_unslash((string) ($_POST['field_label'] ?? '')));
 
         $target_field_key = $target_field_raw;
         if (strpos($target_field_raw, 'field_') !== 0 && function_exists('acf_get_field')) {
@@ -564,7 +621,15 @@ function koto_acf_editor_handle_actions()
             }
         }
 
-        if ($target_post_id && $source_post_id && $source_field_key && $target_field_key && current_user_can('edit_post', $target_post_id)) {
+        $target_post = $target_post_id ? get_post($target_post_id) : null;
+        if (
+            $target_post instanceof WP_Post
+            && $target_post->post_type === 'character'
+            && koto_acf_editor_can_read_source_post($source_post_id)
+            && $source_field_key
+            && $target_field_key
+            && current_user_can('edit_post', $target_post_id)
+        ) {
             $source_field_obj = function_exists('acf_get_field') ? acf_get_field($source_field_key) : null;
             $value = get_field($source_field_key, $source_post_id, false);
 
@@ -582,9 +647,9 @@ function koto_acf_editor_handle_actions()
 
             $redirect_url = add_query_arg([
                 'edit_post_id'   => $target_post_id,
-                'acf_group'      => sanitize_text_field($_GET['acf_group']),
+                'acf_group'      => sanitize_text_field(wp_unslash((string) ($_GET['acf_group'] ?? ''))),
                 'source_post_id' => $source_post_id,
-                'source_group'   => sanitize_text_field($_GET['source_group']),
+                'source_group'   => sanitize_text_field(wp_unslash((string) ($_GET['source_group'] ?? ''))),
                 'imported_field' => urlencode($field_label)
             ], $current_url);
             wp_safe_redirect($redirect_url);
@@ -594,12 +659,13 @@ function koto_acf_editor_handle_actions()
 
     // C. リピーターの「特定の1行」だけを末尾に追加コピペする処理
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acf_action']) && $_POST['acf_action'] === 'import_single_row') {
-        $target_post_id = intval($_POST['target_post_id']);
-        $source_post_id = intval($_POST['source_post_id']);
-        $source_field_key = sanitize_text_field($_POST['source_field_key'] ?? $_POST['field_key'] ?? '');
-        $target_field_raw = sanitize_text_field($_POST['target_field_key'] ?? $source_field_key);
-        $row_index        = intval($_POST['row_index']);
-        $field_label      = sanitize_text_field($_POST['field_label']);
+        check_admin_referer('koto_acf_import_single_row');
+        $target_post_id   = intval($_POST['target_post_id'] ?? 0);
+        $source_post_id   = intval($_POST['source_post_id'] ?? 0);
+        $source_field_key = sanitize_text_field(wp_unslash((string) ($_POST['source_field_key'] ?? $_POST['field_key'] ?? '')));
+        $target_field_raw = sanitize_text_field(wp_unslash((string) ($_POST['target_field_key'] ?? $source_field_key)));
+        $row_index        = intval($_POST['row_index'] ?? 0);
+        $field_label      = sanitize_text_field(wp_unslash((string) ($_POST['field_label'] ?? '')));
 
         $target_field_key = $target_field_raw;
         if (strpos($target_field_raw, 'field_') !== 0 && function_exists('acf_get_field')) {
@@ -609,7 +675,15 @@ function koto_acf_editor_handle_actions()
             }
         }
 
-        if ($target_post_id && $source_post_id && $source_field_key && $target_field_key && current_user_can('edit_post', $target_post_id)) {
+        $target_post = $target_post_id ? get_post($target_post_id) : null;
+        if (
+            $target_post instanceof WP_Post
+            && $target_post->post_type === 'character'
+            && koto_acf_editor_can_read_source_post($source_post_id)
+            && $source_field_key
+            && $target_field_key
+            && current_user_can('edit_post', $target_post_id)
+        ) {
             $source_field_obj = function_exists('acf_get_field') ? acf_get_field($source_field_key) : null;
             // ソースの特定行を取得
             $source_data = get_field($source_field_key, $source_post_id, false);
@@ -632,9 +706,9 @@ function koto_acf_editor_handle_actions()
 
             $redirect_url = add_query_arg([
                 'edit_post_id'   => $target_post_id,
-                'acf_group'      => sanitize_text_field($_GET['acf_group']),
+                'acf_group'      => sanitize_text_field(wp_unslash((string) ($_GET['acf_group'] ?? ''))),
                 'source_post_id' => $source_post_id,
-                'source_group'   => sanitize_text_field($_GET['source_group']),
+                'source_group'   => sanitize_text_field(wp_unslash((string) ($_GET['source_group'] ?? ''))),
                 'imported_row'   => urlencode($field_label . ' の 行' . ($row_index + 1))
             ], $current_url);
             wp_safe_redirect($redirect_url);
@@ -643,16 +717,34 @@ function koto_acf_editor_handle_actions()
     }
     // --- 追加: 複数行の一括追加コピペ処理 ---
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acf_action']) && $_POST['acf_action'] === 'import_multiple_rows') {
-        $target_post_id = intval($_POST['target_post_id']);
-        $source_post_id = intval($_POST['source_post_id']);
-        $copy_items_json = stripslashes($_POST['copy_items_json']);
+        check_admin_referer('koto_acf_import_multiple_rows');
+        $target_post_id = intval($_POST['target_post_id'] ?? 0);
+        $source_post_id = intval($_POST['source_post_id'] ?? 0);
+        $copy_items_json = wp_unslash((string) ($_POST['copy_items_json'] ?? ''));
         $copy_items = json_decode($copy_items_json, true);
 
-        if ($target_post_id && $source_post_id && is_array($copy_items) && current_user_can('edit_post', $target_post_id)) {
+        $target_post = $target_post_id ? get_post($target_post_id) : null;
+        if (
+            $target_post instanceof WP_Post
+            && $target_post->post_type === 'character'
+            && koto_acf_editor_can_read_source_post($source_post_id)
+            && is_array($copy_items)
+            && current_user_can('edit_post', $target_post_id)
+        ) {
             $fields_to_update = [];
             foreach ($copy_items as $item) {
-                $src_key = $item['field_key'];
-                $tgt_key_raw = isset($item['target_field_key']) ? $item['target_field_key'] : $src_key;
+                if (
+                    !is_array($item)
+                    || empty($item['field_key'])
+                    || !is_string($item['field_key'])
+                    || !isset($item['row_index'])
+                ) {
+                    continue;
+                }
+                $src_key = sanitize_text_field($item['field_key']);
+                $tgt_key_raw = (!empty($item['target_field_key']) && is_string($item['target_field_key']))
+                    ? sanitize_text_field($item['target_field_key'])
+                    : $src_key;
 
                 $tgt_key = $tgt_key_raw;
                 if (strpos($tgt_key_raw, 'field_') !== 0 && function_exists('acf_get_field')) {
@@ -662,7 +754,11 @@ function koto_acf_editor_handle_actions()
                     }
                 }
 
-                $fields_to_update[$src_key][$tgt_key][] = intval($item['row_index']);
+                $row_idx = intval($item['row_index']);
+                if ($src_key === '' || $tgt_key === '' || $row_idx < 0) {
+                    continue;
+                }
+                $fields_to_update[$src_key][$tgt_key][] = $row_idx;
             }
 
             foreach ($fields_to_update as $src_key => $targets) {
@@ -689,9 +785,9 @@ function koto_acf_editor_handle_actions()
             }
             $redirect_url = add_query_arg([
                 'edit_post_id' => $target_post_id,
-                'acf_group' => sanitize_text_field($_GET['acf_group']),
+                'acf_group' => sanitize_text_field(wp_unslash((string) ($_GET['acf_group'] ?? ''))),
                 'source_post_id' => $source_post_id,
-                'source_group' => sanitize_text_field($_GET['source_group']),
+                'source_group' => sanitize_text_field(wp_unslash((string) ($_GET['source_group'] ?? ''))),
                 'imported_multiple' => count($copy_items)
             ], $current_url);
             wp_safe_redirect($redirect_url);
@@ -717,7 +813,16 @@ function koto_acf_editor_handle_actions()
 
     // E. カスタムステータス・アイキャッチ保存
     add_action('acf/save_post', function ($post_id) {
-        if (isset($_POST['custom_post_status']) && in_array($_POST['custom_post_status'], ['draft', 'publish'], true)) {
+        $saved_post = get_post($post_id);
+        if (!($saved_post instanceof WP_Post) || $saved_post->post_type !== 'character') {
+            return;
+        }
+
+        $is_protected = function_exists('koto_mcp_is_protected_template_post')
+            ? koto_mcp_is_protected_template_post($saved_post)
+            : ((int) $saved_post->ID === 3683 || mb_strpos((string) $saved_post->post_title, '雛型', 0, 'UTF-8') !== false || mb_strpos((string) $saved_post->post_title, '雛形', 0, 'UTF-8') !== false);
+
+        if (!$is_protected && isset($_POST['custom_post_status']) && in_array($_POST['custom_post_status'], ['draft', 'publish'], true)) {
             $new_status = sanitize_key((string) $_POST['custom_post_status']);
             if ($new_status === 'publish' && !current_user_can('publish_post', $post_id)) {
                 return;
@@ -898,6 +1003,9 @@ function koto_acf_editor_page_html()
         $source_post_id = intval($_GET['field_editor_source_post'][0]);
     } elseif (!empty($_GET['source_post_id'])) {
         $source_post_id = intval($_GET['source_post_id']);
+    }
+    if ($source_post_id && !koto_acf_editor_can_read_source_post($source_post_id)) {
+        $source_post_id = 0;
     }
 
     $source_group = isset($_GET['source_group']) ? sanitize_text_field($_GET['source_group']) : '';
@@ -1194,6 +1302,7 @@ function koto_acf_editor_page_html()
                 <button type="button" class="button button-small koto-mobile-panel-close">× 閉じる</button>
             </div>
             <form method="POST" action="" class="acf-template-form">
+                <?php wp_nonce_field('koto_acf_copy_template'); ?>
                 <input type="hidden" name="acf_action" value="copy_template">
                 <strong>雛型から新規作成:</strong>
                 <select name="template_id">
@@ -1526,6 +1635,7 @@ function koto_acf_editor_page_html()
                     ?>
                         <?php if ($edit_post_id) : ?>
                             <form id="multi-copy-form" class="koto-multi-copy-form" method="POST" action="">
+                                <?php wp_nonce_field('koto_acf_import_multiple_rows'); ?>
                                 <input type="hidden" name="acf_action" value="import_multiple_rows">
                                 <input type="hidden" name="target_post_id" value="<?php echo esc_attr($edit_post_id); ?>">
                                 <input type="hidden" name="source_post_id" value="<?php echo esc_attr($source_post_id); ?>">
@@ -1577,6 +1687,7 @@ function koto_acf_editor_page_html()
                                             $confirm_msg = "「{$field['label']}」をコピーして上書きします。\nよろしいですか？";
                                         ?>
                                             <form method="POST" action="" style="display:flex; gap:10px; align-items:center;">
+                                                <?php wp_nonce_field('koto_acf_import_single_field'); ?>
                                                 <input type="hidden" name="acf_action" value="import_single_field">
                                                 <input type="hidden" name="target_post_id" value="<?php echo esc_attr($edit_post_id); ?>">
                                                 <input type="hidden" name="source_post_id" value="<?php echo esc_attr($source_post_id); ?>">
@@ -1619,6 +1730,7 @@ function koto_acf_editor_page_html()
                                             $confirm_msg = "【上書き警告】\n「{$field['label']}」の全体データを上書きコピーします。左側の既存データは消えます。\nよろしいですか？";
                                         ?>
                                             <form method="POST" action="" style="display:flex; gap:10px; align-items:center;">
+                                                <?php wp_nonce_field('koto_acf_import_single_field'); ?>
                                                 <input type="hidden" name="acf_action" value="import_single_field">
                                                 <input type="hidden" name="target_post_id" value="<?php echo esc_attr($edit_post_id); ?>">
                                                 <input type="hidden" name="source_post_id" value="<?php echo esc_attr($source_post_id); ?>">
@@ -1691,6 +1803,7 @@ function koto_acf_editor_page_html()
                                                             $confirm_msg_row = "【追加コピー】\nこの行のデータを、左の投稿の末尾に追加します。\nよろしいですか？";
                                                         ?>
                                                             <form method="POST" action="" style="margin-top: 10px; display:flex; gap:10px; align-items:center;">
+                                                                <?php wp_nonce_field('koto_acf_import_single_row'); ?>
                                                                 <input type="hidden" name="acf_action" value="import_single_row">
                                                                 <input type="hidden" name="target_post_id" value="<?php echo esc_attr($edit_post_id); ?>">
                                                                 <input type="hidden" name="source_post_id" value="<?php echo esc_attr($source_post_id); ?>">

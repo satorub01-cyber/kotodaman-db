@@ -887,27 +887,27 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                 $values = preg_split('/[・\|]/u', $value);
                 $values = array_map(function ($v) {
                     $term = get_term_by('name', trim($v), 'attribute');
-                    return $term ? $term->term_id : null;
+                    return $term ? (int) $term->term_id : 0;
                 }, $values);
-                $target_detail = ',"target_attr" : [' . implode(',', array_filter($values)) . ']';
+                $target_detail = ',"target_attr" : [' . implode(',', array_filter(array_map('intval', $values))) . ']';
             } elseif (strpos($value, '種族') !== false) {
                 $target_type = 'species';
                 $value = str_replace('種族', '', $value);
                 $values = preg_split('/[・\|]/u', $value);
                 $values = array_map(function ($v) {
                     $term = get_term_by('name', trim($v), 'species');
-                    return $term ? $term->term_id : null;
+                    return $term ? (int) $term->term_id : 0;
                 }, $values);
-                $target_detail = ',"target_species" : [' . implode(',', array_filter($values)) . ']';
+                $target_detail = ',"target_species" : [' . implode(',', array_filter(array_map('intval', $values))) . ']';
             } elseif (strpos($value, '「') !== false) {
                 $target_type = 'group';
                 $value = str_replace(['「', '」'], ['', ''], $value);
                 $values = preg_split('/[・\|]/u', $value);
                 $values = array_map(function ($v) {
                     $term = get_term_by('name', trim($v), 'affiliation');
-                    return $term ? $term->term_id : null;
+                    return $term ? (int) $term->term_id : 0;
                 }, $values);
-                $target_detail = ',"target_group" : [' . implode(',', array_filter($values)) . ']';
+                $target_detail = ',"target_group" : [' . implode(',', array_filter(array_map('intval', $values))) . ']';
             }
             $value = '{"target_type" :"' . $target_type . '"' . $target_detail . '}';
             $unquote_keys[] = $key;
@@ -1070,13 +1070,31 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             }
         }
 
-        if (is_array($value)) {
-            $value = '[' . implode(',', $value) . ']';
+        if (in_array($key, $unquote_keys, true)) {
+            $replacements[$key] = ['type' => 'raw_json', 'value' => (string) $value];
+        } elseif (is_array($value)) {
+            $normalized_items = [];
+            foreach ($value as $item) {
+                if (is_int($item) || is_float($item)) {
+                    $normalized_items[] = $item;
+                } elseif (is_string($item) && preg_match('/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/', trim($item))) {
+                    $trimmed_item = trim($item);
+                    $normalized_items[] = strpos($trimmed_item, '.') !== false ? (float) $trimmed_item : (int) $trimmed_item;
+                } else {
+                    $normalized_items[] = (string) $item;
+                }
+            }
+            $encoded_arr = wp_json_encode($normalized_items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $unquote_keys[] = $key;
-        } elseif (is_numeric($value)) {
+            $replacements[$key] = ['type' => 'raw_json', 'value' => is_string($encoded_arr) ? $encoded_arr : '[]'];
+        } elseif (is_int($value) || is_float($value) || (is_string($value) && preg_match('/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/', trim($value)))) {
             $unquote_keys[] = $key;
+            $replacements[$key] = ['type' => 'raw_json', 'value' => is_string($value) ? trim($value) : (string) $value];
+        } else {
+            $encoded_str = wp_json_encode((string) $value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $inner_str = (is_string($encoded_str) && strlen($encoded_str) >= 2) ? substr($encoded_str, 1, -1) : '';
+            $replacements[$key] = ['type' => 'quoted_inner', 'value' => $inner_str];
         }
-        $replacements[$key] = $value;
     }
 
     // $val が $val2 を壊さないよう、長いプレースホルダ名から置換
@@ -1084,8 +1102,8 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
         return strlen($b) - strlen($a);
     });
     $json_str = $json_template;
-    foreach ($replacements as $key => $value) {
-        $val_str = (string) $value;
+    foreach ($replacements as $key => $entry) {
+        $val_str = $entry['value'];
         if (in_array($key, $unquote_keys, true)) {
             $json_str = str_replace('"$' . $key . '"', $val_str, $json_str);
         }
@@ -1095,8 +1113,8 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
     // --- デバッグ用ログ出力 ---
     $decoded = json_decode($json_str, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
-        $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
-        if (strpos($host, 'kotodaman-db.com') === false) {
+        $host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+        if ($host === '' || strpos($host, 'kotodaman-db.com') === false) {
             error_log('[AutoInput Error] JSON Decode Failed: ' . json_last_error_msg() . ' / String: ' . $json_str);
         }
     } elseif (is_array($decoded)) {
