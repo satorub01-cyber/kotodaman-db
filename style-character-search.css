@@ -658,3 +658,124 @@
     color: #fff;
     border-color: #2271b1;
 }
+
+/* =========================================================
+   テーブル単位の列表示制御（DOM走査なしのCSSクラス切替）
+   ========================================================= */
+.koto-chara-table.hide-col-id:not(.active-col-id) .col-id,
+.koto-chara-table.hide-col-moji:not(.active-col-moji) .col-moji,
+.koto-chara-table.hide-col-moji-axis:not(.active-col-moji-axis) .col-moji-axis,
+.koto-chara-table.hide-col-attr:not(.active-col-attr) .col-attr,
+.koto-chara-table.hide-col-species:not(.active-col-species) .col-species,
+.koto-chara-table.hide-col-group:not(.active-col-group) .col-group,
+.koto-chara-table.hide-col-event:not(.active-col-event) .col-event,
+.koto-chara-table.hide-col-sub-event:not(.active-col-sub-event) .col-sub-event,
+.koto-chara-table.hide-col-guerilla-root:not(.active-col-guerilla-root) .col-guerilla-root,
+.koto-chara-table.hide-col-quest:not(.active-col-quest) .col-quest,
+.koto-chara-table.hide-col-hp99:not(.active-col-hp99) .col-hp99,
+.koto-chara-table.hide-col-atk99:not(.active-col-atk99) .col-atk99,
+.koto-chara-table.hide-col-hp120:not(.active-col-hp120) .col-hp120,
+.koto-chara-table.hide-col-atk120:not(.active-col-atk120) .col-atk120,
+.koto-chara-table.hide-col-ls-hp:not(.active-col-ls-hp) .col-ls-hp,
+.koto-chara-table.hide-col-ls-atk:not(.active-col-ls-atk) .col-ls-atk,
+.koto-chara-table.hide-col-buff-board:not(.active-col-buff-board) .col-buff-board,
+.koto-chara-table.hide-col-buff-hand:not(.active-col-buff-hand) .col-buff-hand,
+.koto-chara-table.hide-col-debuff:not(.active-col-debuff) .col-debuff,
+.koto-chara-table.hide-col-gimmick:not(.active-col-gimmick) .col-gimmick,
+.koto-chara-table.hide-col-cv:not(.active-col-cv) .col-cv,
+.koto-chara-table.hide-col-acq:not(.active-col-acq) .col-acq,
+.koto-chara-table.hide-col-date:not(.active-col-date) .col-date,
+.koto-chara-table.hide-col-power:not(.active-col-power) .col-power,
+.koto-chara-table.hide-col-heal:not(.active-col-heal) .col-heal {
+    display: none;
+}
+
+/* 行内の補助スタイル（インラインスタイル分離） */
+.td-group,
+.td-event,
+.td-sub-event,
+.td-guerilla-root,
+.td-suitable-quest {
+    font-size: 11px;
+}
+
+.name-ruby {
+    display: none;
+}
+
+.koto-chara-table tr.section-header {
+    background-color: #e3f2fd;
+}
+
+.koto-chara-table tr.section-header td {
+    padding: 10px;
+    font-weight: bold;
+    color: #1976d2;
+    border-top: 2px solid #1976d2;
+}
+
+.koto-chara-table td.no-data {
+    text-align: center;
+    padding: 30px;
+}
+
+.koto-chara-table td.error {
+    color: #c62828;
+    text-align: center;
+    padding: 20px;
+}
+
+/* =========================================================
+   段階的描画（無限スクロール＋追加読み込みボタン）
+   ========================================================= */
+.koto-load-more-wrap {
+    margin: 14px 0 20px;
+    text-align: center;
+}
+
+.koto-load-more-wrap.is-hidden {
+    display: none;
+}
+
+.koto-load-more-sentinel {
+    height: 1px;
+    width: 100%;
+}
+
+.koto-load-more-actions {
+    display: inline-flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.koto-load-more-btn,
+.koto-show-all-btn {
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.koto-load-more-btn {
+    background: #135e96;
+    color: #fff;
+    border: 1px solid #135e96;
+    padding: 10px 18px;
+    font-weight: bold;
+}
+
+.koto-load-more-btn:hover {
+    opacity: 0.9;
+}
+
+.koto-show-all-btn {
+    background: #fff;
+    color: #135e96;
+    border: 1px solid #135e96;
+    padding: 10px 16px;
+}
+
+.koto-show-all-btn:hover {
+    background: #f0f6fb;
+}

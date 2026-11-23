@@ -99,6 +99,7 @@ flowchart TD
 | `chara-list-functions.php` | 検索結果テーブルの列定義（`koto_get_column_config()`）や、表示項目トグルチェックボックスの生成。 | 新規列追加時はここへ設定追加 |
 | `searchform-content.php` | 検索モーダルのHTMLマークアップ（属性、種族、状態異常、階層型とくせいチェックボックス等）。 | チェックボックス追加時はここ |
 | `searchform.js` / `.css` | 検索モーダルのUI制御（階層チェックボックスのTri-State連動、タブ切り替え、開閉アニメーション）。 | |
+| `test-search-engine.js` | `search-engine.js` の回帰・等価性・XSS・性能検証用 Node.js テストスクリプト。 | 検索改修時に実行 |
 | `koto-search.php` | 検索関連の初期化・スクリプト登録・Ajaxエンドポイント。 | |
 | `koto-taxonomy-sync.php` | タクソノミーターム変更時に `_spec_json` 内の該当キーを連動更新するフック。 | |
 
@@ -289,6 +290,9 @@ grep -rn "canonical_slug" lib/character-search/ documents/spec.md
 ```bash
 # PHPシンタックスチェック
 php -l 対象ファイル.php
+
+# フロントエンド検索エンジン回帰・性能テスト
+node lib/character-search/test-search-engine.js
 
 # ACF自動入力テスト（※auto_input関連の更新があるときのみ実行）
 php lib/acf/test_auto_input.php "種別(とくせい等)" "ゲーム内文言"

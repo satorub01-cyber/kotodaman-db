@@ -452,9 +452,15 @@ add_filter('template_include', 'koto_custom_search_template');
  */
 function enqueue_character_search_assets()
 {
+    $theme_dir = get_stylesheet_directory();
     $theme_uri = get_stylesheet_directory_uri();
-    wp_enqueue_style('character-search-style', $theme_uri . '/lib/character-search/searchform.css');
-    wp_enqueue_script('character-search-script', $theme_uri . '/lib/character-search/searchform.js', array(), false, true);
+    $css_path  = $theme_dir . '/lib/character-search/searchform.css';
+    $js_path   = $theme_dir . '/lib/character-search/searchform.js';
+    $css_ver   = file_exists($css_path) ? @filemtime($css_path) : false;
+    $js_ver    = file_exists($js_path) ? @filemtime($js_path) : false;
+
+    wp_enqueue_style('character-search-style', $theme_uri . '/lib/character-search/searchform.css', array(), $css_ver);
+    wp_enqueue_script('character-search-script', $theme_uri . '/lib/character-search/searchform.js', array(), $js_ver, true);
 }
 add_action('wp_enqueue_scripts', 'enqueue_character_search_assets');
 

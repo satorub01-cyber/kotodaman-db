@@ -37,17 +37,14 @@ get_header();
     // ★設定読み込み (chara-list-functions.php で定義)
     $config = koto_get_column_config();
 
-    // ソートリンク生成用変数
-    $sort_key   = $_GET['orderby'] ?? 'name_ruby';
-    $sort_order = $_GET['order'] ?? 'ASC';
-
     // ▼▼▼ 差し替え：JS用ソートリンク生成ヘルパー ▼▼▼
     $get_sort_link = function ($key, $label) {
         // 初期状態は薄い下向き矢印
         $arrow_html = '<span class="sort-arrow faint">▼</span>';
+        $safe_key = esc_attr($key);
 
         // href="#" でページ遷移を防ぎ、JS操作用のクラス「js-sort-link」と、ソート対象の「data-sort-key」を付与
-        return "<a href='#' class='sort-link js-sort-link' data-sort-key='{$key}'>{$label}{$arrow_html}</a>";
+        return "<a href='#' class='sort-link js-sort-link' data-sort-key='{$safe_key}'>{$label}{$arrow_html}</a>";
     };
     // ▲▲▲ 差し替えここまで ▲▲▲
     ?>
@@ -106,6 +103,14 @@ get_header();
         </table>
     </div>
 
+    <div id="koto-load-more-wrap" class="koto-load-more-wrap is-hidden">
+        <div id="koto-load-more-sentinel" class="koto-load-more-sentinel" aria-hidden="true"></div>
+        <div class="koto-load-more-actions">
+            <button type="button" id="koto-load-more-btn" class="koto-load-more-btn">さらに表示</button>
+            <button type="button" id="koto-show-all-btn" class="koto-show-all-btn">すべて表示</button>
+        </div>
+    </div>
+
     <div id="loading-spinner" style="display:none; text-align:center; padding: 20px;">
         <span class="loading-dots">読み込み中</span>
     </div>
@@ -113,34 +118,39 @@ get_header();
 <?php get_footer(); ?>
 <?php
 $js_path = get_stylesheet_directory() . '/lib/character-search/search-engine.js';
-$version = file_exists($js_path) ? @filemtime($js_path) : '1.0';
+$version = file_exists($js_path) ? (@filemtime($js_path) ?: '1.0') : '1.0';
+$json_path = get_stylesheet_directory() . '/lib/character-search/all_characters_search.json';
+$json_ver = file_exists($json_path) ? (@filemtime($json_path) ?: $version) : $version;
+$base_json_url = function_exists('koto_json_generation_output_file_url')
+    ? koto_json_generation_output_file_url('all_characters_search.json')
+    : get_stylesheet_directory_uri() . '/lib/character-search/all_characters_search.json';
+$search_json_url = add_query_arg('v', $json_ver, $base_json_url);
 $grp_map = koto_get_group_map();
 $event_map = koto_get_event_map();
 $suitable_quest_map = koto_get_suitable_quest_map();
+$json_flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
 ?>
 
-<script src="<?php echo get_stylesheet_directory_uri(); ?>/lib/character-search/search-engine.js?v=<?php echo $version; ?>"></script>
 <script>
-    const KOTO_SEARCH_JSON_URL = <?php echo json_encode(function_exists('koto_json_generation_output_file_url') ? koto_json_generation_output_file_url('all_characters_search.json') : get_stylesheet_directory_uri() . '/lib/character-search/all_characters_search.json'); ?>;
-    const KOTO_GROUP_MAP = <?php echo json_encode($grp_map) ?>;
-    const KOTO_EVENT_MAP = <?php echo json_encode($event_map) ?>;
-    const KOTO_SUITABLE_QUEST_MAP = <?php echo json_encode($suitable_quest_map) ?>;
+    window.KOTO_SEARCH_JSON_URL = <?php echo wp_json_encode($search_json_url, $json_flags); ?>;
+    window.KOTO_GROUP_MAP = <?php echo wp_json_encode($grp_map, $json_flags); ?>;
+    window.KOTO_EVENT_MAP = <?php echo wp_json_encode($event_map, $json_flags); ?>;
+    window.KOTO_SUITABLE_QUEST_MAP = <?php echo wp_json_encode($suitable_quest_map, $json_flags); ?>;
+    var KOTO_GROUP_MAP = window.KOTO_GROUP_MAP;
+    var KOTO_EVENT_MAP = window.KOTO_EVENT_MAP;
+    var KOTO_SUITABLE_QUEST_MAP = window.KOTO_SUITABLE_QUEST_MAP;
 </script>
+<script src="<?php echo esc_url(get_stylesheet_directory_uri() . '/lib/character-search/search-engine.js?v=' . $version); ?>"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        const table = document.querySelector('.koto-chara-table');
         const checkboxes = document.querySelectorAll('.col-toggle');
         const storageKey = 'koto_column_settings';
 
-        // 指定クラスの列を表示/非表示にする関数
+        // 指定クラスの列を表示/非表示にする関数（テーブル1要素のCSSクラス切替）
         const toggleColumn = (targetClass, isVisible) => {
-            const cells = document.querySelectorAll('.' + targetClass);
-            cells.forEach(cell => {
-                if (isVisible) {
-                    cell.classList.remove('col-hidden');
-                } else {
-                    cell.classList.add('col-hidden');
-                }
-            });
+            if (!table || !targetClass) return;
+            table.classList.toggle('hide-' + targetClass, !isVisible);
         };
 
         // ★修正ポイント：search-engine.js からも呼び出せるように window オブジェクトに入れる
@@ -154,22 +164,28 @@ $suitable_quest_map = koto_get_suitable_quest_map();
         const loadSettings = () => {
             const saved = localStorage.getItem(storageKey);
             if (saved) {
-                const hiddenCols = JSON.parse(saved);
-                checkboxes.forEach(cb => {
-                    const target = cb.dataset.target;
-                    if (hiddenCols.includes(target)) {
-                        cb.checked = false;
-                        toggleColumn(target, false);
-                    } else {
-                        cb.checked = true;
-                        toggleColumn(target, true);
+                try {
+                    const hiddenCols = JSON.parse(saved);
+                    if (Array.isArray(hiddenCols)) {
+                        checkboxes.forEach(cb => {
+                            const target = cb.dataset.target;
+                            if (hiddenCols.includes(target)) {
+                                cb.checked = false;
+                                toggleColumn(target, false);
+                            } else {
+                                cb.checked = true;
+                                toggleColumn(target, true);
+                            }
+                        });
+                        return;
                     }
-                });
-            } else {
-                checkboxes.forEach(cb => {
-                    toggleColumn(cb.dataset.target, cb.checked);
-                });
+                } catch (e) {
+                    localStorage.removeItem(storageKey);
+                }
             }
+            checkboxes.forEach(cb => {
+                toggleColumn(cb.dataset.target, cb.checked);
+            });
         };
 
         // 設定保存

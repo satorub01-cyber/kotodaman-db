@@ -8,7 +8,7 @@
     ?>
     <div class="search-wrapper">
         <div class="search-row-top">
-            <input type="text" value="<?php echo get_search_query(); ?>" name="s" id="s" placeholder="キャラ名・グループ名・ギミック名・状態異常耐性..." class="js-freeword-search" <?php if ($is_moji) echo 'style="display:none;"'; ?> />
+            <input type="text" value="<?php echo esc_attr(get_search_query(false)); ?>" name="s" id="s" placeholder="キャラ名・グループ名・ギミック名・状態異常耐性..." class="js-freeword-search" <?php if ($is_moji) echo 'style="display:none;"'; ?> />
             <input type="text" name="search_char" class="js-search-char-input"
                 value="<?php echo isset($_GET['search_char']) ? esc_attr($_GET['search_char']) : ''; ?>"
                 placeholder="ほしい文字を入力" <?php if (!$is_moji) echo 'style="display:none;"'; ?> />
