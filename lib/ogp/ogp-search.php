@@ -31,8 +31,8 @@ function koto_ogp_get_rarity_priority_group($char)
 }
 
 /**
- * 検索結果キャラクター配列をサムネイル表示用に安定ソートする。
- * 優先順位: レアリティグループ降順 ＞ ★数値(rar)降順 ＞ JSON出現順(上から)
+ * 検索結果キャラクター配列をサムネイル表示用にソートする。
+ * 優先順位: レアリティグループ降順 ＞ ★数値(rar)降順 ＞ 同一レアリティ内ランダム
  */
 function koto_ogp_sort_characters_for_thumbnail(array $characters)
 {
@@ -43,6 +43,7 @@ function koto_ogp_sort_characters_for_thumbnail(array $characters)
         }
         $indexed[] = [
             'idx'   => $idx,
+            'rand'  => random_int(0, PHP_INT_MAX),
             'group' => koto_ogp_get_rarity_priority_group($char),
             'rar'   => (int)($char['rar'] ?? 0),
             'char'  => $char,
@@ -55,6 +56,9 @@ function koto_ogp_sort_characters_for_thumbnail(array $characters)
         }
         if ($a['rar'] !== $b['rar']) {
             return $b['rar'] <=> $a['rar'];
+        }
+        if ($a['rand'] !== $b['rand']) {
+            return $a['rand'] <=> $b['rand'];
         }
         return $a['idx'] <=> $b['idx'];
     });
