@@ -111,6 +111,8 @@ if (empty($spec_data['firepower_index']) && function_exists('_calculate_firepowe
 // ステータス取得 (JSON優先)
 // -----------------------------------------------------------
 // Lv99
+$raw_lv_99_hp  = $all_fields['lv_99_hp'] ?? get_post_meta($post_id, 'lv_99_hp', true);
+$raw_lv_99_atk = $all_fields['lv_99_atk'] ?? get_post_meta($post_id, 'lv_99_atk', true);
 $disp_hp_99  = $spec_data['_val_99_hp'] ?? get_post_meta($post_id, '99_hp', true);
 $disp_atk_99 = $spec_data['_val_99_atk'] ?? get_post_meta($post_id, '99_atk', true);
 // Lv120
@@ -120,9 +122,13 @@ $disp_atk_120 = $spec_data['_val_120_atk'] ?? get_post_meta($post_id, '120_atk',
 $talent_hp  = $spec_data['talent_hp'] ?? 0;
 $talent_atk = $spec_data['talent_atk'] ?? 0;
 
-// 未入力チェック
-if ($disp_hp_99 === '' || $disp_hp_99 === null) $disp_hp_99 = '未入力';
-if ($disp_atk_99 === '' || $disp_atk_99 === null) $disp_atk_99 = '未入力';
+// 未入力チェック（超化のみ入力されていて lv_99_hp/atk が未入力の場合も未入力扱い）
+if (!is_scalar($raw_lv_99_hp) || trim((string)$raw_lv_99_hp) === '' || $disp_hp_99 === '' || $disp_hp_99 === null) {
+    $disp_hp_99 = '未入力';
+}
+if (!is_scalar($raw_lv_99_atk) || trim((string)$raw_lv_99_atk) === '' || $disp_atk_99 === '' || $disp_atk_99 === null) {
+    $disp_atk_99 = '未入力';
+}
 
 // 偏差値計算
 $score_hp  = (is_numeric($disp_hp_99) && function_exists('get_koto_deviation_score'))
