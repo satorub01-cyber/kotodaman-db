@@ -839,7 +839,7 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                     $val  = $cond['sugo_cond_val'];
                     $vals = explode(',', (string)$val);
                     $formatted_vals = array_map('trim', $vals);
-                    $join_char = 'または';
+                    $join_char = '';
 
                     switch ($type) {
                         case 'char_count':
