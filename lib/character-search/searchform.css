@@ -846,3 +846,148 @@ details[open]>.tree-summary::after {
     flex: 1;
     /* 残りの余白をすべて埋める */
 }
+
+/* =========================================================
+▼▼▼ 新リーダー検索UIスタイル ▼▼▼
+========================================================= */
+.is-hidden {
+    display: none !important;
+}
+
+.leader-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #eee;
+}
+
+.leader-section-header .leader-section-label {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.leader-target-attr,
+.leader-target-species,
+.leader-cond-attr,
+.leader-cond-species {
+    display: flex;
+    justify-content: center;
+    margin-top: 6px;
+}
+
+.leader-target-group,
+.leader-cond-group {
+    margin-top: 6px;
+}
+
+.leader-stat-rows,
+.leader-dynamic-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.leader-stat-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 6px 10px;
+}
+
+.leader-stat-label {
+    flex: 0 0 150px;
+    font-weight: bold;
+    font-size: 14px;
+    color: #333;
+    display: flex;
+    align-items: center;
+}
+
+.leader-row-select {
+    width: 100%;
+    height: 32px;
+    padding: 4px 6px;
+    font-size: 13px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+.leader-stat-divider {
+    width: 1px;
+    height: 24px;
+    background: #ccc;
+    flex-shrink: 0;
+}
+
+.leader-stat-input-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.leader-section input[type="number"].leader-stat-input {
+    width: 90px;
+    text-align: right;
+    padding: 5px 8px;
+    height: 32px;
+}
+
+.leader-stat-unit {
+    font-size: 14px;
+    font-weight: bold;
+    color: #555;
+    min-width: 18px;
+}
+
+.leader-row-remove-btn {
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    color: #888;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 4px 6px;
+    margin-left: 4px;
+}
+
+.leader-row-remove-btn:hover {
+    color: #d63638;
+    border-color: #d63638;
+    background: #fff0f0;
+}
+
+.leader-add-row-btns {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.leader-inline-add-btn {
+    background: #fff;
+    border: 1px solid #2271b1;
+    color: #2271b1;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.leader-inline-add-btn:hover {
+    background: #2271b1;
+    color: #fff;
+}

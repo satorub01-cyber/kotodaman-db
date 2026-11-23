@@ -686,6 +686,7 @@
 .koto-chara-table.hide-col-atk120:not(.active-col-atk120) .col-atk120,
 .koto-chara-table.hide-col-ls-hp:not(.active-col-ls-hp) .col-ls-hp,
 .koto-chara-table.hide-col-ls-atk:not(.active-col-ls-atk) .col-ls-atk,
+.koto-chara-table.hide-col-ls-summary:not(.active-col-ls-summary) .col-ls-summary,
 .koto-chara-table.hide-col-buff-board:not(.active-col-buff-board) .col-buff-board,
 .koto-chara-table.hide-col-buff-hand:not(.active-col-buff-hand) .col-buff-hand,
 .koto-chara-table.hide-col-debuff:not(.active-col-debuff) .col-debuff,
@@ -705,6 +706,32 @@
 .td-guerilla-root,
 .td-suitable-quest {
     font-size: 11px;
+}
+
+.td-ls-summary {
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: normal;
+    min-width: 120px;
+    max-width: 240px;
+}
+
+.ls-summary-line {
+    margin-bottom: 2px;
+}
+
+.ls-summary-line:last-child {
+    margin-bottom: 0;
+}
+
+.ls-summary-target {
+    font-weight: bold;
+    color: #135e96;
+    margin-right: 4px;
+}
+
+.ls-summary-vals {
+    color: #333;
 }
 
 .name-ruby {

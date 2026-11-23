@@ -385,31 +385,95 @@
                 <div class="tab-content" data-content="tab-leader">
                     <div class="search-section">
                         <div class="section-title">リーダー</div>
-                        <div class="leader-container"></div>
-                        <input type="button" class="cond-add-btn js-add-leader-btn" value="項目を追加"></input>
-                    </div>
-                    <template class="js-leader-template">
-                        <div class="leader-item">
+                        <div class="leader-item js-leader-main-box">
+                            <!-- 1. 対象セクション -->
+                            <div class="leader-section leader-target-section">
+                                <div class="leader-section-header">
+                                    <span class="leader-section-label">対象</span>
+                                    <?php if (function_exists('render_simple_relation_toggle')) render_simple_relation_toggle('leader_target'); ?>
+                                </div>
+                                <select name="leader_target_type" class="leader-cond-select js-leader-target-select">
+                                    <option value="attribute">属性</option>
+                                    <option value="species">種族</option>
+                                    <option value="affiliation">グループ</option>
+                                    <option value="all">すべて（パーティー内全員）</option>
+                                </select>
+                                <div class="leader-target-attr js-leader-target-panel" data-target-panel="attribute">
+                                    <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('attribute', 'leader_target_attr', true); ?>
+                                </div>
+                                <div class="leader-target-species js-leader-target-panel is-hidden" data-target-panel="species">
+                                    <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('species', 'leader_target_species', true); ?>
+                                </div>
+                                <div class="leader-target-group js-leader-target-panel is-hidden" data-target-panel="affiliation">
+                                    <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('affiliation', 'leader_target_group', ['show_relation' => false]); ?>
+                                </div>
+                            </div>
+
+                            <!-- 2. 効果（補正）セクション -->
                             <div class="leader-section leader-buff-section">
                                 <div class="leader-section-label">効果（補正）</div>
-                                <select name="__IDX__leader_type" class="leader-cond-select js-leader-type-select">
-                                    <option value="">効果タイプを選択</option>
-                                    <option value="all">すべて</option>
-                                    <option value="hp">HP UP</option>
-                                    <option value="atk">ATK UP</option>
-                                    <option value="status_resistance">状態異常耐性</option>
-                                    <option value="exp_up">プレイヤー経験値UP</option>
-                                    <option value="over_healing">オーバーヒール</option>
-                                    <option value="crit_rate">CRIT率 UP</option>
-                                    <option value="crit_damage">CRITダメージ UP</option>
-                                    <option value="damage_reduction">被ダメージ軽減</option>
-                                    <option value="converged">収束付与</option>
-                                    <option value="corruption">腐敗</option>
-                                    <option value="over_attack">攻撃回数に応じたバフ</option>
-                                    <option value="random_crit">乱打クリティカル</option>
-                                </select>
-                                <select name="__IDX__leader_status_resistance" class="leader-cond-select js-leader-status-resistance" style="display: none;">
-                                    <option value="">状態異常耐性の種類を選択</option>
+                                <div class="leader-stat-rows">
+                                    <div class="leader-stat-row">
+                                        <div class="leader-stat-label">HP</div>
+                                        <div class="leader-stat-divider"></div>
+                                        <div class="leader-stat-input-wrap">
+                                            <input type="number" min="0" step="5" name="leader_hp_val" class="leader-stat-input" placeholder="〇〇">
+                                            <span class="leader-stat-unit">%</span>
+                                        </div>
+                                    </div>
+                                    <div class="leader-stat-row">
+                                        <div class="leader-stat-label">ATK</div>
+                                        <div class="leader-stat-divider"></div>
+                                        <div class="leader-stat-input-wrap">
+                                            <input type="number" min="0" step="5" name="leader_atk_val" class="leader-stat-input" placeholder="〇〇">
+                                            <span class="leader-stat-unit">%</span>
+                                        </div>
+                                    </div>
+                                    <div class="leader-dynamic-rows js-leader-status-list">
+                                        <div class="leader-stat-row js-leader-status-row">
+                                            <div class="leader-stat-label">
+                                                <select name="leader_status_type[]" class="leader-row-select js-leader-status-select">
+                                                    <option value="">状態異常を選択</option>
+                                                    <option value="poison">毒</option>
+                                                    <option value="sleep">睡眠</option>
+                                                    <option value="curse">呪い</option>
+                                                    <option value="confusion">混乱</option>
+                                                    <option value="pollution">汚染</option>
+                                                    <option value="burn">炎上</option>
+                                                    <option value="remodel">改造</option>
+                                                    <option value="weakness">衰弱</option>
+                                                    <option value="mutation">変異</option>
+                                                    <option value="erasure">消去</option>
+                                                    <option value="all">全て</option>
+                                                </select>
+                                            </div>
+                                            <div class="leader-stat-divider"></div>
+                                            <div class="leader-stat-input-wrap">
+                                                <input type="number" min="0" step="5" name="leader_status_val[]" class="leader-stat-input" placeholder="〇〇">
+                                                <span class="leader-stat-unit">%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="leader-dynamic-rows js-leader-other-list"></div>
+                                </div>
+                                <div class="leader-add-row-btns">
+                                    <button type="button" class="leader-inline-add-btn js-add-leader-status-btn">＋状態異常を追加</button>
+                                    <button type="button" class="leader-inline-add-btn js-add-leader-other-btn">＋その他効果を追加</button>
+                                </div>
+                            </div>
+
+                            <!-- 3. 追加条件リスト -->
+                            <div class="leader-cond-list js-leader-cond-list"></div>
+                        </div>
+                        <button type="button" class="cond-add-btn js-add-leader-cond-btn">条件を追加</button>
+                    </div>
+
+                    <!-- 状態異常行の追加用テンプレート -->
+                    <template class="js-leader-status-row-template">
+                        <div class="leader-stat-row js-leader-status-row">
+                            <div class="leader-stat-label">
+                                <select name="leader_status_type[]" class="leader-row-select js-leader-status-select">
+                                    <option value="">状態異常を選択</option>
                                     <option value="poison">毒</option>
                                     <option value="sleep">睡眠</option>
                                     <option value="curse">呪い</option>
@@ -420,62 +484,81 @@
                                     <option value="weakness">衰弱</option>
                                     <option value="mutation">変異</option>
                                     <option value="erasure">消去</option>
+                                    <option value="all">全て</option>
                                 </select>
-                                <input type="number" min="0" step="5" name="__IDX__leader_val" placeholder="数値を入力">
-                                <div class="leader-cond-type-container" style="display: flex; justify-content: center; gap: 12px;">
-                                    <input type="checkbox" name="__IDX__leader_cond_type" value="fixed" checked>固定値式</input>
-                                    <input type="checkbox" name="__IDX__leader_cond_type" value="per_unit" checked>キャラ数式</input>
-                                </div>
                             </div>
-                            <div class="leader-section leader-target-section">
-                                <div class="leader-section-label">対象</div>
-                                <select name="__IDX__leader_target" class="leader-cond-select js-leader-target-select">
-                                    <option value="">対象タイプを選択</option>
-                                    <option value="all">すべて</option>
-                                    <option value="attribute">属性</option>
-                                    <option value="species">種族</option>
-                                    <option value="affiliation">グループ</option>
-                                </select>
-                                <div class="leader-target-attr" style="display: none;">
-                                    <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('attribute', '__IDX__target_attr', true); ?>
-                                </div>
-                                <div class="leader-target-species" style="display: none;">
-                                    <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('species', '__IDX__target_species', true); ?>
-                                </div>
-                                <div class="leader-target-group" style="display: none;">
-                                    <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('affiliation', '__IDX__target_group'); ?>
-                                </div>
-                                <div class="leader-target-aim">
-                                    編成条件にこの属性/種族を含むキャラを含む
-                                    <?php if (function_exists('render_ios_toggle')) echo render_ios_toggle('__IDX__leader_target_aim', '含む', '含む', '含まない'); ?>
-                                </div>
+                            <div class="leader-stat-divider"></div>
+                            <div class="leader-stat-input-wrap">
+                                <input type="number" min="0" step="5" name="leader_status_val[]" class="leader-stat-input" placeholder="〇〇">
+                                <span class="leader-stat-unit">%</span>
+                                <button type="button" class="leader-row-remove-btn js-remove-leader-row-btn" aria-label="この行を削除">✕</button>
                             </div>
-                            <div class="leader-section leader-condition-section">
-                                <div class="leader-section-label">条件</div>
-                                <select name="__IDX__leader_cond_type_select" class="leader-cond-select js-leader-cond-type-select">
-                                    <option value="">条件タイプを選択</option>
-                                    <option value="chara_num">キャラ編成指定</option>
-                                    <option value="moji_count">文字数</option>
-                                    <option value="combo">コンボ数</option>
-                                    <option value="theme">テーマ指定</option>
-                                    <option value="moji_contain">含まれる文字指定</option>
-                                    <option value="cooperate">同時攻撃</option>
-                                    <option value="wave_count">WAVEが進むごとに</option>
+                        </div>
+                    </template>
+
+                    <!-- その他効果行の追加用テンプレート -->
+                    <template class="js-leader-other-row-template">
+                        <div class="leader-stat-row js-leader-other-row">
+                            <div class="leader-stat-label">
+                                <select name="leader_other_type[]" class="leader-row-select js-leader-other-select">
+                                    <option value="">その他効果を選択</option>
+                                    <option value="crit_rate">CRIT率 UP</option>
+                                    <option value="crit_damage">CRITダメージ UP</option>
+                                    <option value="damage_reduction">被ダメージ軽減</option>
+                                    <option value="exp_up">プレイヤー経験値UP</option>
+                                    <option value="over_healing">オーバーヒール</option>
+                                    <option value="converged">収束付与</option>
+                                    <option value="corruption">腐敗</option>
+                                    <option value="over_attack">攻撃回数に応じたバフ</option>
+                                    <option value="random_crit">乱打クリティカル</option>
+                                    <option value="damage_cut">低ダメージ無効</option>
+                                    <option value="combo_buff">コンボ数に応じたATKバフ</option>
+                                    <option value="reflection">反射</option>
                                 </select>
-                                <select name="__IDX__cond_target" class="leader-cond-select js-leader-cond-target-select" style="display: none;">
-                                    <option value="">対象タイプを選択</option>
-                                    <option value="attribute">属性</option>
-                                    <option value="species">種族</option>
-                                </select>
-                                <div class="leader-cond-attr" style="display: none; justify-content: center;">
-                                    <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('attribute', '__IDX__cond_attr', true); ?>
-                                </div>
-                                <div class="leader-cond-species" style="display: none; justify-content: center;">
-                                    <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('species', '__IDX__cond_species', true); ?>
-                                </div>
-                                <input type="number" min="0" class="leader-cond-val js-leader-cond-val" name="__IDX__leader_cond_val" placeholder="条件の値を入力" style="display: none;">
                             </div>
-                            <button type="button" class="js-remove-cond-btn reset-btn">削除</button>
+                            <div class="leader-stat-divider"></div>
+                            <div class="leader-stat-input-wrap">
+                                <input type="number" min="0" step="5" name="leader_other_val[]" class="leader-stat-input" placeholder="〇〇">
+                                <span class="leader-stat-unit">%</span>
+                                <button type="button" class="leader-row-remove-btn js-remove-leader-row-btn" aria-label="この行を削除">✕</button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- 条件セクションの追加用テンプレート -->
+                    <template class="js-leader-cond-template">
+                        <div class="leader-section leader-condition-section js-leader-cond-item" data-cond-index="__IDX__">
+                            <div class="leader-section-header">
+                                <span class="leader-section-label">条件</span>
+                                <button type="button" class="js-remove-cond-btn reset-btn">削除</button>
+                            </div>
+                            <select name="leader_cond___IDX___type" class="leader-cond-select js-leader-cond-type-select">
+                                <option value="">条件タイプを選択</option>
+                                <option value="chara_num">キャラ編成指定</option>
+                                <option value="moji_count">文字数</option>
+                                <option value="combo">コンボ数</option>
+                                <option value="theme">テーマ指定</option>
+                                <option value="moji_contain">含まれる文字指定</option>
+                                <option value="cooperate">同時攻撃</option>
+                                <option value="wave_count">WAVEが進むごとに</option>
+                            </select>
+                            <select name="leader_cond___IDX___target" class="leader-cond-select js-leader-cond-target-select is-hidden">
+                                <option value="">対象タイプを選択</option>
+                                <option value="attribute">属性</option>
+                                <option value="species">種族</option>
+                                <option value="affiliation">グループ</option>
+                            </select>
+                            <div class="leader-cond-attr js-leader-cond-target-panel is-hidden" data-cond-panel="attribute">
+                                <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('attribute', 'leader_cond___IDX___attr', true); ?>
+                            </div>
+                            <div class="leader-cond-species js-leader-cond-target-panel is-hidden" data-cond-panel="species">
+                                <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('species', 'leader_cond___IDX___species', true); ?>
+                            </div>
+                            <div class="leader-cond-group js-leader-cond-target-panel is-hidden" data-cond-panel="affiliation">
+                                <?php if (function_exists('render_frontend_term_tree')) render_frontend_term_tree('affiliation', 'leader_cond___IDX___group', ['show_relation' => false]); ?>
+                            </div>
+                            <input type="number" min="0" class="leader-cond-val js-leader-cond-num-val is-hidden" name="leader_cond___IDX___val" placeholder="条件の値を入力">
+                            <input type="text" class="term-tree-search js-leader-cond-text-val is-hidden" name="leader_cond___IDX___text" placeholder="文字やテーマを入力">
                         </div>
                     </template>
                 </div>

@@ -168,7 +168,7 @@ function koto_get_column_config()
             'type'  => 'NUMERIC',
             'show'  => false,
             'header_class' => 'th-stat',
-            'related_filters' => []
+            'related_filters' => ['leader_hp_val']
         ],
         'ls_atk' => [
             'label' => 'L ATK',
@@ -179,7 +179,16 @@ function koto_get_column_config()
             'type'  => 'NUMERIC',
             'show'  => false,
             'header_class' => 'th-stat',
-            'related_filters' => []
+            'related_filters' => ['leader_atk_val']
+        ],
+        'ls_summary' => [
+            'label' => 'Lサマリー',
+            'txt_label' => 'リーダーサマリー',
+            'class' => 'col-ls-summary',
+            'sort'  => null,
+            'show'  => false,
+            'header_class' => 'th-ls-summary',
+            'related_filters' => ['leader_search_active', 'leader_hp_val', 'leader_atk_val', 'leader_status_type[]']
         ],
         'buff_board' => [
             'label' => '盤バフ', // 短めに

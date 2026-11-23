@@ -89,23 +89,76 @@ function flatten_leader($item)
         }
     }
 
+    // per_unit要素は数値×12したものを倍率として扱う
+    $is_per_unit = !empty($item['per_unit']) || ($item['type'] ?? '') === 'per_unit';
+    $unit_multiplier = $is_per_unit ? 12 : 1;
+
+    // 編成条件等に含まれる対象（attr / species / group）を抽出（効果対象が all の場合の補完用）
+    $cond_target_map = [];
+    foreach ($flattened_conds as $and_list) {
+        foreach ($and_list as $cond_item) {
+            foreach ($cond_item['tgts'] ?? [] as $ct) {
+                $ct_ty = $ct['ty'] ?? '';
+                $ct_slgs = (isset($ct['slgs']) && is_array($ct['slgs'])) ? $ct['slgs'] : [];
+                if (in_array($ct_ty, ['attr', 'species', 'group'], true) && !empty($ct_slgs)) {
+                    if (!isset($cond_target_map[$ct_ty])) {
+                        $cond_target_map[$ct_ty] = [];
+                    }
+                    $cond_target_map[$ct_ty] = array_values(array_unique(array_merge($cond_target_map[$ct_ty], $ct_slgs)));
+                }
+            }
+        }
+    }
+
     return [
         'ty' => $item['type'] ?? '',
         'cond' => $flattened_conds,
         'lm_wave' => $item['limit_wave'] ?? 0,
-        'per_unit' => $item['per_unit'] ?? false,
-        'effs' => array_map(function ($e) {
+        'per_unit' => $is_per_unit,
+        'effs' => array_map(function ($e) use ($unit_multiplier, $cond_target_map) {
             // ステータス補正値や耐性を1つの連想配列（辞書型）にまとめる
             $merged_vals = [];
             foreach ($e['value_raws'] ?? [] as $val) {
                 $key = ($val['status'] === 'resistance') ? ($val['resist'] ?? '') : ($val['status'] ?? '');
                 if ($key !== '') {
-                    $merged_vals[$key] = $val['value'] ?? 0;
+                    $raw_val = (float) ($val['value'] ?? 0) * $unit_multiplier;
+                    $merged_vals[$key] = (floor($raw_val) == $raw_val) ? (int) $raw_val : $raw_val;
+                }
+            }
+
+            $tgts = array_map('flatten_target_group', $e['targets'] ?? []);
+            $has_all_target = false;
+            foreach ($tgts as $t) {
+                if (($t['ty'] ?? '') === 'all') {
+                    $has_all_target = true;
+                    break;
+                }
+            }
+
+            // 効果対象に all が含まれ、かつ編成条件に対象指定がある場合は tgts に補完する
+            if ($has_all_target && !empty($cond_target_map)) {
+                foreach ($cond_target_map as $c_ty => $c_slgs) {
+                    $merged_into_existing = false;
+                    foreach ($tgts as &$existing_t) {
+                        if (($existing_t['ty'] ?? '') === $c_ty) {
+                            $existing_slgs = (isset($existing_t['slgs']) && is_array($existing_t['slgs'])) ? $existing_t['slgs'] : [];
+                            $existing_t['slgs'] = array_values(array_unique(array_merge($existing_slgs, $c_slgs)));
+                            $merged_into_existing = true;
+                            break;
+                        }
+                    }
+                    unset($existing_t);
+                    if (!$merged_into_existing) {
+                        $tgts[] = [
+                            'ty' => $c_ty,
+                            'slgs' => $c_slgs,
+                        ];
+                    }
                 }
             }
 
             return [
-                'tgts' => array_map('flatten_target_group', $e['targets'] ?? []),
+                'tgts' => $tgts,
                 'vals' => $merged_vals
             ];
         }, $item['main_eff'] ?? []),
