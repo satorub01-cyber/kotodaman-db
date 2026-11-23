@@ -904,38 +904,122 @@ function koto_acf_editor_page_html()
 
     $target_title = $edit_post_id ? get_the_title($edit_post_id) : '【未選択】';
     $source_title = $source_post_id ? get_the_title($source_post_id) : '【未選択】';
+    $target_short_title = ($edit_post_id && function_exists('koto_get_short_character_name'))
+        ? koto_get_short_character_name($target_title)
+        : $target_title;
+    $current_group_label = ($edit_group && isset($field_group_keys[$edit_group]))
+        ? $field_group_keys[$edit_group]
+        : '項目未選択';
+    $edit_post_status = $edit_post_id ? get_post_status($edit_post_id) : '';
+    $can_save_mobile = ($edit_post_id && $edit_group);
+    $is_map_group = ($edit_group === 'group_6937900895bf1' || $edit_group === 'group_693790bd6b499');
+    $edit_preview_link = '';
+    if ($edit_post_id) {
+        $edit_preview_link = ($edit_post_status === 'publish') ? get_permalink($edit_post_id) : get_preview_post_link($edit_post_id);
+    }
+    $source_preview_link = '';
+    if ($source_post_id) {
+        $s_status_top = get_post_status($source_post_id);
+        $source_preview_link = ($s_status_top === 'publish') ? get_permalink($source_post_id) : get_preview_post_link($source_post_id);
+    }
+    if ($edit_post_status === 'publish') {
+        $mobile_save_btn_label = '公開';
+        $mobile_status_label = '公開済み';
+        $mobile_status_class = 'is-publish';
+    } elseif ($edit_post_status === 'draft') {
+        $mobile_save_btn_label = '下書き';
+        $mobile_status_label = '下書き';
+        $mobile_status_class = 'is-draft';
+    } else {
+        $mobile_save_btn_label = '保存';
+        $mobile_status_label = $edit_post_status ? $edit_post_status : '未選択';
+        $mobile_status_class = 'is-other';
+    }
 ?>
 
-    <div class="wrap acf-editor-wrap">
-        <h1 class="wp-heading-inline">コトダマンDB エディタ</h1>
+    <div class="wrap acf-editor-wrap" data-has-edit-post="<?php echo $edit_post_id ? '1' : '0'; ?>" data-has-source-post="<?php echo $source_post_id ? '1' : '0'; ?>">
+        <!-- スマホ専用：上部固定コントロールバー（開閉対応・常時クイックリンク・右上単一保存ボタン・パネル切替） -->
+        <div id="koto-mobile-top-bar" class="koto-mobile-top-bar">
+            <div class="koto-mobile-top-row">
+                <button type="button" id="koto-mobile-bar-toggle" class="koto-mobile-bar-toggle-btn" aria-expanded="true" aria-controls="koto-mobile-panel-tabs" title="上部バーを開閉">
+                    <span class="koto-mobile-bar-toggle-icon" aria-hidden="true">▲</span>
+                </button>
+                <div class="koto-mobile-quick-links" aria-label="クイックリンク">
+                    <?php if ($edit_preview_link) : ?>
+                        <a href="<?php echo esc_url($edit_preview_link); ?>" target="_blank" class="button koto-mobile-quick-btn" title="編集中キャラの記事を別タブで確認">編集中</a>
+                    <?php endif; ?>
+                    <?php if ($source_preview_link) : ?>
+                        <a href="<?php echo esc_url($source_preview_link); ?>" target="_blank" class="button koto-mobile-quick-btn" title="コピー元キャラの記事を別タブで確認">コピー元</a>
+                    <?php endif; ?>
+                    <a href="https://kotodaman-db.com/magnification-calc/" target="_blank" class="button koto-mobile-quick-btn" title="倍率計算ページを別タブで開く">倍率</a>
+                    <?php if ($is_map_group) : ?>
+                        <button type="button" id="koto-mobile-show-map-btn" class="button koto-mobile-quick-btn" title="マップ内容を確認">Map</button>
+                    <?php endif; ?>
+                </div>
+                <div class="koto-mobile-bar-actions">
+                    <div class="koto-mobile-save-dropdown">
+                        <?php if ($can_save_mobile) : ?>
+                            <button type="button" id="koto-mobile-save-trigger" class="button button-primary koto-mobile-save-trigger <?php echo esc_attr($mobile_status_class); ?>" aria-expanded="false" aria-haspopup="true">
+                                <span class="koto-mobile-status-dot" aria-hidden="true"></span>
+                                <span class="koto-mobile-save-text"><?php echo esc_html($mobile_save_btn_label); ?></span>
+                                <span class="koto-mobile-save-caret" aria-hidden="true">▼</span>
+                            </button>
+                            <div id="koto-mobile-save-menu" class="koto-mobile-save-menu" role="menu" aria-hidden="true">
+                                <div class="koto-mobile-save-menu-status">
+                                    状態: <strong class="koto-status-text <?php echo esc_attr($mobile_status_class); ?>"><?php echo esc_html($mobile_status_label); ?></strong>
+                                </div>
+                                <button type="button" class="button button-primary koto-mobile-save-option" data-save-action="publish" role="menuitem">公開 / 更新</button>
+                                <button type="button" class="button koto-mobile-save-option" data-save-action="draft" role="menuitem">下書き保存</button>
+                            </div>
+                        <?php else : ?>
+                            <button type="button" class="button koto-mobile-save-trigger is-disabled" disabled>未選択</button>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            <div id="koto-mobile-panel-tabs" class="koto-mobile-panel-tabs" role="tablist" aria-label="編集ツール切替">
+                <button type="button" class="koto-mobile-panel-tab" data-mobile-panel-target="group" aria-expanded="false">項目</button>
+                <button type="button" class="koto-mobile-panel-tab" data-mobile-panel-target="character" aria-expanded="false">キャラ</button>
+                <button type="button" class="koto-mobile-panel-tab" data-mobile-panel-target="template" aria-expanded="false">新規</button>
+                <button type="button" class="koto-mobile-panel-tab" data-mobile-panel-target="auto-input" aria-expanded="false">自動入力</button>
+                <button type="button" id="koto-mobile-copy-overlay-btn" class="koto-mobile-panel-tab koto-mobile-copy-overlay-btn <?php echo ($source_post_id && $source_group) ? 'has-source' : ''; ?>" aria-expanded="false" title="コピー元データ（コピーボタン）をオーバーレイ表示">📦コピー</button>
+            </div>
+        </div>
+        <div id="koto-mobile-backdrop" class="koto-mobile-backdrop" aria-hidden="true"></div>
+
+        <h1 class="wp-heading-inline koto-editor-page-title">コトダマンDB エディタ</h1>
         <?php if ($edit_permission_denied) : ?>
             <div class="notice notice-error">
                 <p>指定された投稿を編集する権限がありません（自分の投稿または AI-assistant の投稿のみ編集できます）。</p>
             </div>
         <?php endif; ?>
-        <div id="koto-sticky-bar" class="acf-sticky-actions" style="position: sticky; top: 32px; z-index: 999; background: #fff; padding: 10px 20px; border-bottom: 2px solid #ccc; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <div style="display:flex; gap:20px; align-items:flex-start; flex-wrap: wrap;">
-                <div style="display:flex; flex-direction:column; gap:5px; align-items:flex-start;">
-                    <strong style="margin:0;">🌐 サイト確認:</strong>
+        <div id="koto-sticky-bar" class="acf-sticky-actions koto-mobile-panel koto-mobile-panel-group" data-mobile-panel="group">
+            <div class="koto-mobile-panel-bar">
+                <strong>フィールド選択・確認</strong>
+                <button type="button" class="button button-small koto-mobile-panel-close">× 閉じる</button>
+            </div>
+            <div class="koto-sticky-left">
+                <div class="koto-sticky-site-links">
+                    <strong class="koto-sticky-site-label">🌐 サイト確認:</strong>
                     <?php
                     if ($edit_post_id) {
                         $t_status = get_post_status($edit_post_id);
                         $t_link = ($t_status === 'publish') ? get_permalink($edit_post_id) : get_preview_post_link($edit_post_id);
-                        echo '<a href="' . esc_url($t_link) . '" target="_blank" class="button" style="width: 100%; text-align: center;">📝 左(編集中)を見る</a>';
+                        echo '<a href="' . esc_url($t_link) . '" target="_blank" class="button koto-sticky-util-btn">📝 左(編集中)を見る</a>';
                     }
                     if ($source_post_id) {
                         $s_status = get_post_status($source_post_id);
                         $s_link = ($s_status === 'publish') ? get_permalink($source_post_id) : get_preview_post_link($source_post_id);
-                        echo '<a href="' . esc_url($s_link) . '" target="_blank" class="button" style="width: 100%; text-align: center;">📦 右(コピー元)を見る</a>';
+                        echo '<a href="' . esc_url($s_link) . '" target="_blank" class="button koto-sticky-util-btn">📦 右(コピー元)を見る</a>';
                     }
                     ?>
                 </div>
 
-                <div style="display:flex; flex-direction:column; gap:5px; align-items:stretch;">
-                    <a href="https://kotodaman-db.com/magnification-calc/" target="_blank" class="button" style="text-align: center;">倍率計算</a>
+                <div class="koto-sticky-tools">
+                    <a href="https://kotodaman-db.com/magnification-calc/" target="_blank" class="button koto-sticky-util-btn">倍率計算</a>
                     <?php if ($edit_group === 'group_6937900895bf1' || $edit_group === 'group_693790bd6b499') : ?>
                         <!-- Map手動選択ドロップダウン -->
-                        <select id="koto-manual-map-select" style="padding: 3px 10px; height: auto;">
+                        <select id="koto-manual-map-select" class="koto-manual-map-select">
                             <option value="">🗺️ Map手動選択...</option>
                             <optgroup label="全体攻撃">
                                 <option value="allOppoMaps_0">ブラスト</option>
@@ -957,8 +1041,8 @@ function koto_acf_editor_page_html()
                                 <option value="multiRandomMaps_1">ラッシュ</option>
                             </optgroup>
                         </select>
-                        <button type="button" id="koto-lock-map-btn" class="button" title="現在のマップを固定" style="text-align: center;">🔒 マップ固定</button>
-                        <button type="button" id="koto-show-map-btn" class="button" title="マップ内容を表示" style="text-align: center;">マップ内容確認</button>
+                        <button type="button" id="koto-lock-map-btn" class="button koto-sticky-util-btn" title="現在のマップを固定">🔒 マップ固定</button>
+                        <button type="button" id="koto-show-map-btn" class="button koto-sticky-util-btn" title="マップ内容を表示">マップ内容確認</button>
                     <?php endif; ?>
                 </div>
             </div>
@@ -974,35 +1058,35 @@ function koto_acf_editor_page_html()
             <script>
                 var kotoCurrentPostStatus = "<?php echo $edit_post_id ? esc_js(get_post_status($edit_post_id)) : ''; ?>";
             </script>
-            <div style="display:flex; gap:10px; align-items:center;">
+            <div class="koto-sticky-save-group">
                 <?php if ($edit_post_id && $edit_group): ?>
-                    <div style="display:flex; flex-direction:column; justify-content:center;">
+                    <div class="koto-sticky-status-wrap">
                         <?php
                         $t_status = get_post_status($edit_post_id);
                         if ($t_status === 'publish') {
-                            echo '<span style="color: #008a20; font-weight: bold; font-size: 13px; padding: 4px 8px; border: 1px solid #008a20; border-radius: 4px; text-align: center;">公開済み</span>';
+                            echo '<span class="koto-sticky-status-badge is-publish">公開済み</span>';
                         } elseif ($t_status === 'draft') {
-                            echo '<span style="color: #d63638; font-weight: bold; font-size: 13px; padding: 4px 8px; border: 1px solid #d63638; border-radius: 4px; text-align: center;">下書き</span>';
+                            echo '<span class="koto-sticky-status-badge is-draft">下書き</span>';
                         } else {
-                            echo '<span style="color: #666; font-weight: bold; font-size: 13px; padding: 4px 8px; border: 1px solid #666; border-radius: 4px; text-align: center;">' . esc_html($t_status) . '</span>';
+                            echo '<span class="koto-sticky-status-badge is-other">' . esc_html($t_status) . '</span>';
                         }
                         ?>
                     </div>
-                    <div style="display:flex; flex-direction:column; gap:5px; align-items:stretch;">
-                        <button type="button" class="button" id="btn_draft_sticky" style="text-align: center;">下書き保存</button>
-                        <button type="button" class="button button-primary button-large" id="btn_publish_sticky" style="text-align: center; height: auto; min-height: 32px; padding: 0 10px;">公開 / 更新 </button>
+                    <div class="koto-sticky-save-btns">
+                        <button type="button" class="button koto-sticky-draft-btn" id="btn_draft_sticky">下書き保存</button>
+                        <button type="button" class="button button-primary button-large koto-sticky-publish-btn" id="btn_publish_sticky">公開 / 更新 </button>
                     </div>
                 <?php else: ?>
-                    <span style="color:#888; font-size:12px;">※左のキャラを指定すると保存できます</span>
+                    <span class="koto-sticky-save-hint">※左のキャラを指定すると保存できます</span>
                 <?php endif; ?>
             </div>
         </div>
-        <div class="notice notice-info" style="margin-bottom: 15px;">
-            <p style="font-size:14px;"><strong>⌨️ ショートカットキー一覧：</strong>
-                <code style="background:#e6f0fa;">Ctrl + S</code>: 公開/更新&emsp;|&emsp;
-                <code style="background:#e6f0fa;">Ctrl + Enter</code>: チェックした行を一括コピー&emsp;|&emsp;
-                <code style="background:#e6f0fa;">Ctrl + Shift + Alt + D</code>: フォーカス中の行を削除&emsp;|&emsp;
-                <code style="background:#e6f0fa;">Ctrl + Shift + Alt + T</code>: リピーター先頭へ
+        <div class="notice notice-info koto-editor-shortcuts-notice">
+            <p class="koto-editor-shortcuts-text"><strong>⌨️ ショートカットキー一覧：</strong>
+                <code class="koto-shortcut-key">Ctrl + S</code>: 公開/更新&emsp;|&emsp;
+                <code class="koto-shortcut-key">Ctrl + Enter</code>: チェックした行を一括コピー&emsp;|&emsp;
+                <code class="koto-shortcut-key">Ctrl + Shift + Alt + D</code>: フォーカス中の行を削除&emsp;|&emsp;
+                <code class="koto-shortcut-key">Ctrl + Shift + Alt + T</code>: リピーター先頭へ
             </p>
         </div>
 
@@ -1012,11 +1096,15 @@ function koto_acf_editor_page_html()
             </div>
         <?php endif; ?>
 
-        <div class="acf-editor-top-panel" style="background: #f0f6fc; border-left: 4px solid #2271b1; padding: 15px;">
-            <form method="GET" action="">
+        <div class="acf-editor-top-panel koto-top-selector-panel koto-mobile-panel koto-mobile-panel-character" data-mobile-panel="character">
+            <div class="koto-mobile-panel-bar">
+                <strong>編集キャラ・コピー元選択</strong>
+                <button type="button" class="button button-small koto-mobile-panel-close">× 閉じる</button>
+            </div>
+            <form method="GET" action="" class="koto-sync-selector-form">
                 <input type="hidden" name="page" value="koto-acf-editor">
-                <div class="acf-sync-panel-flex" style="display: flex; gap: 20px; align-items: flex-start;">
-                    <div class="acf-sync-col" style="flex: 1; width: 100%;">
+                <div class="acf-sync-panel-flex">
+                    <div class="acf-sync-col">
                         <div class="koto-editor-col-header">
                             <strong class="koto-editor-left-title">📝【左】編集・インポート先のキャラと項目:</strong>
                             <button type="button" id="koto-filter-draft-btn" class="button button-small koto-filter-draft-btn" aria-pressed="false" title="左側のキャラ候補を下書きのみに絞り込みます">
@@ -1025,7 +1113,7 @@ function koto_acf_editor_page_html()
                         </div>
                         <input type="hidden" name="edit_post_id" id="real_edit_post_id" value="<?php echo esc_attr($edit_post_id ? $edit_post_id : ''); ?>">
 
-                        <div class="acf-field acf-field-relationship" data-type="relationship" data-name="_dummy_edit_post_id" data-key="field_editor_edit_post" style="padding:0; border:none;">
+                        <div class="acf-field acf-field-relationship koto-selector-relationship" data-type="relationship" data-name="_dummy_edit_post_id" data-key="field_editor_edit_post">
                             <div class="acf-input">
                                 <?php
                                 acf_render_field([
@@ -1041,43 +1129,50 @@ function koto_acf_editor_page_html()
                                 ?>
                             </div>
                         </div>
-                        <select name="acf_group" style="width:100%; margin-top:5px;">
+                        <select name="acf_group" class="koto-selector-group-select">
                             <?php foreach ($field_group_keys as $key => $name) echo '<option value="' . esc_attr($key) . '" ' . selected($edit_group, $key, false) . '>' . esc_html($name) . '</option>'; ?>
                         </select>
                     </div>
 
-                    <div class="acf-sync-arrow" style="display: flex; align-items: center; padding-top: 20px;">
-                        <span style="font-size: 24px; color: #ccc;">⇔</span>
+                    <div class="acf-sync-arrow">
+                        <span class="koto-sync-arrow-icon">⇔</span>
                     </div>
 
-                    <div class="acf-sync-col" style="flex: 1; width: 100%;">
-                        <strong style="color: #d63638;">📦【右】コピー元のキャラと項目:</strong><br>
-                        <input type="hidden" name="source_post_id" id="real_source_post_id" value="<?php echo esc_attr($source_post_id ? $source_post_id : ''); ?>">
+                    <div class="acf-sync-col koto-sync-col-source">
+                        <details class="koto-source-selector-details" open>
+                            <summary class="koto-source-selector-summary">
+                                📦 コピー元キャラを選択<?php echo $source_post_id ? '（現在: ' . esc_html($source_title) . '）' : '（タップで展開）'; ?>
+                            </summary>
+                            <div class="koto-source-selector-inner">
+                                <strong class="koto-editor-right-title">📦【右】コピー元のキャラと項目:</strong>
+                                <input type="hidden" name="source_post_id" id="real_source_post_id" value="<?php echo esc_attr($source_post_id ? $source_post_id : ''); ?>">
 
-                        <div class="acf-field acf-field-relationship" data-type="relationship" data-name="_dummy_source_post_id" data-key="field_editor_source_post" style="padding:0; border:none;">
-                            <div class="acf-input">
-                                <?php
-                                acf_render_field([
-                                    'type'          => 'relationship',
-                                    'name'          => '_dummy_source_post_id', // ★修正: ダミーの名前に変更
-                                    'key'           => 'field_editor_source_post',
-                                    'post_type'     => ['character'],
-                                    'filters'       => ['search', 'taxonomy'],
-                                    'elements'      => ['featured_image'],
-                                    'return_format' => 'id',
-                                    'value'         => $source_post_id ? [$source_post_id] : [],
-                                ]);
-                                ?>
+                                <div class="acf-field acf-field-relationship koto-selector-relationship" data-type="relationship" data-name="_dummy_source_post_id" data-key="field_editor_source_post">
+                                    <div class="acf-input">
+                                        <?php
+                                        acf_render_field([
+                                            'type'          => 'relationship',
+                                            'name'          => '_dummy_source_post_id', // ★修正: ダミーの名前に変更
+                                            'key'           => 'field_editor_source_post',
+                                            'post_type'     => ['character'],
+                                            'filters'       => ['search', 'taxonomy'],
+                                            'elements'      => ['featured_image'],
+                                            'return_format' => 'id',
+                                            'value'         => $source_post_id ? [$source_post_id] : [],
+                                        ]);
+                                        ?>
+                                    </div>
+                                </div>
+                                <select name="source_group" class="koto-selector-group-select">
+                                    <?php foreach ($field_group_keys as $key => $name) echo '<option value="' . esc_attr($key) . '" ' . selected($source_group, $key, false) . '>' . esc_html($name) . '</option>'; ?>
+                                </select>
                             </div>
-                        </div>
-                        <select name="source_group" style="width:100%; margin-top:5px;">
-                            <?php foreach ($field_group_keys as $key => $name) echo '<option value="' . esc_attr($key) . '" ' . selected($source_group, $key, false) . '>' . esc_html($name) . '</option>'; ?>
-                        </select>
+                        </details>
                     </div>
                 </div>
 
-                <div style="text-align: center; margin-top: 15px;">
-                    <button type="submit" class="button button-primary button-large" style="width: 50%;">この組み合わせで左右を同時に読み込む</button>
+                <div class="koto-sync-submit-wrap">
+                    <button type="submit" class="button button-primary button-large koto-sync-submit-btn">この組み合わせで左右を同時に読み込む</button>
                 </div>
             </form>
         </div>
@@ -1093,18 +1188,22 @@ function koto_acf_editor_page_html()
             </div>
         <?php endif; ?>
 
-        <div class="acf-editor-top-panel">
-            <form method="POST" action="" class="acf-template-form" style="display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
+        <div class="acf-editor-top-panel koto-template-panel koto-mobile-panel koto-mobile-panel-template" data-mobile-panel="template">
+            <div class="koto-mobile-panel-bar">
+                <strong>雛型から新規作成</strong>
+                <button type="button" class="button button-small koto-mobile-panel-close">× 閉じる</button>
+            </div>
+            <form method="POST" action="" class="acf-template-form">
                 <input type="hidden" name="acf_action" value="copy_template">
                 <strong>雛型から新規作成:</strong>
                 <select name="template_id">
                     <option value="">-- 雛型を選択 --</option>
                     <?php foreach ($template_post_ids as $id => $name) echo '<option value="' . esc_attr($id) . '">' . esc_html($name) . '</option>'; ?>
                 </select>
-                <span style="font-size: 12px; color: #666; margin: 0 5px;">または任意のキャラを検索:</span>
+                <span class="koto-template-or-label">または任意のキャラを検索:</span>
                 <input type="hidden" name="search_template_id" id="real_search_template_id" value="">
 
-                <div class="acf-field acf-field-relationship" data-type="relationship" data-name="_dummy_search_template_id" data-key="field_editor_search_template" style="padding:0; border:none; display:inline-block; vertical-align:middle; width:300px;">
+                <div class="acf-field acf-field-relationship koto-template-search-field" data-type="relationship" data-name="_dummy_search_template_id" data-key="field_editor_search_template">
                     <div class="acf-input">
                         <?php
                         acf_render_field([
@@ -1282,7 +1381,11 @@ function koto_acf_editor_page_html()
                 </div>
             </div>
         </template>
-        <div class="acf-auto-input-container">
+        <div class="acf-auto-input-container koto-mobile-panel koto-mobile-panel-auto-input" data-mobile-panel="auto-input">
+            <div class="koto-mobile-panel-bar">
+                <strong>自動入力</strong>
+                <button type="button" class="button button-small koto-mobile-panel-close">× 閉じる</button>
+            </div>
             <div class="acf-auto-input-header">自動入力を使用する</div>
             <div class="acf-auto-input-content">
                 <!-- auto-input-追加必須: 新しい自動入力欄のHTMLをここへ追加 -->
@@ -1406,11 +1509,14 @@ function koto_acf_editor_page_html()
                 </div>
             </div>
 
-            <div class="acf-editor-col-right">
+            <div class="acf-editor-col-right" id="koto-editor-col-right">
                 <div class="acf-editor-panel-header source-header">
-                    <h2 class="source-heading">📦【データ取得元】</h2>
+                    <div class="koto-source-header-top">
+                        <h2 class="source-heading">📦【データ取得元】</h2>
+                        <button type="button" class="button button-small koto-mobile-overlay-close-btn">× 閉じる</button>
+                    </div>
                     <?php if ($source_post_id && $source_group) : ?>
-                        <p style="margin:5px 0 0 0;"><strong>対象:</strong> <?php echo esc_html($source_title); ?> <br><strong>項目:</strong> <?php echo esc_html($field_group_keys[$source_group] ?? ''); ?></p>
+                        <p class="koto-panel-meta-line"><strong>対象:</strong> <?php echo esc_html($source_title); ?> <br><strong>項目:</strong> <?php echo esc_html($field_group_keys[$source_group] ?? ''); ?></p>
                     <?php endif; ?>
                 </div>
 
@@ -1419,13 +1525,13 @@ function koto_acf_editor_page_html()
                     if ($source_post_id && $source_group) :
                     ?>
                         <?php if ($edit_post_id) : ?>
-                            <form id="multi-copy-form" method="POST" action="" style="background:#e0f0fa; padding:10px; border-radius:4px; margin-bottom:15px; border:1px solid #b8e0f9; position:sticky; top:40px; z-index:10;">
+                            <form id="multi-copy-form" class="koto-multi-copy-form" method="POST" action="">
                                 <input type="hidden" name="acf_action" value="import_multiple_rows">
                                 <input type="hidden" name="target_post_id" value="<?php echo esc_attr($edit_post_id); ?>">
                                 <input type="hidden" name="source_post_id" value="<?php echo esc_attr($source_post_id); ?>">
                                 <input type="hidden" name="copy_items_json" id="copy_items_json" value="">
-                                <strong style="color:#135e96;">☑ 複数チェックして一括コピー</strong><br>
-                                <button type="button" id="btn_execute_multi_copy" class="button button-primary" style="margin-top:5px; width:100%;">
+                                <strong class="koto-multi-copy-title">☑ 複数チェックして一括コピー</strong><br>
+                                <button type="button" id="btn_execute_multi_copy" class="button button-primary koto-multi-copy-btn">
                                     チェックした行をすべて左へコピー (Ctrl + Enter)
                                 </button>
                             </form>
@@ -1624,6 +1730,7 @@ function koto_acf_editor_page_html()
                     else :
                         ?>
                         <p>IDとグループを指定して「取得」を押すと、フィールドごとのコピーボタンが表示されます。</p>
+                        <button type="button" class="button button-primary koto-mobile-open-source-selector-btn">キャラ選択でコピー元を選ぶ</button>
                     <?php endif; ?>
                 </div>
             </div>

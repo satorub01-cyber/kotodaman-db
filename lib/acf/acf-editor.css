@@ -138,85 +138,898 @@
 }
 
 /* =================================================================
-   スマホ・タブレット用レイアウト調整 (画面幅 782px 以下で適用)
+   PC デフォルトスタイル（acf-editor.php から分離）
+================================================================= */
+.acf-sticky-actions {
+    position: sticky;
+    top: 32px;
+    z-index: 999;
+    background: #fff;
+    padding: 10px 20px;
+    border-bottom: 2px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.koto-sticky-left {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.koto-sticky-site-links {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: flex-start;
+}
+
+.koto-sticky-site-label {
+    margin: 0;
+}
+
+.koto-sticky-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: stretch;
+}
+
+.koto-sticky-util-btn {
+    width: 100%;
+    text-align: center;
+}
+
+.koto-manual-map-select {
+    padding: 3px 10px;
+    height: auto;
+}
+
+.koto-sticky-save-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.koto-sticky-status-wrap {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.koto-sticky-status-badge {
+    font-weight: bold;
+    font-size: 13px;
+    padding: 4px 8px;
+    border: 1px solid #666;
+    border-radius: 4px;
+    text-align: center;
+    color: #666;
+}
+
+.koto-sticky-status-badge.is-publish {
+    color: #008a20;
+    border-color: #008a20;
+}
+
+.koto-sticky-status-badge.is-draft {
+    color: #d63638;
+    border-color: #d63638;
+}
+
+.koto-sticky-save-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: stretch;
+}
+
+.koto-sticky-draft-btn {
+    text-align: center;
+}
+
+.koto-sticky-publish-btn {
+    text-align: center;
+    height: auto;
+    min-height: 32px;
+    padding: 0 10px;
+}
+
+.koto-sticky-save-hint {
+    color: #888;
+    font-size: 12px;
+}
+
+.koto-editor-shortcuts-notice {
+    margin-bottom: 15px;
+}
+
+.koto-editor-shortcuts-text {
+    font-size: 14px;
+}
+
+.koto-shortcut-key {
+    background: #e6f0fa;
+}
+
+.koto-top-selector-panel {
+    display: block;
+    background: #f0f6fc;
+    border-left: 4px solid #2271b1;
+    padding: 15px;
+}
+
+.koto-sync-selector-form {
+    width: 100%;
+}
+
+.acf-sync-panel-flex {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.acf-sync-col {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+}
+
+.koto-selector-relationship {
+    padding: 0;
+    border: none;
+}
+
+.koto-selector-group-select {
+    width: 100%;
+    margin-top: 5px;
+}
+
+.acf-sync-arrow {
+    display: flex;
+    align-items: center;
+    padding-top: 20px;
+}
+
+.koto-sync-arrow-icon {
+    font-size: 24px;
+    color: #ccc;
+}
+
+.koto-source-selector-details {
+    width: 100%;
+}
+
+.koto-source-selector-summary {
+    display: none;
+}
+
+.koto-editor-right-title {
+    color: #d63638;
+    display: inline-block;
+    margin-bottom: 4px;
+}
+
+.koto-sync-submit-wrap {
+    text-align: center;
+    margin-top: 15px;
+}
+
+.koto-sync-submit-btn {
+    width: 50%;
+}
+
+.acf-template-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.koto-template-or-label {
+    font-size: 12px;
+    color: #666;
+    margin: 0 5px;
+}
+
+.koto-template-search-field {
+    padding: 0;
+    border: none;
+    display: inline-block;
+    vertical-align: middle;
+    width: 300px;
+}
+
+.koto-source-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.koto-panel-meta-line {
+    margin: 5px 0 0 0;
+}
+
+.koto-multi-copy-form {
+    background: #e0f0fa;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    border: 1px solid #b8e0f9;
+    position: sticky;
+    top: 40px;
+    z-index: 10;
+}
+
+.koto-multi-copy-title {
+    color: #135e96;
+}
+
+.koto-multi-copy-btn {
+    margin-top: 5px;
+    width: 100%;
+}
+
+/* モバイル専用UIはPCでは非表示 */
+.koto-mobile-top-bar,
+.koto-mobile-backdrop,
+.koto-mobile-panel-bar,
+.koto-mobile-overlay-close-btn,
+.koto-mobile-open-source-selector-btn {
+    display: none;
+}
+
+/* =================================================================
+   スマホ・タブレット用レイアウト (画面幅 782px 以下)
 ================================================================= */
 @media screen and (max-width: 782px) {
 
-    /* 1. 左右一括切り替えパネルを縦並びに */
-    .acf-sync-panel-flex {
-        flex-direction: column !important;
-        gap: 15px !important;
+    .acf-editor-wrap,
+    .acf-editor-wrap * {
+        box-sizing: border-box;
     }
 
-    .acf-sync-col {
-        width: 100% !important;
+    body.koto-mobile-modal-open {
+        overflow: hidden;
     }
 
-    /* 「⇔」の矢印を縦向きに */
-    .acf-sync-arrow {
-        padding-top: 5px !important;
-        padding-bottom: 5px !important;
-        margin: 0 auto;
-        transform: rotate(90deg);
+    .acf-editor-wrap {
+        margin-top: 0;
+        padding-top: calc(var(--koto-mobile-bar-height, 76px) + 6px);
+        max-width: 100%;
     }
 
-    /* 2. 雛型フォームを縦に並べて画面内に収める */
-    .acf-template-form {
+    .koto-editor-page-title {
+        font-size: 16px !important;
+        line-height: 1.3;
+        margin: 0 0 8px 0 !important;
+        padding: 0 !important;
+    }
+
+    /* ショートカット一覧はスマホで非表示 */
+    .koto-editor-shortcuts-notice {
+        display: none !important;
+    }
+
+    /* -------------------------------------------------------------
+       1. スリム上部固定バー（開閉対応・右上単一保存ボタン）
+    ------------------------------------------------------------- */
+    .koto-mobile-top-bar {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: var(--koto-mobile-bar-top, 46px);
+        left: 0;
+        right: 0;
+        z-index: 99990;
+        background: #ffffff;
+        border-bottom: 1px solid #c3c4c7;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .koto-mobile-top-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 6px;
+        min-height: 36px;
+    }
+
+    .koto-mobile-bar-toggle-btn {
+        flex-shrink: 0;
+        width: 26px;
+        height: 28px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #f0f0f1;
+        border: 1px solid #c3c4c7;
+        border-radius: 4px;
+        color: #1d2327;
+        font-size: 10px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .koto-mobile-quick-links {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .koto-mobile-quick-links::-webkit-scrollbar {
+        display: none;
+    }
+
+    .koto-mobile-quick-btn {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        min-height: 28px !important;
+        height: 28px !important;
+        line-height: 1 !important;
+        padding: 0 7px !important;
+        margin: 0 !important;
+        font-size: 11px !important;
+        font-weight: 600;
+        white-space: nowrap;
+        border-color: #c3c4c7 !important;
+        background: #f6f7f7 !important;
+        color: #135e96 !important;
+        text-decoration: none;
+    }
+
+    .koto-mobile-bar-actions {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: auto;
+    }
+
+    .koto-mobile-save-dropdown {
+        position: relative;
+    }
+
+    .koto-mobile-save-trigger {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        min-height: 28px !important;
+        height: 28px !important;
+        line-height: 1 !important;
+        padding: 0 8px !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        white-space: nowrap;
+        background: #135e96 !important;
+        border-color: #135e96 !important;
+        color: #ffffff !important;
+    }
+
+    .koto-mobile-save-trigger.is-disabled {
+        background: #f0f0f1 !important;
+        border-color: #dcdcde !important;
+        color: #8c8f94 !important;
+    }
+
+    .koto-mobile-status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #a7aaad;
+        flex-shrink: 0;
+    }
+
+    .koto-mobile-save-trigger.is-publish .koto-mobile-status-dot {
+        background: #68de7c;
+    }
+
+    .koto-mobile-save-trigger.is-draft .koto-mobile-status-dot {
+        background: #ff8085;
+    }
+
+    .koto-mobile-save-caret {
+        font-size: 9px;
+        margin-left: 1px;
+    }
+
+    .koto-mobile-save-menu {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: calc(100% + 4px);
+        min-width: 158px;
+        padding: 8px;
+        background: #ffffff;
+        border: 1px solid #c3c4c7;
+        border-radius: 6px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+        z-index: 99995;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .koto-mobile-save-menu.is-open {
+        display: flex;
+    }
+
+    .koto-mobile-save-menu-status {
+        font-size: 11px;
+        color: #50575e;
+        padding-bottom: 5px;
+        border-bottom: 1px solid #f0f0f1;
+        text-align: center;
+    }
+
+    .koto-status-text.is-publish {
+        color: #008a20;
+    }
+
+    .koto-status-text.is-draft {
+        color: #d63638;
+    }
+
+    .koto-mobile-save-option {
+        width: 100%;
+        min-height: 36px !important;
+        line-height: 1.2 !important;
+        text-align: center;
+        font-size: 13px !important;
+    }
+
+    /* パネル切替タブ＋コピー元オーバーレイ（下段・5等分） */
+    .koto-mobile-panel-tabs {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 4px;
+        padding: 3px 6px 5px;
+        background: #f7ede3;
+        border-top: 1px solid #e6d7c8;
+    }
+
+    .koto-mobile-top-bar.is-collapsed .koto-mobile-panel-tabs {
+        display: none;
+    }
+
+    .koto-mobile-panel-tab {
+        appearance: none;
+        background: #ffffff;
+        border: 1px solid #cbbba9;
+        border-radius: 4px;
+        color: #1d2327;
+        font-size: 11px;
+        font-weight: 600;
+        height: 28px;
+        padding: 0 2px;
+        cursor: pointer;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .koto-mobile-panel-tab.has-source {
+        border-color: #135e96;
+        background: #e6f2fa;
+        color: #135e96;
+    }
+
+    .koto-mobile-panel-tab.is-active {
+        background: #135e96;
+        border-color: #135e96;
+        color: #ffffff;
+    }
+
+    /* 背景バックドロップ */
+    .koto-mobile-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.42);
+        z-index: 99975;
+    }
+
+    .koto-mobile-backdrop.is-open {
+        display: block;
+    }
+
+    /* -------------------------------------------------------------
+       2. 4パネル排他切替ドロワー（同時描画は最大1つ）
+    ------------------------------------------------------------- */
+    .koto-mobile-panel {
+        display: none !important;
+    }
+
+    .koto-mobile-panel.is-mobile-panel-open {
+        display: flex !important;
         flex-direction: column !important;
         align-items: stretch !important;
-        gap: 10px !important;
+        position: fixed !important;
+        top: var(--koto-mobile-panel-top, 124px) !important;
+        left: 0 !important;
+        right: 0 !important;
+        max-height: calc(100dvh - var(--koto-mobile-panel-top, 124px) - 8px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        z-index: 99980 !important;
+        margin: 0 !important;
+        padding: 10px 12px 14px !important;
+        background: #ffffff !important;
+        border: none !important;
+        border-bottom: 2px solid #135e96 !important;
+        border-radius: 0 0 10px 10px !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22) !important;
+        gap: 10px;
+    }
+
+    .koto-mobile-panel-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #e2e4e7;
+        font-size: 13px;
+        color: #1d2327;
+    }
+
+    .koto-mobile-panel-close {
+        min-height: 28px !important;
+        line-height: 1 !important;
+        padding: 0 10px !important;
+        font-size: 12px !important;
+    }
+
+    /* パネル①: フィールド選択（3列グリッド・案A） */
+    .koto-mobile-panel-group .koto-mobile-panel-bar {
+        order: 1;
+    }
+
+    .koto-mobile-panel-group .acf-sticky-group-tabs {
+        order: 2;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        margin: 0;
+        flex: none;
+    }
+
+    .koto-mobile-panel-group .acf-sticky-group-tabs .group-switch-btn {
+        width: 100%;
+        min-height: 36px;
+        padding: 4px 4px;
+        font-size: 11px;
+        line-height: 1.25;
+        white-space: normal;
+        text-align: center;
+        margin: 0;
+    }
+
+    .koto-mobile-panel-group .koto-sticky-left {
+        order: 3;
+        flex-direction: column;
+        gap: 8px;
+        padding-top: 8px;
+        border-top: 1px dashed #dcdcde;
+    }
+
+    .koto-mobile-panel-group .koto-sticky-site-links,
+    .koto-mobile-panel-group .koto-sticky-tools {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+    }
+
+    .koto-mobile-panel-group .koto-sticky-site-label {
+        width: 100%;
+        font-size: 12px;
+    }
+
+    .koto-mobile-panel-group .koto-sticky-util-btn {
+        width: auto;
+        flex: 1 1 calc(50% - 6px);
+        min-height: 34px;
+        padding: 4px 8px;
+        font-size: 12px;
+        line-height: 1.3;
+    }
+
+    .koto-mobile-panel-group .koto-manual-map-select {
+        width: 100%;
+        min-height: 34px;
+    }
+
+    /* 保存ボタンは右上固定バーに統合済みのためパネル内では非表示 */
+    .koto-mobile-panel-group .koto-sticky-save-group {
+        display: none;
+    }
+
+    /* パネル②: 編集キャラ選択・コピー元選択（コピー元は初期折りたたみ） */
+    .acf-sync-panel-flex {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .acf-sync-arrow {
+        display: none;
+    }
+
+    .koto-source-selector-details {
+        border: 1px solid #dcdcde;
+        border-radius: 6px;
+        background: #f9f9f9;
+        overflow: hidden;
+    }
+
+    .koto-source-selector-summary {
+        display: block;
+        padding: 9px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #d63638;
+        cursor: pointer;
+        user-select: none;
+        background: #fff5f5;
+    }
+
+    .koto-source-selector-details[open] .koto-source-selector-summary {
+        border-bottom: 1px solid #e2e4e7;
+    }
+
+    .koto-source-selector-inner {
+        padding: 8px;
+    }
+
+    .koto-source-selector-inner .koto-editor-right-title {
+        display: none;
+    }
+
+    .koto-sync-submit-wrap {
+        margin-top: 12px;
+    }
+
+    .koto-sync-submit-btn {
+        width: 100% !important;
+        white-space: normal !important;
+        height: auto !important;
+        min-height: 40px !important;
+        line-height: 1.35 !important;
+        padding: 8px 12px !important;
+    }
+
+    /* パネル③: 雛型から新規作成 */
+    .acf-template-form {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .acf-template-form > strong {
+        display: none;
     }
 
     .acf-template-form select,
     .acf-template-form button,
-    .acf-template-form span {
+    .koto-template-or-label,
+    .koto-template-search-field {
         width: 100% !important;
         max-width: 100% !important;
-        text-align: left;
+        margin: 0 !important;
+        display: block;
     }
 
-    /* 3. キャラ検索 (Select2) の幅を強制的に100%に固定し、タップ領域を復活させる */
+    .acf-template-form button {
+        text-align: center;
+        min-height: 38px;
+    }
+
+    /* パネル④: 自動入力（開いたら即中身表示） */
+    .koto-mobile-panel-auto-input .acf-auto-input-header {
+        display: none;
+    }
+
+    .koto-mobile-panel-auto-input.is-mobile-panel-open .acf-auto-input-content {
+        display: flex !important;
+        padding: 4px 0 0 0;
+    }
+
+    .acf-auto-input-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+    }
+
+    .acf-auto-input-label {
+        width: auto;
+        font-weight: 600;
+        font-size: 12px;
+    }
+
+    .koto-blessing-outer-row > .acf-auto-input-label {
+        padding-top: 0;
+    }
+
+    #kotowaza_auto_input_area,
+    #ex_blessing_auto_input_area {
+        margin-left: 0;
+        padding-left: 10px;
+    }
+
+    .koto-blessing-token-select,
+    .koto-blessing-free-text {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .koto-blessing-item {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .koto-blessing-item-target-wrap {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .koto-blessing-item-target-group-wrap,
+    .koto-blessing-item-target-group-wrap .koto-blessing-group-acf-field,
+    .koto-blessing-group-acf-field .acf-taxonomy-field .select2-container {
+        min-width: 0;
+        width: 100% !important;
+    }
+
+    /* ACF Relationship ウィジェット＆Select2 のスマホ最適化 */
     .select2-container {
         width: 100% !important;
         max-width: 100% !important;
     }
 
-    /* 4. 上部追従のアクションバー（保存ボタンなど）も折り返す */
-    .acf-sticky-actions {
-        flex-direction: column !important;
-        gap: 15px !important;
-        align-items: stretch !important;
-        height: auto !important;
+    .select2-container--open {
+        z-index: 100050 !important;
     }
 
-    .acf-sticky-actions div {
-        flex-direction: column !important;
+    .acf-relationship .filters {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 6px;
+    }
+
+    .acf-relationship .filters .filter {
         width: 100% !important;
+        float: none !important;
+        padding: 0 !important;
     }
 
-    .acf-sticky-actions .button {
+    .acf-relationship .selection {
+        display: flex;
+        flex-direction: column;
+        height: auto;
+    }
+
+    .acf-relationship .selection .choices,
+    .acf-relationship .selection .values {
         width: 100% !important;
-        text-align: center;
+        float: none !important;
+        border-right: none !important;
     }
 
-    /* ==========================================
-        5. 左右のカラムを上下に配置
-       ========================================== */
+    .acf-relationship .selection .choices {
+        border-bottom: 1px solid #ccd0d4;
+    }
+
+    .acf-relationship .selection .choices .list {
+        height: 145px;
+    }
+
+    .acf-relationship .selection .values .list {
+        height: auto;
+        min-height: 44px;
+        max-height: 92px;
+    }
+
+    /* -------------------------------------------------------------
+       3. メイン編集カラム ＆ コピー元オーバーレイ
+    ------------------------------------------------------------- */
     .acf-editor-columns {
-        flex-direction: column !important;
-        /* 横並びを縦並びに変更 */
+        flex-direction: column;
+        gap: 12px;
     }
 
-    .acf-editor-col-left,
-    .acf-editor-col-right {
-        width: 100% !important;
-        /* 幅を画面いっぱいに */
-        flex: none !important;
+    .acf-editor-col-left {
+        width: 100%;
+        flex: none;
     }
 
+    .acf-editor-panel-header {
+        padding: 10px 12px;
+    }
+
+    .acf-editor-main-form,
+    .acf-editor-export-area {
+        padding: 12px;
+    }
+
+    /* PC右カラム（コピー元）は通常非表示、上部バーからオーバーレイ表示 */
     .acf-editor-col-right {
-        position: static !important;
-        /* スマホではスクロール追従を解除（見づらくなるため） */
+        display: none;
+        width: auto;
+        flex: none;
+        position: static;
+    }
+
+    .acf-editor-col-right.is-mobile-overlay-open {
+        display: flex;
+        flex-direction: column;
+        position: fixed !important;
+        top: calc(var(--koto-mobile-bar-top, 46px) + 6px);
+        left: 6px;
+        right: 6px;
+        bottom: 6px;
+        z-index: 99992;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+        background: #ffffff;
+    }
+
+    .acf-editor-col-right.is-mobile-overlay-open .source-header {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: #f9f9f9;
+    }
+
+    .koto-mobile-overlay-close-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 30px !important;
+        line-height: 1 !important;
+        padding: 0 10px !important;
+        flex-shrink: 0;
+    }
+
+    .koto-mobile-open-source-selector-btn {
+        display: inline-block;
+        margin-top: 8px;
+        width: 100%;
+        text-align: center;
+        min-height: 38px;
+    }
+
+    .koto-multi-copy-form {
+        position: static;
+    }
+
+    .koto-multi-copy-btn {
+        white-space: normal !important;
+        height: auto !important;
+        line-height: 1.35 !important;
+        padding: 6px 10px !important;
+    }
+}
+
+@media screen and (max-width: 400px) {
+    .koto-mobile-copy-label {
+        display: none;
     }
 }
 
@@ -973,4 +1786,103 @@
     border-color: #0e4772;
     color: #ffffff;
     box-shadow: 0 0 0 1px #ffffff, 0 0 0 3px #135e96;
+}
+
+/* =================================================================
+   スマホ用 最終オーバーライド（自動入力・祝福UIの横はみ出し防止）
+   ※ 後続のPC基本スタイルより後に配置してカスケード優先度を保証
+================================================================= */
+@media screen and (max-width: 782px) {
+    .koto-mobile-panel-auto-input.is-mobile-panel-open {
+        overflow-x: hidden;
+    }
+
+    .koto-mobile-panel-auto-input .acf-auto-input-header {
+        display: none;
+    }
+
+    .koto-mobile-panel-auto-input.is-mobile-panel-open .acf-auto-input-content {
+        display: flex !important;
+        padding: 4px 0 0 0;
+        width: 100%;
+    }
+
+    .koto-mobile-panel-auto-input .acf-auto-input-row {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 4px;
+        width: 100%;
+    }
+
+    .koto-mobile-panel-auto-input .acf-auto-input-label {
+        width: auto;
+        font-weight: 600;
+        font-size: 12px;
+        padding-top: 0;
+    }
+
+    .koto-mobile-panel-auto-input .acf-auto-input-text {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .koto-mobile-panel-auto-input .kotowaza-toggle-row {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .koto-mobile-panel-auto-input .btn-kotowaza-toggle {
+        width: 100%;
+        padding: 6px 12px !important;
+        font-size: 13px !important;
+    }
+
+    .koto-mobile-panel-auto-input #kotowaza_auto_input_area,
+    .koto-mobile-panel-auto-input #ex_blessing_auto_input_area {
+        margin-left: 0;
+        padding-left: 10px;
+        width: 100%;
+    }
+
+    .koto-mobile-panel-auto-input .koto-blessing-auto-input-box {
+        width: 100%;
+        min-width: 0;
+        padding: 8px;
+    }
+
+    .koto-mobile-panel-auto-input .koto-blessing-rarity-row,
+    .koto-mobile-panel-auto-input .koto-blessing-tpl-controls,
+    .koto-mobile-panel-auto-input .koto-blessing-tpl-actions,
+    .koto-mobile-panel-auto-input .koto-blessing-token-controls,
+    .koto-mobile-panel-auto-input .koto-blessing-free-controls {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .koto-mobile-panel-auto-input .koto-blessing-rarity-select,
+    .koto-mobile-panel-auto-input .koto-blessing-template-select,
+    .koto-mobile-panel-auto-input .koto-blessing-token-select,
+    .koto-mobile-panel-auto-input .koto-blessing-free-text {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .koto-mobile-panel-auto-input .koto-blessing-item {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .koto-mobile-panel-auto-input .koto-blessing-item-target-wrap {
+        margin-left: 0;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .koto-mobile-panel-auto-input .koto-blessing-item-target-group-wrap,
+    .koto-mobile-panel-auto-input .koto-blessing-item-target-group-wrap .koto-blessing-group-acf-field,
+    .koto-mobile-panel-auto-input .koto-blessing-group-acf-field .acf-taxonomy-field .select2-container {
+        min-width: 0;
+        width: 100% !important;
+    }
 }
