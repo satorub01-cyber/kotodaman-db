@@ -66,6 +66,15 @@ function koto_get_column_config()
             'header_class' => 'th-species',
             'related_filters' => ['tx_species[]']
         ],
+        'rarity' => [
+            'label' => 'レアリティ',
+            'class' => 'col-rarity',
+            'sort'  => 'rarity',
+            'type'  => 'NUMERIC',
+            'show'  => false,
+            'header_class' => 'th-rarity',
+            'related_filters' => ['tx_rarity[]']
+        ],
         'group' => [
             'label' => 'グループ',
             'class' => 'col-group',
@@ -288,6 +297,25 @@ if (!function_exists('koto_get_term_html_helper')) {
             if ($prefix) $html_content = "<span class='icon-prefix'>{$prefix}</span>" . $html_content;
         }
         return "<a href='" . get_term_link($term) . "' class='term-link-wrapper'>{$html_content}</a>";
+    }
+}
+
+if (!function_exists('koto_get_rarity_map')) {
+    /**
+     * レアリティタクソノミーのスラッグと表示名の対応表を取得する
+     *
+     * @return array<string, string>
+     */
+    function koto_get_rarity_map()
+    {
+        $rarity_terms = get_terms(['taxonomy' => 'rarity', 'hide_empty' => false]);
+        $rarity_map = [];
+        if (!is_wp_error($rarity_terms)) {
+            foreach ($rarity_terms as $t) {
+                $rarity_map[$t->slug] = $t->name;
+            }
+        }
+        return $rarity_map;
     }
 }
 

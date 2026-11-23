@@ -443,8 +443,15 @@
 }
 
 .th-attr,
-.th-species {
+.th-species,
+.th-rarity {
     text-align: center;
+}
+
+.td-rarity {
+    text-align: center;
+    white-space: nowrap;
+    font-size: 0.9em;
 }
 
 .koto-chara-table .attr-icon-img,
@@ -667,6 +674,7 @@
 .koto-chara-table.hide-col-moji-axis:not(.active-col-moji-axis) .col-moji-axis,
 .koto-chara-table.hide-col-attr:not(.active-col-attr) .col-attr,
 .koto-chara-table.hide-col-species:not(.active-col-species) .col-species,
+.koto-chara-table.hide-col-rarity:not(.active-col-rarity) .col-rarity,
 .koto-chara-table.hide-col-group:not(.active-col-group) .col-group,
 .koto-chara-table.hide-col-event:not(.active-col-event) .col-event,
 .koto-chara-table.hide-col-sub-event:not(.active-col-sub-event) .col-sub-event,

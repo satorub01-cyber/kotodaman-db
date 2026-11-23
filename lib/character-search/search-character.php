@@ -128,6 +128,7 @@ $search_json_url = add_query_arg('v', $json_ver, $base_json_url);
 $grp_map = koto_get_group_map();
 $event_map = koto_get_event_map();
 $suitable_quest_map = koto_get_suitable_quest_map();
+$rarity_map = function_exists('koto_get_rarity_map') ? koto_get_rarity_map() : [];
 $json_flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
 ?>
 
@@ -136,9 +137,11 @@ $json_flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
     window.KOTO_GROUP_MAP = <?php echo wp_json_encode($grp_map, $json_flags); ?>;
     window.KOTO_EVENT_MAP = <?php echo wp_json_encode($event_map, $json_flags); ?>;
     window.KOTO_SUITABLE_QUEST_MAP = <?php echo wp_json_encode($suitable_quest_map, $json_flags); ?>;
+    window.KOTO_RARITY_MAP = <?php echo wp_json_encode($rarity_map, $json_flags); ?>;
     var KOTO_GROUP_MAP = window.KOTO_GROUP_MAP;
     var KOTO_EVENT_MAP = window.KOTO_EVENT_MAP;
     var KOTO_SUITABLE_QUEST_MAP = window.KOTO_SUITABLE_QUEST_MAP;
+    var KOTO_RARITY_MAP = window.KOTO_RARITY_MAP;
 </script>
 <script src="<?php echo esc_url(get_stylesheet_directory_uri() . '/lib/character-search/search-engine.js?v=' . $version); ?>"></script>
 <script>
