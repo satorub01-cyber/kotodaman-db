@@ -855,7 +855,7 @@ function get_koto_sugowaza_html($group_data, $condition_data = null, $skill_type
                             $f_vals = array_map(function ($v) {
                                 return "「{$v}」";
                             }, $formatted_vals);
-                            $and_texts[] = "文字" . implode($join_char, $f_vals) . "〜で始まる";
+                            $and_texts[] = "文字" . implode($join_char, $f_vals) . "で始まる";
                             break;
                         case 'end_char':
                             $f_vals = array_map(function ($v) {
