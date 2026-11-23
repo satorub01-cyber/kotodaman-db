@@ -15,3 +15,4 @@ search-moc.html
 /.devcontainer/local/
 .vscode/
 /.devcontainer/acf-pro-stubs-master
+lib/character-search/test_characters_search.json

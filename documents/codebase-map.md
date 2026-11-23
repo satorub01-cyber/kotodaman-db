@@ -155,6 +155,7 @@ flowchart TD
 | `lib/term-setter/` | タクソノミー（所属、グループ等）一括設定ツール。 | |
 | `lib/missing-info-characters.php` | 画像や情報が未設定のキャラクターを抽出・一覧表示する管理機能。 | |
 | `lib/media-functions.php` | 画像アタッチメントの未紐付け判定、アイキャッチ更新補助。 | 未使用画像3フィールド定義の正本 |
+| `lib/ogp/` | X(Twitter)等SNS向けOGPサムネイル動的生成＆管理画面「メディア > サムネ生成 (OGP/YT)」モジュール（`loader.php`, `ogp-search.php`, `ogp-image.php`, `ogp-endpoint.php`, `ogp-hooks.php`, `ogp-admin.php` / `.css` / `.js`）。 | `6:5`画像最適化・レアリティ優先ソート・`1200×630` / `1280×720`対応 |
 
 ---
 

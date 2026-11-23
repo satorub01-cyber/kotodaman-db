@@ -1,0 +1,262 @@
+/* =========================================================
+ * コトダマンDB - 管理画面サムネイル生成UI (OGP / YouTube)
+ * ========================================================= */
+
+.koto-ogp-admin-wrap {
+    max-width: 1360px;
+}
+
+.koto-ogp-page-title {
+    color: #135e96;
+    font-weight: 700;
+}
+
+.koto-ogp-lead {
+    color: #444;
+    margin-bottom: 16px;
+}
+
+.koto-ogp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: 20px;
+    align-items: start;
+}
+
+@media (max-width: 1024px) {
+    .koto-ogp-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.koto-ogp-panel {
+    background: #f7ede3;
+    border: 1px solid #dccbb9;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.koto-ogp-section-title {
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #135e96;
+    color: #135e96;
+    font-size: 16px;
+}
+
+.koto-ogp-control-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.koto-ogp-select {
+    max-width: 100%;
+    flex: 1;
+}
+
+.koto-ogp-search-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.koto-ogp-search-bar input {
+    flex: 1;
+}
+
+.koto-ogp-candidates {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+    max-height: 540px;
+    overflow-y: auto;
+    padding: 4px;
+    background: #fff;
+    border: 1px solid #e0d5c9;
+    border-radius: 6px;
+}
+
+.koto-ogp-candidate-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid #e2d8ce;
+    border-radius: 6px;
+    background: #fffdf9;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.15s, background-color 0.15s;
+}
+
+.koto-ogp-candidate-card:hover {
+    border-color: #135e96;
+    background: #eef6fc;
+}
+
+.koto-ogp-candidate-card.is-selected {
+    border-color: #135e96;
+    background: #dcecf8;
+}
+
+.koto-ogp-candidate-thumb {
+    width: 96px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 4px;
+    background: #efe5da;
+}
+
+.koto-ogp-candidate-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #222;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.koto-ogp-candidate-badge {
+    font-size: 11px;
+    color: #135e96;
+    background: #e5eff7;
+    padding: 1px 6px;
+    border-radius: 10px;
+}
+
+.koto-ogp-selected-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.koto-ogp-selected-list {
+    margin: 0 0 14px;
+    padding: 8px;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #e0d5c9;
+    border-radius: 6px;
+    min-height: 60px;
+}
+
+.koto-ogp-selected-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-bottom: 1px solid #f0e8df;
+}
+
+.koto-ogp-selected-item:last-child {
+    border-bottom: none;
+}
+
+.koto-ogp-selected-thumb {
+    width: 48px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 4px;
+    background: #efe5da;
+}
+
+.koto-ogp-selected-name {
+    flex: 1;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.koto-ogp-selected-btns {
+    display: flex;
+    gap: 4px;
+}
+
+.koto-ogp-empty-note,
+.koto-ogp-muted {
+    color: #777;
+    font-size: 13px;
+    margin: 8px;
+}
+
+.koto-ogp-options-box {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #e0d5c9;
+    border-radius: 6px;
+    margin-bottom: 14px;
+}
+
+.koto-ogp-option-item label {
+    display: block;
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.koto-ogp-option-item select {
+    width: 100%;
+}
+
+.koto-ogp-option-check {
+    display: flex;
+    align-items: center;
+}
+
+.koto-ogp-option-check label {
+    margin-bottom: 0;
+    cursor: pointer;
+}
+
+.koto-ogp-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.koto-ogp-actions .is-disabled {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+.koto-ogp-status {
+    min-height: 20px;
+    font-size: 13px;
+    color: #135e96;
+    margin-bottom: 10px;
+}
+
+.koto-ogp-preview-frame {
+    background: #fff;
+    border: 1px solid #d5c5b3;
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+}
+
+.koto-ogp-preview-img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+    border-radius: 4px;
+}
+
+.koto-ogp-preview-img.is-hidden,
+.koto-ogp-preview-placeholder.is-hidden {
+    display: none;
+}
+
+.koto-ogp-preview-placeholder {
+    padding: 60px 16px;
+    color: #777;
+    font-size: 14px;
+}
