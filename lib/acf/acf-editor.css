@@ -946,3 +946,31 @@
     word-break: break-all;
     margin: 0;
 }
+
+/* DBエディタ左側・下書き絞り込みボタン */
+.koto-editor-col-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+
+.koto-editor-left-title {
+    color: #2271b1;
+}
+
+.koto-filter-draft-btn.is-active {
+    background-color: #135e96;
+    border-color: #135e96;
+    color: #ffffff;
+}
+
+.koto-filter-draft-btn.is-active:hover,
+.koto-filter-draft-btn.is-active:focus {
+    background-color: #0e4772;
+    border-color: #0e4772;
+    color: #ffffff;
+    box-shadow: 0 0 0 1px #ffffff, 0 0 0 3px #135e96;
+}

@@ -319,6 +319,14 @@ function koto_acf_relationship_query_custom($args, $field, $post_id)
     // 1. 下書きのキャラも検索結果に出るようにする（超重要！）
     $args['post_status'] = ['publish', 'draft', 'pending', 'private'];
 
+    // 左側（編集先）で「下書きのみ」絞り込みが指定されている場合
+    if (
+        isset($field['key']) && $field['key'] === 'field_editor_edit_post'
+        && isset($_POST['koto_draft_only']) && (string) wp_unslash($_POST['koto_draft_only']) === '1'
+    ) {
+        $args['post_status'] = ['draft'];
+    }
+
     // 2. 左側（編集先）の検索で、他人の記事を編集できない権限の場合は自分の記事（checker は AI-assistant 含む）に絞る
     if ($field['key'] === 'field_editor_edit_post' && !current_user_can('edit_others_posts')) {
         if (function_exists('koto_user_is_checker') && koto_user_is_checker()) {
@@ -1009,7 +1017,12 @@ function koto_acf_editor_page_html()
                 <input type="hidden" name="page" value="koto-acf-editor">
                 <div class="acf-sync-panel-flex" style="display: flex; gap: 20px; align-items: flex-start;">
                     <div class="acf-sync-col" style="flex: 1; width: 100%;">
-                        <strong style="color: #2271b1;">📝【左】編集・インポート先のキャラと項目:</strong><br>
+                        <div class="koto-editor-col-header">
+                            <strong class="koto-editor-left-title">📝【左】編集・インポート先のキャラと項目:</strong>
+                            <button type="button" id="koto-filter-draft-btn" class="button button-small koto-filter-draft-btn" aria-pressed="false" title="左側のキャラ候補を下書きのみに絞り込みます">
+                                下書きのみ
+                            </button>
+                        </div>
                         <input type="hidden" name="edit_post_id" id="real_edit_post_id" value="<?php echo esc_attr($edit_post_id ? $edit_post_id : ''); ?>">
 
                         <div class="acf-field acf-field-relationship" data-type="relationship" data-name="_dummy_edit_post_id" data-key="field_editor_edit_post" style="padding:0; border:none;">
