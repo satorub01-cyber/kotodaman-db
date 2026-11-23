@@ -9,6 +9,61 @@ if (!defined('ABSPATH')) {
 }
 
 /**
+ * 準備中画像（無題51_20260205005357）の添付ファイルID一覧を取得する
+ *
+ * @return int[]
+ */
+function image_setter_get_placeholder_image_ids(): array {
+    static $prep_ids = null;
+    if ($prep_ids !== null) {
+        return $prep_ids;
+    }
+
+    global $wpdb;
+    $cols = $wpdb->get_col("
+        SELECT ID FROM {$wpdb->posts}
+        WHERE post_type = 'attachment'
+          AND (guid LIKE '%無題51_20260205005357%' OR post_name LIKE '%無題51_20260205005357%')
+    ");
+
+    $prep_ids = array_values(array_unique(array_filter(array_map('intval', (array) $cols))));
+    return $prep_ids;
+}
+
+/**
+ * 画像値が「設定済み（未設定・準備中画像ではない）」かどうかを判定する
+ *
+ * @param mixed      $image_value 投稿メタ等の画像IDまたはURL/配列
+ * @param int[]|null $prep_ids    準備中画像の添付ファイルID一覧（省略時は自動取得）
+ * @return bool
+ */
+function image_setter_is_image_set($image_value, ?array $prep_ids = null): bool {
+    if (empty($image_value)) {
+        return false;
+    }
+
+    if (is_array($image_value)) {
+        $image_value = $image_value['ID'] ?? $image_value['id'] ?? $image_value['url'] ?? '';
+        if (empty($image_value)) {
+            return false;
+        }
+    }
+
+    if (is_numeric($image_value)) {
+        $image_id = (int) $image_value;
+        if ($image_id <= 0) {
+            return false;
+        }
+        if ($prep_ids === null) {
+            $prep_ids = image_setter_get_placeholder_image_ids();
+        }
+        return !in_array($image_id, $prep_ids, true);
+    }
+
+    return strpos((string) $image_value, '無題51_20260205005357') === false;
+}
+
+/**
  * 未使用（未紐付け）画像を取得する共通関数
  * 
  * @param string $search 検索文字列
@@ -35,11 +90,7 @@ function image_setter_get_unused_images($search = '', $paged = 1, $per_page = 60
     ");
 
     // 2. 準備中画像（無題51_20260205005357）は未設定キャラの仮画像であり、未紐付け画像一覧からは常に除外する
-    $prep_ids = $wpdb->get_col("
-        SELECT ID FROM {$wpdb->posts}
-        WHERE post_type = 'attachment'
-        AND (guid LIKE '%無題51_20260205005357%' OR post_name LIKE '%無題51_20260205005357%')
-    ");
+    $prep_ids = image_setter_get_placeholder_image_ids();
     if (!empty($prep_ids)) {
         $used_ids = array_merge($used_ids, $prep_ids);
     }
@@ -205,7 +256,8 @@ function image_setter_handle_save_image() {
     $char_title = get_the_title($char_id);
     $msg = "{$char_title}の{$label_name}に設定しました";
 
-    // 現在の各画像設定状況を取得して返す
+    // 現在の各画像設定状況を取得して返す（準備中画像は「未」扱い）
+    $prep_ids = image_setter_get_placeholder_image_ids();
     $pre_id = get_post_meta($char_id, 'pre_evo_image', true);
     $main_id = get_post_meta($char_id, 'character_image', true);
     $ano_id = get_post_meta($char_id, 'another_character_image', true);
@@ -220,10 +272,10 @@ function image_setter_handle_save_image() {
         'image_label'    => $label_name,
         'thumb_updated'  => $thumb_updated,
         'status' => [
-            'has_pre'     => !empty($pre_id),
-            'has_main'    => !empty($main_id),
-            'has_another' => !empty($ano_id),
-            'has_thumb'   => !empty($current_thumb_id),
+            'has_pre'     => image_setter_is_image_set($pre_id, $prep_ids),
+            'has_main'    => image_setter_is_image_set($main_id, $prep_ids),
+            'has_another' => image_setter_is_image_set($ano_id, $prep_ids),
+            'has_thumb'   => image_setter_is_image_set($current_thumb_id, $prep_ids),
         ]
     ]);
 }

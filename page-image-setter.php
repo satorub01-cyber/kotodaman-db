@@ -37,11 +37,7 @@ $ajax_url = admin_url('admin-ajax.php');
 
 // --- A. キャラクター一覧取得（SQLで直接絞り込み、メモリ消費を激減） ---
 // 条件: アイキャッチ画像が「未設定」または「準備中画像（無題51_20260205005357）」
-$prep_ids = $wpdb->get_col("
-    SELECT ID FROM {$wpdb->posts}
-    WHERE post_type = 'attachment'
-      AND (guid LIKE '%無題51_20260205005357%' OR post_name LIKE '%無題51_20260205005357%')
-");
+$prep_ids = image_setter_get_placeholder_image_ids();
 $prep_sql = '';
 if (!empty($prep_ids)) {
     $prep_clean = implode(',', array_map('intval', $prep_ids));
@@ -89,9 +85,9 @@ foreach ($pending_raw as $c) {
         'title'       => $c->post_title,
         'ruby'        => $c->ruby ?: '',
         'status'      => $c->post_status,
-        'has_pre'     => !empty($c->pre_id),
-        'has_main'    => !empty($c->main_id),
-        'has_another' => !empty($c->ano_id),
+        'has_pre'     => image_setter_is_image_set($c->pre_id, $prep_ids),
+        'has_main'    => image_setter_is_image_set($c->main_id, $prep_ids),
+        'has_another' => image_setter_is_image_set($c->ano_id, $prep_ids),
         'edit_url'    => admin_url('post.php?post=' . $c->ID . '&action=edit'),
     ];
 }
