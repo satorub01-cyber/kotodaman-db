@@ -1580,11 +1580,10 @@ if ($is_localhost_8080):
         const blessingHeaders = document.querySelectorAll('.blessing-acc-header.is-toggle');
         blessingHeaders.forEach(header => {
             header.addEventListener('click', function() {
-                this.classList.toggle('active');
+                const isOpen = this.classList.toggle('active');
                 const body = this.nextElementSibling;
                 if (body && body.classList.contains('blessing-acc-body')) {
-                    const isHidden = window.getComputedStyle(body).display === 'none';
-                    body.style.display = isHidden ? 'block' : 'none';
+                    body.style.display = isOpen ? 'block' : 'none';
                 }
             });
         });
