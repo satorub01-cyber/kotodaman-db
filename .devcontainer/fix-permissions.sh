@@ -19,13 +19,27 @@ if [ "$HOST_GID" != "0" ] && command -v usermod >/dev/null 2>&1; then
   usermod -aG "$HOST_GID" www-data 2>/dev/null || true
 fi
 
+APACHE_NEEDS_RELOAD=0
 if [ -f /etc/apache2/envvars ] && ! grep -qxF 'umask 000' /etc/apache2/envvars; then
   echo 'umask 000' >> /etc/apache2/envvars
-  if [ -s /var/run/apache2/apache2.pid ]; then
-    APACHE_PID="$(cat /var/run/apache2/apache2.pid 2>/dev/null || true)"
-    if [ -n "$APACHE_PID" ] && kill -0 "$APACHE_PID" 2>/dev/null && [ -r "/proc/$APACHE_PID/comm" ] && [ "$(cat "/proc/$APACHE_PID/comm" 2>/dev/null || true)" = "apache2" ]; then
-      apache2ctl graceful >/dev/null 2>&1 || true
-    fi
+  APACHE_NEEDS_RELOAD=1
+fi
+
+# コンテナ内 /browser (ヘッドレスChrome) からも http://localhost:8080 で接続できるよう 8080 を待ち受ける
+if [ -f /etc/apache2/ports.conf ] && ! grep -qxE '^[[:space:]]*Listen[[:space:]]+8080([[:space:]]|$)' /etc/apache2/ports.conf; then
+  printf '\nListen 8080\n' >> /etc/apache2/ports.conf
+  APACHE_NEEDS_RELOAD=1
+fi
+
+if [ -f /etc/apache2/sites-available/000-default.conf ] && grep -q '<VirtualHost \*:80>' /etc/apache2/sites-available/000-default.conf; then
+  sed -i 's/<VirtualHost \*:80>/<VirtualHost *:80 *:8080>/' /etc/apache2/sites-available/000-default.conf
+  APACHE_NEEDS_RELOAD=1
+fi
+
+if [ "$APACHE_NEEDS_RELOAD" = "1" ] && [ -s /var/run/apache2/apache2.pid ]; then
+  APACHE_PID="$(cat /var/run/apache2/apache2.pid 2>/dev/null || true)"
+  if [ -n "$APACHE_PID" ] && kill -0 "$APACHE_PID" 2>/dev/null && [ -r "/proc/$APACHE_PID/comm" ] && [ "$(cat "/proc/$APACHE_PID/comm" 2>/dev/null || true)" = "apache2" ]; then
+    apache2ctl -t >/dev/null 2>&1 && apache2ctl graceful >/dev/null 2>&1 || true
   fi
 fi
 

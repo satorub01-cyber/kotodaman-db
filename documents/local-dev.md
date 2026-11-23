@@ -104,6 +104,7 @@ tail -n 30 /tmp/xdebug.log
 
 - `/usr/local/bin/google-chrome`: `root` 実行時の `--no-sandbox`、ヘッドレス環境向けの `--headless=new` / `--disable-dev-shm-usage` を自動補完するラッパー
 - `/usr/local/bin/ensure-headless-chrome`: CDP ポート `9222` でヘッドレス Chrome を冪等に起動し、`$HOME/.config/google-chrome/DevToolsActivePort` を生成するヘルパー（`devcontainer.json` の `postStartCommand` からコマンド存在時のみ自動実行）
+- Apache の `80` / `8080` 両待ち受け設定（`.devcontainer/Dockerfile` および `.devcontainer/fix-permissions.sh` で `/etc/apache2/ports.conf` と `000-default.conf` に `8080` を追加）：ホスト側ブラウザ（Docker `8080:80`）とコンテナ内 `/browser` の両方から同一の `http://localhost:8080` オリジンで WordPress へ接続できるようにしています
 - `docker-compose.yml` の `shm_size: "1gb"` による共有メモリ拡張
 
 ### 別の Dev Container プロジェクトへ使いまわす手順
