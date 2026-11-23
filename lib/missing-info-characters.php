@@ -79,6 +79,15 @@ function koto_get_missing_char_data($post_id)
         }
     }
 
+    // Lv99ステータス
+    foreach (['lv_99_hp', 'lv_99_atk'] as $stat_key) {
+        $stat_val = get_post_meta($post_id, $stat_key, true);
+        if (!is_scalar($stat_val) || trim((string)$stat_val) === '') {
+            $missing_parts[] = 'Lv99ステータス';
+            break;
+        }
+    }
+
     if (!empty($missing_parts)) {
         return [
             'id' => $post_id,

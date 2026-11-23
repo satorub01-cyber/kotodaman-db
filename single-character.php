@@ -110,25 +110,44 @@ if (empty($spec_data['firepower_index']) && function_exists('_calculate_firepowe
 // -----------------------------------------------------------
 // ステータス取得 (JSON優先)
 // -----------------------------------------------------------
-// Lv99
-$raw_lv_99_hp  = $all_fields['lv_99_hp'] ?? get_post_meta($post_id, 'lv_99_hp', true);
-$raw_lv_99_atk = $all_fields['lv_99_atk'] ?? get_post_meta($post_id, 'lv_99_atk', true);
+$is_empty_stat = static function ($val) {
+    return !is_scalar($val) || trim((string)$val) === '';
+};
+$get_raw_field = static function ($key) use ($all_fields, $post_id) {
+    return $all_fields[$key] ?? get_post_meta($post_id, $key, true);
+};
+
+// Lv99（超化のみ入力されていて lv_99_hp/atk が未入力の場合も '-' 扱い）
+$is_lv99_hp_empty  = $is_empty_stat($get_raw_field('lv_99_hp'));
+$is_lv99_atk_empty = $is_empty_stat($get_raw_field('lv_99_atk'));
 $disp_hp_99  = $spec_data['_val_99_hp'] ?? get_post_meta($post_id, '99_hp', true);
 $disp_atk_99 = $spec_data['_val_99_atk'] ?? get_post_meta($post_id, '99_atk', true);
+if ($is_lv99_hp_empty || $is_empty_stat($disp_hp_99)) {
+    $disp_hp_99 = '-';
+}
+if ($is_lv99_atk_empty || $is_empty_stat($disp_atk_99)) {
+    $disp_atk_99 = '-';
+}
+
 // Lv120
+$is_manual_120 = !empty($get_raw_field('status_auto_tf'));
+$is_lv120_hp_missing  = $is_manual_120 ? $is_empty_stat($get_raw_field('lv_120_hp')) : $is_lv99_hp_empty;
+$is_lv120_atk_missing = $is_manual_120 ? $is_empty_stat($get_raw_field('lv_120_atk')) : $is_lv99_atk_empty;
 $disp_hp_120  = $spec_data['_val_120_hp'] ?? get_post_meta($post_id, '120_hp', true);
 $disp_atk_120 = $spec_data['_val_120_atk'] ?? get_post_meta($post_id, '120_atk', true);
-// 才能開花 (JSONから取得)
-$talent_hp  = $spec_data['talent_hp'] ?? 0;
-$talent_atk = $spec_data['talent_atk'] ?? 0;
+if ($is_lv120_hp_missing || $is_empty_stat($disp_hp_120) || (is_numeric($disp_hp_120) && (int)$disp_hp_120 <= 0)) {
+    $disp_hp_120 = '-';
+}
+if ($is_lv120_atk_missing || $is_empty_stat($disp_atk_120) || (is_numeric($disp_atk_120) && (int)$disp_atk_120 <= 0)) {
+    $disp_atk_120 = '-';
+}
 
-// 未入力チェック（超化のみ入力されていて lv_99_hp/atk が未入力の場合も未入力扱い）
-if (!is_scalar($raw_lv_99_hp) || trim((string)$raw_lv_99_hp) === '' || $disp_hp_99 === '' || $disp_hp_99 === null) {
-    $disp_hp_99 = '未入力';
-}
-if (!is_scalar($raw_lv_99_atk) || trim((string)$raw_lv_99_atk) === '' || $disp_atk_99 === '' || $disp_atk_99 === null) {
-    $disp_atk_99 = '未入力';
-}
+// 才能開花 (JSONから取得)
+$is_manual_talent = !empty($get_raw_field('talent_status_auto_tf'));
+$is_talent_hp_missing  = $is_manual_talent ? $is_empty_stat($get_raw_field('talent_hp')) : $is_lv99_hp_empty;
+$is_talent_atk_missing = $is_manual_talent ? $is_empty_stat($get_raw_field('talent_atk')) : $is_lv99_atk_empty;
+$talent_hp  = $is_talent_hp_missing ? 0 : (int)($spec_data['talent_hp'] ?? 0);
+$talent_atk = $is_talent_atk_missing ? 0 : (int)($spec_data['talent_atk'] ?? 0);
 
 // 偏差値計算
 $score_hp  = (is_numeric($disp_hp_99) && function_exists('get_koto_deviation_score'))
