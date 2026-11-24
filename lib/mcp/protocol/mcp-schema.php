@@ -138,6 +138,17 @@ function koto_mcp_blessing_schema($include_gimmicks = true)
                                         'text'  => ['type' => 'string', 'description' => 'とくせい説明文（非レベル制専用）。【重要】HP/ATK UPやキラー、属性軽減などのレベル制とくせいは必ずtokenまたはtemplateを使用し、freeで入れてはいけません（非レベル制20pt固定になるため禁止）。文字追加やすごわざ条件追加は自動解決されます。'],
                                     ],
                                 ],
+                                [
+                                    'title' => 'モードシフト・変身・絵違いモードシフト指定',
+                                    'type' => 'object',
+                                    'required' => ['type', 'relation_ship'],
+                                    'properties' => [
+                                        'type'          => ['type' => 'string', 'enum' => ['mode_shift']],
+                                        'point'         => ['type' => ['integer', 'string'], 'default' => 20, 'description' => '必要祝福ポイント（未指定時20）。'],
+                                        'relation_ship' => ['type' => 'string', 'enum' => ['mode_shift', 'another_image', 'before_transform', 'after_transform'], 'description' => 'このキャラの関係区分（mode_shift: モードシフト, another_image: 絵違いモードシフト, before_transform: 変身前, after_transform: 変身後）。'],
+                                        'related_form'  => ['type' => 'array', 'items' => ['type' => ['integer', 'string']], 'description' => '切替先・変身先のキャラクター投稿ID配列（例: [2002]、新規作成時に自身を指す場合は ["self"] も可）。'],
+                                    ],
+                                ],
                             ],
                         ],
                     ],

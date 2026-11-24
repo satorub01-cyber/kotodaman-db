@@ -1288,6 +1288,370 @@ function koto_parse_leader_trait($text, $grouped_csv, $input_key = '')
     return $converted_results;
 }
 
+/**
+ * すごわざの構造化入力（テキスト＋トークン生成配列）を正規化する。
+ *
+ * 許容形式:
+ * - {"text": "...", "tokens": [{"related_token": [1566], "group_index": 0}]}
+ * - {"text": "...", "related_token": [1566]} / {"tokens": [1566, 1569]}
+ * - 上記のJSON文字列
+ *
+ * @param mixed $input 入力データ。
+ * @return array{text: string, tokens: array<int, array{related_token: mixed, group_index: int|null}>}|null
+ */
+function koto_normalize_sugowaza_structured_input($input)
+{
+    if (is_string($input)) {
+        $trimmed = trim($input);
+        if ($trimmed === '' || $trimmed[0] !== '{') {
+            return null;
+        }
+        $decoded = json_decode($trimmed, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
+            return null;
+        }
+        $input = $decoded;
+    }
+
+    if (!is_array($input)) {
+        return null;
+    }
+
+    $has_known = array_key_exists('text', $input)
+        || array_key_exists('tokens', $input)
+        || array_key_exists('related_token', $input)
+        || array_key_exists('token', $input)
+        || array_key_exists('token_id', $input)
+        || array_key_exists('token_ids', $input);
+    if (!$has_known) {
+        return null;
+    }
+
+    $text = '';
+    if (array_key_exists('text', $input) && $input['text'] !== null) {
+        if (!is_string($input['text'])) {
+            return null;
+        }
+        $text = trim($input['text']);
+    }
+
+    $tokens = [];
+    foreach (['related_token', 'token', 'token_id', 'token_ids'] as $single_key) {
+        if (array_key_exists($single_key, $input) && $input[$single_key] !== null && $input[$single_key] !== '' && $input[$single_key] !== []) {
+            $tokens[] = [
+                'related_token' => $input[$single_key],
+                'group_index'   => isset($input['group_index']) && is_numeric($input['group_index']) ? max(0, (int) $input['group_index']) : null,
+            ];
+        }
+    }
+
+    if (array_key_exists('tokens', $input) && $input['tokens'] !== null) {
+        if (!is_array($input['tokens'])) {
+            return null;
+        }
+        foreach ($input['tokens'] as $tok_item) {
+            if (is_array($tok_item)) {
+                $raw_ref = $tok_item['related_token']
+                    ?? ($tok_item['token']
+                    ?? ($tok_item['token_id']
+                    ?? ($tok_item['token_ids']
+                    ?? ($tok_item['post_id']
+                    ?? ($tok_item['post_ids']
+                    ?? ($tok_item['id'] ?? null))))));
+                if ($raw_ref === null || $raw_ref === '' || $raw_ref === []) {
+                    return null;
+                }
+                $grp_idx = null;
+                if (array_key_exists('group_index', $tok_item) && $tok_item['group_index'] !== null && $tok_item['group_index'] !== '') {
+                    if (!is_numeric($tok_item['group_index']) || (int) $tok_item['group_index'] < 0) {
+                        return null;
+                    }
+                    $grp_idx = (int) $tok_item['group_index'];
+                }
+                $tokens[] = [
+                    'related_token' => $raw_ref,
+                    'group_index'   => $grp_idx,
+                ];
+            } elseif (is_int($tok_item) || (is_string($tok_item) && trim($tok_item) !== '')) {
+                $tokens[] = [
+                    'related_token' => $tok_item,
+                    'group_index'   => null,
+                ];
+            } else {
+                return null;
+            }
+        }
+    }
+
+    return [
+        'text'   => $text,
+        'tokens' => $tokens,
+    ];
+}
+
+/**
+ * すごわざ構造化入力をパースし、sugowaza_group_loop へトークン生成行を統合する。
+ *
+ * @param array{text: string, tokens: array<int, array{related_token: mixed, group_index: int|null}>} $norm
+ * @param array<string, array<int, array<string, mixed>>> $grouped_csv
+ * @param string $input_key
+ * @param array<string, mixed> $context
+ * @return array<int, array<string, mixed>>
+ */
+function koto_parse_sugowaza_structured(array $norm, $grouped_csv, $input_key = 'auto_input_sugowaza', array $context = [])
+{
+    $results = [];
+    if ($norm['text'] !== '') {
+        $prep = koto_preprocess_text($norm['text'], 'わざ');
+        $results = koto_parse_waza($prep, $grouped_csv, $input_key);
+    }
+
+    if (empty($norm['tokens'])) {
+        return $results;
+    }
+
+    // 通常グループ行（sugo_detail_loopを持つ行）と末尾メタ行（maltiplier_table / is_normal_field）を分離
+    $group_rows = [];
+    $meta_rows = [];
+    foreach ($results as $r) {
+        if (is_array($r) && isset($r['sugo_detail_loop']) && is_array($r['sugo_detail_loop'])) {
+            $group_rows[] = $r;
+        } else {
+            $meta_rows[] = $r;
+        }
+    }
+
+    foreach ($norm['tokens'] as $tok_entry) {
+        $resolved = koto_resolve_character_post_references($tok_entry['related_token'], [
+            'allow_self'  => false,
+            'field_label' => 'すごわざトークン（related_token）',
+        ]);
+        if (!empty($resolved['warnings'])) {
+            koto_record_auto_input_message('warnings', $input_key, $resolved['warnings']);
+        }
+        if (!empty($resolved['errors'])) {
+            koto_record_auto_input_message('errors', $input_key, $resolved['errors']);
+        }
+        $detail_row = [
+            'waza_type'     => 'token',
+            'related_token' => $resolved['ids'],
+        ];
+        $target_idx = $tok_entry['group_index'] !== null ? (int) $tok_entry['group_index'] : 0;
+        if (isset($group_rows[$target_idx])) {
+            $group_rows[$target_idx]['sugo_detail_loop'][] = $detail_row;
+        } else {
+            $group_rows[] = [
+                'waza_add_cond_loop' => [],
+                'sugo_detail_loop'   => [$detail_row],
+            ];
+        }
+    }
+
+    return array_merge($group_rows, $meta_rows);
+}
+
+/**
+ * とくせい1・2の構造化入力（テキスト＋モードシフト/変身オブジェクト配列）を正規化する。
+ *
+ * 許容形式:
+ * - {"text": "...", "mode_shift": {"relation_ship": "before_transform", "related_form": [2125], "condition": "..."}}
+ * - {"text": "...", "mode_shifts": [{...}, ...]}
+ * - {"relation_ship": "after_transform", "related_form": [2124]}
+ * - 上記のJSON文字列
+ *
+ * @param mixed $input 入力データ。
+ * @return array{text: string, mode_shifts: array<int, array{relation_ship: string, related_form: mixed, condition: string}>}|null
+ */
+function koto_normalize_trait_structured_input($input)
+{
+    if (is_string($input)) {
+        $trimmed = trim($input);
+        if ($trimmed === '' || $trimmed[0] !== '{') {
+            return null;
+        }
+        $decoded = json_decode($trimmed, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
+            return null;
+        }
+        $input = $decoded;
+    }
+
+    if (!is_array($input)) {
+        return null;
+    }
+
+    $has_known = array_key_exists('text', $input)
+        || array_key_exists('mode_shift', $input)
+        || array_key_exists('mode_shifts', $input)
+        || array_key_exists('relation_ship', $input)
+        || array_key_exists('relationship', $input)
+        || array_key_exists('related_form', $input);
+    if (!$has_known) {
+        return null;
+    }
+
+    $text = '';
+    if (array_key_exists('text', $input) && $input['text'] !== null) {
+        if (!is_string($input['text'])) {
+            return null;
+        }
+        $text = trim($input['text']);
+    }
+
+    $raw_entries = [];
+    if (array_key_exists('mode_shift', $input) && $input['mode_shift'] !== null) {
+        if (!is_array($input['mode_shift'])) {
+            return null;
+        }
+        $is_list = !empty($input['mode_shift']) && array_keys($input['mode_shift']) === range(0, count($input['mode_shift']) - 1);
+        if ($is_list) {
+            $raw_entries = array_merge($raw_entries, $input['mode_shift']);
+        } else {
+            $raw_entries[] = $input['mode_shift'];
+        }
+    }
+    if (array_key_exists('mode_shifts', $input) && $input['mode_shifts'] !== null) {
+        if (!is_array($input['mode_shifts'])) {
+            return null;
+        }
+        $raw_entries = array_merge($raw_entries, $input['mode_shifts']);
+    }
+    if (array_key_exists('relation_ship', $input) || array_key_exists('relationship', $input) || array_key_exists('related_form', $input)) {
+        $raw_entries[] = [
+            'relation_ship' => $input['relation_ship'] ?? ($input['relationship'] ?? 'mode_shift'),
+            'related_form'  => $input['related_form'] ?? ($input['related_forms'] ?? ($input['form'] ?? ($input['forms'] ?? []))),
+            'condition'     => $input['condition'] ?? '',
+        ];
+    }
+
+    $mode_shifts = [];
+    foreach ($raw_entries as $entry) {
+        if (!is_array($entry)) {
+            return null;
+        }
+        $rel = trim((string) ($entry['relation_ship'] ?? ($entry['relationship'] ?? 'mode_shift')));
+        if ($rel === '') {
+            $rel = 'mode_shift';
+        }
+        $rf = $entry['related_form']
+            ?? ($entry['related_forms']
+            ?? ($entry['form']
+            ?? ($entry['forms']
+            ?? ($entry['post_id']
+            ?? ($entry['post_ids'] ?? [])))));
+        $cond = '';
+        if (array_key_exists('condition', $entry) && $entry['condition'] !== null) {
+            if (!is_string($entry['condition'])) {
+                return null;
+            }
+            $cond = trim($entry['condition']);
+        }
+        $mode_shifts[] = [
+            'relation_ship' => $rel,
+            'related_form'  => $rf,
+            'condition'     => $cond,
+        ];
+    }
+
+    return [
+        'text'        => $text,
+        'mode_shifts' => $mode_shifts,
+    ];
+}
+
+/**
+ * とくせい1・2の構造化入力をパースし、テキスト解析行とモードシフト/変身行を統合する。
+ *
+ * @param array{text: string, mode_shifts: array<int, array{relation_ship: string, related_form: mixed, condition: string}>} $norm
+ * @param array<string, array<int, array<string, mixed>>> $grouped_csv
+ * @param string $input_key
+ * @param array<string, mixed> $context
+ * @return array<int, array<string, mixed>>
+ */
+function koto_parse_trait_structured(array $norm, $grouped_csv, $input_key = 'auto_input_trait1', array $context = [])
+{
+    $results = [];
+    if ($norm['text'] !== '') {
+        $prep = koto_preprocess_text($norm['text'], 'とくせい');
+        $results = koto_parse_trait($prep, $grouped_csv, $input_key);
+    }
+
+    $allowed_rels = ['mode_shift', 'before_transform', 'after_transform'];
+    $self_post_id = isset($context['post_id']) ? (int) $context['post_id'] : 0;
+    $condition_rows = $grouped_csv['とくせい条件'] ?? [];
+
+    foreach ($norm['mode_shifts'] as $ms) {
+        $rel = $ms['relation_ship'];
+        if (!in_array($rel, $allowed_rels, true)) {
+            koto_record_auto_input_message('errors', $input_key, [[
+                'reason'  => 'invalid_choice',
+                'message' => sprintf('%s の relation_ship が不正です: %s（許可値: mode_shift, before_transform, after_transform）', $input_key, $rel),
+            ]]);
+            continue;
+        }
+
+        $resolved = koto_resolve_character_post_references($ms['related_form'], [
+            'allow_self'   => true,
+            'self_post_id' => $self_post_id,
+            'field_label'  => $input_key . '.related_form',
+        ]);
+        if (!empty($resolved['warnings'])) {
+            koto_record_auto_input_message('warnings', $input_key, $resolved['warnings']);
+        }
+        if (!empty($resolved['errors'])) {
+            koto_record_auto_input_message('errors', $input_key, $resolved['errors']);
+        }
+
+        $row = [
+            'trait_type'    => 'mode_shift',
+            'relation_ship' => $rel,
+            'related_form'  => $resolved['ids'],
+        ];
+
+        if ($ms['condition'] !== '') {
+            $rem_cond = koto_preprocess_text($ms['condition'], 'とくせい');
+            $conds = [];
+            while ($rem_cond !== '') {
+                $prev_len = mb_strlen($rem_cond, 'UTF-8');
+                $cm = koto_match_csv_template($rem_cond, $condition_rows, $input_key, 'prefix', [
+                    'no_match_return'  => null,
+                    'empty_acf_return' => null,
+                ]);
+                if (!koto_is_csv_template_match($cm)) {
+                    break;
+                }
+                if ($cm['acf_data'] !== null) {
+                    foreach (koto_ensure_acf_data_list($cm['acf_data']) as $acf_item) {
+                        if (empty($acf_item)) continue;
+                        if (isset($acf_item['condition_type_loop']) && is_array($acf_item['condition_type_loop'])) {
+                            foreach ($acf_item['condition_type_loop'] as $ci) {
+                                $conds[] = $ci;
+                            }
+                        } else {
+                            $conds[] = $acf_item;
+                        }
+                    }
+                }
+                $rem_cond = trim(mb_substr($rem_cond, mb_strlen($cm['matched_text'])));
+                if (mb_strlen($rem_cond, 'UTF-8') >= $prev_len) {
+                    break;
+                }
+            }
+            if (!empty($conds)) {
+                $row['condition_type_loop'] = $conds;
+            } elseif ($rem_cond !== '') {
+                koto_record_auto_input_message('warnings', $input_key, [
+                    sprintf('%s のモードシフト・変身条件を解析できませんでした: %s', $input_key, $ms['condition']),
+                ]);
+            }
+        }
+
+        $results[] = $row;
+    }
+
+    return $results;
+}
+
 // auto-input-追加必須: 新しい koto_parse_* 関数はこのファイルへ追加し、下の振り分けへ接続
 /**
  * 種別ごとに適切なパーサーへ振り分け、入力文言をACFデータへ変換する。
@@ -1307,6 +1671,18 @@ function koto_parse_text_by_type($text, $type, $grouped_csv, $input_key = '', ar
     }
     if ($type === 'コトわざ') {
         return koto_parse_kotowaza($text, $grouped_csv, $input_key);
+    }
+    if ($type === 'わざ') {
+        $norm_sugo = koto_normalize_sugowaza_structured_input($text);
+        if ($norm_sugo !== null) {
+            return koto_parse_sugowaza_structured($norm_sugo, $grouped_csv, $input_key, $context);
+        }
+    }
+    if ($type === 'とくせい') {
+        $norm_trait = koto_normalize_trait_structured_input($text);
+        if ($norm_trait !== null) {
+            return koto_parse_trait_structured($norm_trait, $grouped_csv, $input_key, $context);
+        }
     }
 
     if (!is_array($text)) {

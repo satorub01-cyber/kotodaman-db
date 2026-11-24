@@ -96,6 +96,9 @@ function koto_generate_regex_pattern($template, &$seen_vars, $match_mode = 'exac
                     } elseif (strpos($var_name, 'attr') === 0 || strpos($var_name, 'species') === 0) {
                         // 属性・種族プレースホルダが助詞（が・を・に・で・へ）を跨いで後続の「無属性」等に誤マッチするのを防ぐ
                         $pattern .= '(?P<' . $var_name . '>[^、。\n×xX%％がをにでへ]+?)';
+                    } elseif (strpos($var_name, 'token_target') === 0 || strpos($var_name, 'related_form') === 0) {
+                        // キャラ参照プレースホルダ（IDタグ【1234】含む）が別の「」を跨がないよう制御
+                        $pattern .= '(?P<' . $var_name . '>[^、。\n×xX%％「」]+?)';
                     } else {
                         // 【修正】×や%を跨いで強引にマッチングするのを防ぐ
                         $pattern .= '(?P<' . $var_name . '>[^、。\n×xX%％]+?)';
@@ -1068,6 +1071,19 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                 // 区切り文字がない場合のみ1文字ずつ分割
                 $value = implode(',', mb_str_split($value));
             }
+        } elseif (strpos($key, 'token_target') === 0 || strpos($key, 'related_form') === 0) {
+            $is_token_ref = (strpos($key, 'token_target') === 0);
+            $resolved_ref = koto_resolve_character_post_references($value, [
+                'allow_self' => !$is_token_ref,
+                'field_label' => $is_token_ref ? 'トークン生成対象' : 'モードシフト・変身対象',
+            ]);
+            if (!empty($resolved_ref['warnings'])) {
+                koto_record_auto_input_message('warnings', $input_key, $resolved_ref['warnings']);
+            }
+            if (!empty($resolved_ref['errors'])) {
+                koto_record_auto_input_message('errors', $input_key, $resolved_ref['errors']);
+            }
+            $value = $resolved_ref['ids'];
         }
 
         if (in_array($key, $unquote_keys, true)) {
@@ -1390,6 +1406,9 @@ function koto_preprocess_text($text, $category = '')
     $text = str_replace(['\n', '\r', "\n", "\r"], "\n", $text);
     $text = str_replace(' ', '', $text);
 
+    // 「キャラ名」【1234】 / 「キャラ名」【id:1234】 / 「キャラ名」【self】 のように閉じ鉤括弧直後にIDタグがある場合は内側へ正規化
+    $text = preg_replace('/」【((?:id[:：])?(?:\d+(?:[,，]\d+)*|self))】/iu', '【$1】」', $text);
+
     // 腐敗の注釈文言を除去（「リーダーとくせい」の除外語「各」で「各敵」が壊れる前に実行、かつ「各」の有無両対応）
     $text = preg_replace('/\(敵の行動時、そのターンに.+?が(?:各)?敵にわざ・すごわざ・コトわざで与えた合計ダメージの[\d.]+%の値で固定ダメージを与える効果\)/u', '', $text);
 
@@ -1643,4 +1662,274 @@ function koto_split_compound_gimmick_clauses($text)
     }
 
     return $clauses;
+}
+
+/**
+ * 自動入力解析中に発生した警告・エラーをグローバル領域へ記録する。
+ *
+ * @param string $bucket 'warnings' または 'errors'。
+ * @param string $input_key 入力キー（例: auto_input_sugowaza）。
+ * @param array<int, mixed> $messages 記録するメッセージ配列。
+ * @return void
+ */
+function koto_record_auto_input_message($bucket, $input_key, array $messages)
+{
+    if (empty($messages)) {
+        return;
+    }
+    $global_key = $bucket === 'errors' ? 'koto_last_auto_input_errors' : 'koto_last_auto_input_warnings';
+    if (!isset($GLOBALS[$global_key]) || !is_array($GLOBALS[$global_key])) {
+        $GLOBALS[$global_key] = [];
+    }
+    $target_key = is_string($input_key) && $input_key !== '' ? $input_key : '_default';
+    if (!isset($GLOBALS[$global_key][$target_key]) || !is_array($GLOBALS[$global_key][$target_key])) {
+        $GLOBALS[$global_key][$target_key] = [];
+    }
+    foreach ($messages as $msg) {
+        $GLOBALS[$global_key][$target_key][] = $msg;
+    }
+}
+
+/**
+ * 保護対象記事（雛型・雛形・特定保護ID）かどうかを判定する。
+ *
+ * @param int|WP_Post $post_or_id 投稿IDまたはWP_Post。
+ * @return bool 保護対象なら true。
+ */
+function koto_is_protected_character_post($post_or_id)
+{
+    if (function_exists('koto_mcp_is_protected_template_post')) {
+        return (bool) koto_mcp_is_protected_template_post($post_or_id);
+    }
+    $post = ($post_or_id instanceof WP_Post) ? $post_or_id : (function_exists('get_post') ? get_post((int) $post_or_id) : null);
+    $pid = ($post instanceof WP_Post) ? (int) $post->ID : (int) $post_or_id;
+    $protected_ids = [2947, 2023, 2637, 2638, 3845, 4603, 5294, 3683];
+    if ($pid > 0 && in_array($pid, $protected_ids, true)) {
+        return true;
+    }
+    if ($post instanceof WP_Post) {
+        $title = (string) $post->post_title;
+        if (mb_strpos($title, '雛型') !== false || mb_strpos($title, '雛形') !== false) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * キャラクター参照（投稿ID、ID配列、[投稿ID]付きテキスト、"self"、キャラ名）を解決・検証する。
+ *
+ * @param mixed $raw 入力値（int|string|array）。
+ * @param array<string, mixed> $options {
+ *   @type bool   $allow_self   "self" プレースホルダを許容するか（デフォルト: false）
+ *   @type int    $self_post_id 自身の投稿ID（指定時は "self" をこのIDに即時置換）
+ *   @type string $field_label  メッセージ表示用ラベル
+ *   @type bool   $strict_name  名前未解決時に warning ではなく error にするか（デフォルト: false）
+ * }
+ * @return array{ids: array<int, int|string>, errors: array<int, array{reason: string, message: string}>, warnings: array<int, string>}
+ */
+function koto_resolve_character_post_references($raw, array $options = [])
+{
+    global $wpdb;
+
+    $allow_self = !empty($options['allow_self']);
+    $self_post_id = isset($options['self_post_id']) ? (int) $options['self_post_id'] : 0;
+    $field_label = isset($options['field_label']) && is_string($options['field_label']) && $options['field_label'] !== ''
+        ? $options['field_label']
+        : 'キャラクター参照';
+    $strict_name = !empty($options['strict_name']);
+
+    $ids = [];
+    $errors = [];
+    $warnings = [];
+
+    if ($raw === null || $raw === '' || $raw === []) {
+        return ['ids' => [], 'errors' => [], 'warnings' => []];
+    }
+
+    $items = is_array($raw) ? $raw : [$raw];
+    $uid = function_exists('get_current_user_id') ? (int) get_current_user_id() : 0;
+
+    $validate_explicit_id = static function ($cand_id) use (&$ids, &$errors, $field_label, $uid) {
+        $pid = (int) $cand_id;
+        if ($pid <= 0) {
+            $errors[] = [
+                'reason'  => 'invalid_type',
+                'message' => sprintf('%s の投稿IDが不正です: %s', $field_label, (string) $cand_id),
+            ];
+            return;
+        }
+        if (koto_is_protected_character_post($pid)) {
+            $errors[] = [
+                'reason'  => 'protected_template',
+                'message' => sprintf('%s に保護対象記事（雛型等: ID %d）は指定できません。', $field_label, $pid),
+            ];
+            return;
+        }
+        if (!function_exists('get_post')) {
+            if (!in_array($pid, $ids, true)) {
+                $ids[] = $pid;
+            }
+            return;
+        }
+        $post = get_post($pid);
+        if (!($post instanceof WP_Post) || $post->post_type !== 'character' || in_array($post->post_status, ['trash', 'auto-draft'], true)) {
+            $errors[] = [
+                'reason'  => 'unknown_character',
+                'message' => sprintf('%s に指定されたキャラクター投稿（ID: %d）が存在しません。', $field_label, $pid),
+            ];
+            return;
+        }
+        if (koto_is_protected_character_post($post)) {
+            $errors[] = [
+                'reason'  => 'protected_template',
+                'message' => sprintf('%s に保護対象記事（%s / ID: %d）は指定できません。', $field_label, $post->post_title, $pid),
+            ];
+            return;
+        }
+        if ($post->post_status === 'private' && $uid > 0 && function_exists('user_can') && !user_can($uid, 'read_post', $pid)) {
+            $errors[] = [
+                'reason'  => 'forbidden',
+                'message' => sprintf('%s に指定された非公開投稿（ID: %d）を参照できません。', $field_label, $pid),
+            ];
+            return;
+        }
+        if (!in_array($pid, $ids, true)) {
+            $ids[] = $pid;
+        }
+    };
+
+    $append_self = static function () use (&$ids, &$errors, $allow_self, $self_post_id, $field_label) {
+        if (!$allow_self) {
+            $errors[] = [
+                'reason'  => 'invalid_value',
+                'message' => sprintf('%s に "self" は指定できません。', $field_label),
+            ];
+            return;
+        }
+        $resolved = $self_post_id > 0 ? $self_post_id : 'self';
+        if (!in_array($resolved, $ids, true)) {
+            $ids[] = $resolved;
+        }
+    };
+
+    foreach ($items as $item) {
+        if ($item === null || $item === '') {
+            continue;
+        }
+        if (is_bool($item) || (!is_int($item) && !is_string($item) && !is_float($item))) {
+            $errors[] = [
+                'reason'  => 'invalid_type',
+                'message' => sprintf('%s の要素型が不正です。', $field_label),
+            ];
+            continue;
+        }
+        if (is_int($item) || (is_string($item) && preg_match('/^\d+$/', trim($item)))) {
+            $validate_explicit_id((int) trim((string) $item));
+            continue;
+        }
+
+        $str = trim((string) $item);
+        if ($str === '') {
+            continue;
+        }
+        if (strtolower($str) === 'self') {
+            $append_self();
+            continue;
+        }
+
+        // [1234] / 【1234】 / 【id:1234】 / 【1234,5678】 / 【self】 の明示タグを優先抽出
+        if (preg_match_all('/(?:【|\[)\s*(?:id\s*[:：]\s*)?(\d+(?:\s*[,，]\s*\d+)*|self)\s*(?:】|\])/iu', $str, $tag_matches) && !empty($tag_matches[1])) {
+            foreach ($tag_matches[1] as $tag_inner) {
+                $tag_inner = trim((string) $tag_inner);
+                if (strtolower($tag_inner) === 'self') {
+                    $append_self();
+                } else {
+                    foreach (preg_split('/\s*[,，]\s*/u', $tag_inner, -1, PREG_SPLIT_NO_EMPTY) as $id_part) {
+                        $validate_explicit_id((int) $id_part);
+                    }
+                }
+            }
+            continue;
+        }
+
+        // 純粋なカンマ区切りID列（例: "1566,1569"）
+        if (preg_match('/^\d+(?:\s*[,，]\s*\d+)+$/u', $str)) {
+            foreach (preg_split('/\s*[,，]\s*/u', $str, -1, PREG_SPLIT_NO_EMPTY) as $id_part) {
+                $validate_explicit_id((int) $id_part);
+            }
+            continue;
+        }
+
+        // キャラ名による完全一致検索（SQL LIMIT 10、保護記事除外）
+        $clean_name = trim(str_replace(['「', '」'], '', $str));
+        if ($clean_name === '') {
+            continue;
+        }
+        if (!isset($wpdb) || !($wpdb instanceof wpdb)) {
+            $msg = sprintf('%s「%s」の投稿IDを解決できませんでした（[投稿ID] 形式で指定してください）。', $field_label, $clean_name);
+            if ($strict_name) {
+                $errors[] = ['reason' => 'unknown_character', 'message' => $msg];
+            } else {
+                $warnings[] = $msg;
+            }
+            continue;
+        }
+
+        $alt_name = function_exists('esc_html') ? esc_html($clean_name) : $clean_name;
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT ID, post_title, post_status FROM {$wpdb->posts} WHERE post_type = 'character' AND post_status IN ('publish','draft','pending','private') AND (post_title = %s OR post_title = %s) ORDER BY ID ASC LIMIT 10",
+            $clean_name,
+            $alt_name
+        ));
+
+        $candidates = [];
+        foreach ((array) $rows as $row) {
+            $cand_pid = (int) ($row->ID ?? 0);
+            if ($cand_pid <= 0) {
+                continue;
+            }
+            if (koto_is_protected_character_post($cand_pid)) {
+                continue;
+            }
+            $cand_title = (string) ($row->post_title ?? '');
+            if (mb_strpos($cand_title, '雛型') !== false || mb_strpos($cand_title, '雛形') !== false) {
+                continue;
+            }
+            if (($row->post_status ?? '') === 'private' && $uid > 0 && function_exists('user_can') && !user_can($uid, 'read_post', $cand_pid)) {
+                continue;
+            }
+            $candidates[] = $row;
+        }
+
+        if (count($candidates) === 1) {
+            $found_id = (int) $candidates[0]->ID;
+            if (!in_array($found_id, $ids, true)) {
+                $ids[] = $found_id;
+            }
+        } elseif (count($candidates) > 1) {
+            $cand_desc = implode(', ', array_map(static function ($r) {
+                return sprintf('%d(%s)', (int) $r->ID, (string) $r->post_status);
+            }, $candidates));
+            $msg = sprintf('%s「%s」に一致するキャラクターが複数見つかりました（候補ID: %s）。[%d] のように投稿IDで明示指定してください。', $field_label, $clean_name, $cand_desc, (int) $candidates[0]->ID);
+            if ($strict_name) {
+                $errors[] = ['reason' => 'ambiguous_character', 'message' => $msg];
+            } else {
+                $warnings[] = $msg;
+            }
+        } else {
+            $msg = sprintf('%s「%s」に一致するキャラクター投稿が見つかりませんでした（未作成の場合は作成後に [投稿ID] 指定または update_draft で紐付けてください）。', $field_label, $clean_name);
+            if ($strict_name) {
+                $errors[] = ['reason' => 'unknown_character', 'message' => $msg];
+            } else {
+                $warnings[] = $msg;
+            }
+        }
+    }
+
+    return [
+        'ids'      => $ids,
+        'errors'   => $errors,
+        'warnings' => $warnings,
+    ];
 }

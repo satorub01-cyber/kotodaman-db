@@ -1436,6 +1436,24 @@ function koto_normalize_blessing_input($input)
                                     'text'  => $f_text,
                                 ];
                             }
+                        } elseif ($itype === 'mode_shift') {
+                            $ms_pt = trim((string) ($it['point'] ?? ($it['pt'] ?? ($it['need_point'] ?? ''))));
+                            $ms_rel = trim((string) ($it['relation_ship'] ?? ($it['relationship'] ?? 'mode_shift')));
+                            if ($ms_rel === '') {
+                                $ms_rel = 'mode_shift';
+                            }
+                            $ms_rf = $it['related_form']
+                                ?? ($it['related_forms']
+                                ?? ($it['form']
+                                ?? ($it['forms']
+                                ?? ($it['post_id']
+                                ?? ($it['post_ids'] ?? [])))));
+                            $normalized['items'][] = [
+                                'type'          => 'mode_shift',
+                                'point'         => $ms_pt,
+                                'relation_ship' => $ms_rel,
+                                'related_form'  => $ms_rf,
+                            ];
                         }
                     }
                 }
@@ -1635,6 +1653,38 @@ function koto_parse_blessing($input, $grouped_csv, $input_key = 'auto_input_bles
                         $ordered_rows[] = $c_row;
                     }
                 }
+            } elseif (($it['type'] ?? '') === 'mode_shift') {
+                $ms_rel = trim((string) ($it['relation_ship'] ?? 'mode_shift'));
+                $allowed_blessing_rels = ['mode_shift', 'another_image', 'before_transform', 'after_transform'];
+                if (!in_array($ms_rel, $allowed_blessing_rels, true)) {
+                    $err_msg = sprintf('%s の mode_shift.relation_ship が不正です: %s（許可値: mode_shift, another_image, before_transform, after_transform）', $input_key, $ms_rel);
+                    $meta['warnings'][] = $err_msg;
+                    if (function_exists('koto_record_auto_input_message')) {
+                        koto_record_auto_input_message('errors', $input_key, [['reason' => 'invalid_choice', 'message' => $err_msg]]);
+                    }
+                    continue;
+                }
+                $ms_point = trim((string) ($it['point'] ?? ''));
+                $resolved_ms = function_exists('koto_resolve_character_post_references')
+                    ? koto_resolve_character_post_references($it['related_form'] ?? [], [
+                        'allow_self'   => true,
+                        'self_post_id' => $post_id,
+                        'field_label'  => $input_key . '.mode_shift.related_form',
+                    ])
+                    : ['ids' => [], 'errors' => [], 'warnings' => []];
+                if (!empty($resolved_ms['warnings'])) {
+                    $meta['warnings'] = array_merge($meta['warnings'], $resolved_ms['warnings']);
+                }
+                if (!empty($resolved_ms['errors']) && function_exists('koto_record_auto_input_message')) {
+                    koto_record_auto_input_message('errors', $input_key, $resolved_ms['errors']);
+                }
+                $ordered_rows[] = [
+                    'trait_type'    => 'mode_shift',
+                    'relation_ship' => $ms_rel,
+                    'related_form'  => $resolved_ms['ids'],
+                    'pt_pattern'    => 'single',
+                    'need_point'    => $ms_point !== '' ? $ms_point : '20',
+                ];
             }
         }
 

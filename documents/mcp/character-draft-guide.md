@@ -110,7 +110,7 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 | `max_ls_hp` / `max_ls_atk` | 数値 (`number`) | リーダーとくせいの最大HP倍率・最大ATK倍率（%の数値）。 |
 | `voice_actor` | 文字列 | 声優名（例: `"梶原岳人"`）。進化前後で声優が異なる場合は `%` で区切って `進化前%進化後` の形式で入力（例: `"声優A%声優B"`）。※旧キー `cv` もエイリアス対応。 |
 | `pre_evo_name` | 文字列 | 進化前のキャラクター名。進化前がない場合は省略。 |
-| `another_image_name` | 文字列 | 絵違いモードシフト時の名前。絵違いがない場合は省略。 |
+| `another_image_name` | 文字列 | **【ユーザー明示指定により付与】** 絵違いモードシフト時のキャラクター名。ゲーム内テキスト上では絵違いを判別できないため、ユーザーから「絵違いで〇〇という名前のキャラがいる」等と明示指定された場合のみ設定する（指定なし時は省略）。 |
 | `実装月（わかれば実装日）` | 文字列 (`YYYY-MM-DD`) | キャラクターの実装年月日（例: `"2026-11-08"`）。※英名エイリアス `implement_date` も指定可能。 |
 | `talent_status_auto_tf` | 真偽値 (`boolean`) | **才能開花手動設定フラグ**。才能開花ステータスを手動で入力・固定したい場合のみ `true` に設定します（原則はサーバー側自動計算のため省略または `false`）。 |
 | `talent_hp` / `talent_atk` | 数値 (`integer`) | **【原則入力不要】** 才能開花HP・ATK。サーバー側でレアリティとLv.99ステータスから自動計算されます。手動で特定の値を固定したい場合を除き、基本的にクライアントからは入力・指定しないでください（未指定のままにする）。 |
@@ -122,7 +122,7 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 | `sub_event` | 配列（文字列 / 数値） | **【ユーザー指定により付与】** 交換所や特定イベント枠。推測で付与せず、ユーザー指定時のみ付与（指定なし時は省略または空配列 `[]`）。 |
 | `guerilla_root` | 配列（文字列 / 数値） | **【ユーザー指定により付与】** 強襲元クエスト・イベント。推測で付与せず、強襲キャラでユーザー指定時のみ付与（指定なし時は省略または空配列 `[]`）。 |
 | `quest` | 配列（文字列 / 数値） | 適正クエスト（例: `["破滅級〇〇"]`）。該当する既存タームがある場合のみ指定（不明時は省略または空配列 `[]`）。 |
-| `same_character` | 配列（数値） | 変身前・変身後、モードシフト、絵違い、トークンなどの同一キャラクター関連投稿ID配列（例: `[1234, 5678]`）。表示順に並べる（該当なし時は省略または空配列 `[]`）。 |
+| `same_character` | 配列（数値 / `"self"`） | **【必須ルール】** 変身前・変身後、モードシフト、絵違い、トークンなどの同一キャラクター関連投稿ID配列。**①必ず自身も含めること**（`create_draft` 時は自身の位置に `"self"` を指定、または全キャラ作成後に `update_draft` で全員の投稿IDを指定）、**②同じグループ全員で完全に同じ順番に入力すること**（例: AがBにモードシフトしトークンCを生み出す場合、A・B・C全員が `[AのID, BのID, CのID]` の順で入力）。該当なし時は省略または空配列 `[]`。詳細: 下記「③-D」参照。 |
 
 > [!TIP]
 > フィールドの選択肢や説明を確認したい場合は、MCPツール `get_field_schema` を呼び出してください。[documents/mcp/mcp-field-manual.json](mcp-field-manual.json) に記載された人間向けガイドも `manual` プロパティとして一緒に返却されます。
@@ -136,9 +136,9 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 | `auto_input_waza` | わざ効果文 | ゲーム内のわざ説明文 |
 | `auto_input_sugowaza_name` | すごわざ名 | すごわざの名称テキスト |
 | `auto_input_sugowaza_condition` | すごわざ発動条件 | 例: `"「い,う」を含む4文字以上のことば〜"` 等 |
-| `auto_input_sugowaza` | すごわざ効果文 | ゲーム内のすごわざ説明文 |
-| `auto_input_trait1` | とくせい1 | とくせい1の説明文（文字追加・ギミック耐性・各種補正を含む） |
-| `auto_input_trait2` | とくせい2 | とくせい2の説明文 |
+| `auto_input_sugowaza` | すごわざ効果文 | ゲーム内のすごわざ説明文（トークン生成の `[投稿ID]` 記法または構造化オブジェクト `{"text", "tokens"}` にも対応。下記「③-D」参照） |
+| `auto_input_trait1` | とくせい1 | とくせい1の説明文（文字追加・ギミック耐性・各種補正・モードシフト/変身。構造化オブジェクト `{"text", "mode_shift"}` にも対応。下記「③-D」参照） |
+| `auto_input_trait2` | とくせい2 | とくせい2の説明文（構造化オブジェクト `{"text", "mode_shift"}` にも対応。下記「③-D」参照） |
 | `auto_input_blessing` | 祝福とくせい | 祝福のデータ（下記「③-B. 祝福・EX祝福の自動入力仕様」参照） |
 | `auto_input_ex_blessing` | EX祝福とくせい | EX祝福のデータ（構造は `auto_input_blessing` と同一） |
 | `auto_input_leader` | リーダーとくせい | リーダーとくせいの説明文 |
@@ -263,6 +263,10 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 * **自由入力項目（`"type": "free"`）**:
   * `point`: 必要祝福ポイント（例: `"20"`、省略時20）。
   * `text`: ゲーム内のとくせい文言（テンプレ・トークンにない特殊効果のみ）。
+* **モードシフト・変身項目（`"type": "mode_shift"`）**:
+  * `point`: 必要祝福ポイント（例: `20`、省略時 `20`）。
+  * `relation_ship`: `"mode_shift"`（モードシフト） / `"another_image"`（絵違いモードシフト） / `"before_transform"`（変身前） / `"after_transform"`（変身後）。
+  * `related_form`: 対象キャラクターの投稿ID配列（例: `[2002]`。新規作成時に自身を指す場合は `["self"]` 可）。絵違いモードシフトで対象投稿が自身のみ・空の場合は `[]` も可。
 
 ###### 2. 旧形式（`template` ＋ `rows` 形式：後方互換）
 ```json
@@ -350,6 +354,79 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
 * **要推定フラグ（`koto_magnification_estimate_tf`）**:
   * スクショの文言等のみで実倍率が未確定な場合は、`basic_fields.koto_magnification_estimate_tf: true` を設定してください（通常の `magnification_estimate_tf` と異なり自動強制されません）。
 
+#### ③-D. すごわざトークン・モードシフト・変身・`same_character`・`relation_patches` の入力仕様
+
+複数キャラクター（本体A・モードシフト/変身先B・トークンC 等）は **同時に下書きを生成できない** ため、以下の **2段階フロー（全員作成 → `relation_patches` ＋ `same_character` で後追い直接反映）** を標準手順とします。
+
+##### 1. 標準2段階パイプライン（推奨）
+1. **Step 1（各キャラを個別に `create_draft`）**:
+   * まず A・B・C それぞれを通常の `create_draft` で作成し、各 `post_id` を確定させます。
+   * この時点では B・C の投稿IDがまだ存在しませんが、Aのゲーム内文言（例: `トークンコトダマン「トークンC」を生成し、ドロー候補に加わる`、`詳細画面で「キャラB」に切り替えてデッキに編成できる`、`自身がすごわざを発動時、「キャラB」に変身する`）をそのまま `auto_input` に渡すと、サーバー側で `waza_type: "token"` や `trait_type: "mode_shift"` の **骨格行（参照IDは空、警告付き）** が作成されます。
+   * **注意（変身後キャラ）**: 変身後キャラクターのゲーム内とくせい欄には、通常「変身」に関する文言は出ません。変身後キャラはそのまま通常通りに作成してください。
+2. **Step 2（全 `post_id` 確定後、`update_draft` で `same_character` と `relation_patches` を直接反映）**:
+   * 既存スキル・とくせい・祝福の全文を再送したり `replace_existing: true` で上書きしたりせず、**`relation_patches`** を使って該当行の `related_token` / `related_form` / `relation_ship` だけをピンポイントで直接更新します（他の攻撃・バフ・ギミック・祝福行は一切変更されません）。
+   * 既存行の `group_index` / `detail_index` / `row_index` は `get_draft(post_id)` の `computed.sugowaza_tokens`・`computed.trait_mode_shifts`・`blessing`・`ex_blessing` で確認できます（該当スロット内に `token` 行や `mode_shift` 行が1件のみであれば `detail_index` / `row_index` を省略しても自動特定されます）。
+
+```json
+{
+  "post_id": 1001,
+  "basic_fields": {
+    "same_character": [1001, 1002, 1003]
+  },
+  "relation_patches": {
+    "sugowaza_tokens": [
+      { "group_index": 0, "detail_index": 1, "related_token": [1003] }
+    ],
+    "trait_mode_shifts": [
+      { "slot": "trait2", "row_index": 2, "related_form": [1002] }
+    ]
+  }
+}
+```
+
+* **`relation_patches` で指定可能なセクション**:
+  * `sugowaza_tokens`: `[{ "group_index": 0, "detail_index": 1, "related_token": [投稿ID] }]`
+    * `detail_index` 指定時はその行が `waza_type: "token"` であることを検証して更新（別種別行ならエラーで保護）。省略時は該当グループの既存 `token` 行が1件なら更新、0件なら末尾追加、2件以上ならエラー。
+  * `trait_mode_shifts`: `[{ "slot": "trait1|trait2", "row_index": 2, "relation_ship": "mode_shift|before_transform|after_transform", "related_form": [投稿ID] }]`
+    * `row_index` 指定時は `trait_type: "mode_shift"` 行のみ更新。省略時は1件なら更新、0件なら末尾追加、2件以上ならエラー。
+  * `blessing_mode_shifts` / `ex_blessing_mode_shifts`: `[{ "row_index": 0, "relation_ship": "mode_shift|another_image|before_transform|after_transform", "related_form": [投稿ID], "point": 20 }]`
+    * 祝福・EX祝福の既存 `mode_shift` 行を直接更新、または0件なら末尾追加（上限8項目チェック付き）。
+
+##### 2. `basic_fields.same_character` の絶対ルール（自身必須・全員同じ順番）
+* **① 自身も含める**: `same_character` を非空で指定する場合、**必ず自分自身の投稿IDを含める**必要があります（含まれていない場合は `VALIDATION_FAILED` / `self_not_included` になります）。
+* **② グループ全員で同じ順番**: 同一グループに属するキャラクターは、**全員が完全に同じ配列・同じ順番**で `same_character` を設定します。
+  * **例**: キャラA（ID: `1001`）がキャラB（ID: `1002`）にモードシフトし、トークンC（ID: `1003`）を生み出す場合：
+    * キャラA・B・C の **全員** に `"same_character": [1001, 1002, 1003]` を設定する。
+* **既存キャラに1体追加する場合の `"self"` 指定**: 既にA（ID: `1001`）が存在し、Bを新規作成する場合は、`create_draft` で `"same_character": [1001, "self"]` と指定すると、作成後に `"self"` が自動的にBの新 `post_id` に解決されて `[1001, B_id]` の順で保存されます（その後A側にも `[1001, B_id]` を `update_draft` してください）。
+* **他キャラの自動書き換えは行いません**: サーバー側は権限分離のため対象投稿のみを更新し、同グループの他メンバーに未設定や順序不一致がある場合は `warnings` で通知します。
+
+##### 3. 絵違いモードシフト（`another_image`）の運用ルール（ユーザー明示指定必須）
+* **テキスト上では絵違いを見分けられない**ため、AIがスクリーンショットのテキストから推測して `another_image` や `another_image_name` を入力してはいけません。
+* **ユーザーから「絵違いで〇〇という名前のキャラがいます」等と明示的に指示があった場合のみ**、以下を設定します：
+  1. `basic_fields.another_image_name` にユーザー指定の絵違いキャラ名（例: `"〇〇"`）を設定する。
+  2. 祝福またはEX祝福に `relation_ship: "another_image"` を設定する（`auto_input_blessing` / `auto_input_ex_blessing` の `items` 内 `{"type": "mode_shift", "point": 20, "relation_ship": "another_image", "related_form": []}`、または `relation_patches.blessing_mode_shifts` / `ex_blessing_mode_shifts`）。
+  * ※`another_image` を指定したのに `basic_fields.another_image_name` が未設定の場合は警告が出ます。また、とくせい1・2では `another_image` は使用不可（祝福・EX祝福専用）です。
+
+##### 4. 作成時一括入力（参照先IDが既に存在する場合）
+既に参照先の投稿IDが存在する場合は、`create_draft` / `update_draft` 時の `auto_input` に直接テキスト記法または構造化オブジェクトを渡すことも可能です。
+
+* **すごわざ（`auto_input_sugowaza`）**:
+  * テキスト記法: `"敵単体に超絶強力な光属性攻撃+トークンコトダマン「トークン名」[1566]を生成し、ドロー候補に加わる"`
+  * 構造化オブジェクト: `{"text": "...", "tokens": [{"related_token": [1566], "group_index": 0}]}`
+* **とくせい1・2（`auto_input_trait1` / `auto_input_trait2`）**:
+  * テキスト記法（モードシフト / 変身前）: `"詳細画面で「〇〇」[2002]に切り替えてデッキに編成できる"` / `"自身がすごわざを発動時、「〇〇」[2125]に変身する"`
+  * 構造化オブジェクト: `{"text": "...", "mode_shift": {"relation_ship": "mode_shift|before_transform|after_transform", "related_form": [2125]}}`
+  * ※変身後キャラクターのゲーム内とくせいには変身文言が出ないため、変身後側にもとくせい行を付けたい場合のみ `relation_patches.trait_mode_shifts` または構造化入力で `relation_ship: "after_transform"` を指定します。
+* **祝福・EX祝福（`auto_input_blessing` / `auto_input_ex_blessing`）**:
+  * `items` 配列要素: `{"type": "mode_shift", "point": 20, "relation_ship": "mode_shift|another_image|before_transform|after_transform", "related_form": [2002]}`
+
+| `relation_ship` 値 | 意味 | 利用可能箇所 |
+|---|---|---|
+| `mode_shift` | モードシフト | とくせい1・2、祝福、EX祝福 |
+| `before_transform` | 変身前（変身先キャラを `related_form` に指定） | とくせい1・2、祝福、EX祝福 |
+| `after_transform` | 変身後（通常ゲーム内とくせいには出ない。明示追加時に変身前キャラを指定） | とくせい1・2、祝福、EX祝福 |
+| `another_image` | 絵違いモードシフト（ユーザー明示指定時のみ＋`another_image_name` 併用） | **祝福、EX祝福のみ** |
+
 ### ④ 画像（`screenshot_urls`）の仕様
 * `screenshot_urls` を省略して `create_draft` を実行した場合、準備中画像（`https://www.kotodaman-db.com/wp-content/uploads/2026/02/無題51_20260205005357.png`）が自動的にセットされます。
 * `screenshot_urls` に `https://www.kotodaman-db.com/...`（同一ドメイン）の画像URLを指定した場合、既存メディアの検索またはダウンロードが行われ、投稿のアイキャッチ（`_thumbnail_id`）および進化後画像（`character_image`）に自動設定されます。あわせてURL一覧が投稿メタ `_koto_mcp_screenshot_urls` に記録されます。
@@ -361,10 +438,10 @@ ACFのトップレベルフィールド名をキーにしたオブジェクト�
   * 定義された各フィールドについて、値が未設定の場合はキーを省略せず明示的に `null`（真偽値は `false`、配列は `[]`）として返却されます。
 * **日付の正規化照合**:
   * 実装日フィールド（`実装月（わかれば実装日）` / `implement_date`）は送信時と同じ `YYYY-MM-DD` 形式（未設定時は `null`）に正規化されて返却されます。
-* **自動計算値・解析値・祝福の確認**:
-  * `basic_fields` 内に `voice_actor`（`cv`）、`pre_evo_name`、`another_image_name`、`waza_name`、`sugowaza_name`、`first_trait_name`、`second_trait_name`、`lv_120_hp`、`lv_120_atk`、`talent_hp`、`talent_atk` が含まれます。
-  * また、トップレベルに `computed` オブジェクトが付与され、サーバー側で自動計算されたLv.120ステータスや才能開花ステータス、自動入力から抽出されたスキル名を直接確認できます。
-  * トップレベルに **`blessing`（通常祝福）** および **`ex_blessing`（EX祝福）** のアイテム配列が付与されます。トークン（`type: "token"`）または自由入力（`type: "free"`）の構造化配列として返却され、`auto_input_blessing` / `auto_input_ex_blessing` にそのまま再利用できます。
+* **自動計算値・解析値・祝福・関連リンクの確認**:
+  * `basic_fields` 内に `voice_actor`（`cv`）、`pre_evo_name`、`another_image_name`、`waza_name`、`sugowaza_name`、`first_trait_name`、`second_trait_name`、`lv_120_hp`、`lv_120_atk`、`talent_hp`、`talent_atk`、`same_character` が含まれます。
+  * また、トップレベルに `computed` オブジェクトが付与され、サーバー側で自動計算されたLv.120ステータスや才能開花ステータス、自動入力から抽出されたスキル名に加え、**`sugowaza_tokens`（すごわざのトークン生成設定一覧）** と **`trait_mode_shifts`（とくせい1・2のモードシフト/変身設定一覧）** を直接確認できます。
+  * トップレベルに **`blessing`（通常祝福）** および **`ex_blessing`（EX祝福）** のアイテム配列が付与されます。トークン（`type: "token"`）、自由入力（`type: "free"`）、またはモードシフト・変身（`type: "mode_shift"`）の構造化配列として返却され、`auto_input_blessing` / `auto_input_ex_blessing` にそのまま再利用できます。
 
 ### ⑥ `evidence` と `human_approved`（監査メタデータ・確認フラグ）の仕様
 下書き作成・更新の透明性とトレーサビリティを担保するため、以下の2つのオプショナル引数が用意されています。

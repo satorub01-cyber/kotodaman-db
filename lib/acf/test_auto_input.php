@@ -828,6 +828,166 @@ if (!$test_mode && $compound_gimmick_passed === $compound_gimmick_total) {
     echo sprintf("[PASS] %-18s : %d / %d passed\n", 'ギミック複合とくせい', $compound_gimmick_passed, $compound_gimmick_total);
 }
 
+// =========================================================================
+// すごわざトークン生成・とくせい/祝福/EX祝福モードシフト・変身テスト
+// =========================================================================
+$rel_passed = 0;
+$rel_total = 6;
+
+// 1. すごわざトークン生成（テキスト記法：攻撃＋トークン生成、未存在キャラ名時は骨格生成＋警告）
+$total_count++;
+$GLOBALS['koto_last_auto_input_warnings'] = [];
+$GLOBALS['koto_last_auto_input_errors'] = [];
+$tok_res_1 = koto_parse_text_by_type(
+    '敵単体に超絶強力な光属性攻撃+トークンコトダマン「未存在テストトークン」を生成し、ドロー候補に加わる',
+    'わざ',
+    $grouped_csv,
+    'auto_input_sugowaza'
+);
+$ok_rel_1 = (
+    count($tok_res_1) === 1
+    && count($tok_res_1[0]['sugo_detail_loop'] ?? []) === 2
+    && ($tok_res_1[0]['sugo_detail_loop'][0]['waza_type'] ?? '') === 'attack'
+    && ($tok_res_1[0]['sugo_detail_loop'][1]['waza_type'] ?? '') === 'token'
+    && !empty($GLOBALS['koto_last_auto_input_warnings']['auto_input_sugowaza'])
+);
+if ($ok_rel_1) {
+    $passed_count++;
+    $rel_passed++;
+} else {
+    $failed_cases[] = '[トークン/モードシフト #1] すごわざトークン生成（テキスト記法）の解析に失敗しました';
+}
+
+// 2. すごわざトークン生成（構造化入力：シフト2グループへそれぞれトークン付与）
+$total_count++;
+$tok_res_2 = koto_parse_text_by_type(
+    [
+        'text'   => '自身の文字に応じて効果が変化する①「あ」の時、敵単体に爆絶強力な光属性攻撃②「い」の時、敵単体に爆絶強力な光属性攻撃',
+        'tokens' => [
+            ['related_token' => ['未存在トークンA'], 'group_index' => 0],
+            ['related_token' => ['未存在トークンB'], 'group_index' => 1],
+        ],
+    ],
+    'わざ',
+    $grouped_csv,
+    'auto_input_sugowaza'
+);
+$ok_rel_2 = (
+    count($tok_res_2) >= 2
+    && ($tok_res_2[0]['sugo_detail_loop'][1]['waza_type'] ?? '') === 'token'
+    && ($tok_res_2[1]['sugo_detail_loop'][1]['waza_type'] ?? '') === 'token'
+);
+if ($ok_rel_2) {
+    $passed_count++;
+    $rel_passed++;
+} else {
+    $failed_cases[] = '[トークン/モードシフト #2] すごわざトークン生成（構造化シフト入力）の解析に失敗しました';
+}
+
+// 3. とくせい：モードシフト（1形態・2形態） / 変身前（テキスト記法）
+$total_count++;
+$ms_res_1 = koto_parse_text_by_type('詳細画面で「テスト形態B」に切り替えてデッキに編成できる', 'とくせい', $grouped_csv, 'auto_input_trait2');
+$ms_res_2 = koto_parse_text_by_type('詳細画面で「テスト形態B」と「テスト形態C」に切り替えてデッキに編成できる', 'とくせい', $grouped_csv, 'auto_input_trait2');
+$ms_res_3 = koto_parse_text_by_type('自身がすごわざを発動時、「テスト変身後」に変身する', 'とくせい', $grouped_csv, 'auto_input_trait2');
+$ok_rel_3 = (
+    ($ms_res_1[0]['trait_type'] ?? '') === 'mode_shift' && ($ms_res_1[0]['relation_ship'] ?? '') === 'mode_shift'
+    && ($ms_res_2[0]['trait_type'] ?? '') === 'mode_shift' && ($ms_res_2[0]['relation_ship'] ?? '') === 'mode_shift'
+    && ($ms_res_3[0]['trait_type'] ?? '') === 'mode_shift' && ($ms_res_3[0]['relation_ship'] ?? '') === 'before_transform'
+);
+if ($ok_rel_3) {
+    $passed_count++;
+    $rel_passed++;
+} else {
+    $failed_cases[] = '[トークン/モードシフト #3] とくせいモードシフト・変身前（テキスト記法）の解析に失敗しました';
+}
+
+// 4. とくせい：構造化入力（テキスト＋変身前＋条件）
+$total_count++;
+$ms_res_4 = koto_parse_text_by_type(
+    [
+        'text'       => 'チェンジマスの効果を受けない',
+        'mode_shift' => [
+            'relation_ship' => 'before_transform',
+            'related_form'  => ['self'],
+            'condition'     => '5文字以上の言葉を作成した時、',
+        ],
+    ],
+    'とくせい',
+    $grouped_csv,
+    'auto_input_trait1'
+);
+$ok_rel_4 = (
+    count($ms_res_4) === 2
+    && ($ms_res_4[0]['trait_type'] ?? '') === 'gimmick'
+    && ($ms_res_4[1]['trait_type'] ?? '') === 'mode_shift'
+    && ($ms_res_4[1]['relation_ship'] ?? '') === 'before_transform'
+    && ($ms_res_4[1]['related_form'] ?? []) === ['self']
+    && ($ms_res_4[1]['condition_type_loop'][0]['condition_type'] ?? '') === 'moji_count'
+);
+if ($ok_rel_4) {
+    $passed_count++;
+    $rel_passed++;
+} else {
+    $failed_cases[] = '[トークン/モードシフト #4] とくせい構造化モードシフト・変身の解析に失敗しました';
+}
+
+// 5. 祝福：items 配列での type=mode_shift（絵違いモードシフト another_image）
+$total_count++;
+$bl_ms_res = koto_parse_text_by_type(
+    [
+        'items' => [
+            ['type' => 'token', 'token' => 'hp_up'],
+            ['type' => 'mode_shift', 'point' => 20, 'relation_ship' => 'another_image', 'related_form' => ['self']],
+        ],
+    ],
+    '祝福',
+    $grouped_csv,
+    'auto_input_blessing'
+);
+$ok_rel_5 = (
+    count($bl_ms_res) === 2
+    && ($bl_ms_res[1]['trait_type'] ?? '') === 'mode_shift'
+    && ($bl_ms_res[1]['relation_ship'] ?? '') === 'another_image'
+    && ($bl_ms_res[1]['related_form'] ?? []) === ['self']
+    && ($bl_ms_res[1]['pt_pattern'] ?? '') === 'single'
+    && (string) ($bl_ms_res[1]['need_point'] ?? '') === '20'
+);
+if ($ok_rel_5) {
+    $passed_count++;
+    $rel_passed++;
+} else {
+    $failed_cases[] = '[トークン/モードシフト #5] 祝福 items の mode_shift（another_image）解析に失敗しました';
+}
+
+// 6. EX祝福：構造化 items による絵違いモードシフト（ユーザー明示指定想定）解析
+$total_count++;
+$ex_ms_res = koto_parse_text_by_type(
+    [
+        'items' => [
+            ['type' => 'mode_shift', 'point' => 30, 'relation_ship' => 'another_image', 'related_form' => []],
+        ],
+    ],
+    'EX祝福',
+    $grouped_csv,
+    'auto_input_ex_blessing'
+);
+$ok_rel_6 = (
+    count($ex_ms_res) === 1
+    && ($ex_ms_res[0]['trait_type'] ?? '') === 'mode_shift'
+    && ($ex_ms_res[0]['relation_ship'] ?? '') === 'another_image'
+    && (string) ($ex_ms_res[0]['need_point'] ?? '') === '30'
+);
+if ($ok_rel_6) {
+    $passed_count++;
+    $rel_passed++;
+} else {
+    $failed_cases[] = '[トークン/モードシフト #6] EX祝福 items の絵違いモードシフト解析に失敗しました';
+}
+
+if (!$test_mode && $rel_passed === $rel_total) {
+    echo sprintf("[PASS] %-18s : %d / %d passed\n", 'トークン・モードシフト', $rel_passed, $rel_total);
+}
+
 if (!$test_mode) {
     echo sprintf("Total: %d / %d passed (詳細なJSON出力は --test-mode を付与)\n", $passed_count, $total_count);
     if (!empty($failed_cases)) {

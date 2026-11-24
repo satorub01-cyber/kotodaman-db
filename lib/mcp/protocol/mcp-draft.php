@@ -332,6 +332,64 @@ function koto_mcp_extract_existing_draft_data($post_id)
     $sc_ids = is_array($raw_sc) ? array_values(array_filter(array_map('intval', $raw_sc))) : (is_numeric($raw_sc) && (int) $raw_sc > 0 ? [(int) $raw_sc] : []);
     $basic_fields['same_character'] = $sc_ids;
 
+    // すごわざトークン生成・とくせいモードシフト/変身の保存結果サマリ（行インデックス付き）を抽出
+    $sugowaza_tokens = [];
+    $sugo_fdef = function_exists('koto_get_top_level_character_acf_field') ? koto_get_top_level_character_acf_field('sugowaza_group_loop') : null;
+    $raw_sugo_rows = ($sugo_fdef && !empty($sugo_fdef['key'])) ? get_field($sugo_fdef['key'], $post->ID) : (function_exists('get_field') ? get_field('sugowaza_group_loop', $post->ID) : []);
+    if (is_array($raw_sugo_rows)) {
+        foreach (array_values($raw_sugo_rows) as $g_idx => $grp) {
+            if (!is_array($grp) || empty($grp['sugo_detail_loop']) || !is_array($grp['sugo_detail_loop'])) {
+                continue;
+            }
+            foreach (array_values($grp['sugo_detail_loop']) as $d_idx => $d_row) {
+                if (!is_array($d_row) || ($d_row['waza_type'] ?? '') !== 'token') {
+                    continue;
+                }
+                $rt_ids = [];
+                $raw_rt = $d_row['related_token'] ?? [];
+                foreach ((is_array($raw_rt) ? $raw_rt : ($raw_rt ? [$raw_rt] : [])) as $t_item) {
+                    $tid = is_object($t_item) ? (int) ($t_item->ID ?? 0) : (is_numeric($t_item) ? (int) $t_item : 0);
+                    if ($tid > 0) {
+                        $rt_ids[] = $tid;
+                    }
+                }
+                $sugowaza_tokens[] = [
+                    'group_index'   => (int) $g_idx,
+                    'detail_index'  => (int) $d_idx,
+                    'related_token' => array_values(array_unique($rt_ids)),
+                ];
+            }
+        }
+    }
+
+    $trait_mode_shifts = [];
+    foreach (['first_trait_loop' => 'trait1', 'second_trait_loop' => 'trait2'] as $loop_name => $slot_label) {
+        $tfdef = function_exists('koto_get_top_level_character_acf_field') ? koto_get_top_level_character_acf_field($loop_name) : null;
+        $trows = ($tfdef && !empty($tfdef['key'])) ? get_field($tfdef['key'], $post->ID) : (function_exists('get_field') ? get_field($loop_name, $post->ID) : []);
+        if (!is_array($trows)) {
+            continue;
+        }
+        foreach (array_values($trows) as $r_idx => $t_row) {
+            if (!is_array($t_row) || ($t_row['trait_type'] ?? '') !== 'mode_shift') {
+                continue;
+            }
+            $rf_ids = [];
+            $raw_rf = $t_row['related_form'] ?? [];
+            foreach ((is_array($raw_rf) ? $raw_rf : ($raw_rf ? [$raw_rf] : [])) as $f_item) {
+                $fid = is_object($f_item) ? (int) ($f_item->ID ?? 0) : (is_numeric($f_item) ? (int) $f_item : 0);
+                if ($fid > 0) {
+                    $rf_ids[] = $fid;
+                }
+            }
+            $trait_mode_shifts[] = [
+                'slot'          => $slot_label,
+                'row_index'     => (int) $r_idx,
+                'relation_ship' => (string) ($t_row['relation_ship'] ?? ''),
+                'related_form'  => array_values(array_unique($rf_ids)),
+            ];
+        }
+    }
+
     $audit = get_post_meta($post->ID, '_koto_mcp_audit', true);
     $screenshots = get_post_meta($post->ID, '_koto_mcp_screenshot_urls', true);
 
@@ -345,6 +403,8 @@ function koto_mcp_extract_existing_draft_data($post_id)
         'first_trait_name'  => $basic_fields['first_trait_name'],
         'second_trait_name' => $basic_fields['second_trait_name'],
         'release_date'      => $date_val,
+        'sugowaza_tokens'   => $sugowaza_tokens,
+        'trait_mode_shifts' => $trait_mode_shifts,
     ];
 
     return [
@@ -426,7 +486,7 @@ function koto_mcp_extract_blessing_items($post_id, $is_ex = false)
     }
 
     $items = [];
-    foreach ($rows as $row) {
+    foreach (array_values($rows) as $row_index => $row) {
         if (!is_array($row)) {
             continue;
         }
@@ -447,6 +507,33 @@ function koto_mcp_extract_blessing_items($post_id, $is_ex = false)
         $token_key = '';
         $label = '';
         $target_name = '';
+
+        if ($tt === 'mode_shift') {
+            $rel = (string) ($row['relation_ship'] ?? 'mode_shift');
+            $raw_rf = $row['related_form'] ?? [];
+            $rf_ids = [];
+            foreach ((is_array($raw_rf) ? $raw_rf : ($raw_rf ? [$raw_rf] : [])) as $rf_item) {
+                $fid = is_object($rf_item) ? (int) ($rf_item->ID ?? 0) : (is_numeric($rf_item) ? (int) $rf_item : 0);
+                if ($fid > 0) {
+                    $rf_ids[] = $fid;
+                }
+            }
+            $ms_text = '';
+            if (function_exists('get_koto_trait_text_from_row')) {
+                $temp_row = $row;
+                $temp_row['_is_blessing'] = true;
+                $ms_text = trim(wp_strip_all_tags((string) get_koto_trait_text_from_row($temp_row)));
+            }
+            $items[] = [
+                'row_index'     => (int) $row_index,
+                'type'          => 'mode_shift',
+                'relation_ship' => $rel,
+                'related_form'  => array_values(array_unique($rf_ids)),
+                'point'         => $point,
+                'text'          => $ms_text !== '' ? $ms_text : 'モードシフト・変身',
+            ];
+            continue;
+        }
 
         if ($tt === 'status_up') {
             if ($su === 'hp') {
@@ -747,7 +834,24 @@ function koto_mcp_detect_auto_input_warnings($safe_auto_input, $parsed, $csv)
             continue;
         }
 
-        $prep_text = koto_preprocess_text($input_value, $type);
+        $text_for_warning = $input_value;
+        if ($type === 'わざ' && function_exists('koto_normalize_sugowaza_structured_input')) {
+            $norm_sugo = koto_normalize_sugowaza_structured_input($input_value);
+            if ($norm_sugo !== null) {
+                $text_for_warning = $norm_sugo['text'];
+            }
+        } elseif ($type === 'とくせい' && function_exists('koto_normalize_trait_structured_input')) {
+            $norm_trait = koto_normalize_trait_structured_input($input_value);
+            if ($norm_trait !== null) {
+                $text_for_warning = $norm_trait['text'];
+            }
+        }
+
+        if (!is_string($text_for_warning) || trim($text_for_warning) === '') {
+            continue;
+        }
+
+        $prep_text = koto_preprocess_text($text_for_warning, $type);
         if ($type === 'わざ') {
             foreach (koto_mcp_collect_waza_effect_warnings($prep_text, $csv, $input_key, $input_key) as $w_msg) {
                 $warnings[] = $w_msg;
@@ -764,6 +868,18 @@ function koto_mcp_detect_auto_input_warnings($safe_auto_input, $parsed, $csv)
                 $is_empty_sub = empty($sub_parsed) || ($type === 'すごわざ発動条件' && empty($sub_parsed[0]['sugo_cond_loop']));
                 if ($is_empty_sub) {
                     $warnings[] = sprintf('%s の一部の文言を解析できませんでした: %s', $input_key, $trimmed);
+                }
+            }
+        }
+    }
+
+    if (!empty($GLOBALS['koto_last_auto_input_warnings']) && is_array($GLOBALS['koto_last_auto_input_warnings'])) {
+        foreach ($GLOBALS['koto_last_auto_input_warnings'] as $w_key => $w_list) {
+            foreach ((array) $w_list as $w_msg) {
+                if (is_string($w_msg) && $w_msg !== '') {
+                    $warnings[] = ($w_key !== '_default' && strpos($w_msg, $w_key) === false)
+                        ? sprintf('%s: %s', $w_key, $w_msg)
+                        : $w_msg;
                 }
             }
         }
@@ -832,6 +948,891 @@ function koto_mcp_normalize_lv120_manual_flag(&$basic_fields, $post_id = 0)
     ];
 }
 
+/**
+ * basic_fields.same_character の厳格バリデーション・"self" 正規化・グループ順序整合チェックを行う。
+ *
+ * ルール:
+ * - 非空で指定する場合、自身を含めること（update時は自身の post_id、create時は "self" を自身の位置に配置）。
+ * - すべての要素は実在する非ゴミ箱・非保護の character 投稿ID（または "self"）であること。
+ * - 同じグループ全員で同じ順番に入力すること（他メンバーの既存値と順序・構成が食い違う場合は警告を返す。他投稿は自動書き換えしない）。
+ *
+ * @param mixed $value same_character 入力値。
+ * @param int $post_id 対象投稿ID（create時は 0）。
+ * @return array{normalized: array<int, int|string>, errors: array<int, array<string, mixed>>, warnings: array<int, string>}
+ */
+function koto_mcp_validate_same_character($value, $post_id = 0)
+{
+    $post_id = (int) $post_id;
+    $errors = [];
+    $warnings = [];
+
+    if ($value === null || $value === '' || $value === []) {
+        return ['normalized' => [], 'errors' => [], 'warnings' => []];
+    }
+
+    if (is_array($value)) {
+        $is_list = array_keys($value) === range(0, count($value) - 1);
+        if (!$is_list) {
+            return [
+                'normalized' => [],
+                'errors'     => [koto_mcp_json_error('VALIDATION_FAILED', 'same_character', 'invalid_type', 'same_character は投稿ID（または "self"）の配列で指定してください。')],
+                'warnings'   => [],
+            ];
+        }
+        $raw_items = $value;
+    } else {
+        $raw_items = [$value];
+    }
+
+    $normalized = [];
+    $seen_keys = [];
+    $has_duplicate = false;
+    $uid = get_current_user_id();
+
+    foreach ($raw_items as $item) {
+        if (is_string($item) && strtolower(trim($item)) === 'self') {
+            $entry = $post_id > 0 ? $post_id : 'self';
+            $key = is_int($entry) ? ('id:' . $entry) : 'self';
+            if (isset($seen_keys[$key])) {
+                $has_duplicate = true;
+                continue;
+            }
+            $seen_keys[$key] = true;
+            $normalized[] = $entry;
+            continue;
+        }
+
+        if (is_bool($item) || (!is_int($item) && !(is_string($item) && preg_match('/^\d+$/', trim($item))))) {
+            $errors[] = koto_mcp_json_error(
+                'VALIDATION_FAILED',
+                'same_character',
+                'invalid_type',
+                'same_character の各要素は正のキャラクター投稿ID（整数）または "self" で指定してください。'
+            );
+            continue;
+        }
+
+        $rel_id = (int) trim((string) $item);
+        if ($rel_id <= 0) {
+            $errors[] = koto_mcp_json_error(
+                'VALIDATION_FAILED',
+                'same_character',
+                'invalid_type',
+                'same_character の投稿IDは1以上の整数で指定してください。'
+            );
+            continue;
+        }
+
+        if (koto_mcp_is_protected_template_post($rel_id)) {
+            $errors[] = koto_mcp_json_error(
+                'VALIDATION_FAILED',
+                'same_character',
+                'protected_template',
+                sprintf('same_character に保護対象記事（雛型等: ID %d）は指定できません。', $rel_id)
+            );
+            continue;
+        }
+
+        $rel_post = get_post($rel_id);
+        if (!($rel_post instanceof WP_Post) || $rel_post->post_type !== 'character' || in_array($rel_post->post_status, ['trash', 'auto-draft'], true)) {
+            $errors[] = koto_mcp_json_error(
+                'VALIDATION_FAILED',
+                'same_character',
+                'unknown_character',
+                sprintf('same_character に指定されたキャラクター投稿（ID: %d）が存在しません。', $rel_id)
+            );
+            continue;
+        }
+        if (koto_mcp_is_protected_template_post($rel_post)) {
+            $errors[] = koto_mcp_json_error(
+                'VALIDATION_FAILED',
+                'same_character',
+                'protected_template',
+                sprintf('same_character に保護対象記事（%s / ID: %d）は指定できません。', $rel_post->post_title, $rel_id)
+            );
+            continue;
+        }
+        if ($rel_post->post_status === 'private' && $uid > 0 && !user_can($uid, 'read_post', $rel_id)) {
+            $errors[] = koto_mcp_json_error(
+                'VALIDATION_FAILED',
+                'same_character',
+                'forbidden',
+                sprintf('same_character に指定された非公開投稿（ID: %d）を参照できません。', $rel_id)
+            );
+            continue;
+        }
+
+        $key = 'id:' . $rel_id;
+        if (isset($seen_keys[$key])) {
+            $has_duplicate = true;
+            continue;
+        }
+        $seen_keys[$key] = true;
+        $normalized[] = $rel_id;
+    }
+
+    if ($has_duplicate) {
+        $warnings[] = 'basic_fields.same_character に重複IDが含まれていたため、先出順を維持して重複を除去しました。';
+    }
+
+    // 自身を含むルール（非空時必須）
+    if (empty($errors) && !empty($normalized)) {
+        if ($post_id > 0) {
+            if (!in_array($post_id, $normalized, true)) {
+                $errors[] = koto_mcp_json_error(
+                    'VALIDATION_FAILED',
+                    'same_character',
+                    'self_not_included',
+                    sprintf('same_character を指定する場合は自身（post_id: %d）も含め、同じグループ全員で同じ順番に並べてください。', $post_id)
+                );
+            }
+        } else {
+            if (!in_array('self', $normalized, true)) {
+                $errors[] = koto_mcp_json_error(
+                    'VALIDATION_FAILED',
+                    'same_character',
+                    'self_not_included',
+                    '新規作成（create_draft）時に same_character を指定する場合は、自身の位置に "self" を含めてください（例: [100, "self"]）。あるいは全キャラ作成後に update_draft で全員の投稿IDを同じ順番で指定してください。'
+                );
+            }
+        }
+    }
+
+    // グループ内他メンバーとの順序・構成整合性チェック（警告のみ、他投稿は自動書き換えしない）
+    if (empty($errors) && !empty($normalized)) {
+        $sc_fdef = function_exists('koto_get_top_level_character_acf_field') ? koto_get_top_level_character_acf_field('same_character') : null;
+        $unset_members = [];
+        $known_ids_in_order = array_values(array_filter($normalized, 'is_int'));
+
+        foreach ($known_ids_in_order as $other_id) {
+            if ($other_id === $post_id) {
+                continue;
+            }
+            $other_raw = ($sc_fdef && !empty($sc_fdef['key']))
+                ? get_field($sc_fdef['key'], $other_id, false)
+                : get_post_meta($other_id, 'same_character', true);
+            $other_ids = is_array($other_raw)
+                ? array_values(array_filter(array_map('intval', $other_raw)))
+                : (is_numeric($other_raw) && (int) $other_raw > 0 ? [(int) $other_raw] : []);
+
+            $other_title = get_the_title($other_id);
+            if (empty($other_ids)) {
+                $unset_members[] = sprintf('%d(%s)', $other_id, $other_title);
+                continue;
+            }
+
+            if ($post_id > 0) {
+                if ($other_ids !== $normalized) {
+                    $warnings[] = sprintf(
+                        'same_character 順序・構成の不一致: 関連キャラ %d(%s) の現在の same_character は [%s] ですが、今回の指定は [%s] です。同じグループ全員で同じ順番に揃えてください。',
+                        $other_id,
+                        $other_title,
+                        implode(', ', $other_ids),
+                        implode(', ', $normalized)
+                    );
+                }
+            } else {
+                // create_draft 時は新規作成後の自身IDがまだ他キャラに入っていないため、既存ID同士の相対順序を確認＋更新リマインド
+                $other_filtered = array_values(array_intersect($other_ids, $known_ids_in_order));
+                $expected_filtered = array_values(array_intersect($known_ids_in_order, $other_ids));
+                if ($other_filtered !== $expected_filtered) {
+                    $warnings[] = sprintf(
+                        'same_character 順序の不一致: 関連キャラ %d(%s) の現在の same_character は [%s] であり、今回指定した相対順序 [%s] と異なります。全員で同じ順番に揃えてください。',
+                        $other_id,
+                        $other_title,
+                        implode(', ', $other_ids),
+                        implode(', ', array_map('strval', $normalized))
+                    );
+                } else {
+                    $warnings[] = sprintf(
+                        '新規キャラ作成後、関連キャラ %d(%s) の same_character（現在: [%s]）にも新しい投稿IDを含めて同じ順番で update_draft してください。',
+                        $other_id,
+                        $other_title,
+                        implode(', ', $other_ids)
+                    );
+                }
+            }
+        }
+
+        if (!empty($unset_members)) {
+            $warnings[] = sprintf(
+                'same_character 未設定の関連キャラがあります（%s）。同じグループ全員に同じ順番で same_character を設定してください。',
+                implode(', ', $unset_members)
+            );
+        }
+    }
+
+    return [
+        'normalized' => $normalized,
+        'errors'     => $errors,
+        'warnings'   => $warnings,
+    ];
+}
+
+/**
+ * 既存キャラクター下書きのすごわざトークン・とくせい/祝福/EX祝福モードシフト行を直接更新する
+ * relation_patches ペイロードを検証・正規化する。
+ *
+ * 同時に複数キャラの下書きを作成できないため、全キャラの post_id 確定後に
+ * 既存スキル・とくせい・祝福行を壊さずに related_token / related_form / relation_ship のみを
+ * ピンポイント反映するためのパイプライン。
+ *
+ * @param mixed $raw_patches relation_patches 引数。
+ * @param int $post_id 対象投稿ID（update_draft / preview_draft with post_id が必須）。
+ * @return array{normalized: array<string, mixed>, errors: array<int, array<string, mixed>>, warnings: array<int, string>, has_another_image: bool}
+ */
+function koto_mcp_validate_relation_patches($raw_patches, $post_id = 0)
+{
+    $post_id = (int) $post_id;
+    $errors = [];
+    $warnings = [];
+    $normalized = [];
+    $has_another_image = false;
+
+    if ($raw_patches === null || $raw_patches === []) {
+        return [
+            'normalized'        => [],
+            'errors'            => [],
+            'warnings'          => [],
+            'has_another_image' => false,
+        ];
+    }
+
+    if (!koto_mcp_is_object_like_array($raw_patches)) {
+        return [
+            'normalized'        => [],
+            'errors'            => [koto_mcp_json_error('VALIDATION_FAILED', 'relation_patches', 'invalid_type', 'relation_patches はオブジェクトで指定してください。')],
+            'warnings'          => [],
+            'has_another_image' => false,
+        ];
+    }
+
+    if ($post_id <= 0) {
+        return [
+            'normalized'        => [],
+            'errors'            => [koto_mcp_json_error('VALIDATION_FAILED', 'relation_patches', 'not_supported_on_create', 'relation_patches は既存下書きへの後追い反映専用です。post_id を指定した preview_draft / update_draft で使用してください。')],
+            'warnings'          => [],
+            'has_another_image' => false,
+        ];
+    }
+
+    $allowed_sections = ['sugowaza_tokens', 'trait_mode_shifts', 'blessing_mode_shifts', 'ex_blessing_mode_shifts'];
+    foreach (array_keys($raw_patches) as $sec_key) {
+        if (!in_array($sec_key, $allowed_sections, true)) {
+            $errors[] = koto_mcp_json_error(
+                'VALIDATION_FAILED',
+                'relation_patches.' . $sec_key,
+                'invalid_value',
+                sprintf('未知の relation_patches キーです: %s（許可キー: %s）', (string) $sec_key, implode(', ', $allowed_sections))
+            );
+        }
+    }
+
+    // 1. sugowaza_tokens
+    if (array_key_exists('sugowaza_tokens', $raw_patches) && $raw_patches['sugowaza_tokens'] !== null) {
+        $items = $raw_patches['sugowaza_tokens'];
+        $is_list = is_array($items) && (empty($items) || array_keys($items) === range(0, count($items) - 1));
+        if (!$is_list) {
+            $errors[] = koto_mcp_json_error('VALIDATION_FAILED', 'relation_patches.sugowaza_tokens', 'invalid_type', 'relation_patches.sugowaza_tokens は配列で指定してください。');
+        } else {
+            $sugo_field = function_exists('koto_get_top_level_character_acf_field') ? koto_get_top_level_character_acf_field('sugowaza_group_loop') : null;
+            $sugo_selector = ($sugo_field && !empty($sugo_field['key'])) ? $sugo_field['key'] : 'field_6921a053af92c';
+            $existing_sugo = function_exists('get_field') ? (get_field($sugo_selector, $post_id, false) ?: []) : [];
+            $existing_sugo = is_array($existing_sugo) ? array_values($existing_sugo) : [];
+
+            $norm_tokens = [];
+            foreach ($items as $idx => $entry) {
+                $field_path = 'relation_patches.sugowaza_tokens.' . $idx;
+                if (!koto_mcp_is_object_like_array($entry)) {
+                    $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path, 'invalid_type', '各要素はオブジェクトで指定してください。');
+                    continue;
+                }
+                $group_index = 0;
+                if (array_key_exists('group_index', $entry) && $entry['group_index'] !== null && $entry['group_index'] !== '') {
+                    if (!is_int($entry['group_index']) && !(is_string($entry['group_index']) && ctype_digit($entry['group_index']))) {
+                        $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.group_index', 'invalid_type', 'group_index は0以上の整数で指定してください。');
+                        continue;
+                    }
+                    $group_index = (int) $entry['group_index'];
+                }
+                $detail_index = null;
+                if (array_key_exists('detail_index', $entry) && $entry['detail_index'] !== null && $entry['detail_index'] !== '') {
+                    if (!is_int($entry['detail_index']) && !(is_string($entry['detail_index']) && ctype_digit($entry['detail_index']))) {
+                        $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.detail_index', 'invalid_type', 'detail_index は0以上の整数で指定してください。');
+                        continue;
+                    }
+                    $detail_index = (int) $entry['detail_index'];
+                }
+                if (!array_key_exists('related_token', $entry)) {
+                    $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.related_token', 'required_empty', 'related_token は必須です。');
+                    continue;
+                }
+                $raw_rt = $entry['related_token'];
+                $resolved = koto_resolve_character_post_references($raw_rt, [
+                    'allow_self'  => false,
+                    'field_label' => $field_path . '.related_token',
+                    'strict_name' => true,
+                ]);
+                if (!empty($resolved['errors'])) {
+                    foreach ($resolved['errors'] as $e) {
+                        $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.related_token', (string) ($e['reason'] ?? 'invalid_value'), (string) ($e['message'] ?? ''));
+                    }
+                    continue;
+                }
+
+                // 既存行との整合チェック（detail_index 指定時は waza_type === 'token' 必須、省略時は曖昧さチェック）
+                if (isset($existing_sugo[$group_index]) && is_array($existing_sugo[$group_index])) {
+                    $details = $existing_sugo[$group_index]['field_692e810bf6dbc'] ?? ($existing_sugo[$group_index]['sugo_detail_loop'] ?? []);
+                    $details = is_array($details) ? array_values($details) : [];
+                    if ($detail_index !== null) {
+                        if (!isset($details[$detail_index]) || !is_array($details[$detail_index])) {
+                            $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.detail_index', 'index_out_of_range', sprintf('sugowaza_group_loop[%d].sugo_detail_loop[%d] が存在しません。', $group_index, $detail_index));
+                            continue;
+                        }
+                        $cur_type = (string) ($details[$detail_index]['field_6921a053af92f'] ?? ($details[$detail_index]['waza_type'] ?? ''));
+                        if ($cur_type !== 'token') {
+                            $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.detail_index', 'target_row_type_mismatch', sprintf('sugowaza_group_loop[%d].sugo_detail_loop[%d] の waza_type は "%s" のためトークン更新できません（token行のみ対象）。', $group_index, $detail_index, $cur_type));
+                            continue;
+                        }
+                    } else {
+                        $token_indices = [];
+                        foreach ($details as $d_i => $d_row) {
+                            if (is_array($d_row) && (($d_row['field_6921a053af92f'] ?? ($d_row['waza_type'] ?? '')) === 'token')) {
+                                $token_indices[] = $d_i;
+                            }
+                        }
+                        if (count($token_indices) > 1) {
+                            $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.detail_index', 'ambiguous_target_row', sprintf('sugowaza_group_loop[%d] に複数の token 行（detail_index: %s）が存在します。detail_index を明示指定してください。', $group_index, implode(', ', $token_indices)));
+                            continue;
+                        }
+                    }
+                } elseif ($detail_index !== null) {
+                    $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.group_index', 'index_out_of_range', sprintf('sugowaza_group_loop[%d] が存在しません。', $group_index));
+                    continue;
+                }
+
+                $norm_tokens[] = [
+                    'group_index'   => $group_index,
+                    'detail_index'  => $detail_index,
+                    'related_token' => $resolved['ids'],
+                ];
+            }
+            if (!empty($norm_tokens)) {
+                $normalized['sugowaza_tokens'] = $norm_tokens;
+            }
+        }
+    }
+
+    // 2. trait_mode_shifts（first_trait_loop / second_trait_loop）
+    if (array_key_exists('trait_mode_shifts', $raw_patches) && $raw_patches['trait_mode_shifts'] !== null) {
+        $items = $raw_patches['trait_mode_shifts'];
+        $is_list = is_array($items) && (empty($items) || array_keys($items) === range(0, count($items) - 1));
+        if (!$is_list) {
+            $errors[] = koto_mcp_json_error('VALIDATION_FAILED', 'relation_patches.trait_mode_shifts', 'invalid_type', 'relation_patches.trait_mode_shifts は配列で指定してください。');
+        } else {
+            $slot_map = [
+                'trait1'            => ['field' => 'first_trait_loop',  'key' => 'field_692d15ae17188', 'tt_key' => 'field_6932ed164e618'],
+                'first_trait'       => ['field' => 'first_trait_loop',  'key' => 'field_692d15ae17188', 'tt_key' => 'field_6932ed164e618'],
+                'first_trait_loop'  => ['field' => 'first_trait_loop',  'key' => 'field_692d15ae17188', 'tt_key' => 'field_6932ed164e618'],
+                'trait2'            => ['field' => 'second_trait_loop', 'key' => 'field_693981d87156a', 'tt_key' => 'field_693981d87158e'],
+                'second_trait'      => ['field' => 'second_trait_loop', 'key' => 'field_693981d87156a', 'tt_key' => 'field_693981d87158e'],
+                'second_trait_loop' => ['field' => 'second_trait_loop', 'key' => 'field_693981d87156a', 'tt_key' => 'field_693981d87158e'],
+            ];
+            $allowed_trait_rels = ['mode_shift', 'before_transform', 'after_transform'];
+            $cached_loops = [];
+            $norm_traits = [];
+
+            foreach ($items as $idx => $entry) {
+                $field_path = 'relation_patches.trait_mode_shifts.' . $idx;
+                if (!koto_mcp_is_object_like_array($entry)) {
+                    $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path, 'invalid_type', '各要素はオブジェクトで指定してください。');
+                    continue;
+                }
+                $raw_slot = trim((string) ($entry['slot'] ?? ''));
+                if (!isset($slot_map[$raw_slot])) {
+                    $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.slot', 'invalid_choice', 'slot は "trait1" または "trait2" で指定してください。');
+                    continue;
+                }
+                $slot_info = $slot_map[$raw_slot];
+                $canon_slot = $slot_info['field'] === 'first_trait_loop' ? 'trait1' : 'trait2';
+
+                $row_index = null;
+                if (array_key_exists('row_index', $entry) && $entry['row_index'] !== null && $entry['row_index'] !== '') {
+                    if (!is_int($entry['row_index']) && !(is_string($entry['row_index']) && ctype_digit($entry['row_index']))) {
+                        $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.row_index', 'invalid_type', 'row_index は0以上の整数で指定してください。');
+                        continue;
+                    }
+                    $row_index = (int) $entry['row_index'];
+                }
+
+                $rel = null;
+                if (array_key_exists('relation_ship', $entry) && $entry['relation_ship'] !== null && $entry['relation_ship'] !== '') {
+                    $rel = trim((string) $entry['relation_ship']);
+                    if (!in_array($rel, $allowed_trait_rels, true)) {
+                        $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.relation_ship', 'invalid_choice', sprintf('とくせい1・2の relation_ship が不正です: %s（許可値: mode_shift, before_transform, after_transform。絵違い another_image は祝福・EX祝福専用です）', $rel));
+                        continue;
+                    }
+                }
+
+                $has_rf = array_key_exists('related_form', $entry);
+                $rf_ids = null;
+                if ($has_rf) {
+                    $resolved = koto_resolve_character_post_references($entry['related_form'], [
+                        'allow_self'   => true,
+                        'self_post_id' => $post_id,
+                        'field_label'  => $field_path . '.related_form',
+                        'strict_name'  => true,
+                    ]);
+                    if (!empty($resolved['errors'])) {
+                        foreach ($resolved['errors'] as $e) {
+                            $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.related_form', (string) ($e['reason'] ?? 'invalid_value'), (string) ($e['message'] ?? ''));
+                        }
+                        continue;
+                    }
+                    $rf_ids = $resolved['ids'];
+                }
+
+                if ($rel === null && !$has_rf) {
+                    $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path, 'required_empty', 'related_form または relation_ship のいずれかを指定してください。');
+                    continue;
+                }
+
+                if (!isset($cached_loops[$canon_slot])) {
+                    $raw_loop = function_exists('get_field') ? (get_field($slot_info['key'], $post_id, false) ?: []) : [];
+                    $cached_loops[$canon_slot] = is_array($raw_loop) ? array_values($raw_loop) : [];
+                }
+                $existing_rows = $cached_loops[$canon_slot];
+
+                if ($row_index !== null) {
+                    if (!isset($existing_rows[$row_index]) || !is_array($existing_rows[$row_index])) {
+                        $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.row_index', 'index_out_of_range', sprintf('%s[%d] が存在しません。', $slot_info['field'], $row_index));
+                        continue;
+                    }
+                    $cur_tt = (string) ($existing_rows[$row_index][$slot_info['tt_key']] ?? ($existing_rows[$row_index]['trait_type'] ?? ''));
+                    if ($cur_tt !== 'mode_shift') {
+                        $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.row_index', 'target_row_type_mismatch', sprintf('%s[%d] の trait_type は "%s" のため更新できません（mode_shift行のみ対象）。', $slot_info['field'], $row_index, $cur_tt));
+                        continue;
+                    }
+                } else {
+                    $ms_indices = [];
+                    foreach ($existing_rows as $r_i => $r_row) {
+                        if (is_array($r_row) && (($r_row[$slot_info['tt_key']] ?? ($r_row['trait_type'] ?? '')) === 'mode_shift')) {
+                            $ms_indices[] = $r_i;
+                        }
+                    }
+                    if (count($ms_indices) > 1) {
+                        $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.row_index', 'ambiguous_target_row', sprintf('%s に複数の mode_shift 行（row_index: %s）が存在します。row_index を明示指定してください。', $slot_info['field'], implode(', ', $ms_indices)));
+                        continue;
+                    }
+                }
+
+                $patch_item = [
+                    'slot'      => $canon_slot,
+                    'row_index' => $row_index,
+                ];
+                if ($rel !== null) {
+                    $patch_item['relation_ship'] = $rel;
+                }
+                if ($has_rf) {
+                    $patch_item['related_form'] = $rf_ids;
+                }
+                $norm_traits[] = $patch_item;
+            }
+            if (!empty($norm_traits)) {
+                $normalized['trait_mode_shifts'] = $norm_traits;
+            }
+        }
+    }
+
+    // 3. blessing_mode_shifts & ex_blessing_mode_shifts
+    $blessing_section_defs = [
+        'blessing_mode_shifts' => [
+            'field'  => 'blessing_trait_loop',
+            'key'    => 'field_693981fe6d220',
+            'tt_key' => 'field_693981ff6d244',
+            'label'  => '祝福',
+        ],
+        'ex_blessing_mode_shifts' => [
+            'field'  => 'blessing_ex_trait_loop',
+            'key'    => 'field_6a4f265165fe4',
+            'tt_key' => 'field_6a4f2651a34a7',
+            'label'  => 'EX祝福',
+        ],
+    ];
+    $allowed_blessing_rels = ['mode_shift', 'another_image', 'before_transform', 'after_transform'];
+
+    foreach ($blessing_section_defs as $sec_key => $sdef) {
+        if (!array_key_exists($sec_key, $raw_patches) || $raw_patches[$sec_key] === null) {
+            continue;
+        }
+        $items = $raw_patches[$sec_key];
+        $is_list = is_array($items) && (empty($items) || array_keys($items) === range(0, count($items) - 1));
+        if (!$is_list) {
+            $errors[] = koto_mcp_json_error('VALIDATION_FAILED', 'relation_patches.' . $sec_key, 'invalid_type', sprintf('relation_patches.%s は配列で指定してください。', $sec_key));
+            continue;
+        }
+
+        $raw_existing = function_exists('get_field') ? (get_field($sdef['key'], $post_id, false) ?: []) : [];
+        $existing_rows = is_array($raw_existing) ? array_values($raw_existing) : [];
+        $append_count = 0;
+        $norm_list = [];
+
+        foreach ($items as $idx => $entry) {
+            $field_path = 'relation_patches.' . $sec_key . '.' . $idx;
+            if (!koto_mcp_is_object_like_array($entry)) {
+                $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path, 'invalid_type', '各要素はオブジェクトで指定してください。');
+                continue;
+            }
+            $row_index = null;
+            if (array_key_exists('row_index', $entry) && $entry['row_index'] !== null && $entry['row_index'] !== '') {
+                if (!is_int($entry['row_index']) && !(is_string($entry['row_index']) && ctype_digit($entry['row_index']))) {
+                    $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.row_index', 'invalid_type', 'row_index は0以上の整数で指定してください。');
+                    continue;
+                }
+                $row_index = (int) $entry['row_index'];
+            }
+
+            $rel = null;
+            if (array_key_exists('relation_ship', $entry) && $entry['relation_ship'] !== null && $entry['relation_ship'] !== '') {
+                $rel = trim((string) $entry['relation_ship']);
+                if (!in_array($rel, $allowed_blessing_rels, true)) {
+                    $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.relation_ship', 'invalid_choice', sprintf('%sの relation_ship が不正です: %s（許可値: mode_shift, another_image, before_transform, after_transform）', $sdef['label'], $rel));
+                    continue;
+                }
+                if ($rel === 'another_image') {
+                    $has_another_image = true;
+                }
+            }
+
+            $has_rf = array_key_exists('related_form', $entry);
+            $rf_ids = null;
+            if ($has_rf) {
+                $resolved = koto_resolve_character_post_references($entry['related_form'], [
+                    'allow_self'   => true,
+                    'self_post_id' => $post_id,
+                    'field_label'  => $field_path . '.related_form',
+                    'strict_name'  => true,
+                ]);
+                if (!empty($resolved['errors'])) {
+                    foreach ($resolved['errors'] as $e) {
+                        $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.related_form', (string) ($e['reason'] ?? 'invalid_value'), (string) ($e['message'] ?? ''));
+                    }
+                    continue;
+                }
+                $rf_ids = $resolved['ids'];
+            }
+
+            $point = null;
+            if (array_key_exists('point', $entry) && $entry['point'] !== null && $entry['point'] !== '') {
+                if (!is_numeric($entry['point']) || (int) $entry['point'] < 0) {
+                    $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.point', 'invalid_number', 'point は0以上の数値で指定してください。');
+                    continue;
+                }
+                $point = (string) (int) $entry['point'];
+            }
+
+            if ($rel === null && !$has_rf && $point === null) {
+                $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path, 'required_empty', 'related_form / relation_ship / point のいずれかを指定してください。');
+                continue;
+            }
+
+            if ($row_index !== null) {
+                if (!isset($existing_rows[$row_index]) || !is_array($existing_rows[$row_index])) {
+                    $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.row_index', 'index_out_of_range', sprintf('%s[%d] が存在しません。', $sdef['field'], $row_index));
+                    continue;
+                }
+                $cur_tt = (string) ($existing_rows[$row_index][$sdef['tt_key']] ?? ($existing_rows[$row_index]['trait_type'] ?? ''));
+                if ($cur_tt !== 'mode_shift') {
+                    $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.row_index', 'target_row_type_mismatch', sprintf('%s[%d] の trait_type は "%s" のため更新できません（mode_shift行のみ対象）。', $sdef['field'], $row_index, $cur_tt));
+                    continue;
+                }
+            } else {
+                $ms_indices = [];
+                foreach ($existing_rows as $r_i => $r_row) {
+                    if (is_array($r_row) && (($r_row[$sdef['tt_key']] ?? ($r_row['trait_type'] ?? '')) === 'mode_shift')) {
+                        $ms_indices[] = $r_i;
+                    }
+                }
+                if (count($ms_indices) > 1) {
+                    $errors[] = koto_mcp_json_error('VALIDATION_FAILED', $field_path . '.row_index', 'ambiguous_target_row', sprintf('%s に複数の mode_shift 行（row_index: %s）が存在します。row_index を明示指定してください。', $sdef['field'], implode(', ', $ms_indices)));
+                    continue;
+                }
+                if (count($ms_indices) === 0) {
+                    $append_count++;
+                }
+            }
+
+            $patch_item = ['row_index' => $row_index];
+            if ($rel !== null) $patch_item['relation_ship'] = $rel;
+            if ($has_rf) $patch_item['related_form'] = $rf_ids;
+            if ($point !== null) $patch_item['point'] = $point;
+            $norm_list[] = $patch_item;
+        }
+
+        if ($append_count > 0 && (count($existing_rows) + $append_count) > 8) {
+            $errors[] = koto_mcp_json_error(
+                'VALIDATION_FAILED',
+                'relation_patches.' . $sec_key,
+                'items_limit_exceeded',
+                sprintf('%sの項目数が上限（最大8項目）を超えます（既存: %d件 + 追加: %d件）。', $sdef['label'], count($existing_rows), $append_count)
+            );
+        }
+
+        if (!empty($norm_list)) {
+            $normalized[$sec_key] = $norm_list;
+        }
+    }
+
+    return [
+        'normalized'        => $normalized,
+        'errors'            => $errors,
+        'warnings'          => $warnings,
+        'has_another_image' => $has_another_image,
+    ];
+}
+
+/**
+ * 検証済みの relation_patches を既存投稿のACFリピーター行へ直接ピンポイント適用する。
+ *
+ * @param int $post_id 更新対象の投稿ID。
+ * @param array<string, mixed> $patches 正規化済み relation_patches。
+ * @return bool 1件以上更新した場合 true。
+ */
+function koto_mcp_apply_relation_patches($post_id, $patches)
+{
+    $post_id = (int) $post_id;
+    if ($post_id <= 0 || !is_array($patches) || empty($patches) || !function_exists('get_field') || !function_exists('update_field')) {
+        return false;
+    }
+
+    if (function_exists('clean_post_cache')) {
+        clean_post_cache($post_id);
+    }
+    if (function_exists('acf_flush_value_cache')) {
+        acf_flush_value_cache($post_id);
+    }
+
+    $updated = false;
+
+    // 1. sugowaza_tokens -> sugowaza_group_loop[].sugo_detail_loop[]
+    if (!empty($patches['sugowaza_tokens']) && is_array($patches['sugowaza_tokens'])) {
+        $sugo_key = 'field_6921a053af92c';
+        $detail_key = 'field_692e810bf6dbc';
+        $wtype_key = 'field_6921a053af92f';
+        $rtok_key = 'field_6938dfb895858';
+
+        $rows = get_field($sugo_key, $post_id, false);
+        $rows = is_array($rows) ? array_values($rows) : [];
+
+        foreach ($patches['sugowaza_tokens'] as $p) {
+            $g_idx = (int) ($p['group_index'] ?? 0);
+            $d_idx = array_key_exists('detail_index', $p) ? $p['detail_index'] : null;
+            $rt_ids = array_values(array_unique(array_filter(array_map('intval', (array) ($p['related_token'] ?? [])))));
+
+            if (!isset($rows[$g_idx]) || !is_array($rows[$g_idx])) {
+                $rows[] = [
+                    'field_69744ae60f7bd' => [],
+                    $detail_key           => [
+                        [
+                            $wtype_key => 'token',
+                            $rtok_key  => $rt_ids,
+                        ],
+                    ],
+                ];
+                $updated = true;
+                continue;
+            }
+
+            $details = $rows[$g_idx][$detail_key] ?? ($rows[$g_idx]['sugo_detail_loop'] ?? []);
+            $details = is_array($details) ? array_values($details) : [];
+
+            $target_d_idx = null;
+            if ($d_idx !== null && isset($details[(int) $d_idx]) && is_array($details[(int) $d_idx])) {
+                $target_d_idx = (int) $d_idx;
+            } else {
+                foreach ($details as $cur_i => $cur_row) {
+                    if (is_array($cur_row) && (($cur_row[$wtype_key] ?? ($cur_row['waza_type'] ?? '')) === 'token')) {
+                        $target_d_idx = $cur_i;
+                        break;
+                    }
+                }
+            }
+
+            if ($target_d_idx !== null) {
+                $details[$target_d_idx][$wtype_key] = 'token';
+                $details[$target_d_idx][$rtok_key] = $rt_ids;
+                unset($details[$target_d_idx]['related_token']);
+            } else {
+                $details[] = [
+                    $wtype_key => 'token',
+                    $rtok_key  => $rt_ids,
+                ];
+            }
+
+            $rows[$g_idx][$detail_key] = $details;
+            unset($rows[$g_idx]['sugo_detail_loop']);
+            $updated = true;
+        }
+
+        if ($updated) {
+            update_field($sugo_key, $rows, $post_id);
+        }
+    }
+
+    // 2. trait_mode_shifts -> first_trait_loop / second_trait_loop
+    if (!empty($patches['trait_mode_shifts']) && is_array($patches['trait_mode_shifts'])) {
+        $slot_defs = [
+            'trait1' => [
+                'loop_key' => 'field_692d15ae17188',
+                'tt_key'   => 'field_6932ed164e618',
+                'rf_key'   => 'field_6934360a85727',
+                'rel_key'  => 'field_69343a96c1bc6',
+            ],
+            'trait2' => [
+                'loop_key' => 'field_693981d87156a',
+                'tt_key'   => 'field_693981d87158e',
+                'rf_key'   => 'field_693981d9715a5',
+                'rel_key'  => 'field_693981d9715a6',
+            ],
+        ];
+        $grouped = [];
+        foreach ($patches['trait_mode_shifts'] as $p) {
+            $slot = (string) ($p['slot'] ?? '');
+            if (isset($slot_defs[$slot])) {
+                $grouped[$slot][] = $p;
+            }
+        }
+        foreach ($grouped as $slot => $slot_patches) {
+            $sd = $slot_defs[$slot];
+            $rows = get_field($sd['loop_key'], $post_id, false);
+            $rows = is_array($rows) ? array_values($rows) : [];
+            $slot_dirty = false;
+
+            foreach ($slot_patches as $p) {
+                $r_idx = array_key_exists('row_index', $p) ? $p['row_index'] : null;
+                $target_idx = null;
+                if ($r_idx !== null && isset($rows[(int) $r_idx]) && is_array($rows[(int) $r_idx])) {
+                    $target_idx = (int) $r_idx;
+                } else {
+                    foreach ($rows as $cur_i => $cur_row) {
+                        if (is_array($cur_row) && (($cur_row[$sd['tt_key']] ?? ($cur_row['trait_type'] ?? '')) === 'mode_shift')) {
+                            $target_idx = $cur_i;
+                            break;
+                        }
+                    }
+                }
+
+                if ($target_idx !== null) {
+                    $rows[$target_idx][$sd['tt_key']] = 'mode_shift';
+                    if (array_key_exists('relation_ship', $p)) {
+                        $rows[$target_idx][$sd['rel_key']] = (string) $p['relation_ship'];
+                        unset($rows[$target_idx]['relation_ship']);
+                    }
+                    if (array_key_exists('related_form', $p)) {
+                        $rf_ids = array_values(array_unique(array_filter(array_map('intval', (array) $p['related_form']))));
+                        $rows[$target_idx][$sd['rf_key']] = $rf_ids;
+                        unset($rows[$target_idx]['related_form']);
+                    }
+                } else {
+                    $new_row = [
+                        $sd['tt_key']  => 'mode_shift',
+                        $sd['rel_key'] => (string) ($p['relation_ship'] ?? 'mode_shift'),
+                        $sd['rf_key']  => array_values(array_unique(array_filter(array_map('intval', (array) ($p['related_form'] ?? []))))),
+                    ];
+                    $rows[] = $new_row;
+                }
+                $slot_dirty = true;
+                $updated = true;
+            }
+
+            if ($slot_dirty) {
+                update_field($sd['loop_key'], $rows, $post_id);
+            }
+        }
+    }
+
+    // 3. blessing_mode_shifts & ex_blessing_mode_shifts
+    $blessing_defs = [
+        'blessing_mode_shifts' => [
+            'loop_key' => 'field_693981fe6d220',
+            'tt_key'   => 'field_693981ff6d244',
+            'pt_key'   => 'field_693c24d51fb50',
+            'np_key'   => 'field_693c26051fb51',
+            'rf_key'   => 'field_693982006d25b',
+            'rel_key'  => 'field_693982006d25c',
+        ],
+        'ex_blessing_mode_shifts' => [
+            'loop_key' => 'field_6a4f265165fe4',
+            'tt_key'   => 'field_6a4f2651a34a7',
+            'pt_key'   => 'field_6a4f2651a34dc',
+            'np_key'   => 'field_6a4f2651a3511',
+            'rf_key'   => 'field_6a4f2651a39e3',
+            'rel_key'  => 'field_6a4f2651a3a18',
+        ],
+    ];
+    foreach ($blessing_defs as $sec_key => $bd) {
+        if (empty($patches[$sec_key]) || !is_array($patches[$sec_key])) {
+            continue;
+        }
+        $rows = get_field($bd['loop_key'], $post_id, false);
+        $rows = is_array($rows) ? array_values($rows) : [];
+        $sec_dirty = false;
+
+        foreach ($patches[$sec_key] as $p) {
+            $r_idx = array_key_exists('row_index', $p) ? $p['row_index'] : null;
+            $target_idx = null;
+            if ($r_idx !== null && isset($rows[(int) $r_idx]) && is_array($rows[(int) $r_idx])) {
+                $target_idx = (int) $r_idx;
+            } else {
+                foreach ($rows as $cur_i => $cur_row) {
+                    if (is_array($cur_row) && (($cur_row[$bd['tt_key']] ?? ($cur_row['trait_type'] ?? '')) === 'mode_shift')) {
+                        $target_idx = $cur_i;
+                        break;
+                    }
+                }
+            }
+
+            if ($target_idx !== null) {
+                $rows[$target_idx][$bd['tt_key']] = 'mode_shift';
+                if (array_key_exists('relation_ship', $p)) {
+                    $rows[$target_idx][$bd['rel_key']] = (string) $p['relation_ship'];
+                    unset($rows[$target_idx]['relation_ship']);
+                }
+                if (array_key_exists('related_form', $p)) {
+                    $rf_ids = array_values(array_unique(array_filter(array_map('intval', (array) $p['related_form']))));
+                    $rows[$target_idx][$bd['rf_key']] = $rf_ids;
+                    unset($rows[$target_idx]['related_form']);
+                }
+                if (array_key_exists('point', $p)) {
+                    $rows[$target_idx][$bd['pt_key']] = 'single';
+                    $rows[$target_idx][$bd['np_key']] = (string) $p['point'];
+                    unset($rows[$target_idx]['need_point'], $rows[$target_idx]['pt_pattern']);
+                }
+            } else {
+                $rows[] = [
+                    $bd['tt_key']  => 'mode_shift',
+                    $bd['pt_key']  => 'single',
+                    $bd['np_key']  => (string) ($p['point'] ?? '20'),
+                    $bd['rel_key'] => (string) ($p['relation_ship'] ?? 'mode_shift'),
+                    $bd['rf_key']  => array_values(array_unique(array_filter(array_map('intval', (array) ($p['related_form'] ?? []))))),
+                ];
+            }
+            $sec_dirty = true;
+            $updated = true;
+        }
+
+        if ($sec_dirty) {
+            update_field($bd['loop_key'], $rows, $post_id);
+        }
+    }
+
+    if (function_exists('acf_flush_value_cache')) {
+        acf_flush_value_cache($post_id);
+    }
+
+    return $updated;
+}
+
 function koto_mcp_validate_draft(&$args)
 {
     $errors = ['missing_fields' => [], 'invalid_fields' => []];
@@ -891,6 +1892,7 @@ function koto_mcp_validate_draft(&$args)
     }
 
     $lv120_warnings = koto_mcp_normalize_lv120_manual_flag($fields, (int) ($args['post_id'] ?? 0));
+    $same_char_warnings = [];
 
     $args['basic_fields'] = $fields;
 
@@ -1024,6 +2026,20 @@ function koto_mcp_validate_draft(&$args)
         }
 
         if ($definition['type'] === 'relationship') {
+            if ($name === 'same_character') {
+                $sc_res = koto_mcp_validate_same_character($value, (int) ($args['post_id'] ?? 0));
+                if (!empty($sc_res['errors'])) {
+                    foreach ($sc_res['errors'] as $sc_err) {
+                        $errors['invalid_fields'][] = $sc_err;
+                    }
+                } else {
+                    $args['basic_fields']['same_character'] = $sc_res['normalized'];
+                }
+                if (!empty($sc_res['warnings'])) {
+                    $same_char_warnings = array_merge($same_char_warnings, $sc_res['warnings']);
+                }
+                continue;
+            }
             if ($value !== null && $value !== '') {
                 $ids = is_array($value) ? $value : [$value];
                 foreach ($ids as $rel_id) {
@@ -1042,15 +2058,18 @@ function koto_mcp_validate_draft(&$args)
     }
     $raw_auto_input = is_array($args['auto_input'] ?? null) ? $args['auto_input'] : [];
     $safe_auto_input = [];
+    $structured_keys = ['auto_input_blessing', 'auto_input_ex_blessing', 'auto_input_kotowaza', 'auto_input_sugowaza', 'auto_input_trait1', 'auto_input_trait2'];
     foreach ($raw_auto_input as $k => $v) {
         if (!is_string($k)) continue;
         if (is_string($v)) {
             $safe_auto_input[$k] = $v;
-        } elseif (is_array($v) && in_array($k, ['auto_input_blessing', 'auto_input_ex_blessing', 'auto_input_kotowaza'], true)) {
+        } elseif (is_array($v) && in_array($k, $structured_keys, true)) {
             $safe_auto_input[$k] = $v;
         }
     }
     $GLOBALS['koto_last_blessing_parse_meta'] = [];
+    $GLOBALS['koto_last_auto_input_warnings'] = [];
+    $GLOBALS['koto_last_auto_input_errors'] = [];
     $csv = koto_group_csv_by_type(koto_load_csv_dictionary(get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv'));
     $mcp_context = [
         'rarity'  => $args['basic_fields']['rarity'] ?? null,
@@ -1070,6 +2089,20 @@ function koto_mcp_validate_draft(&$args)
                 }
             }
             return false;
+        }
+        if ($key === 'auto_input_sugowaza' && is_array($value)) {
+            $norm_s = function_exists('koto_normalize_sugowaza_structured_input') ? koto_normalize_sugowaza_structured_input($value) : null;
+            if ($norm_s === null) {
+                return true;
+            }
+            return $norm_s['text'] !== '' || !empty($norm_s['tokens']);
+        }
+        if (($key === 'auto_input_trait1' || $key === 'auto_input_trait2') && is_array($value)) {
+            $norm_t = function_exists('koto_normalize_trait_structured_input') ? koto_normalize_trait_structured_input($value) : null;
+            if ($norm_t === null) {
+                return true;
+            }
+            return $norm_t['text'] !== '' || !empty($norm_t['mode_shifts']);
         }
         if (is_array($value)) {
             $norm = function_exists('koto_normalize_blessing_input') ? koto_normalize_blessing_input($value) : $value;
@@ -1137,8 +2170,63 @@ function koto_mcp_validate_draft(&$args)
             $kotowaza_handled_error = true;
         }
     }
+    // 構造化入力（すごわざトークン・とくせいモードシフト/変身）の形式チェック
+    $structured_handled_errors = [];
+    if (!empty($requested['auto_input_sugowaza']) && is_array($raw_auto_input['auto_input_sugowaza'])) {
+        $norm_s = function_exists('koto_normalize_sugowaza_structured_input') ? koto_normalize_sugowaza_structured_input($raw_auto_input['auto_input_sugowaza']) : null;
+        if ($norm_s === null) {
+            $errors['invalid_fields'][] = koto_mcp_json_error(
+                'VALIDATION_FAILED',
+                'auto_input.auto_input_sugowaza',
+                'invalid_type',
+                'auto_input.auto_input_sugowaza をオブジェクトで指定する場合は {"text": "...", "tokens": [{"related_token": [投稿ID], "group_index": 0}]} 形式で指定してください。'
+            );
+            $structured_handled_errors['auto_input_sugowaza'] = true;
+        }
+    }
+    foreach (['auto_input_trait1', 'auto_input_trait2'] as $t_key) {
+        if (!empty($requested[$t_key]) && is_array($raw_auto_input[$t_key])) {
+            $norm_t = function_exists('koto_normalize_trait_structured_input') ? koto_normalize_trait_structured_input($raw_auto_input[$t_key]) : null;
+            if ($norm_t === null) {
+                $errors['invalid_fields'][] = koto_mcp_json_error(
+                    'VALIDATION_FAILED',
+                    'auto_input.' . $t_key,
+                    'invalid_type',
+                    sprintf('auto_input.%s をオブジェクトで指定する場合は {"text": "...", "mode_shift": {"relation_ship": "mode_shift|before_transform|after_transform", "related_form": [投稿ID]}} 形式で指定してください。', $t_key)
+                );
+                $structured_handled_errors[$t_key] = true;
+            }
+        }
+        // とくせい1・2では another_image（絵違いモードシフト）は不可（祝福・EX祝福専用）
+        if (!empty($parsed[$t_key]) && is_array($parsed[$t_key])) {
+            foreach ($parsed[$t_key] as $t_row) {
+                if (is_array($t_row) && ($t_row['trait_type'] ?? '') === 'mode_shift' && ($t_row['relation_ship'] ?? '') === 'another_image') {
+                    $errors['invalid_fields'][] = koto_mcp_json_error(
+                        'VALIDATION_FAILED',
+                        'auto_input.' . $t_key,
+                        'invalid_choice',
+                        sprintf('auto_input.%s で relation_ship="another_image"（絵違いモードシフト）は指定できません（祝福・EX祝福専用です）。', $t_key)
+                    );
+                    $structured_handled_errors[$t_key] = true;
+                }
+            }
+        }
+    }
+    // 自動入力解析中に発生した明示IDエラー・不正選択肢エラーを VALIDATION_FAILED へ反映
+    if (!empty($GLOBALS['koto_last_auto_input_errors']) && is_array($GLOBALS['koto_last_auto_input_errors'])) {
+        foreach ($GLOBALS['koto_last_auto_input_errors'] as $err_key => $err_list) {
+            foreach ((array) $err_list as $err_item) {
+                $reason = is_array($err_item) ? (string) ($err_item['reason'] ?? 'invalid_value') : 'invalid_value';
+                $msg = is_array($err_item) ? (string) ($err_item['message'] ?? '') : (string) $err_item;
+                $field_name = $err_key !== '_default' ? ('auto_input.' . $err_key) : 'auto_input';
+                $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $field_name, $reason, $msg);
+                $structured_handled_errors[$err_key] = true;
+            }
+        }
+    }
+
     foreach ($requested as $input_key => $input_value) {
-        if ($input_key === 'auto_input_kotowaza' && $kotowaza_handled_error) {
+        if (($input_key === 'auto_input_kotowaza' && $kotowaza_handled_error) || !empty($structured_handled_errors[$input_key])) {
             continue;
         }
         $b_meta = $GLOBALS['koto_last_blessing_parse_meta'][$input_key] ?? null;
@@ -1150,8 +2238,54 @@ function koto_mcp_validate_draft(&$args)
             $errors['invalid_fields'][] = koto_mcp_json_error('VALIDATION_FAILED', $input_key, 'unparsed_text');
         }
     }
+    // relation_patches（既存行のトークン・モードシフト/変身への後追い直接反映パイプライン）検証
+    $relation_patch_warnings = [];
+    $has_another_image = false;
+    if (array_key_exists('relation_patches', $args) && $args['relation_patches'] !== null && $args['relation_patches'] !== []) {
+        $rp_res = koto_mcp_validate_relation_patches($args['relation_patches'], (int) ($args['post_id'] ?? 0));
+        if (!empty($rp_res['errors'])) {
+            foreach ($rp_res['errors'] as $rp_err) {
+                $errors['invalid_fields'][] = $rp_err;
+            }
+        } else {
+            $args['relation_patches'] = $rp_res['normalized'];
+        }
+        if (!empty($rp_res['warnings'])) {
+            $relation_patch_warnings = array_merge($relation_patch_warnings, $rp_res['warnings']);
+        }
+        if (!empty($rp_res['has_another_image'])) {
+            $has_another_image = true;
+        }
+    }
+
+    // 祝福・EX祝福で another_image（絵違いモードシフト）が指定されている場合、basic_fields.another_image_name の有無を確認
+    foreach (['auto_input_blessing', 'auto_input_ex_blessing'] as $b_check_key) {
+        if (!empty($parsed[$b_check_key]) && is_array($parsed[$b_check_key])) {
+            foreach ($parsed[$b_check_key] as $b_row) {
+                if (is_array($b_row) && ($b_row['trait_type'] ?? '') === 'mode_shift' && ($b_row['relation_ship'] ?? '') === 'another_image') {
+                    $has_another_image = true;
+                }
+            }
+        }
+    }
+    if ($has_another_image) {
+        $cur_another_name = trim((string) ($args['basic_fields']['another_image_name'] ?? ''));
+        if ($cur_another_name === '' && !empty($args['post_id'])) {
+            $ano_fdef = function_exists('koto_get_top_level_character_acf_field') ? koto_get_top_level_character_acf_field('another_image_name') : null;
+            $saved_ano = ($ano_fdef && !empty($ano_fdef['key']))
+                ? get_field($ano_fdef['key'], (int) $args['post_id'], false)
+                : get_post_meta((int) $args['post_id'], 'another_image_name', true);
+            $cur_another_name = trim((string) $saved_ano);
+        }
+        if ($cur_another_name === '') {
+            $relation_patch_warnings[] = '絵違いモードシフト（another_image）が指定されていますが、basic_fields.another_image_name（絵違いキャラ名）が未設定です。ユーザーから明示指定された絵違いキャラ名を設定してください。';
+        }
+    }
+
     $warnings = array_values(array_unique(array_merge(
         $lv120_warnings,
+        $same_char_warnings,
+        $relation_patch_warnings,
         koto_mcp_detect_auto_input_warnings($safe_auto_input, $parsed, $csv)
     )));
     return ['errors' => $errors, 'parsed_acf' => $parsed, 'warnings' => $warnings, 'normalized_args' => $args];
@@ -1159,7 +2293,16 @@ function koto_mcp_validate_draft(&$args)
 
 function koto_mcp_content_hash($args, $parsed)
 {
-    return hash('sha256', wp_json_encode(['character_name' => $args['character_name'] ?? '', 'basic_fields' => $args['basic_fields'] ?? [], 'auto_input' => $args['auto_input'] ?? [], 'parsed_acf' => $parsed], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    $payload = [
+        'character_name' => $args['character_name'] ?? '',
+        'basic_fields'   => $args['basic_fields'] ?? [],
+        'auto_input'     => $args['auto_input'] ?? [],
+        'parsed_acf'     => $parsed,
+    ];
+    if (!empty($args['relation_patches'])) {
+        $payload['relation_patches'] = $args['relation_patches'];
+    }
+    return hash('sha256', wp_json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 }
 
 function koto_mcp_set_featured_image_from_url($post_id, $url)

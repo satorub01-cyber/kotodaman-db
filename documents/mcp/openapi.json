@@ -54,7 +54,16 @@
           "get_place": { "type": "string", "description": "入手場所（gacha / other 等）" },
           "guerilla_root": { "type": "string" },
           "quest": { "type": "array", "items": { "type": "string" } },
-          "same_character": { "type": "array", "items": { "type": "integer" } },
+          "same_character": {
+            "type": "array",
+            "description": "変身・モードシフト・トークン等の同一グループ関連キャラ投稿ID配列（自身必須・create時は\"self\"可・グループ全員同じ順番で設定）",
+            "items": {
+              "oneOf": [
+                { "type": "integer" },
+                { "type": "string", "enum": ["self"] }
+              ]
+            }
+          },
           "voice_actor": { "type": "string" },
           "pre_evo_name": { "type": "string" },
           "another_image_name": { "type": "string" },
@@ -96,9 +105,18 @@
           "auto_input_waza": { "type": "string" },
           "auto_input_sugowaza_name": { "type": "string" },
           "auto_input_sugowaza_condition": { "type": "string" },
-          "auto_input_sugowaza": { "type": "string" },
-          "auto_input_trait1": { "type": "string" },
-          "auto_input_trait2": { "type": "string" },
+          "auto_input_sugowaza": {
+            "type": ["string", "object"],
+            "description": "すごわざ効果文（トークン生成の[投稿ID]記法可）または {\"text\":\"...\",\"tokens\":[{\"related_token\":[ID],\"group_index\":0}]}"
+          },
+          "auto_input_trait1": {
+            "type": ["string", "object"],
+            "description": "とくせい1説明文（モードシフト/変身の[投稿ID]記法可）または {\"text\":\"...\",\"mode_shift\":{\"relation_ship\":\"mode_shift|before_transform|after_transform\",\"related_form\":[ID]}}"
+          },
+          "auto_input_trait2": {
+            "type": ["string", "object"],
+            "description": "とくせい2説明文（モードシフト/変身の[投稿ID]記法可）または {\"text\":\"...\",\"mode_shift\":{\"relation_ship\":\"mode_shift|before_transform|after_transform\",\"related_form\":[ID]}}"
+          },
           "auto_input_leader": { "type": "string" },
           "auto_input_blessing": { "type": ["string", "object"] },
           "auto_input_ex_blessing": { "type": ["string", "object"] },
@@ -129,6 +147,61 @@
           "character_name": { "type": "string", "description": "キャラクター名" },
           "basic_fields": { "$ref": "#/components/schemas/BasicFields" },
           "auto_input": { "$ref": "#/components/schemas/AutoInput" },
+          "relation_patches": {
+            "type": "object",
+            "description": "既存下書き（update_draft / preview_draft with post_id）のすごわざトークン行・とくせい/祝福/EX祝福モードシフト行の related_token / related_form / relation_ship のみを直接更新するパッチ（他のスキル・とくせい・祝福行は変更しない）",
+            "properties": {
+              "sugowaza_tokens": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["related_token"],
+                  "properties": {
+                    "group_index": { "type": "integer", "default": 0 },
+                    "detail_index": { "type": "integer", "description": "省略時は該当グループの既存token行を自動特定（0件なら末尾追加）" },
+                    "related_token": { "type": "array", "items": { "type": "integer" } }
+                  }
+                }
+              },
+              "trait_mode_shifts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["slot"],
+                  "properties": {
+                    "slot": { "type": "string", "enum": ["trait1", "trait2"] },
+                    "row_index": { "type": "integer", "description": "省略時は該当スロットの既存mode_shift行を自動特定（0件なら末尾追加）" },
+                    "relation_ship": { "type": "string", "enum": ["mode_shift", "before_transform", "after_transform"] },
+                    "related_form": { "type": "array", "items": { "oneOf": [{ "type": "integer" }, { "type": "string", "enum": ["self"] }] } }
+                  }
+                }
+              },
+              "blessing_mode_shifts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "row_index": { "type": "integer" },
+                    "relation_ship": { "type": "string", "enum": ["mode_shift", "another_image", "before_transform", "after_transform"] },
+                    "related_form": { "type": "array", "items": { "oneOf": [{ "type": "integer" }, { "type": "string", "enum": ["self"] }] } },
+                    "point": { "type": "integer" }
+                  }
+                }
+              },
+              "ex_blessing_mode_shifts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "row_index": { "type": "integer" },
+                    "relation_ship": { "type": "string", "enum": ["mode_shift", "another_image", "before_transform", "after_transform"] },
+                    "related_form": { "type": "array", "items": { "oneOf": [{ "type": "integer" }, { "type": "string", "enum": ["self"] }] } },
+                    "point": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
           "screenshot_urls": { "type": "array", "items": { "type": "string" } },
           "evidence": { "type": "object", "description": "OCR抽出根拠・判断メタデータ（最大16KB）" },
           "human_approved": { "type": "boolean", "description": "曖昧値の人間確認済みフラグ" },

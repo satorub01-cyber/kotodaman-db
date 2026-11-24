@@ -178,7 +178,7 @@ function koto_register_post_mcp_routes()
         'callback'            => function ($request) {
             $args = [];
             if ($request instanceof WP_REST_Request) {
-                foreach (['post_id', 'character_name', 'basic_fields', 'auto_input', 'screenshot_urls', 'evidence', 'replace_existing', 'human_approved', 'test_mode'] as $k) {
+                foreach (['post_id', 'character_name', 'basic_fields', 'auto_input', 'relation_patches', 'screenshot_urls', 'evidence', 'replace_existing', 'human_approved', 'test_mode'] as $k) {
                     $val = $request->get_param($k);
                     if ($val !== null) {
                         $args[$k] = $val;
@@ -217,7 +217,7 @@ function koto_register_post_mcp_routes()
                 $post_id = (int) ($request instanceof WP_REST_Request ? $request->get_param('post_id') : 0);
                 $args = ['post_id' => $post_id];
                 if ($request instanceof WP_REST_Request) {
-                    foreach (['character_name', 'basic_fields', 'auto_input', 'screenshot_urls', 'evidence', 'replace_existing', 'human_approved', 'preview_hash', 'idempotency_key', 'test_mode'] as $k) {
+                    foreach (['character_name', 'basic_fields', 'auto_input', 'relation_patches', 'screenshot_urls', 'evidence', 'replace_existing', 'human_approved', 'preview_hash', 'idempotency_key', 'test_mode'] as $k) {
                         $val = $request->get_param($k);
                         if ($val !== null) {
                             $args[$k] = $val;
@@ -679,7 +679,11 @@ function koto_mcp_update_basic_fields($post_id, $basic_fields)
                 $raw_items = is_array($value) ? $value : [$value];
                 $rel_ids = [];
                 foreach ($raw_items as $item) {
-                    if (is_numeric($item) && (int) $item > 0) {
+                    if (is_string($item) && strtolower(trim($item)) === 'self') {
+                        if ($post_id > 0) {
+                            $rel_ids[] = (int) $post_id;
+                        }
+                    } elseif (is_numeric($item) && (int) $item > 0) {
                         $rel_ids[] = (int) $item;
                     }
                 }
@@ -785,10 +789,10 @@ function koto_mcp_create_character_draft($request)
     }
     if (is_array($auto_input)) {
         foreach ($auto_input as $input_key => $input_val) {
-            $allows_structured = in_array($input_key, ['auto_input_blessing', 'auto_input_ex_blessing', 'auto_input_kotowaza'], true);
+            $allows_structured = in_array($input_key, ['auto_input_blessing', 'auto_input_ex_blessing', 'auto_input_kotowaza', 'auto_input_sugowaza', 'auto_input_trait1', 'auto_input_trait2'], true);
             if (!is_string($input_key) || ($input_val !== null && !is_string($input_val) && !($allows_structured && is_array($input_val)))) {
                 $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
-                return new WP_Error('invalid_auto_input_value', 'auto_input の各値は文字列（祝福・EX祝福・コトワザは配列/オブジェクト可）で指定してください。', ['status' => 400]);
+                return new WP_Error('invalid_auto_input_value', 'auto_input の各値は文字列（祝福・EX祝福・コトワザ・すごわざ・とくせい1/2は配列/オブジェクト可）で指定してください。', ['status' => 400]);
             }
             if (is_string($input_val) && mb_strlen($input_val, 'UTF-8') > 4000) {
                 $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
@@ -852,10 +856,38 @@ function koto_mcp_create_character_draft($request)
     $lv120_warnings = function_exists('koto_mcp_normalize_lv120_manual_flag')
         ? koto_mcp_normalize_lv120_manual_flag($basic_fields)
         : [];
+    $same_char_warnings = [];
+    if (array_key_exists('same_character', $basic_fields) && function_exists('koto_mcp_validate_same_character')) {
+        $sc_res = koto_mcp_validate_same_character($basic_fields['same_character'], 0);
+        if (!empty($sc_res['errors'])) {
+            $first_err = $sc_res['errors'][0];
+            $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+            return new WP_Error(
+                'invalid_same_character',
+                (string) ($first_err['message'] ?? 'basic_fields.same_character が不正です。'),
+                ['status' => 400, 'invalid_fields' => $sc_res['errors']]
+            );
+        }
+        $basic_fields['same_character'] = $sc_res['normalized'];
+        $same_char_warnings = $sc_res['warnings'];
+    }
 
+    $GLOBALS['koto_last_blessing_parse_meta'] = [];
+    $GLOBALS['koto_last_auto_input_warnings'] = [];
+    $GLOBALS['koto_last_auto_input_errors'] = [];
     $csv_path = get_stylesheet_directory() . '/lib/ゲーム内文言ーACF-対応表.csv';
     $grouped_csv = koto_group_csv_by_type(koto_load_csv_dictionary($csv_path));
-    $acf_data = koto_build_acf_data_from_inputs($auto_input, $grouped_csv);
+    $acf_data = koto_build_acf_data_from_inputs($auto_input, $grouped_csv, ['rarity' => $basic_fields['rarity'] ?? null, 'post_id' => 0]);
+    if (!empty($GLOBALS['koto_last_auto_input_errors'])) {
+        $err_msgs = [];
+        foreach ($GLOBALS['koto_last_auto_input_errors'] as $ek => $elist) {
+            foreach ((array) $elist as $eitem) {
+                $err_msgs[] = is_array($eitem) ? (string) ($eitem['message'] ?? $ek) : (string) $eitem;
+            }
+        }
+        $GLOBALS['koto_auto_input_test_mode'] = $prev_test_mode;
+        return new WP_Error('invalid_auto_input_value', implode(' / ', $err_msgs), ['status' => 400]);
+    }
     $parsed_counts = [];
     foreach ($acf_data as $k => $rows) {
         $parsed_counts[$k] = is_array($rows) ? count($rows) : 1;
@@ -867,8 +899,8 @@ function koto_mcp_create_character_draft($request)
     $auto_warnings = function_exists('koto_mcp_detect_auto_input_warnings')
         ? koto_mcp_detect_auto_input_warnings($auto_input, $acf_data, $grouped_csv)
         : [];
-    if (!empty($lv120_warnings)) {
-        $auto_warnings = array_values(array_unique(array_merge($lv120_warnings, $auto_warnings)));
+    if (!empty($lv120_warnings) || !empty($same_char_warnings)) {
+        $auto_warnings = array_values(array_unique(array_merge($lv120_warnings, $same_char_warnings, $auto_warnings)));
     }
 
     if ($dry_run) {

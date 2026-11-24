@@ -313,6 +313,32 @@ function koto_update_character_post_with_acf($post_id, $acf_data, $replace_exist
         }
     }
 
+    // related_form / related_token に "self" プレースホルダが含まれている場合は保存先 $post_id へ解決
+    $resolve_self_placeholders = static function (&$node) use (&$resolve_self_placeholders, $post_id) {
+        if (!is_array($node)) {
+            return;
+        }
+        foreach ($node as $k => &$v) {
+            if (($k === 'related_form' || $k === 'related_token') && is_array($v)) {
+                $resolved_rel = [];
+                foreach ($v as $rel_item) {
+                    if (is_string($rel_item) && strtolower(trim($rel_item)) === 'self') {
+                        if ($post_id > 0) {
+                            $resolved_rel[] = (int) $post_id;
+                        }
+                    } elseif (is_numeric($rel_item) && (int) $rel_item > 0) {
+                        $resolved_rel[] = (int) $rel_item;
+                    }
+                }
+                $v = array_values(array_unique($resolved_rel));
+            } elseif (is_array($v)) {
+                $resolve_self_placeholders($v);
+            }
+        }
+        unset($v);
+    };
+    $resolve_self_placeholders($fields_to_update);
+
     // $replace_existing 時、とくせい・祝福の更新によって文字変換行が無くなった場合も古い追加文字を置換できるよう対象に含める
     $replaced_moji_unlock_places = [];
     if ($replace_existing) {

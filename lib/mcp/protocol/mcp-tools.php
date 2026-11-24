@@ -99,8 +99,9 @@ function koto_mcp_draft_schema($hash_required = false, $update = false)
         'properties' => [
             'post_id' => ['type' => 'integer', 'description' => 'Target post ID (required for update_draft).'],
             'character_name' => ['type' => 'string', 'description' => 'Character name (becomes post title).'],
-            'basic_fields' => ['type' => 'object', 'description' => 'Top-level ACF fields. Creation requires name_ruby, attribute, species, rarity.'],
-            'auto_input' => ['type' => 'object', 'description' => 'Raw in-game texts for skills, traits, leader, kotowaza (0-4凸 array of {condition, effect}), and blessings.'],
+            'basic_fields' => ['type' => 'object', 'description' => 'Top-level ACF fields. Creation requires name_ruby, attribute, species, rarity. same_character must include self (use "self" on create_draft) in the exact shared group order.'],
+            'auto_input' => ['type' => 'object', 'description' => 'In-game texts or structured objects for skills (auto_input_sugowaza supports token text or {"text","tokens"}), traits (auto_input_trait1/2 support mode_shift/transform text or {"text","mode_shift"}), leader, kotowaza (0-4凸 array), and blessings (supports token/free/mode_shift items).'],
+            'relation_patches' => ['type' => 'object', 'description' => 'For update_draft/preview_draft (with post_id): directly patch existing sugowaza_tokens, trait_mode_shifts, blessing_mode_shifts, or ex_blessing_mode_shifts rows without re-sending or overwriting other skills/traits/blessings.'],
             'screenshot_urls' => ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'uri'], 'description' => 'List of screenshot URLs to attach and set featured image.'],
             'evidence' => ['type' => 'object', 'description' => 'Optional OCR extraction evidence and reasoning metadata (stored in _koto_mcp_audit, max 16KB). Pass during preview_draft or create_draft.'],
             'idempotency_key' => ['type' => 'string', 'description' => 'Unique idempotency key for draft creation or update.'],
@@ -246,6 +247,26 @@ function koto_mcp_validate_tool_arguments($name, $arguments)
                             return new WP_Error('INVALID_PARAMS', 'auto_input.auto_input_kotowaza exceeds maximum count (5 levels: 0凸〜4凸).', ['field' => 'auto_input.auto_input_kotowaza', 'reason' => 'above_max', 'status' => 400]);
                         }
                     }
+                } elseif ($input_key === 'auto_input_sugowaza') {
+                    if ($input_val !== null && !is_string($input_val) && !is_array($input_val)) {
+                        return new WP_Error('INVALID_PARAMS', 'auto_input.auto_input_sugowaza must be a string or object.', ['field' => 'auto_input.auto_input_sugowaza', 'reason' => 'invalid_type', 'status' => 400]);
+                    }
+                    if (is_array($input_val)) {
+                        $encoded_sugo = wp_json_encode($input_val, JSON_UNESCAPED_UNICODE);
+                        if (is_string($encoded_sugo) && mb_strlen($encoded_sugo, 'UTF-8') > KOTO_MCP_MAX_AUTO_INPUT_CHARS) {
+                            return new WP_Error('INVALID_PARAMS', 'auto_input.auto_input_sugowaza exceeds maximum length (4000 chars).', ['field' => 'auto_input.auto_input_sugowaza', 'reason' => 'above_max', 'status' => 400]);
+                        }
+                    }
+                } elseif ($input_key === 'auto_input_trait1' || $input_key === 'auto_input_trait2') {
+                    if ($input_val !== null && !is_string($input_val) && !is_array($input_val)) {
+                        return new WP_Error('INVALID_PARAMS', sprintf('auto_input.%s must be a string or object.', $input_key), ['field' => 'auto_input.' . $input_key, 'reason' => 'invalid_type', 'status' => 400]);
+                    }
+                    if (is_array($input_val)) {
+                        $encoded_trait = wp_json_encode($input_val, JSON_UNESCAPED_UNICODE);
+                        if (is_string($encoded_trait) && mb_strlen($encoded_trait, 'UTF-8') > KOTO_MCP_MAX_AUTO_INPUT_CHARS) {
+                            return new WP_Error('INVALID_PARAMS', sprintf('auto_input.%s exceeds maximum length (4000 chars).', $input_key), ['field' => 'auto_input.' . $input_key, 'reason' => 'above_max', 'status' => 400]);
+                        }
+                    }
                 } elseif ($input_val !== null && !is_string($input_val)) {
                     return new WP_Error('INVALID_PARAMS', 'auto_input values must be strings.', ['field' => 'auto_input.' . $input_key, 'reason' => 'invalid_type', 'status' => 400]);
                 }
@@ -284,6 +305,15 @@ function koto_mcp_validate_tool_arguments($name, $arguments)
         }
         if (array_key_exists('replace_existing', $arguments) && !is_bool($arguments['replace_existing'])) {
             return new WP_Error('INVALID_PARAMS', 'replace_existing must be a boolean.', ['field' => 'replace_existing', 'reason' => 'invalid_type', 'status' => 400]);
+        }
+        if (array_key_exists('relation_patches', $arguments) && $arguments['relation_patches'] !== null) {
+            if (!koto_mcp_is_object_like_array($arguments['relation_patches'])) {
+                return new WP_Error('INVALID_PARAMS', 'relation_patches must be an object.', ['field' => 'relation_patches', 'reason' => 'invalid_type', 'status' => 400]);
+            }
+            $encoded_rp = wp_json_encode($arguments['relation_patches'], JSON_UNESCAPED_UNICODE);
+            if (is_string($encoded_rp) && strlen($encoded_rp) > KOTO_MCP_MAX_EVIDENCE_BYTES) {
+                return new WP_Error('INVALID_PARAMS', 'relation_patches exceeds maximum size (16KB).', ['field' => 'relation_patches', 'reason' => 'above_max', 'status' => 400]);
+            }
         }
     }
 
@@ -497,11 +527,11 @@ function koto_mcp_call_tool($name, $args, $request = null)
 
         // create_draft / update_draft で preview_hash のみが渡された場合、直前の preview_draft キャッシュから入力を復元
         if (in_array($name, ['create_draft', 'update_draft'], true) && !empty($args['preview_hash'])) {
-            $has_explicit_payload = array_key_exists('basic_fields', $args) || array_key_exists('auto_input', $args) || array_key_exists('character_name', $args);
+            $has_explicit_payload = array_key_exists('basic_fields', $args) || array_key_exists('auto_input', $args) || array_key_exists('character_name', $args) || array_key_exists('relation_patches', $args);
             $cached_preview = get_transient(koto_mcp_preview_cache_key($auth, (string) $args['preview_hash']));
             if (is_array($cached_preview)) {
                 if (!$has_explicit_payload) {
-                    foreach (['character_name', 'basic_fields', 'auto_input', 'screenshot_urls', 'evidence', 'replace_existing'] as $ckey) {
+                    foreach (['character_name', 'basic_fields', 'auto_input', 'relation_patches', 'screenshot_urls', 'evidence', 'replace_existing'] as $ckey) {
                         if (!array_key_exists($ckey, $args) && array_key_exists($ckey, $cached_preview) && $cached_preview[$ckey] !== null) {
                             $args[$ckey] = $cached_preview[$ckey];
                         }
@@ -535,6 +565,7 @@ function koto_mcp_call_tool($name, $args, $request = null)
                     'character_name'   => $args['character_name'] ?? '',
                     'basic_fields'     => $args['basic_fields'] ?? [],
                     'auto_input'       => $args['auto_input'] ?? [],
+                    'relation_patches' => $args['relation_patches'] ?? null,
                     'screenshot_urls'  => $args['screenshot_urls'] ?? null,
                     'evidence'         => $args['evidence'] ?? null,
                     'replace_existing' => $args['replace_existing'] ?? null,
@@ -588,6 +619,9 @@ function koto_mcp_call_tool($name, $args, $request = null)
             koto_mcp_update_basic_fields($post_id, $args['basic_fields'] ?? []);
             $replace_existing = array_key_exists('replace_existing', $args) ? (bool) $args['replace_existing'] : false;
             koto_update_character_post_with_acf($post_id, $validation['parsed_acf'], $replace_existing);
+            if (!empty($args['relation_patches']) && function_exists('koto_mcp_apply_relation_patches')) {
+                koto_mcp_apply_relation_patches($post_id, $args['relation_patches']);
+            }
         }
         if (is_wp_error($post_id) || !$post_id) {
             koto_mcp_release_idempotency_key($idempotency_option);
