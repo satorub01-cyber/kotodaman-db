@@ -148,6 +148,8 @@ $tests = [
         '①自身が実体化した文字と同じ文字のコトダマンが実体化している場合、ことば読み上げ完了後にこのターン攻撃する自身と、自身と同じ文字のコトダマンのクリティカル発生率が100%UP・クリティカル時の威力が20%UP※濁音、半濁音、小文字も同じ文字とする②デッキ内の「彩々のひと」のクリティカル発生率が20%UP',
         // 13. ギミック複合とくせい（ブロックブレイカー＋マスガード）
         'ウォールブロックへのダメージをUPし、コピーマスの効果を受けない',
+        // 14. 援護（assistance：1ターンにつき1回まで発動する）
+        '「援護(重なる彩り)」を所持しているコトダマンが、ドロー候補または準備状態にあり、実体化した「彩々のひと」のコトダマンがすごわざを発動させたとき、ドロー候補または準備状態の「援護(重なる彩り)」を所持しているコトダマンのわざが1ターンにつき1回まで発動する',
     ],
     'リーダーとくせい' => [
         // 1. 編成条件＋コンボ条件＋固定倍率（パターンB）
@@ -447,7 +449,8 @@ if (!$test_mode && $koto_guard_passed === $koto_guard_total) {
 }
 
 // 今回追加分の構造検証アサーション（共鳴クリティカル・グループクリティカル・ミラクルリーダー・コトわざ連続引用）
-$regression_total = 4;
+// 回帰構造検証（共鳴クリティカル誤吸防止・グループ対象・ミラクルリーダー・連続引用コトわざ・援護）
+$regression_total = 5;
 $regression_passed = 0;
 
 $total_count++;
@@ -524,6 +527,27 @@ if ($ok_koto_quoted) {
     $regression_passed++;
 } else {
     $failed_cases[] = '[回帰検証] コトわざ連続引用条件が分割されてしまいました（実際: ' . $koto_cond_val . '）';
+}
+
+$total_count++;
+$assistance_trait = koto_parse_text_by_type(
+    '「援護(重なる彩り)」を所持しているコトダマンが、ドロー候補または準備状態にあり、実体化した「彩々のひと」のコトダマンがすごわざを発動させたとき、ドロー候補または準備状態の「援護(重なる彩り)」を所持しているコトダマンのわざが1ターンにつき1回まで発動する',
+    'とくせい',
+    $grouped_csv,
+    'auto_input_trait2'
+);
+$ok_assistance = (
+    count($assistance_trait) === 1
+    && ($assistance_trait[0]['trait_type'] ?? '') === 'new_traits'
+    && ($assistance_trait[0]['new_traits'] ?? '') === 'assistance'
+    && ($assistance_trait[0]['target_field_group']['target_type'] ?? '') === 'group'
+    && !empty($assistance_trait[0]['target_field_group']['target_group'])
+);
+if ($ok_assistance) {
+    $passed_count++;
+    $regression_passed++;
+} else {
+    $failed_cases[] = '[回帰検証] 援護（assistance）の解析または target_field_group.target_type が正しくありません';
 }
 
 if (!$test_mode && $regression_passed === $regression_total) {
