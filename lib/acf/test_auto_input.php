@@ -1060,6 +1060,63 @@ if (!$test_mode && $per_hit_passed === count($per_hit_cases)) {
     echo sprintf("[PASS] %-18s : %d / %d passed\n", 'わざ per_hit倍率', $per_hit_passed, count($per_hit_cases));
 }
 
+// リーダーとくせい：ダメージ軽減（mitigation_prefix の途中停止防止 & の/を/数値%表記対応）テスト
+$leader_mitigation_cases = [
+    [
+        'label'    => 'デッキ内全員の被ダメージ軽減 (25)',
+        'phrase'   => 'デッキ内全員の被ダメージ軽減',
+        'expected' => 25,
+        'index'    => 0,
+    ],
+    [
+        'label'    => 'デッキ内全員の被ダメージを大きく軽減 (50)',
+        'phrase'   => 'デッキ内全員の被ダメージを大きく軽減',
+        'expected' => 50,
+        'index'    => 0,
+    ],
+    [
+        'label'    => '火属性の被ダメージ軽減 (25)',
+        'phrase'   => '火属性の被ダメージ軽減',
+        'expected' => 25,
+        'index'    => 0,
+    ],
+    [
+        'label'    => '火属性のHP100%・ATK200%・被ダメージ軽減 (25)',
+        'phrase'   => '火属性のHP100%・ATK200%・被ダメージ軽減',
+        'expected' => 25,
+        'index'    => 2,
+    ],
+    [
+        'label'    => 'デッキ内全員が受けるダメージを30%軽減 (30)',
+        'phrase'   => 'デッキ内全員が受けるダメージを30%軽減',
+        'expected' => 30,
+        'index'    => 0,
+    ],
+];
+$leader_mitigation_passed = 0;
+foreach ($leader_mitigation_cases as $lm_case) {
+    $total_count++;
+    $lm_res = koto_parse_text_by_type($lm_case['phrase'], 'リーダーとくせい', $grouped_csv, 'auto_input_leader');
+    $status_row = $lm_res[0]['field_692e3f0bd345b'][$lm_case['index']] ?? [];
+    $actual_status = $status_row['field_692e3f3dd345c'] ?? null;
+    $actual_rate = $status_row['field_692e3fa6d345d'] ?? null;
+    if ($actual_status === 'mitigation' && $actual_rate === $lm_case['expected']) {
+        $passed_count++;
+        $leader_mitigation_passed++;
+    } else {
+        $failed_cases[] = sprintf(
+            '[リーダー軽減] %s (期待: status=mitigation, rate=%d / 実際: status=%s, rate=%s)',
+            $lm_case['label'],
+            $lm_case['expected'],
+            var_export($actual_status, true),
+            var_export($actual_rate, true)
+        );
+    }
+}
+if (!$test_mode && $leader_mitigation_passed === count($leader_mitigation_cases)) {
+    echo sprintf("[PASS] %-18s : %d / %d passed\n", 'リーダー軽減', $leader_mitigation_passed, count($leader_mitigation_cases));
+}
+
 if (!$test_mode) {
     echo sprintf("Total: %d / %d passed (詳細なJSON出力は --test-mode を付与)\n", $passed_count, $total_count);
     if (!empty($failed_cases)) {

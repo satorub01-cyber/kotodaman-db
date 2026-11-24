@@ -99,6 +99,9 @@ function koto_generate_regex_pattern($template, &$seen_vars, $match_mode = 'exac
                     } elseif (strpos($var_name, 'token_target') === 0 || strpos($var_name, 'related_form') === 0) {
                         // キャラ参照プレースホルダ（IDタグ【1234】含む）が別の「」を跨がないよう制御
                         $pattern .= '(?P<' . $var_name . '>[^、。\n×xX%％「」]+?)';
+                    } elseif (strpos($var_name, 'mitigation_prefix') === 0) {
+                        // prefixマッチモードでも1文字（「軽」「大」等）で途中停止しないよう軽減フレーズ全体をキャプチャする
+                        $pattern .= '(?P<' . $var_name . '>(?:を|が)?(?:大きく)?軽減)';
                     } else {
                         // 【修正】×や%を跨いで強引にマッチングするのを防ぐ
                         $pattern .= '(?P<' . $var_name . '>[^、。\n×xX%％]+?)';
@@ -943,7 +946,8 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             // 超大きく、大きく、かなりなどの治癒フレーズを処理
             $value = str_replace(['超大きく', '大きく', 'かなり'], ['2', '1.2', '0.8'], $value);
         } elseif (strpos($key, 'mitigation_prefix') === 0) {
-            // 超大きく、大きく、かなりなどのダメージフレーズを処理
+            // 助詞付き表記（を大きく軽減 / を軽減 / が軽減）を正規化してから軽減値を置換
+            $value = preg_replace('/^(?:を|が)/u', '', trim((string) $value));
             $value = str_replace(['大きく軽減', '軽減'], ['50', '25'], $value);
         } elseif (strpos($key, 'command_prefix') === 0) {
             // 少量、多量、超多量などのコマンドフレーズを処理
