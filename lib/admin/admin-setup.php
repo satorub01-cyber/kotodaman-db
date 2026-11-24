@@ -171,51 +171,124 @@ add_filter('manage_users_columns', function ($columns) {
 /**
  * 7. 管理画面のダッシュボード上部（admin_notices）にランダムカラー変更ボタンを設置
  *
+ * 投稿者以上（administrator / editor / author）および checker にのみ表示・実行を許可する。
+ * テーマ色変更以外の処理を介入させないため、管理権限は付与せず admin-post.php への
+ * POST 専用エンドポイント＋厳密な Nonce 検証・入力値非依存の admin_color 更新に限定する。
+ */
+
+/**
+ * 指定ユーザー（省略時は現在のユーザー）がランダムカラー変更ボタンを利用できるか判定する。
+ *
+ * @param int|WP_User|null $user ユーザーID、WP_User、または null（現在ユーザー）。
+ * @return bool
+ */
+function koto_user_can_change_random_admin_color($user = null)
+{
+    if ($user === null) {
+        if (!is_user_logged_in()) {
+            return false;
+        }
+        $user = wp_get_current_user();
+    } elseif (is_numeric($user)) {
+        $user = get_userdata((int) $user);
+    }
+
+    if (!$user instanceof WP_User || !$user->exists()) {
+        return false;
+    }
+
+    $roles = (array) $user->roles;
+    return user_can($user, 'manage_options')
+        || user_can($user, 'edit_others_posts')
+        || in_array('author', $roles, true)
+        || in_array('checker', $roles, true);
+}
+
+/**
+ * 管理画面の通知領域にランダムカラー変更フォームを表示する。
+ *
  * @return void
  */
 function add_random_color_theme_button()
 {
-    if (!current_user_can('manage_options')) {
+    if (!koto_user_can_change_random_admin_color()) {
         return;
     }
 
-    $ajax_url = wp_nonce_url(add_query_arg('action', 'set_random_admin_color'), 'random_color_nonce');
-
-    echo '<div class="notice notice-info is-dismissible" style="margin-top: 15px;">';
-    echo '<p>🎨 <a href="' . esc_url($ajax_url) . '" class="button button-primary">管理者の管理画面のテーマ色をランダムに変える</a></p>';
+    echo '<div class="notice notice-info is-dismissible koto-random-color-notice">';
+    echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
+    echo '<input type="hidden" name="action" value="set_random_admin_color">';
+    wp_nonce_field('random_color_nonce', '_koto_random_color_nonce');
+    echo '<p>🎨 <button type="submit" class="button button-primary">管理者の管理画面のテーマ色をランダムに変える</button></p>';
+    echo '</form>';
     echo '</div>';
 }
 add_action('admin_notices', 'add_random_color_theme_button');
 
 /**
- * 8. ランダムカラーテーマ変更ボタン押下時の処理
+ * 8. ランダムカラーテーマ変更ボタン押下時の処理（admin-post.php POST 専用）
  *
  * @return void
  */
 function handle_random_admin_color_change()
 {
-    if (isset($_GET['action']) && $_GET['action'] === 'set_random_admin_color') {
-        if (!current_user_can('manage_options')) {
-            wp_die('この操作を行う権限がありません。', 'permission_denied', ['response' => 403]);
-        }
-        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash((string) $_GET['_wpnonce'])), 'random_color_nonce')) {
-            wp_die('セキュリティエラーが発生しました。');
-        }
-
-        $schemes = ['fresh', 'light', 'blue', 'coffee', 'ectoplasm', 'midnight', 'ocean', 'sunrise'];
-        $user_id = get_current_user_id();
-
-        $random_scheme = $schemes[array_rand($schemes)];
-        update_user_meta($user_id, 'admin_color', $random_scheme);
-        $random_scheme = $schemes[array_rand($schemes)];
-        update_user_meta(1, 'admin_color', $random_scheme);
-
-        $redirect_url = remove_query_arg(['action', '_wpnonce']);
-        wp_safe_redirect($redirect_url);
-        exit;
+    if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
+        wp_die('不正なリクエストメソッドです。', 'method_not_allowed', ['response' => 405]);
     }
+
+    if (!koto_user_can_change_random_admin_color()) {
+        wp_die('この操作を行う権限がありません。', 'permission_denied', ['response' => 403]);
+    }
+
+    $nonce = isset($_POST['_koto_random_color_nonce'])
+        ? sanitize_text_field(wp_unslash((string) $_POST['_koto_random_color_nonce']))
+        : '';
+    if ($nonce === '' || !wp_verify_nonce($nonce, 'random_color_nonce')) {
+        wp_die('セキュリティエラーが発生しました。', 'invalid_nonce', ['response' => 403]);
+    }
+
+    // 入力パラメータは一切参照せず、固定ホワイトリストから admin_color のみを更新する
+    $schemes = ['fresh', 'light', 'blue', 'coffee', 'ectoplasm', 'midnight', 'ocean', 'sunrise'];
+    $scheme_max_index = count($schemes) - 1;
+    $user_id = get_current_user_id();
+
+    if ($user_id > 0) {
+        update_user_meta($user_id, 'admin_color', $schemes[random_int(0, $scheme_max_index)]);
+    }
+
+    $admin_user = get_userdata(1);
+    if ($admin_user instanceof WP_User && $admin_user->exists() && user_can($admin_user, 'manage_options')) {
+        update_user_meta(1, 'admin_color', $schemes[random_int(0, $scheme_max_index)]);
+    }
+
+    // リダイレクト先は管理画面配下に厳格限定し、アクション系クエリパラメータを除去する
+    $redirect_url = admin_url();
+    $referer = wp_get_referer();
+    if (is_string($referer) && $referer !== '') {
+        $admin_parts = wp_parse_url(admin_url());
+        $ref_parts   = wp_parse_url($referer);
+        $admin_host  = strtolower((string) ($admin_parts['host'] ?? ''));
+        $ref_host    = strtolower((string) ($ref_parts['host'] ?? ''));
+        $admin_path  = (string) ($admin_parts['path'] ?? '/wp-admin/');
+        $ref_path    = (string) ($ref_parts['path'] ?? '');
+
+        if (
+            $admin_host !== ''
+            && $ref_host === $admin_host
+            && str_starts_with($ref_path, $admin_path)
+            && !str_ends_with($ref_path, '/admin-post.php')
+        ) {
+            $redirect_url = remove_query_arg(
+                ['action', '_wpnonce', '_koto_random_color_nonce', 'run_update_index', 'force_calc_id'],
+                $referer
+            );
+        }
+    }
+
+    wp_safe_redirect($redirect_url);
+    exit;
 }
-add_action('admin_init', 'handle_random_admin_color_change');
+add_action('admin_post_set_random_admin_color', 'handle_random_admin_color_change');
 
 /**
  * 9. checker ロール定義・AI-assistant 投稿権限・チェック実績管理・標準編集画面制限

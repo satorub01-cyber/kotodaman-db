@@ -2,6 +2,14 @@
  * 管理画面調整用 スタイルシート
  * ================================================================= */
 
+/* --- ランダムカラー変更通知 --- */
+.koto-random-color-notice {
+    margin-top: 15px;
+}
+.koto-random-color-notice form {
+    margin: 0;
+}
+
 /* --- 複製ボタンのデザイン --- */
 .my-acf-duplicate-bottom {
     display: block;
