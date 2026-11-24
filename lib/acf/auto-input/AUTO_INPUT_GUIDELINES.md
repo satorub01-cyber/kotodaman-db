@@ -127,7 +127,7 @@ flowchart TD
    * `{$species}`: 種族名（タームIDへ変換）
    * `{$affiliation}`: 所属グループ名（タームIDへ変換）
    * `{$moji}`: 文字名（タームIDへ変換）
-   * `{$at_prefix_...}`: 攻撃倍率プレフィックス（`koto_get_attack_map` で変換）
+   * `{$at_prefix_...}`: 攻撃倍率プレフィックス（`koto_get_attack_map` で変換）。末尾に `_per_hit` を付けた場合（例: `{$at_prefix_blast_per_hit}`）は、JSONテンプレートの `"hit_count"` 指定（変数名または数値リテラル、未指定時は `$matches['hit_count']` / `$matches['val']`）で除算し、小数第4位で丸めた1ヒットあたり倍率を設定する
    * `{$prefix}`: バフ/デバフ段階（`koto_get_buff_prefix_map` で変換）
    * `{$waza_target}`: 攻撃対象（`single_oppo`, `all_oppo` 等）
    * `{$waza_character_target}`: バフ/効果対象（`self`, `all_ally`, `hand_ally` 等）

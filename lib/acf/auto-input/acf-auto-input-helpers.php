@@ -952,10 +952,13 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
             // わざの倍率処理
             $value = str_replace(['爆絶強力', '超絶強力', '超強力', '強力'], ['most_strong', 'super_strong', 'very_strong', 'strong'], $value);
             if ($key === 'at_prefix') $key = 'at_prefix_slash';
+            $per_hit_flag = strpos($key, '_per_hit') !== false;
             $at_key = str_replace('at_prefix_', '', $key);
-            $per_hit_flag = strpos($at_key, '_per_hit') !== false;
             if ($per_hit_flag) {
-                $at_key = str_replace('_per_hit', '', $at_key);
+                $at_key = preg_replace('/(?:^|_)per_hit\d*$/', '', $at_key);
+                if ($at_key === '' || $at_key === null) {
+                    $at_key = 'slash';
+                }
             }
             if (function_exists('koto_get_attack_map')) {
                 $multiplier_map = koto_get_attack_map($at_key);
@@ -963,10 +966,27 @@ function koto_apply_variables_to_json($json_template, $matches, $input_key = '')
                     $value = $multiplier_map[$value];
                 }
             }
-            if ($per_hit_flag && isset($matches['hit_count']) && is_numeric($matches['hit_count']) && is_numeric($value)) {
-                $hit_count = (float) $matches['hit_count'];
-                if ($hit_count > 0) {
-                    $value = (float) $value / $hit_count;
+            if ($per_hit_flag && is_numeric($value)) {
+                // JSONテンプレート内の hit_count 指定（変数名または数値リテラル）を優先参照し、未指定時は matches の hit_count / val へフォールバック
+                $raw_hit_count = null;
+                if (preg_match('/"hit_count"\s*:\s*(?:"\$([a-zA-Z0-9_]+)"|"?([0-9０-９]+(?:\.[0-9０-９]+)?)"?)/u', $json_template, $hc_match)) {
+                    if (!empty($hc_match[1])) {
+                        $raw_hit_count = $matches[$hc_match[1]] ?? null;
+                    } elseif (isset($hc_match[2]) && $hc_match[2] !== '') {
+                        $raw_hit_count = $hc_match[2];
+                    }
+                }
+                if ($raw_hit_count === null) {
+                    $raw_hit_count = $matches['hit_count'] ?? ($matches['val'] ?? null);
+                }
+                if ($raw_hit_count !== null && $raw_hit_count !== '') {
+                    $normalized_hit_count = mb_convert_kana((string) $raw_hit_count, 'n', 'UTF-8');
+                    if (is_numeric($normalized_hit_count)) {
+                        $hit_count = (float) $normalized_hit_count;
+                        if ($hit_count > 0) {
+                            $value = round((float) $value / $hit_count, 4);
+                        }
+                    }
                 }
             }
         } elseif (strpos($key, 'at_target_up') === 0) {

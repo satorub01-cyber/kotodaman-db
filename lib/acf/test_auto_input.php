@@ -118,6 +118,8 @@ $tests = [
         '同時に「クロニクル」または神種族のコトダマンがわざ・すごわざを発動させていた場合、敵単体に重圧1を2ターン付与＋9回、ランダムな敵に超絶強力な冥属性攻撃を与える',
         // 12. 「〇属性〇回攻撃」（「の」なし連撃パターン）
         '敵単体に超絶強力な水属性8回攻撃',
+        // 13. 全体連撃 per_hit 倍率割算（{$at_prefix_blast_per_hit} + {$val}回攻撃）
+        '敵全体に超強力な火属性の4回攻撃',
     ],
     'とくせい' => [
         // 1. 単一条件（文字数）＋自身の威力UP
@@ -986,6 +988,52 @@ if ($ok_rel_6) {
 
 if (!$test_mode && $rel_passed === $rel_total) {
     echo sprintf("[PASS] %-18s : %d / %d passed\n", 'トークン・モードシフト', $rel_passed, $rel_total);
+}
+
+// わざ：at_prefix_*_per_hit の1ヒットあたり倍率計算テスト
+$per_hit_cases = [
+    [
+        'label'    => '全体超強力4回攻撃 (3.75 / 4 = 0.9375)',
+        'phrase'   => '敵全体に超強力な火属性の4回攻撃',
+        'expected' => 0.9375,
+        'hits'     => 4,
+    ],
+    [
+        'label'    => '全体爆絶強力全属性有利3回攻撃 (7.5 / 3 = 2.5)',
+        'phrase'   => '敵全体に爆絶強力な全属性有利となる水属性3回攻撃',
+        'expected' => 2.5,
+        'hits'     => 3,
+    ],
+    [
+        'label'    => '全体超絶強力7回攻撃 (5.1 / 7 = 0.7286)',
+        'phrase'   => '敵全体に超絶強力な木属性の7回攻撃',
+        'expected' => 0.7286,
+        'hits'     => 7,
+    ],
+];
+$per_hit_passed = 0;
+foreach ($per_hit_cases as $ph_case) {
+    $total_count++;
+    $ph_res = koto_parse_text_by_type($ph_case['phrase'], 'わざ', $grouped_csv, '');
+    $detail = $ph_res[0]['sugo_detail_loop'][0] ?? [];
+    $actual_val = isset($detail['waza_value']) ? (float) $detail['waza_value'] : null;
+    $actual_hits = isset($detail['hit_count']) ? (int) $detail['hit_count'] : null;
+    if ($actual_val !== null && abs($actual_val - $ph_case['expected']) < 0.0001 && $actual_hits === $ph_case['hits']) {
+        $passed_count++;
+        $per_hit_passed++;
+    } else {
+        $failed_cases[] = sprintf(
+            '[わざ per_hit] %s (期待: waza_value=%s, hit_count=%d / 実際: waza_value=%s, hit_count=%s)',
+            $ph_case['label'],
+            (string) $ph_case['expected'],
+            $ph_case['hits'],
+            var_export($actual_val, true),
+            var_export($actual_hits, true)
+        );
+    }
+}
+if (!$test_mode && $per_hit_passed === count($per_hit_cases)) {
+    echo sprintf("[PASS] %-18s : %d / %d passed\n", 'わざ per_hit倍率', $per_hit_passed, count($per_hit_cases));
 }
 
 if (!$test_mode) {
