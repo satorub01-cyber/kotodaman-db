@@ -78,39 +78,39 @@ get_header();
             <section class="db-section tax-links">
                 <h2>属性で探す</h2>
                 <div class="tax-grid">
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_attr%5B%5D=fire&scope_skill%5B%5D=waza&scope_skill%5B%5D=sugo&scope_skill%5B%5D=kotowaza&scope_trait%5B%5D=t1&scope_trait%5B%5D=t2&scope_trait%5B%5D=blessing'); ?>" class="tax-btn fire">火</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_attr%5B%5D=water&scope_skill%5B%5D=waza&scope_skill%5B%5D=sugo&scope_skill%5B%5D=kotowaza&scope_trait%5B%5D=t1&scope_trait%5B%5D=t2&scope_trait%5B%5D=blessing'); ?>" class="tax-btn water">水</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_attr%5B%5D=wood&scope_skill%5B%5D=waza&scope_skill%5B%5D=sugo&scope_skill%5B%5D=kotowaza&scope_trait%5B%5D=t1&scope_trait%5B%5D=t2&scope_trait%5B%5D=blessing'); ?>" class="tax-btn wood">木</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_attr%5B%5D=light&scope_skill%5B%5D=waza&scope_skill%5B%5D=sugo&scope_skill%5B%5D=kotowaza&scope_trait%5B%5D=t1&scope_trait%5B%5D=t2&scope_trait%5B%5D=blessing'); ?>" class="tax-btn light">光</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_attr%5B%5D=dark&scope_skill%5B%5D=waza&scope_skill%5B%5D=sugo&scope_skill%5B%5D=kotowaza&scope_trait%5B%5D=t1&scope_trait%5B%5D=t2&scope_trait%5B%5D=blessing'); ?>" class="tax-btn dark">闇</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_attr%5B%5D=heaven&scope_skill%5B%5D=waza&scope_skill%5B%5D=sugo&scope_skill%5B%5D=kotowaza&scope_trait%5B%5D=t1&scope_trait%5B%5D=t2&scope_trait%5B%5D=blessing'); ?>" class="tax-btn heaven">天</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_attr%5B%5D=void&scope_skill%5B%5D=waza&scope_skill%5B%5D=sugo&scope_skill%5B%5D=kotowaza&scope_trait%5B%5D=t1&scope_trait%5B%5D=t2&scope_trait%5B%5D=blessing'); ?>" class="tax-btn void">冥</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_attr%5B%5D=fire')); ?>" class="tax-btn fire">火</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_attr%5B%5D=water')); ?>" class="tax-btn water">水</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_attr%5B%5D=wood')); ?>" class="tax-btn wood">木</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_attr%5B%5D=light')); ?>" class="tax-btn light">光</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_attr%5B%5D=dark')); ?>" class="tax-btn dark">闇</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_attr%5B%5D=heaven')); ?>" class="tax-btn heaven">天</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_attr%5B%5D=void')); ?>" class="tax-btn void">冥</a>
                 </div>
             </section>
 
             <section class="db-section tax-links">
                 <h2>種族で探す</h2>
                 <div class="tax-grid">
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_species%5B%5D=god'); ?>" class="tax-btn spe">神</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_species%5B%5D=demon'); ?>" class="tax-btn spe">魔</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_species%5B%5D=hero'); ?>" class="tax-btn spe">英</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_species%5B%5D=dragon'); ?>" class="tax-btn spe">龍</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_species%5B%5D=beast'); ?>" class="tax-btn spe">獣</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_species%5B%5D=spirit'); ?>" class="tax-btn spe">霊</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_species%5B%5D=artifact'); ?>" class="tax-btn spe">物</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_species%5B%5D=yokai'); ?>" class="tax-btn spe">妖</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_species%5B%5D=god')); ?>" class="tax-btn spe">神</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_species%5B%5D=demon')); ?>" class="tax-btn spe">魔</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_species%5B%5D=hero')); ?>" class="tax-btn spe">英</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_species%5B%5D=dragon')); ?>" class="tax-btn spe">龍</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_species%5B%5D=beast')); ?>" class="tax-btn spe">獣</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_species%5B%5D=spirit')); ?>" class="tax-btn spe">霊</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_species%5B%5D=artifact')); ?>" class="tax-btn spe">物</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_species%5B%5D=yokai')); ?>" class="tax-btn spe">妖</a>
                 </div>
             </section>
 
             <section class="db-section tax-links rarity">
                 <h2>レアリティで探す</h2>
                 <div class="tax-grid">
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_rarity%5B%5D=grand'); ?>" class="tax-btn grand">グランド</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_rarity%5B%5D=legend'); ?>" class="tax-btn legend">レジェンド</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_rarity%5B%5D=dream'); ?>" class="tax-btn dream">ドリーム</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_rarity%5B%5D=miracle'); ?>" class="tax-btn miracle">ミラクル</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_rarity%5B%5D=special'); ?>" class="tax-btn special">スペシャル</a>
-                    <a href="<?php echo home_url('/?post_type=character&s=&search_char=&tx_rarity%5B%5D=none'); ?>" class="tax-btn none">なし</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_rarity%5B%5D=grand')); ?>" class="tax-btn grand">グランド</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_rarity%5B%5D=legend')); ?>" class="tax-btn legend">レジェンド</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_rarity%5B%5D=dream')); ?>" class="tax-btn dream">ドリーム</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_rarity%5B%5D=miracle')); ?>" class="tax-btn miracle">ミラクル</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_rarity%5B%5D=special')); ?>" class="tax-btn special">スペシャル</a>
+                    <a href="<?php echo esc_url(home_url('/?post_type=character&tx_rarity%5B%5D=none')); ?>" class="tax-btn none">なし</a>
                 </div>
             </section>
 
@@ -134,9 +134,9 @@ get_header();
                     ];
 
                     foreach ($gimmicks as $slug => $label) :
-                        $normal_url = home_url("/?post_type=character&s=&search_char=&tx_gimmick%5B%5D=" . $slug);
+                        $normal_url = home_url('/?post_type=character&tx_gimmick%5B%5D=' . $slug);
                         // ご提示の規則性に基づき、スーパーのスラッグは "super_" + 通常スラッグ とする
-                        $super_url  = home_url('/?post_type=character&s=&search_char=&tx_gimmick%5B%5D=super_' . $slug);
+                        $super_url  = home_url('/?post_type=character&tx_gimmick%5B%5D=super_' . $slug);
                     ?>
                         <div class="split-btn-wrapper">
                             <a href="<?php echo esc_url($normal_url); ?>" class="tax-btn gim-main">
