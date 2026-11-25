@@ -718,23 +718,9 @@ function koto_ogp_overlay_logo($canvas, $width, $height)
     $target_w = (int)round($width * 0.25);
     $target_h = max(1, (int)round($target_w * ($lh / $lw)));
     $margin = 18;
-    $pad_x = 14;
-    $pad_y = 8;
 
     $dx = $width - $margin - $target_w;
     $dy = $height - $margin - $target_h;
-
-    // キャラ画像と重なってもロゴの視認性を保つための半透明プレート
-    $badge_bg = imagecolorallocatealpha($canvas, KOTO_OGP_BG_RGB[0], KOTO_OGP_BG_RGB[1], KOTO_OGP_BG_RGB[2], 24);
-    koto_ogp_fill_rounded_rect(
-        $canvas,
-        $dx - $pad_x,
-        $dy - $pad_y,
-        $dx + $target_w + $pad_x,
-        $dy + $target_h + $pad_y,
-        12,
-        $badge_bg
-    );
 
     // アルファチャネルを保ったまま縮小コピー
     $resized = imagecreatetruecolor($target_w, $target_h);
