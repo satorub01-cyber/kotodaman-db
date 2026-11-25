@@ -148,6 +148,40 @@ add_action('wp_ajax_koto_ogp_search_characters', function () {
 });
 
 /**
+ * 管理画面からのカスタムサムネイルPNG生成 Ajax（同一オリジン・キャッシュ/404干渉回避）。
+ */
+add_action('wp_ajax_koto_ogp_render_custom', function () {
+    if (!check_ajax_referer('koto_ogp_admin_nonce', 'nonce', false)) {
+        koto_ogp_send_error_response(403, 'Invalid nonce');
+    }
+    if (!current_user_can('edit_others_posts')) {
+        koto_ogp_send_error_response(403, 'Forbidden');
+    }
+
+    $raw = !empty($_POST) ? wp_unslash($_POST) : wp_unslash($_GET);
+    $options = koto_ogp_parse_custom_options($raw);
+    $rate_limited = false;
+    $file = koto_ogp_generate_image_file($options, $rate_limited);
+    if ($rate_limited) {
+        koto_ogp_send_error_response(429, 'Too Many Requests');
+    }
+    if (!$file || !file_exists($file)) {
+        koto_ogp_send_error_response(500, 'Failed to generate OGP image');
+    }
+
+    $is_tmp_file = str_starts_with(basename($file), 'tmp_');
+    $download_filename = '';
+    if (!empty($raw['download'])) {
+        $download_filename = sprintf(
+            'kotodaman-thumb-%dx%d.png',
+            (int)($options['w'] ?? KOTO_OGP_DEFAULT_WIDTH),
+            (int)($options['h'] ?? KOTO_OGP_DEFAULT_HEIGHT)
+        );
+    }
+    koto_ogp_send_png_file_response($file, $is_tmp_file, true, $download_filename);
+});
+
+/**
  * 管理画面からのOGPキャッシュ一括クリア Ajax。
  */
 add_action('wp_ajax_koto_ogp_clear_cache', function () {

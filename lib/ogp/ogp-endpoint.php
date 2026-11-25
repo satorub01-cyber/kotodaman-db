@@ -349,6 +349,79 @@ function koto_ogp_send_error_response($status_code, $message)
 }
 
 /**
+ * カスタム画像生成用のリクエストパラメータを安全に抽出・正規化する。
+ */
+function koto_ogp_parse_custom_options(array $raw)
+{
+    $ids_raw = [];
+    if (isset($raw['ids'])) {
+        if (is_array($raw['ids'])) {
+            $ids_raw = array_filter($raw['ids'], 'is_scalar');
+        } elseif (is_scalar($raw['ids'])) {
+            $ids_raw = explode(',', (string)$raw['ids']);
+        }
+    }
+    return [
+        'mode'    => 'custom',
+        'ids'     => array_slice(array_values(array_filter(array_map('intval', $ids_raw))), 0, KOTO_OGP_MAX_TILES),
+        'w'       => isset($raw['w']) && is_scalar($raw['w']) ? (int)$raw['w'] : KOTO_OGP_DEFAULT_WIDTH,
+        'h'       => isset($raw['h']) && is_scalar($raw['h']) ? (int)$raw['h'] : KOTO_OGP_DEFAULT_HEIGHT,
+        'logo'    => (($raw['logo'] ?? '1') === '0') ? '0' : '1',
+        'bg'      => (($raw['bg'] ?? 'blur') === 'flat') ? 'flat' : 'blur',
+        'source'  => (($raw['source'] ?? 'default') === 'test') ? 'test' : 'default',
+        'nocache' => true,
+    ];
+}
+
+/**
+ * 生成済みPNGファイルをHTTPレスポンスとして安全に出力して終了する。
+ */
+function koto_ogp_send_png_file_response($file, $is_tmp_file = false, $is_custom = false, $download_filename = '')
+{
+    if (!is_string($file) || $file === '' || !file_exists($file)) {
+        koto_ogp_send_error_response(500, 'Failed to generate OGP image');
+    }
+
+    if ($is_tmp_file) {
+        register_shutdown_function(static function () use ($file) {
+            if (is_string($file) && $file !== '' && file_exists($file)) {
+                @unlink($file);
+            }
+        });
+    }
+
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    clearstatcache(true, $file);
+    $size = filesize($file);
+
+    status_header(200);
+    header('Content-Type: image/png');
+    header('X-Content-Type-Options: nosniff');
+    if ($size !== false) {
+        header('Content-Length: ' . $size);
+    }
+    if ($is_custom) {
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+    } else {
+        header('Cache-Control: public, max-age=604800');
+    }
+    if ($download_filename !== '') {
+        $safe_name = preg_replace('/[^a-zA-Z0-9._-]/', '', $download_filename);
+        if ($safe_name !== '') {
+            header('Content-Disposition: attachment; filename="' . $safe_name . '"');
+        }
+    }
+
+    readfile($file);
+    if ($is_tmp_file && file_exists($file)) {
+        @unlink($file);
+    }
+    exit;
+}
+
+/**
  * ?koto_ogp=1 リクエストを処理し、PNG画像を出力して終了する。
  */
 function koto_ogp_handle_image_request()
@@ -367,24 +440,7 @@ function koto_ogp_handle_image_request()
         if (!is_user_logged_in() || !current_user_can('edit_others_posts') || !wp_verify_nonce($nonce, 'koto_ogp_custom_render')) {
             koto_ogp_send_error_response(403, 'Forbidden');
         }
-        $ids_raw = [];
-        if (isset($raw_get['ids'])) {
-            if (is_array($raw_get['ids'])) {
-                $ids_raw = array_filter($raw_get['ids'], 'is_scalar');
-            } elseif (is_scalar($raw_get['ids'])) {
-                $ids_raw = explode(',', (string)$raw_get['ids']);
-            }
-        }
-        $options = [
-            'mode'    => 'custom',
-            'ids'     => array_slice(array_values(array_filter(array_map('intval', $ids_raw))), 0, KOTO_OGP_MAX_TILES),
-            'w'       => isset($raw_get['w']) && is_scalar($raw_get['w']) ? (int)$raw_get['w'] : KOTO_OGP_DEFAULT_WIDTH,
-            'h'       => isset($raw_get['h']) && is_scalar($raw_get['h']) ? (int)$raw_get['h'] : KOTO_OGP_DEFAULT_HEIGHT,
-            'logo'    => (($raw_get['logo'] ?? '1') === '0') ? '0' : '1',
-            'bg'      => (($raw_get['bg'] ?? 'blur') === 'flat') ? 'flat' : 'blur',
-            'source'  => (($raw_get['source'] ?? 'default') === 'test') ? 'test' : 'default',
-            'nocache' => true,
-        ];
+        $options = koto_ogp_parse_custom_options($raw_get);
     } else {
         $sig = isset($raw_get['sig']) && is_scalar($raw_get['sig']) ? (string)$raw_get['sig'] : '';
         if (!koto_ogp_verify_signature($raw_get, $sig)) {
@@ -411,35 +467,15 @@ function koto_ogp_handle_image_request()
     }
 
     $is_tmp_file = ($mode === 'custom' && str_starts_with(basename($file), 'tmp_'));
-    if ($is_tmp_file) {
-        register_shutdown_function( static function () use ($file) {
-            if (is_string($file) && $file !== '' && file_exists($file)) {
-                @unlink($file);
-            }
-        });
-    }
-
-    while (ob_get_level() > 0) {
-        ob_end_clean();
-    }
-    header('Content-Type: image/png');
-    header('X-Content-Type-Options: nosniff');
-    header('Content-Length: ' . filesize($file));
-    if ($mode === 'custom') {
-        header('Cache-Control: no-store, no-cache, must-revalidate');
-    } else {
-        header('Cache-Control: public, max-age=604800');
-    }
+    $download_filename = '';
     if (!empty($raw_get['download'])) {
-        $fname = sprintf('kotodaman-thumb-%dx%d.png', (int)($options['w'] ?? KOTO_OGP_DEFAULT_WIDTH), (int)($options['h'] ?? KOTO_OGP_DEFAULT_HEIGHT));
-        header('Content-Disposition: attachment; filename="' . $fname . '"');
+        $download_filename = sprintf(
+            'kotodaman-thumb-%dx%d.png',
+            (int)($options['w'] ?? KOTO_OGP_DEFAULT_WIDTH),
+            (int)($options['h'] ?? KOTO_OGP_DEFAULT_HEIGHT)
+        );
     }
-
-    readfile($file);
-    if ($is_tmp_file && file_exists($file)) {
-        @unlink($file);
-    }
-    exit;
+    koto_ogp_send_png_file_response($file, $is_tmp_file, $mode === 'custom', $download_filename);
 }
 add_action('template_redirect', 'koto_ogp_handle_image_request', 1);
 
