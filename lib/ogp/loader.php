@@ -112,9 +112,6 @@ function koto_ogp_is_public_post($post_id, $required_post_type = '')
  */
 function koto_ogp_is_character_search_page()
 {
-    if (!is_search()) {
-        return false;
-    }
     $post_type = get_query_var('post_type');
     if (is_array($post_type)) {
         $post_type = reset($post_type);
@@ -122,7 +119,24 @@ function koto_ogp_is_character_search_page()
     if (empty($post_type) && isset($_GET['post_type']) && is_scalar($_GET['post_type'])) {
         $post_type = sanitize_text_field(wp_unslash((string)$_GET['post_type']));
     }
-    return $post_type === 'character';
+    if ($post_type !== 'character') {
+        return false;
+    }
+    if (is_search()) {
+        return true;
+    }
+
+    $params = koto_ogp_extract_allowed_search_query_params(wp_unslash($_GET));
+    unset($params['post_type'], $params['s']);
+    foreach ($params as $key => $value) {
+        if (str_ends_with($key, '_relation')) {
+            continue;
+        }
+        if (is_array($value) ? !empty($value) : trim((string)$value) !== '') {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**

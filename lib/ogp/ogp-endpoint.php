@@ -221,15 +221,24 @@ function koto_ogp_generate_image_file(array $options, bool &$rate_limited = fals
         return '';
     }
 
-    if (!$use_cache) {
-        koto_ogp_cleanup_stale_tmp_files();
-    }
-    $target_path = $use_cache ? $cache_file : (koto_ogp_get_cache_dir() . '/tmp_' . wp_generate_password(16, false) . '.png');
+    koto_ogp_cleanup_stale_tmp_files();
+    $temp_path = koto_ogp_get_cache_dir() . '/tmp_' . wp_generate_password(16, false) . '.png';
     imagesavealpha($canvas, true);
-    $saved = @imagepng($canvas, $target_path, 6);
+    $saved = @imagepng($canvas, $temp_path, 6);
     imagedestroy($canvas);
 
-    return $saved ? $target_path : '';
+    if (!$saved) {
+        @unlink($temp_path);
+        return '';
+    }
+    if ($use_cache) {
+        if (!@rename($temp_path, $cache_file)) {
+            @unlink($temp_path);
+            return '';
+        }
+        return $cache_file;
+    }
+    return $temp_path;
 }
 
 /**
