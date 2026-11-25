@@ -73,10 +73,16 @@ function koto_ogp_build_signed_image_url(array $params)
 }
 
 /**
- * 古い一時ファイル（tmp_*.png）を掃除する。
+ * 古い一時ファイル（tmp_*.png）を掃除する（$force=false時は10分に1回へ間引き）。
  */
-function koto_ogp_cleanup_stale_tmp_files($max_age_sec = 600)
+function koto_ogp_cleanup_stale_tmp_files($max_age_sec = 600, $force = false)
 {
+    if (!$force) {
+        if (get_transient('koto_ogp_tmp_cleanup_lock')) {
+            return;
+        }
+        set_transient('koto_ogp_tmp_cleanup_lock', 1, 600);
+    }
     $dir = koto_ogp_get_cache_dir();
     $files = glob($dir . '/tmp_*.png');
     if (!is_array($files)) {
@@ -90,9 +96,6 @@ function koto_ogp_cleanup_stale_tmp_files($max_age_sec = 600)
     }
 }
 
-/**
- * 指定モード・パラメータでPNG画像を生成し、ファイルパスを返す（キャッシュ利用）。
- */
 /**
  * OGP画像のキャッシュミス時生成に対するIP単位のレート制限を判定・記録する。
  *
@@ -120,8 +123,9 @@ function koto_ogp_is_generation_rate_limited()
 /**
  * 動的OGP画像を生成し、画像ファイルパスを返す。
  */
-function koto_ogp_generate_image_file(array $options, bool &$rate_limited = false)
+function koto_ogp_generate_image_file(array $options, bool &$rate_limited = false, array &$meta = [])
 {
+    $t_start = microtime(true);
     $rate_limited = false;
     $allowed_modes = ['search', 'post', 'top', 'custom', 'default'];
     $raw_mode  = is_scalar($options['mode'] ?? null) ? (string)$options['mode'] : 'default';
@@ -132,12 +136,24 @@ function koto_ogp_generate_image_file(array $options, bool &$rate_limited = fals
     $bg_style  = (($options['bg'] ?? 'blur') === 'flat') ? 'flat' : 'blur';
     $source    = (($options['source'] ?? 'default') === 'test') ? 'test' : 'default';
     $use_cache = empty($options['nocache']) && $mode !== 'custom';
+    $short_cache = false;
 
     $post_id = is_scalar($options['post_id'] ?? null) ? (int)$options['post_id'] : 0;
     if ($mode === 'post' && !koto_ogp_is_public_post($post_id)) {
         $mode = 'default';
         $post_id = 0;
     }
+    if ($mode === 'post' && $post_id > 0 && empty(koto_ogp_resolve_character_image_candidates($post_id, true))) {
+        $use_cache = false;
+        $short_cache = true;
+    }
+
+    $meta = [
+        'mode'        => $mode,
+        'cache'       => $use_cache ? 'MISS' : 'BYPASS',
+        'short_cache' => $short_cache,
+        'elapsed_ms'  => 0,
+    ];
 
     $cache_key_data = [
         'ver'  => KOTO_OGP_CACHE_VERSION,
@@ -158,11 +174,14 @@ function koto_ogp_generate_image_file(array $options, bool &$rate_limited = fals
     $cache_file = koto_ogp_get_cache_dir() . '/' . $prefix . '_' . hash('sha256', wp_json_encode($cache_key_data)) . '.png';
 
     if ($use_cache && file_exists($cache_file) && filesize($cache_file) > 0) {
+        $meta['cache'] = 'HIT';
+        $meta['elapsed_ms'] = (int)round((microtime(true) - $t_start) * 1000);
         return $cache_file;
     }
 
     if (koto_ogp_is_generation_rate_limited()) {
         $rate_limited = true;
+        $meta['elapsed_ms'] = (int)round((microtime(true) - $t_start) * 1000);
         return '';
     }
 
@@ -179,7 +198,18 @@ function koto_ogp_generate_image_file(array $options, bool &$rate_limited = fals
         $filtered  = koto_ogp_filter_characters($all_chars, $search_params);
         unset($all_chars);
         $sorted    = koto_ogp_sort_characters_for_thumbnail($filtered);
-        $top_chars = array_slice($sorted, 0, KOTO_OGP_MAX_TILES);
+        $with_img = [];
+        $without_img = [];
+        foreach ($sorted as $c) {
+            $t_url = is_scalar($c['thumb_url'] ?? null) ? trim((string)$c['thumb_url']) : '';
+            if ($t_url !== '' && !koto_ogp_is_placeholder_image($t_url)) {
+                $with_img[] = $c;
+            } else {
+                $without_img[] = $c;
+            }
+        }
+        $ordered   = array_merge($with_img, $without_img);
+        $top_chars = array_slice($ordered, 0, KOTO_OGP_MAX_TILES);
         $canvas    = koto_ogp_render_tile_canvas($top_chars, $width, $height, $render_opts);
     } elseif ($mode === 'post') {
         if ($post_id > 0 && koto_ogp_is_public_post($post_id)) {
@@ -218,6 +248,7 @@ function koto_ogp_generate_image_file(array $options, bool &$rate_limited = fals
     }
 
     if (!$canvas) {
+        $meta['elapsed_ms'] = (int)round((microtime(true) - $t_start) * 1000);
         return '';
     }
 
@@ -229,15 +260,25 @@ function koto_ogp_generate_image_file(array $options, bool &$rate_limited = fals
 
     if (!$saved) {
         @unlink($temp_path);
+        $meta['elapsed_ms'] = (int)round((microtime(true) - $t_start) * 1000);
         return '';
     }
     if ($use_cache) {
         if (!@rename($temp_path, $cache_file)) {
             @unlink($temp_path);
+            clearstatcache(true, $cache_file);
+            if (file_exists($cache_file) && filesize($cache_file) > 0) {
+                $meta['cache'] = 'HIT';
+                $meta['elapsed_ms'] = (int)round((microtime(true) - $t_start) * 1000);
+                return $cache_file;
+            }
+            $meta['elapsed_ms'] = (int)round((microtime(true) - $t_start) * 1000);
             return '';
         }
+        $meta['elapsed_ms'] = (int)round((microtime(true) - $t_start) * 1000);
         return $cache_file;
     }
+    $meta['elapsed_ms'] = (int)round((microtime(true) - $t_start) * 1000);
     return $temp_path;
 }
 
@@ -302,7 +343,7 @@ function koto_ogp_extract_allowed_search_query_params(array $raw_get)
     ];
 
     $sanitize_one = static function ($v): string {
-        $s = sanitize_text_field(wp_unslash((string)$v));
+        $s = sanitize_text_field((string)$v);
         return mb_substr($s, 0, 200, 'UTF-8');
     };
 
@@ -345,14 +386,22 @@ function koto_ogp_extract_allowed_search_query_params(array $raw_get)
 /**
  * OGPエンドポイントのエラーレスポンスを安全に出力して終了する。
  */
-function koto_ogp_send_error_response($status_code, $message)
+function koto_ogp_send_error_response($status_code, $message, $reason_code = '')
 {
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
-    status_header((int)$status_code);
+    $code = (int)$status_code;
+    $err_label = preg_replace('/[^a-zA-Z0-9._ -]/', '', (string)($reason_code !== '' ? $reason_code : $message));
+    $mode_label = isset($_GET['mode']) && is_scalar($_GET['mode']) ? sanitize_key((string)$_GET['mode']) : '';
+    error_log(sprintf('[koto-ogp] error status=%d reason=%s mode=%s', $code, $err_label !== '' ? $err_label : 'error', $mode_label));
+
+    status_header($code);
     header('Content-Type: text/plain; charset=UTF-8');
     header('X-Content-Type-Options: nosniff');
+    if ($err_label !== '') {
+        header('X-Koto-OGP-Error: ' . $err_label);
+    }
     header('Cache-Control: no-store, no-cache, must-revalidate');
     exit((string)$message);
 }
@@ -385,10 +434,10 @@ function koto_ogp_parse_custom_options(array $raw)
 /**
  * 生成済みPNGファイルをHTTPレスポンスとして安全に出力して終了する。
  */
-function koto_ogp_send_png_file_response($file, $is_tmp_file = false, $is_custom = false, $download_filename = '')
+function koto_ogp_send_png_file_response($file, $is_tmp_file = false, $is_custom = false, $download_filename = '', array $meta = [])
 {
     if (!is_string($file) || $file === '' || !file_exists($file)) {
-        koto_ogp_send_error_response(500, 'Failed to generate OGP image');
+        koto_ogp_send_error_response(500, 'Failed to generate OGP image', 'missing_output_file');
     }
 
     if ($is_tmp_file) {
@@ -408,11 +457,22 @@ function koto_ogp_send_png_file_response($file, $is_tmp_file = false, $is_custom
     status_header(200);
     header('Content-Type: image/png');
     header('X-Content-Type-Options: nosniff');
+    if (!empty($meta['mode'])) {
+        header('X-Koto-OGP-Mode: ' . preg_replace('/[^a-zA-Z0-9_-]/', '', (string)$meta['mode']));
+    }
+    if (!empty($meta['cache'])) {
+        header('X-Koto-OGP-Cache: ' . preg_replace('/[^a-zA-Z0-9_-]/', '', (string)$meta['cache']));
+    }
+    if (isset($meta['elapsed_ms'])) {
+        header('X-Koto-OGP-Time-Ms: ' . (int)$meta['elapsed_ms']);
+    }
     if ($size !== false) {
         header('Content-Length: ' . $size);
     }
     if ($is_custom) {
         header('Cache-Control: no-store, no-cache, must-revalidate');
+    } elseif (!empty($meta['short_cache'])) {
+        header('Cache-Control: public, max-age=300');
     } else {
         header('Cache-Control: public, max-age=604800');
     }
@@ -447,13 +507,13 @@ function koto_ogp_handle_image_request()
     if ($mode === 'custom') {
         $nonce = isset($raw_get['_wpnonce']) && is_scalar($raw_get['_wpnonce']) ? (string)$raw_get['_wpnonce'] : '';
         if (!is_user_logged_in() || !current_user_can('edit_others_posts') || !wp_verify_nonce($nonce, 'koto_ogp_custom_render')) {
-            koto_ogp_send_error_response(403, 'Forbidden');
+            koto_ogp_send_error_response(403, 'Forbidden', 'custom_forbidden');
         }
         $options = koto_ogp_parse_custom_options($raw_get);
     } else {
         $sig = isset($raw_get['sig']) && is_scalar($raw_get['sig']) ? (string)$raw_get['sig'] : '';
         if (!koto_ogp_verify_signature($raw_get, $sig)) {
-            koto_ogp_send_error_response(403, 'Invalid signature');
+            koto_ogp_send_error_response(403, 'Invalid signature', 'invalid_signature');
         }
         $options = [
             'mode'    => $mode,
@@ -467,15 +527,16 @@ function koto_ogp_handle_image_request()
     }
 
     $rate_limited = false;
-    $file = koto_ogp_generate_image_file($options, $rate_limited);
+    $meta = [];
+    $file = koto_ogp_generate_image_file($options, $rate_limited, $meta);
     if ($rate_limited) {
-        koto_ogp_send_error_response(429, 'Too Many Requests');
+        koto_ogp_send_error_response(429, 'Too Many Requests', 'rate_limited');
     }
     if (!$file || !file_exists($file)) {
-        koto_ogp_send_error_response(500, 'Failed to generate OGP image');
+        koto_ogp_send_error_response(500, 'Failed to generate OGP image', 'generation_failed');
     }
 
-    $is_tmp_file = ($mode === 'custom' && str_starts_with(basename($file), 'tmp_'));
+    $is_tmp_file = str_starts_with(basename($file), 'tmp_');
     $download_filename = '';
     if (!empty($raw_get['download'])) {
         $download_filename = sprintf(
@@ -484,9 +545,9 @@ function koto_ogp_handle_image_request()
             (int)($options['h'] ?? KOTO_OGP_DEFAULT_HEIGHT)
         );
     }
-    koto_ogp_send_png_file_response($file, $is_tmp_file, $mode === 'custom', $download_filename);
+    koto_ogp_send_png_file_response($file, $is_tmp_file, $mode === 'custom', $download_filename, $meta);
 }
-add_action('template_redirect', 'koto_ogp_handle_image_request', 1);
+add_action('parse_request', 'koto_ogp_handle_image_request', 1);
 
 /**
  * 指定投稿IDのOGPキャッシュファイルを削除する。
@@ -509,13 +570,103 @@ function koto_ogp_purge_post_cache($post_id)
 }
 
 /**
- * キャラクター記事の更新・ゴミ箱移動・削除時に該当投稿のOGPキャッシュを削除する。
+ * 検索・トップOGPキャッシュファイルを削除し、URLキャッシュ世代を更新する。
  */
-add_action('save_post_character', function ($post_id) {
+function koto_ogp_purge_aggregate_caches()
+{
+    $dir = koto_ogp_get_cache_dir();
+    foreach (['/search_*.png', '/top_*.png'] as $pattern) {
+        $files = glob($dir . $pattern);
+        if (is_array($files)) {
+            foreach ($files as $f) {
+                if (is_file($f)) {
+                    @unlink($f);
+                }
+            }
+        }
+    }
+    koto_ogp_bump_cache_generation();
+}
+
+/**
+ * 全OGPキャッシュ（任意で remote/ リモートキャッシュ含む）を削除し、世代を更新する。
+ */
+function koto_ogp_purge_all_caches($include_remote = true)
+{
+    $dir = koto_ogp_get_cache_dir();
+    $deleted = 0;
+    $files = glob($dir . '/*.png');
+    if (is_array($files)) {
+        foreach ($files as $f) {
+            if (is_file($f) && @unlink($f)) {
+                $deleted++;
+            }
+        }
+    }
+    if ($include_remote) {
+        $remote_dir = koto_ogp_get_cache_dir('remote');
+        $remote_files = glob($remote_dir . '/*');
+        if (is_array($remote_files)) {
+            foreach ($remote_files as $rf) {
+                $base = basename($rf);
+                if ($base === 'index.php' || $base === '.htaccess') {
+                    continue;
+                }
+                if (is_file($rf) && @unlink($rf)) {
+                    $deleted++;
+                }
+            }
+        }
+    }
+    koto_ogp_bump_cache_generation();
+    return $deleted;
+}
+
+/**
+ * キャラクター更新時に単体キャッシュ＋検索/トップキャッシュを無効化する（同一リクエスト内1回制限）。
+ */
+function koto_ogp_on_character_changed($post_id)
+{
+    static $done = [];
+    if (!is_numeric($post_id)) {
+        return;
+    }
+    $post_id = (int)$post_id;
+    if ($post_id <= 0 || isset($done[$post_id])) {
+        return;
+    }
     if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {
         return;
     }
+    if (get_post_type($post_id) !== 'character') {
+        return;
+    }
+    $done[$post_id] = true;
     koto_ogp_purge_post_cache($post_id);
+    koto_ogp_purge_aggregate_caches();
+}
+
+/**
+ * キャラクター記事の更新（通常保存・ACF/image-setter・メタ更新・ゴミ箱移動・削除）時にOGPキャッシュを削除する。
+ */
+add_action('save_post_character', 'koto_ogp_on_character_changed');
+add_action('acf/save_post', 'koto_ogp_on_character_changed', 99);
+foreach (['added_post_meta', 'updated_post_meta', 'deleted_post_meta'] as $koto_ogp_meta_hook) {
+    add_action($koto_ogp_meta_hook, function ($meta_id, $object_id, $meta_key) {
+        if ($meta_key === '_thumbnail_id' || $meta_key === 'character_image') {
+            koto_ogp_on_character_changed($object_id);
+        }
+    }, 10, 3);
+}
+add_action('trashed_post', function ($post_id) {
+    koto_ogp_purge_post_cache($post_id);
+    if (get_post_type($post_id) === 'character') {
+        koto_ogp_purge_aggregate_caches();
+    }
 });
-add_action('trashed_post', 'koto_ogp_purge_post_cache');
-add_action('deleted_post', 'koto_ogp_purge_post_cache');
+add_action('deleted_post', function ($post_id) {
+    koto_ogp_purge_post_cache($post_id);
+    if (get_post_type($post_id) === 'character') {
+        koto_ogp_purge_aggregate_caches();
+    }
+});

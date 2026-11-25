@@ -108,10 +108,92 @@ function koto_ogp_is_public_post($post_id, $required_post_type = '')
 }
 
 /**
+ * OGPキャッシュ世代バージョンを取得する（キャラ画像変更やキャッシュクリア時にインクリメント）。
+ */
+function koto_ogp_get_cache_generation()
+{
+    $gen = get_option('koto_ogp_cache_gen', '1');
+    return is_scalar($gen) && (string)$gen !== '' ? (string)$gen : '1';
+}
+
+/**
+ * OGPキャッシュ世代バージョンを更新する。
+ */
+function koto_ogp_bump_cache_generation()
+{
+    $prev = (int)koto_ogp_get_cache_generation();
+    $next = (string)max($prev + 1, time());
+    update_option('koto_ogp_cache_gen', $next, true);
+    return $next;
+}
+
+/**
+ * 検索OGP用のバージョン文字列（キャッシュ世代＋JSON更新時刻）を取得する。
+ */
+function koto_ogp_get_search_cache_version($source = 'default')
+{
+    $gen = koto_ogp_get_cache_generation();
+    $path = koto_ogp_get_characters_json_path($source);
+    $mtime = (is_string($path) && $path !== '' && file_exists($path)) ? (int)@filemtime($path) : 0;
+    return $mtime > 0 ? ($gen . '_' . $mtime) : $gen;
+}
+
+/**
+ * 準備中画像（無題51_20260205005357）かどうかを判定する。
+ */
+function koto_ogp_is_placeholder_image($image_value)
+{
+    if (empty($image_value)) {
+        return false;
+    }
+
+    if (is_array($image_value)) {
+        $image_value = $image_value['ID'] ?? $image_value['id'] ?? $image_value['url'] ?? '';
+        if (empty($image_value)) {
+            return false;
+        }
+    }
+
+    if (is_numeric($image_value)) {
+        $att_id = (int)$image_value;
+        if ($att_id <= 0) {
+            return false;
+        }
+        if (function_exists('image_setter_is_image_set')) {
+            return !image_setter_is_image_set($att_id);
+        }
+        $attached = get_attached_file($att_id);
+        $url = wp_get_attachment_url($att_id);
+        foreach ([$attached, $url] as $cand) {
+            if (is_string($cand) && $cand !== '') {
+                $decoded = function_exists('koto_ogp_fully_decode') ? koto_ogp_fully_decode($cand) : rawurldecode($cand);
+                if (strpos($decoded, '無題51_20260205005357') !== false) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    $str = is_scalar($image_value) ? (string)$image_value : '';
+    if ($str === '') {
+        return false;
+    }
+    $decoded = function_exists('koto_ogp_fully_decode') ? koto_ogp_fully_decode($str) : rawurldecode($str);
+    if (function_exists('image_setter_is_image_set') && !image_setter_is_image_set($decoded)) {
+        return true;
+    }
+    return strpos($decoded, '無題51_20260205005357') !== false;
+}
+
+/**
  * 現在のリクエストがキャラクター検索結果ページか判定する。
  */
 function koto_ogp_is_character_search_page()
 {
+    if (is_singular()) {
+        return false;
+    }
     $post_type = get_query_var('post_type');
     if (is_array($post_type)) {
         $post_type = reset($post_type);

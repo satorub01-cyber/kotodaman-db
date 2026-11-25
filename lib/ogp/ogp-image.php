@@ -246,10 +246,10 @@ function koto_ogp_resolve_character_image_candidates($char_or_id, $prefer_local_
 
     if ($prefer_local_db && $post_id > 0 && koto_ogp_is_public_post($post_id)) {
         $att_id = (int)get_post_thumbnail_id($post_id);
-        if ($att_id <= 0 && get_post_type($post_id) === 'character') {
+        if (($att_id <= 0 || koto_ogp_is_placeholder_image($att_id)) && get_post_type($post_id) === 'character') {
             $att_id = (int)get_post_meta($post_id, 'character_image', true);
         }
-        if ($att_id > 0 && get_post_type($att_id) === 'attachment') {
+        if ($att_id > 0 && !koto_ogp_is_placeholder_image($att_id) && get_post_type($att_id) === 'attachment') {
             foreach (['medium_large', 'medium', 'large', 'full'] as $size) {
                 $src = wp_get_attachment_image_src($att_id, $size);
                 if (!empty($src[0])) {
@@ -263,7 +263,7 @@ function koto_ogp_resolve_character_image_candidates($char_or_id, $prefer_local_
         }
     }
 
-    if ($thumb_url !== '') {
+    if ($thumb_url !== '' && !koto_ogp_is_placeholder_image($thumb_url)) {
         // -150x150.png のような正方形サムネ接尾辞を除去した元サイズ(6:5)URLを先頭に置く
         $un_cropped = preg_replace('/-\d+x\d+(?=\.(?:png|jpe?g|webp|gif)(?:\?.*)?$)/i', '', $thumb_url);
         if ($un_cropped && $un_cropped !== $thumb_url) {
@@ -663,22 +663,30 @@ function koto_ogp_render_tile_canvas(array $characters, $width, $height, array $
     $rects = koto_ogp_compute_tile_rects($count, $width, $height);
     $shadow = imagecolorallocatealpha($canvas, 35, 25, 15, 96);
 
-    // 2〜5体のときは余白背景に最初に見つかったキャラ画像のぼかしを適用（描画ループ前に処理して即破棄）
+    // 2〜5体のときは余白背景に最初に見つかったキャラ画像のぼかしを適用し、タイル描画へそのまま再利用する
+    $preloaded_idx = -1;
+    $preloaded_img = null;
     if ($count < 6 && $bg_style === 'blur') {
-        foreach ($chars as $c) {
+        foreach ($chars as $idx => $c) {
             $cands = koto_ogp_resolve_character_image_candidates($c, $prefer_db);
             $bg_img = koto_ogp_load_gd_from_candidates($cands);
             if ($bg_img) {
                 koto_ogp_apply_blurred_backdrop($canvas, $bg_img, $width, $height);
-                imagedestroy($bg_img);
+                $preloaded_idx = $idx;
+                $preloaded_img = $bg_img;
                 break;
             }
         }
     }
 
     foreach ($rects as $idx => $rect) {
-        $cands = koto_ogp_resolve_character_image_candidates($chars[$idx], $prefer_db);
-        $img = koto_ogp_load_gd_from_candidates($cands);
+        if ($idx === $preloaded_idx && $preloaded_img) {
+            $img = $preloaded_img;
+            $preloaded_img = null;
+        } else {
+            $cands = koto_ogp_resolve_character_image_candidates($chars[$idx], $prefer_db);
+            $img = koto_ogp_load_gd_from_candidates($cands);
+        }
 
         if ($count < 6) {
             imagefilledrectangle($canvas, $rect['x'] + 4, $rect['y'] + 4, $rect['x'] + $rect['w'] + 4, $rect['y'] + $rect['h'] + 4, $shadow);
@@ -689,6 +697,10 @@ function koto_ogp_render_tile_canvas(array $characters, $width, $height, array $
         } else {
             koto_ogp_draw_fallback_tile($canvas, $chars[$idx], $rect['x'], $rect['y'], $rect['w'], $rect['h']);
         }
+    }
+
+    if ($preloaded_img) {
+        imagedestroy($preloaded_img);
     }
 
     if (!empty($options['show_logo'])) {

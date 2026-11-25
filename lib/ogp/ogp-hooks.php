@@ -53,6 +53,7 @@ add_filter('ogp_card_ogp_image', function ($ogp_image) {
     if (koto_ogp_is_character_search_page()) {
         $params = koto_ogp_extract_allowed_search_query_params(wp_unslash($_GET));
         $params['mode'] = 'search';
+        $params['v'] = koto_ogp_get_search_cache_version();
         return koto_ogp_build_signed_image_url($params);
     }
     if (is_front_page()) {
@@ -60,17 +61,17 @@ add_filter('ogp_card_ogp_image', function ($ogp_image) {
         $ver = $front_id > 0 ? get_post_modified_time('U', true, $front_id) : '';
         return koto_ogp_build_signed_image_url([
             'mode' => 'top',
-            'v'    => (string)$ver,
+            'v'    => (string)$ver . '_' . koto_ogp_get_cache_generation(),
         ]);
     }
     if (is_singular()) {
         $post_id = (int)get_queried_object_id();
         if ($post_id > 0 && koto_ogp_is_public_post($post_id)) {
             $thumb_id = (int)get_post_thumbnail_id($post_id);
-            if ($thumb_id <= 0 && get_post_type($post_id) === 'character') {
+            if (($thumb_id <= 0 || koto_ogp_is_placeholder_image($thumb_id)) && get_post_type($post_id) === 'character') {
                 $thumb_id = (int)get_post_meta($post_id, 'character_image', true);
             }
-            if ($thumb_id > 0) {
+            if ($thumb_id > 0 && !koto_ogp_is_placeholder_image($thumb_id)) {
                 return koto_ogp_build_signed_image_url([
                     'mode'    => 'post',
                     'post_id' => (string)$post_id,
@@ -81,6 +82,21 @@ add_filter('ogp_card_ogp_image', function ($ogp_image) {
     }
     return koto_ogp_build_signed_image_url(['mode' => 'default']);
 }, 20);
+
+/**
+ * 動的OGP画像のサイズ・MIMEタイプをメタタグで明示する（初回SNSクロール時の遅延・認識漏れ対策）。
+ */
+add_action('wp_head', function () {
+    if (function_exists('is_facebook_ogp_enable') && !is_facebook_ogp_enable()) {
+        return;
+    }
+    if (function_exists('is_wpforo_plugin_page') && is_wpforo_plugin_page()) {
+        return;
+    }
+    echo '<meta property="og:image:type" content="image/png">' . "\n";
+    echo '<meta property="og:image:width" content="' . (int)KOTO_OGP_DEFAULT_WIDTH . '">' . "\n";
+    echo '<meta property="og:image:height" content="' . (int)KOTO_OGP_DEFAULT_HEIGHT . '">' . "\n";
+}, 2);
 
 /**
  * キャラクター検索条件の要約テキストを生成する（og:title / og:description 用）。

@@ -189,16 +189,7 @@ add_action('wp_ajax_koto_ogp_clear_cache', function () {
     if (!current_user_can('edit_others_posts')) {
         wp_send_json_error(['message' => '権限がありません'], 403);
     }
-    $dir = koto_ogp_get_cache_dir();
-    $files = glob($dir . '/*.png');
-    $deleted = 0;
-    if (is_array($files)) {
-        foreach ($files as $f) {
-            if (is_file($f) && @unlink($f)) {
-                $deleted++;
-            }
-        }
-    }
+    $deleted = koto_ogp_purge_all_caches(true);
     wp_send_json_success(['deleted' => $deleted]);
 });
 
