@@ -346,6 +346,49 @@ function koto_build_character_search_url($params)
     return home_url('/') . ($query !== '' ? '?' . $query : '');
 }
 
+/**
+ * ?post_type=character（s 未指定の短縮URL）を 302 リダイレクトせず直接検索クエリとして扱う
+ *
+ * @param array $query_vars WP::parse_request() が解析したクエリ変数
+ * @return array
+ */
+function koto_treat_character_search_without_s_as_search($query_vars)
+{
+    if (is_admin() || !is_array($query_vars)) {
+        return $query_vars;
+    }
+
+    // /character/ 等の投稿タイプアーカイブURLは koto_unified_search_redirect() に任せるため、
+    // 明示的に ?post_type=character クエリが付いたリクエストのみ対象とする
+    if (!isset($_GET['post_type']) || !is_scalar($_GET['post_type']) || $_GET['post_type'] !== 'character') {
+        return $query_vars;
+    }
+
+    if (($query_vars['post_type'] ?? '') !== 'character') {
+        return $query_vars;
+    }
+
+    if (array_key_exists('s', $query_vars)) {
+        return $query_vars;
+    }
+
+    $non_search_keys = [
+        'p', 'name', 'character', 'page_id', 'pagename', 'attachment', 'attachment_id',
+        'feed', 'robots', 'favicon', 'sitemap', 'rest_route',
+        'cat', 'category_name', 'tag', 'taxonomy', 'term',
+        'attribute', 'species', 'affiliation', 'event', 'gimmick', 'rarity', 'available_moji', 'suitable_quest',
+    ];
+    foreach ($non_search_keys as $key) {
+        if (!empty($query_vars[$key])) {
+            return $query_vars;
+        }
+    }
+
+    $query_vars['s'] = '';
+    return $query_vars;
+}
+add_filter('request', 'koto_treat_character_search_without_s_as_search');
+
 add_action('template_redirect', 'koto_unified_search_redirect');
 function koto_unified_search_redirect()
 {
@@ -383,10 +426,11 @@ function koto_unified_search_redirect()
         return;
     }
 
-    $url_params['post_type'] = 'character';
-    if (!array_key_exists('s', $url_params)) {
-        $url_params['s'] = '';
+    unset($url_params['post_type']);
+    if (array_key_exists('s', $url_params) && trim((string) $url_params['s']) === '') {
+        unset($url_params['s']);
     }
+    $url_params = array_merge(['post_type' => 'character'], $url_params);
 
     $redirect_url = koto_build_character_search_url($url_params);
     wp_safe_redirect($redirect_url, 302);
