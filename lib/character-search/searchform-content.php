@@ -390,7 +390,7 @@
                             <div class="leader-section leader-target-section">
                                 <div class="leader-section-header">
                                     <span class="leader-section-label">対象</span>
-                                    <?php if (function_exists('render_simple_relation_toggle')) render_simple_relation_toggle('leader_target'); ?>
+                                    <?php if (function_exists('render_simple_relation_toggle')) render_simple_relation_toggle('leader_target', 'AND'); ?>
                                 </div>
                                 <select name="leader_target_type" class="leader-cond-select js-leader-target-select">
                                     <option value="attribute">属性</option>
@@ -399,7 +399,7 @@
                                     <option value="all">すべて（パーティー内全員）</option>
                                 </select>
                                 <div class="leader-target-attr js-leader-target-panel" data-target-panel="attribute">
-                                    <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('attribute', 'leader_target_attr', true); ?>
+                                    <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('attribute', 'leader_target_attr', true, ['rainbow']); ?>
                                 </div>
                                 <div class="leader-target-species js-leader-target-panel is-hidden" data-target-panel="species">
                                     <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('species', 'leader_target_species', true); ?>
@@ -451,6 +451,7 @@
                                             <div class="leader-stat-input-wrap">
                                                 <input type="number" min="0" step="5" name="leader_status_val[]" class="leader-stat-input" placeholder="〇〇">
                                                 <span class="leader-stat-unit">%</span>
+                                                <button type="button" class="leader-status-100-btn js-leader-status-100-btn" aria-label="耐性を100%に設定">100</button>
                                             </div>
                                         </div>
                                     </div>
@@ -491,6 +492,7 @@
                             <div class="leader-stat-input-wrap">
                                 <input type="number" min="0" step="5" name="leader_status_val[]" class="leader-stat-input" placeholder="〇〇">
                                 <span class="leader-stat-unit">%</span>
+                                <button type="button" class="leader-status-100-btn js-leader-status-100-btn" aria-label="耐性を100%に設定">100</button>
                                 <button type="button" class="leader-row-remove-btn js-remove-leader-row-btn" aria-label="この行を削除">✕</button>
                             </div>
                         </div>
@@ -549,7 +551,7 @@
                                 <option value="affiliation">グループ</option>
                             </select>
                             <div class="leader-cond-attr js-leader-cond-target-panel is-hidden" data-cond-panel="attribute">
-                                <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('attribute', 'leader_cond___IDX___attr', true); ?>
+                                <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('attribute', 'leader_cond___IDX___attr', true, ['rainbow']); ?>
                             </div>
                             <div class="leader-cond-species js-leader-cond-target-panel is-hidden" data-cond-panel="species">
                                 <?php if (function_exists('render_simple_checkbox_list')) render_simple_checkbox_list('species', 'leader_cond___IDX___species', true); ?>

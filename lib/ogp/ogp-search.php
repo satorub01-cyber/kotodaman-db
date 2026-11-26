@@ -261,7 +261,7 @@ function koto_ogp_match_leader_character(array $char, array $params)
 
     // クエリからリーダー条件を解析
     $raw_target_type = koto_ogp_get_param_string($params, 'leader_target_type', '');
-    $target_rel = strtoupper(koto_ogp_get_param_string($params, 'leader_target_relation', 'OR')) === 'AND' ? 'AND' : 'OR';
+    $target_rel = strtoupper(koto_ogp_get_param_string($params, 'leader_target_relation', 'AND')) === 'OR' ? 'OR' : 'AND';
     $attr_slug_to_id = function_exists('koto_get_attr_num') ? koto_get_attr_num() : ['fire' => 1, 'water' => 2, 'wood' => 3, 'light' => 4, 'dark' => 5, 'void' => 6, 'heaven' => 7, 'rainbow' => 8];
     $spe_slug_to_id = function_exists('koto_get_species_num') ? koto_get_species_num() : ['god' => 1, 'demon' => 2, 'hero' => 3, 'dragon' => 4, 'beast' => 5, 'spirit' => 6, 'artifact' => 7, 'yokai' => 8];
 
@@ -291,7 +291,9 @@ function koto_ogp_match_leader_character(array $char, array $params)
     $statuses = [];
     foreach ($status_types as $i => $st) {
         if ($st !== '') {
-            $statuses[] = ['status' => $st, 'minVal' => isset($status_vals[$i]) && is_scalar($status_vals[$i]) && is_numeric($status_vals[$i]) ? (float)$status_vals[$i] : 0];
+            $raw_min = isset($status_vals[$i]) && is_scalar($status_vals[$i]) && is_numeric($status_vals[$i]) ? (float)$status_vals[$i] : 0;
+            $min_val = $raw_min > 0 ? min($raw_min, 100.0) : 0;
+            $statuses[] = ['status' => $st, 'minVal' => $min_val];
         }
     }
 
@@ -372,9 +374,46 @@ function koto_ogp_match_leader_character(array $char, array $params)
         if (!$ok) return false;
     }
 
+    $does_status_cond_match_target = function (array $ldr) use ($target) {
+        if (empty($target['active'])) return true;
+        $slugs = $target['slugs'] ?? [];
+        if (empty($slugs)) return false;
+
+        $cond_groups = isset($ldr['cond']) && is_array($ldr['cond']) ? $ldr['cond'] : [];
+        if (empty($cond_groups)) return true;
+
+        foreach ($cond_groups as $grp) {
+            $cond_list = is_array($grp) && isset($grp[0]) ? $grp : [$grp];
+            $group_cond_slugs = [];
+            foreach ($cond_list as $c) {
+                if (!is_array($c) || ($c['ty'] ?? '') !== 'chara_num') continue;
+                foreach ($c['tgts'] ?? [] as $ct) {
+                    if (!is_array($ct) || ($ct['ty'] ?? '') !== ($target['type'] ?? '') || empty($ct['slgs']) || !is_array($ct['slgs'])) {
+                        continue;
+                    }
+                    foreach ($ct['slgs'] as $slg) {
+                        $group_cond_slugs[] = $slg;
+                    }
+                }
+            }
+            if (empty($group_cond_slugs)) return true;
+
+            foreach ($slugs as $s) {
+                if (($target['type'] ?? '') === 'group') {
+                    if (koto_ogp_match_relation([(string)$s], $group_cond_slugs, 'OR')) {
+                        return true;
+                    }
+                } elseif (in_array((int)$s, array_map('intval', $group_cond_slugs), true) || in_array((string)$s, array_map('strval', $group_cond_slugs), true)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
     $leader_status_keys = ['poison', 'sleep', 'curse', 'confusion', 'pollution', 'burn', 'remodel', 'weakness', 'mutation', 'erasure'];
     foreach ($statuses as $st) {
-        $ok = $check_with_target(function ($ldr, $eff) use ($st, $leader_status_keys) {
+        $status_predicate = function ($ldr, $eff) use ($st, $leader_status_keys) {
             if (!in_array($ldr['ty'] ?? '', ['fixed', 'per_unit'], true)) return false;
             $vals = $eff['vals'] ?? [];
             if ($st['status'] === 'all') {
@@ -389,7 +428,30 @@ function koto_ogp_match_leader_character(array $char, array $params)
                 $v = $direct > 0 ? $direct : (float)($vals['all'] ?? 0);
             }
             return $st['minVal'] > 0 ? $v >= $st['minVal'] : $v > 0;
-        }, true, false);
+        };
+
+        $ok = false;
+        if (!empty($target['active'])) {
+            foreach ($leaders as $ldr) {
+                foreach ($ldr['effs'] ?? [] as $eff) {
+                    if (!$status_predicate($ldr, $eff)) continue;
+                    $has_all_target = false;
+                    foreach ($eff['tgts'] ?? [] as $t) {
+                        if (($t['ty'] ?? '') === 'all') {
+                            $has_all_target = true;
+                            break;
+                        }
+                    }
+                    if ($has_all_target && $does_status_cond_match_target($ldr)) {
+                        $ok = true;
+                        break 2;
+                    }
+                }
+            }
+        }
+        if (!$ok) {
+            $ok = $check_with_target($status_predicate, false, false);
+        }
         if (!$ok) return false;
     }
 

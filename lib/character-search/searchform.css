@@ -967,6 +967,38 @@ details[open]>.tree-summary::after {
     background: #fff0f0;
 }
 
+.leader-status-100-btn {
+    background: #fff;
+    border: 1px solid #2271b1;
+    border-radius: 3px;
+    color: #2271b1;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    line-height: 1;
+    padding: 6px 8px;
+    margin-left: 2px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.leader-status-100-btn:hover {
+    background: #2271b1;
+    color: #fff;
+}
+
+@media (max-width: 480px) {
+    .leader-stat-label {
+        flex: 0 1 120px;
+        min-width: 96px;
+    }
+
+    .leader-section input[type="number"].leader-stat-input {
+        width: 64px;
+    }
+}
+
 .leader-add-row-btns {
     display: flex;
     justify-content: flex-end;

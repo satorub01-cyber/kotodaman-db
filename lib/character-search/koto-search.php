@@ -296,7 +296,7 @@ function render_frontend_term_tree($taxonomy, $name_attr, $args = [])
  * @param string $name_attr inputのname属性
  * @param bool $icon_only trueの場合、テキストを隠してアイコンのみのCSSクラスを付与
  */
-function render_simple_checkbox_list($taxonomy, $name_attr, $icon_only = false)
+function render_simple_checkbox_list($taxonomy, $name_attr, $icon_only = false, $exclude_slugs = [])
 {
     $terms = get_terms([
         'taxonomy' => $taxonomy,
@@ -305,6 +305,8 @@ function render_simple_checkbox_list($taxonomy, $name_attr, $icon_only = false)
 
     if (empty($terms) || is_wp_error($terms)) return;
 
+    $exclude_slugs = is_array($exclude_slugs) ? $exclude_slugs : [];
+
     // アイコンのみモードなら専用クラス、そうでなければ通常クラス
     $container_class = $icon_only ? 'icon-only-list' : 'simple-checkbox-list';
     $label_class     = $icon_only ? 'icon-only-label' : 'simple-term-label';
@@ -312,6 +314,9 @@ function render_simple_checkbox_list($taxonomy, $name_attr, $icon_only = false)
 
     echo '<div class="' . $container_class . '">';
     foreach ($terms as $term) {
+        if (!empty($exclude_slugs) && in_array($term->slug, $exclude_slugs, true)) {
+            continue;
+        }
         $checked = '';
         if (isset($_GET[$name_attr]) && is_array($_GET[$name_attr])) {
             if (in_array($term->slug, $_GET[$name_attr])) $checked = 'checked';
