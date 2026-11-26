@@ -958,7 +958,7 @@ details[open]>.tree-summary::after {
     font-size: 12px;
     line-height: 1;
     padding: 4px 6px;
-    margin-left: 4px;
+    flex-shrink: 0;
 }
 
 .leader-row-remove-btn:hover {
@@ -977,7 +977,6 @@ details[open]>.tree-summary::after {
     font-weight: bold;
     line-height: 1;
     padding: 6px 8px;
-    margin-left: 2px;
     flex-shrink: 0;
     white-space: nowrap;
     transition: all 0.2s;

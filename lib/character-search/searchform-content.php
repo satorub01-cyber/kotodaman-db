@@ -449,9 +449,9 @@
                                             </div>
                                             <div class="leader-stat-divider"></div>
                                             <div class="leader-stat-input-wrap">
+                                                <button type="button" class="leader-status-100-btn js-leader-status-100-btn" aria-label="耐性を100%に設定">100</button>
                                                 <input type="number" min="0" step="5" name="leader_status_val[]" class="leader-stat-input" placeholder="〇〇">
                                                 <span class="leader-stat-unit">%</span>
-                                                <button type="button" class="leader-status-100-btn js-leader-status-100-btn" aria-label="耐性を100%に設定">100</button>
                                             </div>
                                         </div>
                                     </div>
@@ -490,10 +490,10 @@
                             </div>
                             <div class="leader-stat-divider"></div>
                             <div class="leader-stat-input-wrap">
+                                <button type="button" class="leader-row-remove-btn js-remove-leader-row-btn" aria-label="この行を削除">✕</button>
+                                <button type="button" class="leader-status-100-btn js-leader-status-100-btn" aria-label="耐性を100%に設定">100</button>
                                 <input type="number" min="0" step="5" name="leader_status_val[]" class="leader-stat-input" placeholder="〇〇">
                                 <span class="leader-stat-unit">%</span>
-                                <button type="button" class="leader-status-100-btn js-leader-status-100-btn" aria-label="耐性を100%に設定">100</button>
-                                <button type="button" class="leader-row-remove-btn js-remove-leader-row-btn" aria-label="この行を削除">✕</button>
                             </div>
                         </div>
                     </template>
@@ -520,9 +520,9 @@
                             </div>
                             <div class="leader-stat-divider"></div>
                             <div class="leader-stat-input-wrap">
+                                <button type="button" class="leader-row-remove-btn js-remove-leader-row-btn" aria-label="この行を削除">✕</button>
                                 <input type="number" min="0" step="5" name="leader_other_val[]" class="leader-stat-input" placeholder="〇〇">
                                 <span class="leader-stat-unit">%</span>
-                                <button type="button" class="leader-row-remove-btn js-remove-leader-row-btn" aria-label="この行を削除">✕</button>
                             </div>
                         </div>
                     </template>
