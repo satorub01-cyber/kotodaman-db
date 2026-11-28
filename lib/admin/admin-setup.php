@@ -559,3 +559,158 @@ add_action('admin_menu', function () {
 
     remove_submenu_page('edit.php?post_type=character', 'post-new.php?post_type=character');
 }, 999);
+
+/**
+ * 10. checker ロールによるキャラクター公開時の管理者通知メール送信
+ */
+
+/**
+ * 管理者権限（administrator ロール）アカウントの通知先メールアドレス一覧を取得する。
+ *
+ * @return array<int, string> 重複除外済みの有効なメールアドレス配列。
+ */
+function koto_get_administrator_notification_emails()
+{
+    $admins = get_users([
+        'role'   => 'administrator',
+        'fields' => ['ID', 'user_email'],
+    ]);
+
+    $emails = [];
+    if (is_array($admins)) {
+        foreach ($admins as $admin) {
+            if (!is_object($admin) || empty($admin->user_email)) {
+                continue;
+            }
+            $email = sanitize_email((string) $admin->user_email);
+            if ($email !== '' && is_email($email)) {
+                $email_key = strtolower($email);
+                if (!isset($emails[$email_key])) {
+                    $emails[$email_key] = $email;
+                }
+            }
+        }
+    }
+
+    return array_values($emails);
+}
+
+/**
+ * checker ロールのユーザーがキャラクター（character）を公開した際、
+ * 管理者権限アカウント（administrator ロール）全員に通知メールを送信する。
+ *
+ * - 公開への遷移時（下書き・レビュー待ち・新規作成など -> publish）のみ送信する
+ * - checker 自身の投稿および checker が公開操作した AI-assistant 下書きの双方を対象とする
+ *
+ * @param string  $new_status 遷移後の投稿ステータス。
+ * @param string  $old_status 遷移前の投稿ステータス。
+ * @param WP_Post $post       対象投稿オブジェクト。
+ * @return void
+ */
+function koto_notify_admins_on_checker_character_publish($new_status, $old_status, $post)
+{
+    static $notified_post_ids = [];
+
+    if ($new_status !== 'publish' || $old_status === 'publish' || !$post instanceof WP_Post) {
+        return;
+    }
+
+    if ($post->post_type !== 'character') {
+        return;
+    }
+
+    $post_id = (int) $post->ID;
+    if ($post_id <= 0 || wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {
+        return;
+    }
+
+    if (isset($notified_post_ids[$post_id])) {
+        return;
+    }
+
+    // 公開操作を行ったユーザーを特定（予約投稿の自動公開時は投稿作成者を参照）
+    $actor_id = get_current_user_id();
+    if ($actor_id <= 0 && $old_status === 'future') {
+        $actor_id = (int) $post->post_author;
+    }
+
+    if ($actor_id <= 0 || !koto_user_is_checker($actor_id)) {
+        return;
+    }
+
+    $checker_user = get_userdata($actor_id);
+    if (!$checker_user instanceof WP_User || !$checker_user->exists()) {
+        return;
+    }
+
+    $recipients = koto_get_administrator_notification_emails();
+    if (empty($recipients)) {
+        return;
+    }
+
+    $notified_post_ids[$post_id] = true;
+
+    $site_name = wp_specialchars_decode((string) get_bloginfo('name'), ENT_QUOTES);
+    if ($site_name === '') {
+        $site_name = 'コトダマンDB';
+    }
+
+    $post_title = html_entity_decode(wp_strip_all_tags((string) $post->post_title), ENT_QUOTES, 'UTF-8');
+    $post_title = trim($post_title);
+    if ($post_title === '') {
+        $post_title = '（タイトル未設定）';
+    }
+
+    $checker_name = $checker_user->display_name !== '' ? $checker_user->display_name : $checker_user->user_login;
+    $checker_label = sprintf('%s（ユーザー名: %s / ID: %d）', $checker_name, $checker_user->user_login, (int) $checker_user->ID);
+
+    $author_id = (int) $post->post_author;
+    $author_user = $author_id > 0 ? get_userdata($author_id) : false;
+    $author_label = '不明';
+    if ($author_user instanceof WP_User && $author_user->exists()) {
+        $author_name = $author_user->display_name !== '' ? $author_user->display_name : $author_user->user_login;
+        $author_label = sprintf('%s（ユーザー名: %s / ID: %d）', $author_name, $author_user->user_login, (int) $author_user->ID);
+    }
+
+    $publish_type = ($author_id === (int) $checker_user->ID)
+        ? 'チェッカー自身の投稿を公開'
+        : '他作者（AI-assistant 等）の下書きを公開';
+
+    $permalink = get_permalink($post_id);
+    $editor_url = admin_url('admin.php?page=koto-acf-editor&edit_post_id=' . $post_id . '&acf_group=group_69204fa4dd82e');
+    $wp_edit_url = admin_url('post.php?post=' . $post_id . '&action=edit');
+
+    $subject = sprintf('[%s] チェッカーによりキャラが公開されました: %s', $site_name, $post_title);
+    $message = sprintf(
+        "管理者各位\n\n"
+        . "checker ロールのユーザーによってキャラクター記事が公開されました。\n\n"
+        . "【公開キャラクター情報】\n"
+        . "・キャラ名: %s\n"
+        . "・投稿ID: %d\n"
+        . "・公開種別: %s\n"
+        . "・公開操作者: %s\n"
+        . "・記事作成者: %s\n"
+        . "・公開日時: %s\n\n"
+        . "【確認用リンク】\n"
+        . "・公開ページ: %s\n"
+        . "・DBエディタ: %s\n"
+        . "・WordPress編集画面: %s\n\n"
+        . "※本メールは送信専用です。\n",
+        $post_title,
+        $post_id,
+        $publish_type,
+        $checker_label,
+        $author_label,
+        wp_date('Y-m-d H:i:s'),
+        is_string($permalink) && $permalink !== '' ? $permalink : '（取得不可）',
+        $editor_url,
+        $wp_edit_url
+    );
+
+    $headers = ['Content-Type: text/plain; charset=UTF-8'];
+    foreach ($recipients as $to_email) {
+        wp_mail($to_email, $subject, $message, $headers);
+    }
+}
+add_action('transition_post_status', 'koto_notify_admins_on_checker_character_publish', 20, 3);
+
